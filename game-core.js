@@ -13,6 +13,24 @@ const INTENTS = new Set(["STRIKE", "SURGE"]);
 const COMMAND_SET = new Set(COMMANDS);
 const TERMINAL = new Set(OUTCOMES.filter((outcome) => outcome !== "ACTIVE"));
 
+function sameSchedule(left, right) {
+  if (left === right) return true;
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false;
+  }
+  return true;
+}
+
+function scheduleIndex(schedule) {
+  for (let index = 0; index < CAMPAIGN_SCHEDULES.length; index += 1) {
+    if (sameSchedule(CAMPAIGN_SCHEDULES[index], schedule)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 function assertSchedule(schedule) {
   if (!Array.isArray(schedule) || schedule.length < 1 || schedule.length > 3 || !schedule.every((intent) => INTENTS.has(intent))) {
     throw new TypeError("A Stage 1 schedule contains one to three STRIKE or SURGE intents.");
@@ -212,7 +230,10 @@ export function reduceEncounter(previous, record) {
 export function replayEncounter(schedule, records) {
   assertSchedule(schedule);
   if (!Array.isArray(records)) throw new TypeError("Replay records must be an array.");
-  const stageIndex = CAMPAIGN_SCHEDULES.indexOf(schedule);
+  const stageIndex = scheduleIndex(schedule);
+  if (stageIndex === -1) {
+    throw new RangeError("Unknown Stage 1 schedule.");
+  }
   const ordered = [...records].sort((left, right) => left.tick - right.tick || left.sequence - right.sequence);
   const seenSequences = new Set();
   let state = initialEncounter(schedule, stageIndex);

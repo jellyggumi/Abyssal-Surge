@@ -1,6 +1,7 @@
 import {
   CAMPAIGN_SCHEDULES,
   COMMANDS,
+  OUTCOMES,
   RULES_VERSION,
   awardFor,
   initialEncounter,
@@ -93,7 +94,7 @@ const DICTIONARY = {
     lobbyIntro: "Each encounter resolves one to three visible STRIKE or SURGE intents. Choose a declared command; the same deterministic reducer resolves keyboard and pointer/touch input.",
     lobbyBrief1: "BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.",
     lobbyBrief2: "Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.",
-    lobbyBrief3: "A campaign contains exactly three terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.",
+    lobbyBrief3: "A campaign contains exactly five terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.",
     btnBegin: "Begin local campaign",
     btnResume: "Resume campaign",
     btnContinue: "Start next local encounter",
@@ -286,7 +287,10 @@ function saveGameState() {
     encounter,
     surface,
     lastMessage,
-    currentLang
+    currentLang,
+    volumeBgm,
+    volumeSfx,
+    volumeNarr
   };
   storage.setItem("abyssal_surge_save", JSON.stringify(saveState));
   checkSave();
@@ -307,6 +311,15 @@ function loadGameState() {
     encounter = saveState.encounter;
     lastMessage = saveState.lastMessage;
     currentLang = saveState.currentLang || "en";
+    
+    // Restore volume preferences
+    volumeBgm = typeof saveState.volumeBgm === "number" ? saveState.volumeBgm : 0.5;
+    volumeSfx = typeof saveState.volumeSfx === "number" ? saveState.volumeSfx : 0.8;
+    volumeNarr = typeof saveState.volumeNarr === "number" ? saveState.volumeNarr : 1.0;
+    if (dom.bgmVolume) dom.bgmVolume.value = volumeBgm;
+    if (dom.sfxVolume) dom.sfxVolume.value = volumeSfx;
+    if (dom.narrVolume) dom.narrVolume.value = volumeNarr;
+    
     showSurface(saveState.surface || "lobby");
     return true;
   } catch (err) {
@@ -561,6 +574,13 @@ function showSurface(next) {
   
   // Audio transitions & Illustration/Backdrop updates
   if (next === "play") {
+    if (useRealTime) {
+      lastTickTime = 0;
+      foeCharge = 0;
+      if (!rAFId) {
+        rAFId = requestAnimationFrame(rtsLoop);
+      }
+    }
     if (sfx.bgm) sfx.bgm.volume = 0.5;
     play("bgm", false); // Loop BGM, don't restart if already playing
     if (sequence === 0) {
@@ -819,6 +839,11 @@ function resetCampaign() {
 }
 
 function render() {
+  if (typeof window !== "undefined") {
+    window.surface = surface;
+    window.encounter = encounter;
+    window.activeUnits = activeUnits;
+  }
   const titles = STAGE_TITLES_LOCALIZED[currentLang] || STAGE_TITLES_LOCALIZED.en;
   const stageTitle = titles[encounterIndex] || `Encounter ${encounterIndex + 1}`;
   dom.campaign.textContent = `${encounterIndex + 1} / ${CAMPAIGN_SCHEDULES.length} — ${stageTitle}`;
@@ -921,18 +946,21 @@ if (dom.bgmVolume) {
     if (sfx.bgm && !audioMuted) {
       sfx.bgm.volume = volumeBgm;
     }
+    saveGameState();
   });
 }
 
 if (dom.sfxVolume) {
   dom.sfxVolume.addEventListener("input", (e) => {
     volumeSfx = parseFloat(e.target.value);
+    saveGameState();
   });
 }
 
 if (dom.narrVolume) {
   dom.narrVolume.addEventListener("input", (e) => {
     volumeNarr = parseFloat(e.target.value);
+    saveGameState();
   });
 }
 
