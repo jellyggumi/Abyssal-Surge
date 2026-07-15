@@ -308,3 +308,20 @@ button:focus-visible, a:focus-visible {
   transition: background-image 0.8s ease-in-out;
 }
 
+
+/* Spawned RTS units */
+.spawned-unit {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.6rem;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(255,255,255,0.4));
+}
+.unit-soldier {
+  filter: drop-shadow(0 0 6px var(--cinder));
+}
+.unit-shield {
+  filter: drop-shadow(0 0 6px var(--signal));
+}
+
