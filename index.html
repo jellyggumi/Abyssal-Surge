@@ -91,13 +91,7 @@
           <h2 class="eyebrow" style="color: var(--signal);">The Stewardship (Player)</h2>
           <!-- Knight Avatar SVG -->
           <div id="knight-avatar" class="entity-avatar knight-avatar" style="text-align: center; margin: 1rem 0;">
-            <svg viewBox="0 0 100 100" width="80" height="80" style="filter: drop-shadow(0 0 8px rgba(120,231,212,0.4));">
-              <rect x="35" y="10" width="30" height="50" rx="15" fill="#515a71" stroke="#bcb7a4" stroke-width="2" />
-              <path d="M 35,40 L 65,40" stroke="#e5c158" stroke-width="6" />
-              <path d="M 50,25 L 50,55" stroke="#e5c158" stroke-width="6" />
-              <path d="M 30,55 C 30,80 70,80 70,55 Z" fill="#20263a" stroke="#bcb7a4" stroke-width="2" />
-              <circle cx="50" cy="40" r="4" fill="#78e7d4" />
-            </svg>
+            <img src="assets/images/knight.png" alt="Stewardship" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--signal); box-shadow: 0 0 8px rgba(120,231,212,0.4);" />
           </div>
           <dl class="metrics-list" style="display: grid; gap: 0.8rem; margin: 1rem 0 0;">
             <div>
@@ -128,16 +122,7 @@
           <h2 class="eyebrow" style="color: var(--danger);">The Abyssal Terror (Foe)</h2>
           <!-- Void Eye Avatar SVG -->
           <div id="void-avatar" class="entity-avatar void-avatar" style="text-align: center; margin: 1rem 0;">
-            <svg viewBox="0 0 100 100" width="80" height="80" style="filter: drop-shadow(0 0 8px rgba(255,131,111,0.4));">
-              <circle cx="50" cy="50" r="22" fill="#0b0d14" stroke="#ff836f" stroke-width="3" />
-              <path d="M 35,50 C 35,35 65,35 65,50 C 65,65 35,65 35,50 Z" fill="#ffbf70" opacity="0.3" />
-              <circle cx="50" cy="50" r="10" fill="#ff836f" />
-              <!-- Writhing tentacles -->
-              <path class="tentacle" d="M 28,50 Q 15,35 10,50" fill="none" stroke="#ff836f" stroke-width="2" />
-              <path class="tentacle" d="M 72,50 Q 85,65 90,50" fill="none" stroke="#ff836f" stroke-width="2" />
-              <path class="tentacle" d="M 50,28 Q 35,15 50,10" fill="none" stroke="#ff836f" stroke-width="2" />
-              <path class="tentacle" d="M 50,72 Q 65,85 50,90" fill="none" stroke="#ff836f" stroke-width="2" />
-            </svg>
+            <img src="assets/images/void_eye.png" alt="Abyssal Terror" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--danger); box-shadow: 0 0 8px rgba(255,131,111,0.4);" />
           </div>
           
           <div class="enemy-metrics" style="margin: 1rem 0 1.5rem;">
@@ -183,6 +168,9 @@
       <h1 id="terminal-title" tabindex="-1">Stage 1 result</h1>
       <p id="terminal-summary" class="terminal-summary" role="status"></p>
       <p id="settlement-summary"></p>
+      <div id="terminal-illustration-container" style="text-align: center; margin-bottom: 1.5rem;">
+        <img id="terminal-illustration" src="" alt="Encounter outcome" style="max-width: 100%; max-height: 250px; border: 1px solid var(--line); border-radius: 0.5rem; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" />
+      </div>
       <section class="telemetry-panel" style="margin-top: 1.5rem; margin-bottom: 1.5rem; padding: 1rem; border: 1px dashed var(--line); border-radius: .45rem; background: rgb(255 255 255 / .02);">
         <h3 style="margin-top: 0; font-size: 1rem; color: var(--signal);">MET-01/MET-04 Local Telemetry Audit Ledger</h3>
         <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem;">Verified local-only static operations. Zero egress, zero cookies, zero P2W monetization routes active.</p>
