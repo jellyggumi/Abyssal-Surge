@@ -264,3 +264,38 @@ button:focus-visible, a:focus-visible {
   outline-offset: 2px !important;
 }
 
+
+/* Dynamic Avatar Reactions */
+.damage-flash svg {
+  animation: damage-flash-anim 0.4s ease !important;
+}
+@keyframes damage-flash-anim {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 8px rgba(255,131,111,0.4)); }
+  50% { filter: brightness(1.8) sepia(1) saturate(10) hue-rotate(-50deg) drop-shadow(0 0 20px #ff0000); }
+}
+
+.shield-glow svg {
+  animation: shield-glow-anim 0.6s ease !important;
+}
+@keyframes shield-glow-anim {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 8px rgba(120,231,212,0.4)); }
+  50% { filter: brightness(1.6) drop-shadow(0 0 25px #78e7d4); }
+}
+
+/* Enemy Intent specific visual alerts */
+.surge-alert svg {
+  animation: surge-alert-anim 0.8s ease-in-out infinite alternate !important;
+}
+@keyframes surge-alert-anim {
+  0% { filter: drop-shadow(0 0 8px rgba(255,131,111,0.4)); }
+  100% { filter: drop-shadow(0 0 24px #ff836f) brightness(1.3); }
+}
+
+.strike-vibe svg {
+  animation: strike-vibe-anim 1.2s ease-in-out infinite alternate !important;
+}
+@keyframes strike-vibe-anim {
+  0% { transform: scale(1) rotate(-3deg); }
+  100% { transform: scale(1.04) rotate(3deg); }
+}
+

@@ -53,6 +53,8 @@ const dom = {
   bgmVolume: document.querySelector("#bgm-volume"),
   sfxVolume: document.querySelector("#sfx-volume"),
   narrVolume: document.querySelector("#narr-volume"),
+  knightAvatar: document.querySelector("#knight-avatar"),
+  voidAvatar: document.querySelector("#void-avatar"),
 };
 
 let surface = "lobby";
@@ -335,6 +337,28 @@ function recordCommand(command) {
   play(command.toLowerCase());
   triggerFx(command);
 
+  // Avatar attack/defense charges
+  if (command === "STRIKE" || command === "DISRUPT") {
+    if (dom.voidAvatar && dom.voidAvatar.classList) {
+      dom.voidAvatar.classList.add("damage-flash");
+      setTimeout(() => {
+        if (dom.voidAvatar && dom.voidAvatar.classList) {
+          dom.voidAvatar.classList.remove("damage-flash");
+        }
+      }, 400);
+    }
+  }
+  if (command === "BRACE" || command === "RECOVER" || command === "DISRUPT") {
+    if (dom.knightAvatar && dom.knightAvatar.classList) {
+      dom.knightAvatar.classList.add("shield-glow");
+      setTimeout(() => {
+        if (dom.knightAvatar && dom.knightAvatar.classList) {
+          dom.knightAvatar.classList.remove("shield-glow");
+        }
+      }, 600);
+    }
+  }
+
   const record = makeCommand(command, encounter.round, ++sequence);
   records.push(record);
   const result = reduceEncounter(encounter, record);
@@ -345,6 +369,19 @@ function recordCommand(command) {
   }
   encounter = result.state;
   const entry = encounter.trace.at(-1);
+
+  // Player damage flash check on adverse damage resolution
+  if (entry && entry.foe_resolved && entry.adverse_damage > 0) {
+    if (dom.knightAvatar && dom.knightAvatar.classList) {
+      dom.knightAvatar.classList.add("damage-flash");
+      setTimeout(() => {
+        if (dom.knightAvatar && dom.knightAvatar.classList) {
+          dom.knightAvatar.classList.remove("damage-flash");
+        }
+      }, 400);
+    }
+  }
+
   lastMessage = `Round ${entry.round}: ${command}; ${entry.foe_resolved ? `adverse effect resolved (${entry.adverse_damage} integrity damage, ${entry.adverse_pressure} pressure).` : "VICTORY resolved before the adverse effect."}`;
   if (encounter.outcome !== "ACTIVE") finishEncounter();
   render();
@@ -410,6 +447,22 @@ function render() {
   if (dom.guardBar) dom.guardBar.style.width = `${(encounter.guard / 2) * 100}%`;
   if (dom.pressureBar) dom.pressureBar.style.width = `${(encounter.pressure / 4) * 100}%`;
   if (dom.foeHealthBar) dom.foeHealthBar.style.width = `${(encounter.foe_health / 6) * 100}%`;
+
+  // Update Foe active intent visual alerts
+  if (dom.voidAvatar && dom.voidAvatar.classList) {
+    if (encounter.outcome === "ACTIVE") {
+      if (encounter.foe_intent === "SURGE") {
+        dom.voidAvatar.classList.add("surge-alert");
+        dom.voidAvatar.classList.remove("strike-vibe");
+      } else {
+        dom.voidAvatar.classList.add("strike-vibe");
+        dom.voidAvatar.classList.remove("surge-alert");
+      }
+    } else {
+      dom.voidAvatar.classList.remove("surge-alert");
+      dom.voidAvatar.classList.remove("strike-vibe");
+    }
+  }
 
   dom.trace.replaceChildren(...encounter.trace.map((entry) => {
     const item = document.createElement("li");
