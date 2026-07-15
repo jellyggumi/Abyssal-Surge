@@ -48,6 +48,11 @@ const dom = {
   terminalTelemetryLog: document.querySelector("#terminal-telemetry-log"),
   fxOverlay: document.querySelector("#fx-overlay"),
   resume: document.querySelector("#resume-button"),
+  settingsToggle: document.querySelector("#settings-toggle"),
+  settingsPanel: document.querySelector("#settings-panel"),
+  bgmVolume: document.querySelector("#bgm-volume"),
+  sfxVolume: document.querySelector("#sfx-volume"),
+  narrVolume: document.querySelector("#narr-volume"),
 };
 
 let surface = "lobby";
@@ -63,6 +68,9 @@ let audioMuted = true;
 let totalCommandsRun = 0;
 let typingInterval = null;
 
+let volumeBgm = 0.5;
+let volumeSfx = 0.8;
+let volumeNarr = 1.0;
 // Audio Assets (ElevenLabs generated)
 const sfx = {
   strike: typeof Audio !== "undefined" ? new Audio("assets/audio/strike.mp3") : null,
@@ -85,9 +93,10 @@ if (sfx.bgm) sfx.bgm.loop = true;
 
 function duckBgm(duck) {
   if (!sfx.bgm || audioMuted) return;
-  sfx.bgm.volume = duck ? 0.15 : 0.5;
+  sfx.bgm.volume = duck ? (volumeBgm * 0.3) : volumeBgm;
 }
 
+// Fades out BGM smoothly
 function fadeBgm() {
   if (!sfx.bgm || audioMuted) return;
   let vol = sfx.bgm.volume;
@@ -96,7 +105,7 @@ function fadeBgm() {
     if (vol <= 0) {
       clearInterval(interval);
       sfx.bgm.pause();
-      sfx.bgm.volume = 0.5;
+      sfx.bgm.volume = volumeBgm;
     } else {
       sfx.bgm.volume = vol;
     }
@@ -108,11 +117,18 @@ function play(trackName, forceRestart = true) {
   const audio = sfx[trackName];
   if (forceRestart) audio.currentTime = 0;
   
-  if (trackName.startsWith("narr_")) {
+  // Set volume based on track type
+  if (trackName === "bgm") {
+    audio.volume = volumeBgm;
+  } else if (trackName.startsWith("narr_")) {
+    audio.volume = volumeNarr;
     duckBgm(true);
     audio.onended = () => {
       duckBgm(false);
     };
+  } else {
+    // SFX and clicks
+    audio.volume = volumeSfx;
   }
   
   audio.play().catch((err) => console.log(`Audio play failed: ${err.message}`));
@@ -422,6 +438,35 @@ if (dom.audioToggle) {
 if (dom.resume) {
   dom.resume.addEventListener("click", () => {
     loadGameState();
+  });
+}
+
+// Audio Settings Panel triggers
+if (dom.settingsToggle && dom.settingsPanel) {
+  dom.settingsToggle.addEventListener("click", () => {
+    const isHidden = dom.settingsPanel.style.display === "none";
+    dom.settingsPanel.style.display = isHidden ? "block" : "none";
+  });
+}
+
+if (dom.bgmVolume) {
+  dom.bgmVolume.addEventListener("input", (e) => {
+    volumeBgm = parseFloat(e.target.value);
+    if (sfx.bgm && !audioMuted) {
+      sfx.bgm.volume = volumeBgm;
+    }
+  });
+}
+
+if (dom.sfxVolume) {
+  dom.sfxVolume.addEventListener("input", (e) => {
+    volumeSfx = parseFloat(e.target.value);
+  });
+}
+
+if (dom.narrVolume) {
+  dom.narrVolume.addEventListener("input", (e) => {
+    volumeNarr = parseFloat(e.target.value);
   });
 }
 
