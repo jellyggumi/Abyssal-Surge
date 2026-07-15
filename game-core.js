@@ -109,28 +109,43 @@ function resolvePlayer(state, command) {
 function assertBounds(state) {
   const values = [
     [state.round, 0, 3],
-    [state.integrity, 0, 6],
-    [state.focus, 0, 3],
+    [state.integrity, 0, state.max_integrity],
+    [state.focus, 0, state.max_focus],
     [state.guard, 0, 2],
-    [state.pressure, 0, 4],
-    [state.foe_health, 0, 6],
+    [state.pressure, 0, state.max_pressure],
+    [state.foe_health, 0, state.max_foe_health],
   ];
   if (!values.every(([value, minimum, maximum]) => Number.isInteger(value) && value >= minimum && value <= maximum)) {
-    throw new RangeError("Stage 1 state left its immutable bounds.");
+    throw new RangeError("Stage state left its immutable bounds.");
   }
 }
 
-export function initialEncounter(schedule = CAMPAIGN_SCHEDULES[0]) {
+export function initialEncounter(schedule = CAMPAIGN_SCHEDULES[0], stageIndex = 0) {
   assertSchedule(schedule);
+  
+  // Custom stage configurations
+  const configs = [
+    { max_integrity: 6, max_focus: 3, max_foe_health: 6, start_pressure: 0 },
+    { max_integrity: 6, max_focus: 3, max_foe_health: 8, start_pressure: 0 },
+    { max_integrity: 8, max_focus: 4, max_foe_health: 10, start_pressure: 0 },
+    { max_integrity: 6, max_focus: 3, max_foe_health: 12, start_pressure: 1 },
+    { max_integrity: 10, max_focus: 5, max_foe_health: 15, start_pressure: 0 },
+  ];
+  const cfg = configs[stageIndex] || configs[0];
+
   return {
     rules_version: RULES_VERSION,
     schedule: [...schedule],
     round: 0,
-    integrity: 6,
-    focus: 3,
+    integrity: cfg.max_integrity,
+    max_integrity: cfg.max_integrity,
+    focus: cfg.max_focus,
+    max_focus: cfg.max_focus,
     guard: 0,
-    pressure: 0,
-    foe_health: 6,
+    pressure: cfg.start_pressure,
+    max_pressure: 4,
+    foe_health: cfg.max_foe_health,
+    max_foe_health: cfg.max_foe_health,
     foe_intent: schedule[0],
     surge_countered: false,
     outcome: "ACTIVE",
@@ -197,9 +212,10 @@ export function reduceEncounter(previous, record) {
 export function replayEncounter(schedule, records) {
   assertSchedule(schedule);
   if (!Array.isArray(records)) throw new TypeError("Replay records must be an array.");
+  const stageIndex = CAMPAIGN_SCHEDULES.indexOf(schedule);
   const ordered = [...records].sort((left, right) => left.tick - right.tick || left.sequence - right.sequence);
   const seenSequences = new Set();
-  let state = initialEncounter(schedule);
+  let state = initialEncounter(schedule, stageIndex);
   const results = [];
   for (const record of ordered) {
     if (seenSequences.has(record?.sequence)) {

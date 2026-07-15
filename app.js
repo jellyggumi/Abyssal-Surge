@@ -60,7 +60,7 @@ const dom = {
 let surface = "lobby";
 let encounterIndex = 0;
 let sequence = 0;
-let encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex]);
+let encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
 let records = [];
 let outcomes = [];
 let settlement = null;
@@ -407,7 +407,7 @@ function continueCampaign() {
   encounterIndex += 1;
   sequence = 0;
   records = [];
-  encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex]);
+  encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
   lastMessage = `Encounter ${encounterIndex + 1} starts with the displayed ${encounter.foe_intent} intent.`;
   showSurface("play");
   saveGameState();
@@ -420,7 +420,7 @@ function resetCampaign() {
   records = [];
   outcomes = [];
   settlement = null;
-  encounter = initialEncounter(CAMPAIGN_SCHEDULES[0]);
+  encounter = initialEncounter(CAMPAIGN_SCHEDULES[0], 0);
   lastMessage = "Awaiting a semantic command.";
   if (storage) {
     storage.removeItem("abyssal_surge_save");
