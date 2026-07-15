@@ -7,7 +7,6 @@ import {
   makeCommand,
   reduceEncounter,
   settleCampaign,
-  validateDeterministicReplay,
 } from "./game-core.js";
 
 const dom = {
@@ -101,11 +100,10 @@ function recordCommand(command) {
 }
 
 function finishEncounter() {
-  const replayCheck = validateDeterministicReplay(encounter.schedule, records);
   outcomes.push(encounter.outcome);
   const award = awardFor(encounter.outcome);
   if (outcomes.length === CAMPAIGN_SCHEDULES.length) settlement = settleCampaign(outcomes);
-  dom.terminalSummary.textContent = `${terminalCopy(encounter.outcome)} Award: ${award} fragment${award === 1 ? "" : "s"}. Replay check: ${replayCheck.matches ? "deterministic." : "mismatch."}`;
+  dom.terminalSummary.textContent = `${terminalCopy(encounter.outcome)} Award: ${award} fragment${award === 1 ? "" : "s"}.`;
   dom.settlement.textContent = settlement
     ? `Three encounter records settled locally: ${settlement.fragments_earned} fragments earned, ${settlement.fragment_wallet} in wallet after settlement, ${settlement.resolve_marks} resolve marks. Nothing persists after a reload.`
     : `This is encounter ${outcomes.length} of ${CAMPAIGN_SCHEDULES.length}; the terminal record is ready for the next local encounter.`;
