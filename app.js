@@ -72,6 +72,7 @@ const sfx = {
   victory: typeof Audio !== "undefined" ? new Audio("assets/audio/victory.mp3") : null,
   defeat: typeof Audio !== "undefined" ? new Audio("assets/audio/defeat.mp3") : null,
   bgm: typeof Audio !== "undefined" ? new Audio("assets/audio/bgm.mp3") : null,
+  click: typeof Audio !== "undefined" ? new Audio("assets/audio/click.mp3") : null,
   narr_intro_1: typeof Audio !== "undefined" ? new Audio("assets/audio/narr_intro_1.mp3") : null,
   narr_intro_2: typeof Audio !== "undefined" ? new Audio("assets/audio/narr_intro_2.mp3") : null,
   narr_intro_3: typeof Audio !== "undefined" ? new Audio("assets/audio/narr_intro_3.mp3") : null,
@@ -82,10 +83,38 @@ const sfx = {
 };
 if (sfx.bgm) sfx.bgm.loop = true;
 
+function duckBgm(duck) {
+  if (!sfx.bgm || audioMuted) return;
+  sfx.bgm.volume = duck ? 0.15 : 0.5;
+}
+
+function fadeBgm() {
+  if (!sfx.bgm || audioMuted) return;
+  let vol = sfx.bgm.volume;
+  const interval = setInterval(() => {
+    vol -= 0.05;
+    if (vol <= 0) {
+      clearInterval(interval);
+      sfx.bgm.pause();
+      sfx.bgm.volume = 0.5;
+    } else {
+      sfx.bgm.volume = vol;
+    }
+  }, 80);
+}
+
 function play(trackName, forceRestart = true) {
   if (audioMuted || !sfx[trackName]) return;
   const audio = sfx[trackName];
   if (forceRestart) audio.currentTime = 0;
+  
+  if (trackName.startsWith("narr_")) {
+    duckBgm(true);
+    audio.onended = () => {
+      duckBgm(false);
+    };
+  }
+  
   audio.play().catch((err) => console.log(`Audio play failed: ${err.message}`));
 }
 
@@ -120,6 +149,9 @@ function typeText(element, text) {
   typingInterval = setInterval(() => {
     if (index < text.length) {
       element.textContent += text[index++];
+      if (index % 2 === 0) {
+        play("click");
+      }
     } else {
       clearInterval(typingInterval);
       if (element.classList) {
@@ -217,12 +249,13 @@ function showSurface(next) {
   
   // Audio transitions
   if (next === "play") {
+    if (sfx.bgm) sfx.bgm.volume = 0.5;
     play("bgm", false); // Loop BGM, don't restart if already playing
     if (sequence === 0) {
       play("narr_intro_" + (encounterIndex + 1));
     }
   } else if (next === "terminal") {
-    if (sfx.bgm) sfx.bgm.pause();
+    fadeBgm();
     if (encounter.outcome === "VICTORY") {
       play("victory");
       play("narr_victory");
@@ -231,7 +264,7 @@ function showSurface(next) {
       play("narr_defeat");
     }
   } else if (next === "lobby") {
-    if (sfx.bgm) sfx.bgm.pause();
+    fadeBgm();
   }
 
   requestAnimationFrame(() => dom.focus[next]?.focus({ preventScroll: true }));

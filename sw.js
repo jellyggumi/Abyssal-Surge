@@ -15,7 +15,12 @@ const ASSETS = [
   "./assets/audio/victory.mp3",
   "./assets/audio/defeat.mp3",
   "./assets/audio/bgm.mp3",
-  "./assets/audio/narr_intro.mp3",
+  "./assets/audio/click.mp3",
+  "./assets/audio/narr_intro_1.mp3",
+  "./assets/audio/narr_intro_2.mp3",
+  "./assets/audio/narr_intro_3.mp3",
+  "./assets/audio/narr_intro_4.mp3",
+  "./assets/audio/narr_intro_5.mp3",
   "./assets/audio/narr_victory.mp3",
   "./assets/audio/narr_defeat.mp3"
 ];
