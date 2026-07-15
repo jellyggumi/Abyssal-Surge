@@ -42,11 +42,11 @@ function priorStateError(state) {
   if (!Array.isArray(state.trace)) return "TRACE";
   if (!Number.isInteger(state.round) || state.round < 0 || state.round > state.schedule.length) return "ROUND";
   const bounded = [
-    [state.integrity, 0, 6],
-    [state.focus, 0, 3],
+    [state.integrity, 0, state.max_integrity || 6],
+    [state.focus, 0, state.max_focus || 3],
     [state.guard, 0, 2],
-    [state.pressure, 0, 4],
-    [state.foe_health, 0, 6],
+    [state.pressure, 0, state.max_pressure || 4],
+    [state.foe_health, 0, state.max_foe_health || 6],
   ];
   if (!bounded.every(([value, minimum, maximum]) => Number.isInteger(value) && value >= minimum && value <= maximum)) return "STATE_BOUNDS";
   if (state.surge_countered !== false || state.guard !== 0) return "TRANSIENT_STATE";
