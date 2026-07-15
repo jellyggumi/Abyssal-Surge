@@ -8,10 +8,15 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="analytics-banner" style="background: #161f30; padding: 15px; text-align: center; border-bottom: 1px solid #1f2d44; color: #f3f4f6; font-size: 14px; line-height: 1.5;" role="status">
+    <span>We request your consent to load Cloudflare Web Analytics for traffic and page-performance analytics on this host (jellyggumi.github.io). No custom gameplay events, application identifiers, or user profiling are collected. View our <a href="privacy.html" style="color: #00d2ff; text-decoration: underline;">Privacy Policy</a> for details. Do you consent?</span>
+    <button id="analytics-accept" type="button" style="background: #00d2ff; color: #0b0f19; border: none; padding: 5px 12px; cursor: pointer; margin-left: 15px; border-radius: 4px; font-weight: bold; font-size: 13px;">Accept</button>
+    <button id="analytics-decline" type="button" style="background: #1f2d44; color: #f3f4f6; border: 1px solid #1f2d44; padding: 5px 12px; cursor: pointer; margin-left: 10px; border-radius: 4px; font-size: 13px;">Decline</button>
+  </div>
   <a class="skip-link" href="#main-content">Skip to encounter controls</a>
   <header class="site-header">
     <p class="eyebrow">Abyssal Surge · Browser-local Stage 1</p>
-    <p>Static GitHub Pages-compatible slice · no account, network, or persistence</p>
+    <p>Static GitHub Pages-compatible slice · no account or persistence · optional anonymous performance analytics</p>
   </header>
 
   <main id="main-content" tabindex="-1">
@@ -82,8 +87,26 @@
 
   <footer class="site-footer">All state is ephemeral to this browser page. P4 QA, P5 operations, deployment, and release readiness are not represented here.</footer>
   <script type="module" src="app.js"></script>
-  <!-- Cloudflare Web Analytics (Disabled pending user-facing notice and consent mode implementation)
-  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "56ecca92d2ed488f8964000949011cfd"}'></script>
-  -->
+  <script>
+    (function() {
+      const banner = document.getElementById('analytics-banner');
+      const accept = document.getElementById('analytics-accept');
+      const decline = document.getElementById('analytics-decline');
+      
+      accept.addEventListener('click', () => {
+        const src = 'https:' + '//' + 'static.cloudflareinsights.com/beacon.min.js';
+        const script = document.createElement('script');
+        script.defer = true;
+        script.src = src;
+        script.setAttribute('data-cf-beacon', JSON.stringify({ token: "56ecca92d2ed488f8964000949011cfd" }));
+        document.body.appendChild(script);
+        banner.style.display = 'none';
+      });
+      
+      decline.addEventListener('click', () => {
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
 </body>
 </html>
