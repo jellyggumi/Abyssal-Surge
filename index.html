@@ -22,7 +22,10 @@
       <p class="eyebrow">Abyssal Surge · Browser-local Stage 1</p>
       <p>Static GitHub Pages-compatible slice · no account or persistence</p>
     </div>
-    <button id="audio-toggle" type="button" aria-label="Toggle sound" style="min-height: auto; padding: 6px 12px; font-weight: bold;">Unmute 🔊</button>
+    <div style="display: flex; gap: 8px;">
+      <button id="lang-toggle" type="button" aria-label="Switch language" style="min-height: auto; padding: 6px 12px; font-weight: bold;">한글 🌐</button>
+      <button id="audio-toggle" type="button" aria-label="Toggle sound" style="min-height: auto; padding: 6px 12px; font-weight: bold;">Unmute 🔊</button>
+    </div>
   </header>
 
   <main id="main-content" tabindex="-1">
@@ -31,9 +34,9 @@
       <h1 id="lobby-title" tabindex="-1">Stage 1 command encounter</h1>
       <p class="lede">Each encounter resolves one to three visible <strong>STRIKE</strong> or <strong>SURGE</strong> intents. Choose a declared command; the same deterministic reducer resolves keyboard and pointer/touch input.</p>
       <dl class="briefing-list">
-        <div><dt>Visible counterplay</dt><dd>BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.</dd></div>
-        <div><dt>Bounded outcome</dt><dd>Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.</dd></div>
-        <div><dt>Local settlement</dt><dd>A campaign contains exactly three terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.</dd></div>
+        <div id="brief-1"><dt>Visible counterplay</dt><dd>BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.</dd></div>
+        <div id="brief-2"><dt>Bounded outcome</dt><dd>Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.</dd></div>
+        <div id="brief-3"><dt>Local settlement</dt><dd>A campaign contains exactly three terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.</dd></div>
       </dl>
       <section class="telemetry-panel" style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--line); border-radius: .45rem; background: rgb(255 255 255 / .02);">
         <h3 style="margin-top: 0; font-size: 1rem; color: var(--signal);">MET-01/MET-04 Local Telemetry Audit Ledger</h3>

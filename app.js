@@ -55,6 +55,7 @@ const dom = {
   narrVolume: document.querySelector("#narr-volume"),
   knightAvatar: document.querySelector("#knight-avatar"),
   voidAvatar: document.querySelector("#void-avatar"),
+  langToggle: document.querySelector("#lang-toggle"),
 };
 
 let surface = "lobby";
@@ -66,10 +67,56 @@ let outcomes = [];
 let settlement = null;
 let lastMessage = "Awaiting a semantic command.";
 
+let currentLang = "en";
 let audioMuted = true;
 let totalCommandsRun = 0;
 let typingInterval = null;
 let fadeInterval = null;
+
+const DICTIONARY = {
+  en: {
+    lobbyTitle: "Stage 1 command encounter",
+    lobbyIntro: "Each encounter resolves one to three visible STRIKE or SURGE intents. Choose a declared command; the same deterministic reducer resolves keyboard and pointer/touch input.",
+    lobbyBrief1: "BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.",
+    lobbyBrief2: "Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.",
+    lobbyBrief3: "A campaign contains exactly three terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.",
+    btnBegin: "Begin local campaign",
+    btnResume: "Resume campaign",
+    btnContinue: "Start next local encounter",
+    btnRestart: "Restart local campaign",
+    ruleVersion: "Rules version:",
+    intentTitle: "Published adverse intent: ",
+    commandsTitle: "Semantic commands",
+    commandHelp: "Pointer/touch clicks and keyboard shortcuts record the same versioned command before the deterministic reducer resolves it. Unavailable commands are disabled rather than substituted.",
+    traceTitle: "Resolution trace",
+    terminalTitle: "Stage 1 result",
+    btnStrike: "Strike S",
+    btnBrace: "Brace B",
+    btnDisrupt: "Disrupt D",
+    btnRecover: "Recover R"
+  },
+  ko: {
+    lobbyTitle: "1단계 커맨드 인카운터",
+    lobbyIntro: "각 전투는 1~3회의 STRIKE 또는 SURGE 적대 의도를 해결해야 합니다. 선언된 커맨드를 마우스나 단축키로 입력하면 동일한 결정론적 리듀서가 동작합니다.",
+    lobbyBrief1: "BRACE는 STRIKE 피해를 막고, DISRUPT는 SURGE 피해와 압박을 막습니다. 각각 정신력(Focus) 1이 소모됩니다.",
+    lobbyBrief2: "생명력(Integrity)이 0이 되면 격퇴 패배, 압박(Pressure)이 4가 되면 압박 패배하며, 적 체력(Foe Health)이 0이 되면 승리합니다.",
+    lobbyBrief3: "캠페인은 총 5번의 인카운터를 거치며 승리 시 2개, 홀드 시 1개의 파편을 얻습니다. 3개의 파편당 복기 마크를 1개 획득합니다.",
+    btnBegin: "캠페인 시작하기",
+    btnResume: "이어서 진행하기",
+    btnContinue: "다음 인카운터 시작",
+    btnRestart: "캠페인 초기화",
+    ruleVersion: "규칙 버전:",
+    intentTitle: "공개된 적대 의도: ",
+    commandsTitle: "커맨드 콘솔",
+    commandHelp: "마우스 클릭이나 키보드 단축키(S, B, D, R)를 누르면 커맨드가 입력되어 결정론적으로 전투 상태를 감소시킵니다. 불가능한 행동은 비활성화됩니다.",
+    traceTitle: "전투 분석 로그",
+    terminalTitle: "전투 결과 기록",
+    btnStrike: "공격 (Strike) S",
+    btnBrace: "대비 (Brace) B",
+    btnDisrupt: "방해 (Disrupt) D",
+    btnRecover: "회복 (Recover) R"
+  }
+};
 
 let volumeBgm = 0.5;
 let volumeSfx = 0.8;
@@ -224,7 +271,8 @@ function saveGameState() {
     records,
     encounter,
     surface,
-    lastMessage
+    lastMessage,
+    currentLang
   };
   storage.setItem("abyssal_surge_save", JSON.stringify(saveState));
   checkSave();
@@ -244,6 +292,7 @@ function loadGameState() {
     records = saveState.records;
     encounter = saveState.encounter;
     lastMessage = saveState.lastMessage;
+    currentLang = saveState.currentLang || "en";
     showSurface(saveState.surface || "lobby");
     return true;
   } catch (err) {
@@ -260,13 +309,85 @@ function checkSave() {
   }
 }
 
-const STAGE_TITLES = [
-  "Stage 1: Immediate Pressure",
-  "Stage 2: Continuing Obligation",
-  "Stage 3: Boundless Consequence",
-  "Stage 4: Competing Responsibility",
-  "Stage 5: Accountable Stewardship"
-];
+const STAGE_TITLES_LOCALIZED = {
+  en: [
+    "Stage 1: Immediate Pressure",
+    "Stage 2: Continuing Obligation",
+    "Stage 3: Boundless Consequence",
+    "Stage 4: Competing Responsibility",
+    "Stage 5: Accountable Stewardship"
+  ],
+  ko: [
+    "1단계: 당면한 압박",
+    "2단계: 지속되는 의무",
+    "3단계: 무한한 여파",
+    "4단계: 상충하는 책임",
+    "5단계: 책임 있는 청지기"
+  ]
+};
+
+function translateUI() {
+  const dict = DICTIONARY[currentLang];
+  if (!dict) return;
+
+  const el = (sel, txt) => {
+    const node = document.querySelector(sel);
+    if (node) node.textContent = txt;
+  };
+
+  el("#lobby-title", dict.lobbyTitle);
+  
+  const lobbyIntro = document.querySelector("#lobby-screen .lede");
+  if (lobbyIntro) {
+    lobbyIntro.innerHTML = dict.lobbyIntro.replace(/STRIKE/g, "<strong>STRIKE</strong>").replace(/SURGE/g, "<strong>SURGE</strong>");
+  }
+
+  const b1 = document.querySelector("#brief-1");
+  const b2 = document.querySelector("#brief-2");
+  const b3 = document.querySelector("#brief-3");
+  if (b1) b1.innerHTML = `<dt>${currentLang === "ko" ? "대응 전술" : "Visible counterplay"}</dt><dd>${dict.lobbyBrief1}</dd>`;
+  if (b2) b2.innerHTML = `<dt>${currentLang === "ko" ? "경계 규칙" : "Bounded outcome"}</dt><dd>${dict.lobbyBrief2}</dd>`;
+  if (b3) b3.innerHTML = `<dt>${currentLang === "ko" ? "캠페인 합산" : "Local settlement"}</dt><dd>${dict.lobbyBrief3}</dd>`;
+
+  el("#begin-button", dict.btnBegin);
+  if (dom.resume) dom.resume.textContent = dict.btnResume;
+
+  const commandConsoleEyebrow = document.querySelector("#play-screen .play-heading .eyebrow");
+  if (commandConsoleEyebrow) {
+    commandConsoleEyebrow.textContent = currentLang === "ko" ? "제어 콘솔" : "Command console";
+  }
+  
+  const rulesVersionLabel = document.querySelector("#play-screen .play-heading p");
+  if (rulesVersionLabel) {
+    rulesVersionLabel.innerHTML = `${dict.ruleVersion} <code id="rules-version">${RULES_VERSION}</code>`;
+  }
+
+  el("#commands-title", dict.commandsTitle);
+  el("#command-help", dict.commandHelp);
+  el("#trace-title", dict.traceTitle);
+  el("#terminal-title", dict.terminalTitle);
+  el("#continue-button", dict.btnContinue);
+  el("#restart-button", dict.btnRestart);
+
+  // Translate command buttons
+  const buttonsMap = { STRIKE: dict.btnStrike, BRACE: dict.btnBrace, DISRUPT: dict.btnDisrupt, RECOVER: dict.btnRecover };
+  for (const button of dom.commandButtons) {
+    const cmd = button.dataset.command;
+    if (buttonsMap[cmd]) {
+      const key = cmd === "STRIKE" ? "S" : cmd === "BRACE" ? "B" : cmd === "DISRUPT" ? "D" : "R";
+      const cleanLabel = buttonsMap[cmd].replace(new RegExp(`\\s*${key}$`), "");
+      button.innerHTML = `${cleanLabel} <kbd>${key}</kbd>`;
+    }
+  }
+
+  // Update toggle button text
+  if (dom.langToggle) {
+    dom.langToggle.textContent = currentLang === "ko" ? "English 🌐" : "한글 🌐";
+    if (dom.langToggle.classList) {
+      dom.langToggle.classList.toggle("active", currentLang === "ko");
+    }
+  }
+}
 
 function showSurface(next) {
   surface = next;
@@ -430,7 +551,8 @@ function resetCampaign() {
 }
 
 function render() {
-  const stageTitle = STAGE_TITLES[encounterIndex] || `Encounter ${encounterIndex + 1}`;
+  const titles = STAGE_TITLES_LOCALIZED[currentLang] || STAGE_TITLES_LOCALIZED.en;
+  const stageTitle = titles[encounterIndex] || `Encounter ${encounterIndex + 1}`;
   dom.campaign.textContent = `${encounterIndex + 1} / ${CAMPAIGN_SCHEDULES.length} — ${stageTitle}`;
   dom.ruleVersion.textContent = RULES_VERSION;
   dom.intent.textContent = encounter.foe_intent;
@@ -479,6 +601,7 @@ function render() {
 
   // Local telemetry logs ledger updates
   updateTelemetry();
+  translateUI();
 
   for (const button of dom.commandButtons) button.disabled = !commandAvailable(button.dataset.command);
   document.querySelector("#threat-copy").textContent = threatCopy(encounter);
@@ -539,5 +662,28 @@ document.addEventListener("keydown", (event) => {
   recordCommand(command);
 });
 
+if (dom.langToggle) {
+  dom.langToggle.addEventListener("click", () => {
+    currentLang = currentLang === "ko" ? "en" : "ko";
+    translateUI();
+    render();
+    saveGameState();
+  });
+}
+
+// Load initial language preference if saved
+if (storage) {
+  try {
+    const saved = storage.getItem("abyssal_surge_save");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.currentLang) {
+        currentLang = parsed.currentLang;
+      }
+    }
+  } catch (e) {}
+}
+
+translateUI();
 checkSave();
 render();
