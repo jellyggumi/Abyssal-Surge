@@ -1,43 +1,82 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Static GitHub Pages publication with a committed allowlist and recovery revision gate.
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      rollback_revision:
+        description: "Full 40-character commit SHA to publish for an authorized recovery rehearsal"
+        required: true
+        type: string
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying static files
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      PAGES_ARTIFACT_DIR: .pages-artifact
+      PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
     steps:
-      - name: Checkout
+      - name: Checkout requested committed revision
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
+          fetch-depth: 0
+      - name: Validate pinned recovery revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && ! printf '%s' "$PAGES_REVISION" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "rollback_revision must be a full lowercase 40-character commit SHA" >&2
+            exit 1
+          fi
+          resolved="$(git rev-parse --verify "${PAGES_REVISION}^{commit}")"
+          test "$resolved" = "$PAGES_REVISION"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            git merge-base --is-ancestor "$PAGES_REVISION" origin/main
+          fi
+      - name: Guard committed static import closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in index.html app.js game-core.js styles.css; do
+            git cat-file -e "${PAGES_REVISION}:${file}"
+            test -f "$file"
+          done
+          node --check app.js
+          node --check game-core.js
+          grep -Fq '<link rel="stylesheet" href="styles.css">' index.html
+          grep -Fq '<script type="module" src="app.js"></script>' index.html
+          grep -Fq 'from "./game-core.js";' app.js
+      - name: Build allowlisted Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$PAGES_ARTIFACT_DIR"
+          mkdir -p "$PAGES_ARTIFACT_DIR"
+          git archive --format=tar "$PAGES_REVISION" -- index.html app.js game-core.js styles.css | tar -x -C "$PAGES_ARTIFACT_DIR"
+          expected=$'app.js\ngame-core.js\nindex.html\nstyles.css'
+          actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^${PAGES_ARTIFACT_DIR}/##" | sort)"
+          test "$actual" = "$expected"
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      - name: Upload artifact
+      - name: Upload allowlisted artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: ${{ env.PAGES_ARTIFACT_DIR }}
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

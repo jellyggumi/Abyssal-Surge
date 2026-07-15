@@ -1,174 +1,86 @@
-<!DOCTYPE html>
-<html lang="ko">
+<!doctype html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Abyssal-Surge Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A browser-local deterministic Stage 1 encounter for Abyssal Surge.">
+  <title>Abyssal Surge — Stage 1</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header class="app-header">
-        <div class="header-container">
-            <div class="logo-area">
-                <i class="fa-solid fa-circle-nodes logo-icon"></i>
-                <h1>Abyssal-Surge <span class="badge">Studio</span></h1>
-            </div>
-            <nav class="header-nav">
-                <button id="btn-dashboard" class="nav-btn active"><i class="fa-solid fa-chart-line"></i> 대시보드</button>
-                <button id="btn-agents" class="nav-btn"><i class="fa-solid fa-users-gears"></i> 에이전트</button>
-                <button id="btn-simulations" class="nav-btn"><i class="fa-solid fa-play"></i> 시뮬레이션</button>
-                <button id="btn-database" class="nav-btn"><i class="fa-solid fa-database"></i> 로컬 DB</button>
-            </nav>
+  <a class="skip-link" href="#main-content">Skip to encounter controls</a>
+  <header class="site-header">
+    <p class="eyebrow">Abyssal Surge · Browser-local Stage 1</p>
+    <p>Static GitHub Pages-compatible slice · no account, network, or persistence</p>
+  </header>
+
+  <main id="main-content" tabindex="-1">
+    <section id="lobby-screen" class="screen intro-panel" aria-labelledby="lobby-title">
+      <p class="eyebrow">Scripted pressure schedule</p>
+      <h1 id="lobby-title" tabindex="-1">Stage 1 command encounter</h1>
+      <p class="lede">Each encounter resolves one to three visible <strong>STRIKE</strong> or <strong>SURGE</strong> intents. Choose a declared command; the same deterministic reducer resolves keyboard and pointer/touch input.</p>
+      <dl class="briefing-list">
+        <div><dt>Visible counterplay</dt><dd>BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.</dd></div>
+        <div><dt>Bounded outcome</dt><dd>Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.</dd></div>
+        <div><dt>Local settlement</dt><dd>A campaign contains exactly three terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.</dd></div>
+      </dl>
+      <button id="begin-button" class="primary" type="button">Begin local campaign</button>
+    </section>
+
+    <section id="play-screen" class="screen" aria-labelledby="play-title" hidden>
+      <div class="play-heading">
+        <div>
+          <p class="eyebrow">Command console</p>
+          <h1 id="play-title" tabindex="-1">Encounter <span id="campaign-value">1 / 3</span></h1>
         </div>
-    </header>
+        <p>Rules version: <code id="rules-version">stage1-rules-v1</code></p>
+      </div>
 
-    <main class="app-main">
-        <!-- Dashboard View -->
-        <section id="view-dashboard" class="view-section active">
-            <div class="grid-container">
-                <div class="card summary-card">
-                    <h3><i class="fa-solid fa-circle-info"></i> 프로젝트 개요</h3>
-                    <p>Abyssal-Surge는 BMAD-GDS 생산 파이프라인을 기반으로 하는 AI 에이전트 협업 게임 스튜디오 시뮬레이터입니다. 8명의 전문 에이전트가 마일스톤과 의사결정 로그를 조정하며 게임을 설계하고 검증합니다.</p>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-value" id="stat-agents-count">8</span>
-                            <span class="stat-label">활성 에이전트</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="stat-runs-count">0</span>
-                            <span class="stat-label">시뮬레이션 런</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="stat-logs-count">0</span>
-                            <span class="stat-label">의사결정 로그</span>
-                        </div>
-                    </div>
-                </div>
+      <section class="status-summary" aria-labelledby="intent-title">
+        <h2 id="intent-title">Published adverse intent: <strong id="intent-value">STRIKE</strong></h2>
+        <p id="threat-copy">STRIKE: 2 integrity damage unless BRACE is used.</p>
+        <p id="counter-value">BRACE costs 1 focus and prevents this STRIKE's 2 damage.</p>
+      </section>
 
-                <div class="card quick-action-card">
-                    <h3><i class="fa-solid fa-bolt"></i> 빠른 작업</h3>
-                    <div class="action-buttons">
-                        <button id="btn-quick-start" class="btn btn-primary"><i class="fa-solid fa-circle-play"></i> 새 시뮬레이션 시작</button>
-                        <button id="btn-clear-db" class="btn btn-danger"><i class="fa-solid fa-trash-can"></i> 로컬 DB 초기화</button>
-                    </div>
-                </div>
+      <dl class="metrics" aria-label="Immutable encounter state">
+        <div><dt>Integrity</dt><dd id="integrity-value">6 / 6</dd></div>
+        <div><dt>Focus</dt><dd id="focus-value">3 / 3</dd></div>
+        <div><dt>Guard</dt><dd id="guard-value">0 / 2</dd></div>
+        <div><dt>Pressure</dt><dd id="pressure-value">0 / 4</dd></div>
+        <div><dt>Foe health</dt><dd id="foe-health-value">6 / 6</dd></div>
+      </dl>
 
-                <div class="card full-width-card">
-                    <h3><i class="fa-solid fa-clock-rotate-left"></i> 최근 시뮬레이션 기록</h3>
-                    <div class="table-responsive">
-                        <table class="data-table" id="table-recent-runs">
-                            <thead>
-                                <tr>
-                                    <th>Run ID</th>
-                                    <th>시작 시간</th>
-                                    <th>현재 단계</th>
-                                    <th>상태</th>
-                                    <th>작업</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="5" class="text-center">기록이 없습니다. 새 시뮬레이션을 시작해보세요.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Agents View -->
-        <section id="view-agents" class="view-section">
-            <h2><i class="fa-solid fa-users-gears"></i> 스튜디오 에이전트 프로필</h2>
-            <p class="section-desc">Abyssal-Surge의 의사결정 파이프라인을 구성하는 8명의 전문 에이전트 목록입니다.</p>
-            <div class="agents-grid" id="agents-container">
-                <!-- Dynamically populated -->
-            </div>
-        </section>
-
-        <!-- Simulations View -->
-        <section id="view-simulations" class="view-section">
-            <div class="simulation-layout">
-                <div class="sim-control-panel card">
-                    <h3><i class="fa-solid fa-sliders"></i> 시뮬레이션 제어</h3>
-                    <form id="form-new-run">
-                        <div class="form-group">
-                            <label for="input-run-id">Run ID</label>
-                            <input type="text" id="input-run-id" required readonly>
-                            <button type="button" id="btn-regen-id" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrows-rotate"></i> 재생성</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="input-title">프로젝트명 / 주제</label>
-                            <input type="text" id="input-title" placeholder="예: 심해 탐사 RPG 밸런싱 패치" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="select-phase">시작 단계</label>
-                            <select id="select-phase">
-                                <option value="Phase 0">Phase 0: Intake & Constraints</option>
-                                <option value="Phase 1">Phase 1: Production Brief</option>
-                                <option value="Phase 2">Phase 2: Research & Survey</option>
-                                <option value="Phase 3">Phase 3: Monetization & Rules</option>
-                                <option value="Phase 4">Phase 4: Engineering & Risk</option>
-                                <option value="Phase 5">Phase 5: QA & Verdict</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-play"></i> 시뮬레이션 실행</button>
-                    </form>
-                </div>
-
-                <div class="sim-monitor-panel card">
-                    <h3><i class="fa-solid fa-desktop"></i> 실시간 모니터링</h3>
-                    <div class="sim-status-bar">
-                        <span class="status-badge status-idle" id="sim-status-text">대기 중</span>
-                        <span class="sim-current-run-id" id="sim-active-id">-</span>
-                    </div>
-                    <div class="console-output" id="sim-console">
-                        <div class="console-line system">시뮬레이션 준비 완료. 상단의 폼을 작성하고 실행 버튼을 누르세요.</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Database View -->
-        <section id="view-database" class="view-section">
-            <h2><i class="fa-solid fa-database"></i> IndexedDB 로컬 데이터베이스 브라우저</h2>
-            <p class="section-desc">브라우저의 IndexedDB에 저장된 데이터를 직접 조회하고 관리할 수 있습니다.</p>
-            
-            <div class="db-tabs">
-                <button class="db-tab-btn active" data-store="runs">Simulation Runs</button>
-                <button class="db-tab-btn" data-store="logs">Decision Logs</button>
-                <button class="db-tab-btn" data-store="agents">Agents Cache</button>
-            </div>
-
-            <div class="card db-content-card">
-                <div class="db-actions">
-                    <button id="btn-refresh-db" class="btn btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> 새로고침</button>
-                    <button id="btn-export-db" class="btn btn-secondary"><i class="fa-solid fa-download"></i> JSON 내보내기</button>
-                </div>
-                <div class="table-responsive">
-                    <table class="data-table" id="table-db-data">
-                        <thead>
-                            <!-- Dynamically populated -->
-                        </thead>
-                        <tbody>
-                            <!-- Dynamically populated -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer class="app-footer">
-        <div class="footer-container">
-            <p>&copy; 2026 Abyssal-Surge. Hosted on GitHub Pages with Local IndexedDB.</p>
-            <p class="footer-links">
-                <a href="https://github.com/jellyggumi/Abyssal-Surge" target="_blank"><i class="fa-brands fa-github"></i> GitHub Repository</a>
-            </p>
+      <section class="command-panel" aria-labelledby="commands-title">
+        <h2 id="commands-title">Semantic commands</h2>
+        <p id="command-help">Pointer/touch clicks and keyboard shortcuts record the same versioned command before the deterministic reducer resolves it. Unavailable commands are disabled rather than substituted.</p>
+        <div class="command-grid" aria-describedby="command-help">
+          <button type="button" data-command="STRIKE">Strike <kbd>S</kbd></button>
+          <button type="button" data-command="BRACE">Brace <kbd>B</kbd></button>
+          <button type="button" data-command="DISRUPT">Disrupt <kbd>D</kbd></button>
+          <button type="button" data-command="RECOVER">Recover <kbd>R</kbd></button>
         </div>
-    </footer>
+      </section>
 
-    <script src="app.js"></script>
+      <section class="event-panel" aria-labelledby="trace-title">
+        <h2 id="trace-title">Resolution trace</h2>
+        <p id="announcement" role="status">Awaiting a semantic command.</p>
+        <ol id="trace-log" class="event-log" aria-live="off"></ol>
+      </section>
+    </section>
+
+    <section id="terminal-screen" class="screen terminal-panel" aria-labelledby="terminal-title" hidden>
+      <p class="eyebrow">Terminal record</p>
+      <h1 id="terminal-title" tabindex="-1">Stage 1 result</h1>
+      <p id="terminal-summary" class="terminal-summary" role="status"></p>
+      <p id="settlement-summary"></p>
+      <div class="button-row">
+        <button id="continue-button" class="primary" type="button">Start next local encounter</button>
+        <button id="restart-button" type="button">Restart local campaign</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">All state is ephemeral to this browser page. P4 QA, P5 operations, deployment, and release readiness are not represented here.</footer>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
