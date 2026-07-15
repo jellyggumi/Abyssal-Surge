@@ -67,6 +67,7 @@ let lastMessage = "Awaiting a semantic command.";
 let audioMuted = true;
 let totalCommandsRun = 0;
 let typingInterval = null;
+let fadeInterval = null;
 
 let volumeBgm = 0.5;
 let volumeSfx = 0.8;
@@ -99,11 +100,13 @@ function duckBgm(duck) {
 // Fades out BGM smoothly
 function fadeBgm() {
   if (!sfx.bgm || audioMuted) return;
+  if (fadeInterval) clearInterval(fadeInterval);
   let vol = sfx.bgm.volume;
-  const interval = setInterval(() => {
+  fadeInterval = setInterval(() => {
     vol -= 0.05;
     if (vol <= 0) {
-      clearInterval(interval);
+      clearInterval(fadeInterval);
+      fadeInterval = null;
       sfx.bgm.pause();
       sfx.bgm.volume = volumeBgm;
     } else {
@@ -143,6 +146,10 @@ function toggleAudio() {
     }
   }
   if (audioMuted) {
+    if (fadeInterval) {
+      clearInterval(fadeInterval);
+      fadeInterval = null;
+    }
     if (sfx.bgm) sfx.bgm.pause();
     for (const a of Object.values(sfx)) {
       if (a && a !== sfx.bgm) a.pause();
