@@ -1,0 +1,36 @@
+{
+  "skill_name": "game-studio-harness",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "다크판타지 RTS 아이디어가 있어. 게임 제작 사이클 시작해줘.",
+      "expected_output": "Run-id workspace created; production-brief.md written with bmad-gds schema; team of 4 specialist agents assembled; Stage 1 tasks assigned including designer trend survey and QA benchmark survey; cycle proceeds through 3 stages ending in a retrospective with a G1–G8 gate table.",
+      "assertions": [
+        "_workspace/{run-id}/intake/production-brief.md exists",
+        "production/task-manifest.md contains owner, artifact, gate, and beat columns",
+        "design/trend-survey/ and qa/benchmark-notes.md are produced before concept lock",
+        "retrospective file contains measured values for gates, not adjectives"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "현재 빌드로 스테이지 게이트 리뷰 돌려줘. 밸런스가 무너진 것 같아.",
+      "expected_output": "QA measures G1–G8 on the current build via archetype rotation and sims; director issues per-gate PASS/FIX/REDO verdicts each linking evidence paths; FIX items become manifest tasks.",
+      "assertions": [
+        "qa/gate-measurements.md has #g1..#g8 sections with values and methods",
+        "production/gate-reviews/ contains one verdict file per reviewed gate",
+        "every FAIL/FIX verdict cites a measured value versus its threshold"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "QA가 페이투윈 익스플로잇을 찾았어. 유료 유저 승률이 너무 높아. 사이클 재진입해줘.",
+      "expected_output": "Emergency re-entry at Stage 2 Phase 2a with the exploit pre-seeded; designer retunes the touched numbers; PM verifies the ≤5%p paid/free delta cap and updates the negotiation record; programmer applies data-only changes; QA re-verifies.",
+      "assertions": [
+        "qa/exploit-register.md row has repro steps and measured delta",
+        "pm/negotiation-record.md gains an updated signed entry",
+        "re-verification shows paid_free_winrate_delta within 5pp before gate PASS"
+      ]
+    }
+  ]
+}

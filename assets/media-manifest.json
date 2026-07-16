@@ -1,0 +1,179 @@
+{
+  "schema_version": 2,
+  "inventory_note": "Inventory of all currently supplied Shadow Lord media assets. Provenance is stated only where observed or supplied; pre-existing transition renderer details remain unrecorded.",
+  "assets": [
+    {
+      "filename": "assets/images/cinder-span.png",
+      "media_type": "image/png",
+      "bytes": 2430070,
+      "generated_by": "gti via private-codex",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "sha256": "f6355a83db9568f22c0a32e5cf537377813c4e3af4a22bd5c8e9442f70fa9c36"
+    },
+    {
+      "filename": "assets/images/veil-citadel.png",
+      "media_type": "image/png",
+      "bytes": 2745565,
+      "generated_by": "gti via private-codex",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "sha256": "98444b35745b5ab8ba40607047299fba87dfad5693a1bfed0c1e1cfbe7fea854"
+    },
+    {
+      "filename": "assets/images/echo-throne.png",
+      "media_type": "image/png",
+      "bytes": 2342720,
+      "generated_by": "gti via private-codex",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Generated from the original final-stage prompt with no reference input.",
+      "sha256": "1707f00db629068286c0edaafef42f19c18dfe9666583692f98ccd0174d1a7ab"
+    },
+    {
+      "filename": "assets/icons/icon-192.png",
+      "media_type": "image/png",
+      "bytes": 86217,
+      "generated_by": "ffmpeg",
+      "source_key_art": [
+        "assets/images/cinder-span.png"
+      ],
+      "source_assets": [
+        "assets/images/cinder-span.png"
+      ],
+      "derivation": "PWA icon cropped and scaled from cinder-span.png with ffmpeg.",
+      "sha256": "ba4a5f4558b17832b4768a46553309dd6a0eee3d02b34b2cfe51c9a0a45c4640"
+    },
+    {
+      "filename": "assets/icons/icon-512.png",
+      "media_type": "image/png",
+      "bytes": 586419,
+      "generated_by": "ffmpeg",
+      "source_key_art": [
+        "assets/images/cinder-span.png"
+      ],
+      "source_assets": [
+        "assets/images/cinder-span.png"
+      ],
+      "derivation": "PWA icon cropped and scaled from cinder-span.png with ffmpeg.",
+      "sha256": "36e8dae44eb3e0c8b51dea7e39f6345eafe2f4b9992aefaf45bc7aa72b63f923"
+    },
+    {
+      "filename": "assets/audio/extract.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 10049,
+      "generated_by": "ElevenLabs sound-generation",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "sha256": "215ad0b37fd1f24a3911298497e96a98ad02df3ec7e85abe1f3bfa87ce9ddd4d"
+    },
+    {
+      "filename": "assets/audio/domain.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 11512,
+      "generated_by": "ElevenLabs sound-generation",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "sha256": "b566669782fd70deaadc73215a5599a40169b6c099a043857abb19f5891635cc"
+    },
+    {
+      "filename": "assets/audio/ambient.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 48501,
+      "generated_by": "ElevenLabs sound-generation",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord ambient sound asset; prompt text is not stored in this manifest.",
+      "sha256": "564d3b64c89814ffdf7ff6437a2d4f3cee5eb9749f84ec9ef3d5ae98b32fa133"
+    },
+    {
+      "filename": "assets/video/cinder-span.mp4",
+      "media_type": "video/mp4",
+      "bytes": 134439,
+      "generated_by": "pre-existing generated asset (renderer not recorded in shared contract)",
+      "source_key_art": [
+        "assets/images/cinder-span.png"
+      ],
+      "source_assets": [
+        "assets/images/cinder-span.png"
+      ],
+      "derivation": "Pre-existing shared-contract stage-transition render.",
+      "sha256": "cfed1763051cd7503f41ecd2a6d3ec0197b873fdf640b3a06b4032d307099e69"
+    },
+    {
+      "filename": "assets/video/veil-citadel.mp4",
+      "media_type": "video/mp4",
+      "bytes": 164728,
+      "generated_by": "pre-existing generated asset (renderer not recorded in shared contract)",
+      "source_key_art": [
+        "assets/images/veil-citadel.png"
+      ],
+      "source_assets": [
+        "assets/images/veil-citadel.png"
+      ],
+      "derivation": "Pre-existing shared-contract stage-transition render.",
+      "sha256": "692ae9327e662d68ced92b631e4e1d4aa1cfbeef2b754c95cb4a27cbae722d90"
+    },
+    {
+      "filename": "assets/video/echo-throne.mp4",
+      "media_type": "video/mp4",
+      "bytes": 128618,
+      "generated_by": "ffmpeg",
+      "source_key_art": [
+        "assets/images/echo-throne.png"
+      ],
+      "source_assets": [
+        "assets/images/echo-throne.png"
+      ],
+      "derivation": "H.264 stage-transition render using ffmpeg zoompan from echo-throne.png.",
+      "sha256": "e181703608aa317c76acff0b4cabb7cf86780ad35d1a97d92b5ef173923eddfc"
+    },
+    {
+      "filename": "assets/video/shadow-lord-cinematic.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1287489,
+      "generated_by": "ffmpeg",
+      "source_key_art": [
+        "assets/images/cinder-span.png",
+        "assets/images/veil-citadel.png",
+        "assets/images/echo-throne.png"
+      ],
+      "source_assets": [
+        "assets/images/cinder-span.png",
+        "assets/images/veil-citadel.png",
+        "assets/images/echo-throne.png",
+        "assets/audio/ambient.mp3"
+      ],
+      "derivation": "13-second xfade and zoompan montage of all three key-art images with an AAC soundtrack transcoded from ambient.mp3.",
+      "sha256": "5ec63bb5a7b74f56de763cd83aa36dfbfaeee6e902c6e6ec834819135deab5fe"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_00_opening_gate_prompt.png",
+      "media_type": "image/png",
+      "bytes": 1051038,
+      "generated_by": "Pollinations text-to-image URL fallback",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Concept art still for cinematic Scene 0.",
+      "sha256": "a303e334adf439248394f8ae501ac558dd60a19652e8f38f3324b8c849fadb00"
+    },
+    {
+      "filename": "assets/video/scene_00_gate_opening.mp4",
+      "media_type": "video/mp4",
+      "bytes": 174625,
+      "generated_by": "render_stage_video.py (ffmpeg/libx264)",
+      "source_key_art": [
+        "design/assets/cinematic/scene_00_opening_gate_prompt.png"
+      ],
+      "source_assets": [
+        "design/assets/cinematic/scene_00_opening_gate_prompt.png"
+      ],
+      "derivation": "Single-shot cinematic draft for scene 0, 12s static art pan in 960x540.",
+      "sha256": "7f90bb6693d08cd2284507f87fe3afff430716f6dd6f1574e5530bd7a7e46816"
+    }
+  ]
+}
