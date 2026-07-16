@@ -440,10 +440,15 @@ async function run() {
     await reg.unregister();
     const canonical = await navigator.serviceWorker.register("sw.js");
     let canonicalURL = null;
-    for (let i = 0; i < 80; i++) {
-      const active = canonical.active;
-      if (active && active.scriptURL.endsWith("/sw.js") && !active.scriptURL.includes("?")) {
-        canonicalURL = active.scriptURL;
+    for (let i = 0; i < 200; i++) {
+      const worker = canonical.active || canonical.waiting || canonical.installing;
+      if (worker && worker.scriptURL.endsWith("/sw.js") && !worker.scriptURL.includes("?")
+          && (canonical.active || worker.state === "activated")) {
+        canonicalURL = worker.scriptURL;
+        break;
+      }
+      if (canonical.active && canonical.active.scriptURL.endsWith("/sw.js") && !canonical.active.scriptURL.includes("?")) {
+        canonicalURL = canonical.active.scriptURL;
         break;
       }
       await new Promise((r) => setTimeout(r, 100));
