@@ -60,6 +60,99 @@ function assertAccepted(result, name) {
   assert.deepEqual(result.results.map(({ accepted }) => accepted), Array(result.results.length).fill(true), name);
 }
 
+const CANONICAL_STAGE_CONFIGURATIONS = Object.freeze([
+  Object.freeze({ max_integrity: 6, max_focus: 3, max_foe_health: 6, pressure: 0 }),
+  Object.freeze({ max_integrity: 6, max_focus: 3, max_foe_health: 8, pressure: 0 }),
+  Object.freeze({ max_integrity: 8, max_focus: 4, max_foe_health: 10, pressure: 0 }),
+  Object.freeze({ max_integrity: 6, max_focus: 3, max_foe_health: 12, pressure: 1 }),
+  Object.freeze({ max_integrity: 6, max_focus: 4, max_foe_health: 5, pressure: 0 }),
+]);
+
+function encounterConfiguration(state) {
+  return {
+    max_integrity: state.max_integrity,
+    max_focus: state.max_focus,
+    max_foe_health: state.max_foe_health,
+    pressure: state.pressure,
+  };
+}
+
+function firstLegalCommand(schedule) {
+  return schedule[0] === "SURGE" ? "DISRUPT" : "BRACE";
+}
+
+test("each campaign schedule constructs its canonical fresh state and passes its first reduction", () => {
+  for (const [stageIndex, schedule] of CAMPAIGN_SCHEDULES.entries()) {
+    const encounter = initialEncounter(schedule);
+    const command = firstLegalCommand(schedule);
+    const result = reduceEncounter(encounter, makeCommand(command, 0, 1));
+
+    assert.deepEqual(encounterConfiguration(encounter), CANONICAL_STAGE_CONFIGURATIONS[stageIndex], `stage ${stageIndex + 1} configuration`);
+    assert.equal(encounter.disrupt_uses, 0, `stage ${stageIndex + 1} initializes DISRUPT usage`);
+    assert.equal(result.accepted, true, `stage ${stageIndex + 1} fresh state passes reduction validation`);
+  }
+});
+
+test("Stage 4 rejects pressure below its canonical start and accepts its first legal command", () => {
+  const stageFour = initialEncounter(CAMPAIGN_SCHEDULES[3]);
+  const forged = {
+    ...stageFour,
+    schedule: [...stageFour.schedule],
+    trace: [...stageFour.trace],
+    pressure: 0,
+  };
+  const before = canonicalJson(forged);
+  const rejected = reduceEncounter(forged, makeCommand("BRACE", 0, 1));
+  const accepted = reduceEncounter(stageFour, makeCommand(firstLegalCommand(stageFour.schedule), 0, 1));
+  const raisedPressure = reduceEncounter(accepted.state, makeCommand("STRIKE", 1, 2));
+
+  assert.equal(rejected.accepted, false);
+  assert.equal(rejected.reason, "STATE_CONFIGURATION");
+  assert.strictEqual(rejected.state, forged);
+  assert.equal(canonicalJson(forged), before);
+  assert.equal(accepted.accepted, true);
+  assert.equal(raisedPressure.accepted, true);
+  assert.equal(raisedPressure.state.pressure, 3);
+});
+
+test("the public initializer rejects or normalizes a mismatched stage selection", () => {
+  let encounter;
+
+  try {
+    encounter = initialEncounter(CAMPAIGN_SCHEDULES[0], 4);
+  } catch (error) {
+    assert.ok(error instanceof TypeError || error instanceof RangeError);
+    return;
+  }
+
+  assert.deepEqual(encounterConfiguration(encounter), CANONICAL_STAGE_CONFIGURATIONS[0]);
+  assert.equal(
+    reduceEncounter(encounter, makeCommand(firstLegalCommand(encounter.schedule), 0, 1)).accepted,
+    true,
+  );
+});
+
+test("reduction rejects a forged state paired with another stage's maximum bounds", () => {
+  const stageOne = initialEncounter(CAMPAIGN_SCHEDULES[0]);
+  const forged = {
+    ...stageOne,
+    schedule: [...stageOne.schedule],
+    trace: [...stageOne.trace],
+    focus: 4,
+    max_focus: 4,
+    foe_health: 5,
+    max_foe_health: 5,
+  };
+  const before = canonicalJson(forged);
+  const result = reduceEncounter(forged, makeCommand("BRACE", 0, 1));
+
+  assert.equal(result.accepted, false);
+  assert.notEqual(result.reason, null);
+  assert.strictEqual(result.state, forged);
+  assert.equal(canonicalJson(forged), before);
+});
+
+
 test("P2 CP-STRIKE: BRACE exactly counters the displayed STRIKE", () => {
   const result = replayCase("HS");
 
@@ -128,7 +221,7 @@ test("P2 ordering grants third-strike victory before that round's foe effect", (
 });
 
 test("public reduction rejects failed preconditions and leaves the supplied encounter unchanged", () => {
-  const encounter = initialEncounter(["STRIKE"]);
+  const encounter = initialEncounter(CAMPAIGN_SCHEDULES[0]);
   const baseline = canonicalJson(encounter);
 
   const disrupt = reduceEncounter(encounter, makeCommand("DISRUPT", 0, 1));
@@ -266,6 +359,83 @@ test("P2 Stage 5 makes repeated DISRUPT increasingly expensive and reactive play
   assert.equal(awardFor(reactive.state.outcome), 0);
 });
 
+test("V2 Stage 5 rejects a forged DISRUPT counter without discounting the next legal DISRUPT", () => {
+  const firstDisrupt = reduceEncounter(initialEncounter(CAMPAIGN_SCHEDULES[4]), makeCommand("DISRUPT", 0, 1));
+
+  assert.equal(firstDisrupt.accepted, true);
+  assert.equal(firstDisrupt.state.disrupt_uses, 1);
+  assert.equal(commandCost(firstDisrupt.state, "DISRUPT"), 2);
+
+  const forged = { ...firstDisrupt.state, disrupt_uses: 0 };
+  const before = canonicalJson(forged);
+  const rejected = reduceEncounter(forged, makeCommand("DISRUPT", 1, 2));
+
+  assert.equal(rejected.accepted, false);
+  assert.strictEqual(rejected.state, forged);
+  assert.equal(canonicalJson(forged), before);
+
+  const legalSecondDisrupt = reduceEncounter(firstDisrupt.state, makeCommand("DISRUPT", 1, 2));
+
+  assert.equal(legalSecondDisrupt.accepted, true);
+  assert.equal(legalSecondDisrupt.state.disrupt_uses, 2);
+  assert.equal(legalSecondDisrupt.state.focus, 1);
+});
+
+test("state provenance rejects Stage 5 counter and journal erasure without mutation", () => {
+  const firstDisrupt = reduceEncounter(initialEncounter(CAMPAIGN_SCHEDULES[4]), makeCommand("DISRUPT", 0, 1));
+  const forged = JSON.parse(JSON.stringify(firstDisrupt.state));
+  forged.disrupt_uses = 0;
+  forged.trace = [];
+  const before = canonicalJson(forged);
+
+  const rejected = reduceEncounter(forged, makeCommand("DISRUPT", 1, 2));
+
+  assert.equal(rejected.accepted, false);
+  assert.equal(rejected.reason, "STATE_PROVENANCE");
+  assert.strictEqual(rejected.state, forged);
+  assert.equal(canonicalJson(forged), before);
+});
+
+test("state provenance accepts a JSON-cloned journal state with canonical next-state parity", () => {
+  const firstDisrupt = reduceEncounter(initialEncounter(CAMPAIGN_SCHEDULES[4]), makeCommand("DISRUPT", 0, 1));
+  const cloned = JSON.parse(JSON.stringify(firstDisrupt.state));
+  const nextCommand = makeCommand("DISRUPT", 1, 2);
+
+  const expected = reduceEncounter(firstDisrupt.state, nextCommand);
+  const replayed = reduceEncounter(cloned, nextCommand);
+
+  assert.equal(expected.accepted, true);
+  assert.equal(replayed.accepted, true);
+  assert.notStrictEqual(cloned, firstDisrupt.state);
+  assert.equal(canonicalJson(replayed.state), canonicalJson(expected.state));
+});
+
+test("state provenance rejects malformed, extra, and terminal-continuing journals before reduction", () => {
+  const firstDisrupt = reduceEncounter(initialEncounter(CAMPAIGN_SCHEDULES[4]), makeCommand("DISRUPT", 0, 1));
+  const braceEvent = reduceEncounter(firstDisrupt.state, makeCommand("BRACE", 1, 2)).state.trace.at(-1);
+  const terminal = replayCase("V").state;
+  const malformed = JSON.parse(JSON.stringify(firstDisrupt.state));
+  const extra = JSON.parse(JSON.stringify(firstDisrupt.state));
+  const continuing = JSON.parse(JSON.stringify(terminal));
+  malformed.trace = [{ command: "DISRUPT" }];
+  extra.trace.push(braceEvent);
+  continuing.trace.push(braceEvent);
+
+  for (const [name, state, command] of [
+    ["malformed", malformed, makeCommand("DISRUPT", 1, 2)],
+    ["extra", extra, makeCommand("DISRUPT", 1, 2)],
+    ["terminal-continuing", continuing, makeCommand("STRIKE", 3, 4)],
+  ]) {
+    const before = canonicalJson(state);
+    const rejected = reduceEncounter(state, command);
+
+    assert.equal(rejected.accepted, false, `${name} trace is rejected`);
+    assert.equal(rejected.reason, "STATE_PROVENANCE", `${name} trace identifies its provenance failure`);
+    assert.strictEqual(rejected.state, state, `${name} trace returns the supplied state`);
+    assert.equal(canonicalJson(state), before, `${name} trace does not mutate the supplied state`);
+  }
+});
+
 test("P2 Stage 5 exposes both a deliberate victory line and reachable losses", () => {
   const schedule = CAMPAIGN_SCHEDULES[4];
   const deliberate = replayEncounter(schedule, recordsFor(["STRIKE", "DISRUPT", "STRIKE"]));
@@ -293,7 +463,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "out-of-bounds integrity",
       forge: () => {
-        const state = initialEncounter(["STRIKE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[0]);
         state.integrity = 7;
         return state;
       },
@@ -302,7 +472,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "invalid schedule",
       forge: () => {
-        const state = initialEncounter(["STRIKE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[0]);
         state.schedule = ["INVALID"];
         return state;
       },
@@ -311,7 +481,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "invalid DISRUPT usage count",
       forge: () => {
-        const state = initialEncounter(["SURGE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[1]);
         state.disrupt_uses = -1;
         return state;
       },
@@ -320,8 +490,8 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "active state past its schedule",
       forge: () => {
-        const state = initialEncounter(["STRIKE"]);
-        state.round = 1;
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[0]);
+        state.round = 3;
         return state;
       },
       reason: "ROUND_COHERENCE",
@@ -329,7 +499,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "current foe intent mismatch",
       forge: () => {
-        const state = initialEncounter(["STRIKE", "SURGE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[2]);
         state.foe_intent = "SURGE";
         return state;
       },
@@ -338,7 +508,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "stale guard",
       forge: () => {
-        const state = initialEncounter(["STRIKE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[0]);
         state.guard = 2;
         return state;
       },
@@ -347,7 +517,7 @@ test("forged prior states reject malformed bounds, schedule/round coherence, int
     {
       name: "stale surge counter",
       forge: () => {
-        const state = initialEncounter(["SURGE"]);
+        const state = initialEncounter(CAMPAIGN_SCHEDULES[1]);
         state.surge_countered = true;
         return state;
       },

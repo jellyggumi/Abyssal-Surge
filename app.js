@@ -45,6 +45,13 @@ const dom = {
   terminalSummary: document.querySelector("#terminal-summary"),
   settlement: document.querySelector("#settlement-summary"),
   commandButtons: [...document.querySelectorAll("[data-command]")],
+  commandHelp: document.querySelector("#command-help"),
+  hotkeyGuide: {
+    strike: document.querySelector("#hotkey-strike"),
+    brace: document.querySelector("#hotkey-brace"),
+    disrupt: document.querySelector("#hotkey-disrupt"),
+    recover: document.querySelector("#hotkey-recover"),
+  },
   begin: document.querySelector("#begin-button"),
   continue: document.querySelector("#continue-button"),
   restart: document.querySelector("#restart-button"),
@@ -85,10 +92,12 @@ let encounterIndex = 0;
 let sequence = 0;
 let encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
 let records = [];
+let stageJournals = [[]];
 let outcomes = [];
 let settlement = null;
 let currentLang = "en";
 let lastMessage = "";
+let announceAcceptedCommand = false;
 let audioMuted = true;
 let totalCommandsRun = 0;
 let typingInterval = null;
@@ -103,11 +112,8 @@ let foeCharge = 0;
 let lastTickTime = 0;
 let rAFId = null;
 let nextUnitId = 0;
-let isRecovering = false;
-let recoverTimer = 0;
 let lastSecondSave = 0;
 
-const FOCUS_EPSILON = 1e-9;
 
 // DET-STAGE: per-stage real-time presets (presentation-layer only; semantic core untouched).
 // Indexed by encounterIndex, clamped to array bounds.
@@ -149,18 +155,10 @@ function resetRealtimeState({ clearUnits = true } = {}) {
   }
   foeCharge = 0;
   lastTickTime = 0;
-  isRecovering = false;
-  recoverTimer = 0;
   nextUnitId = 0;
   lastSecondSave = 0;
 }
 
-function hasSufficientFocus(required = 1) {
-  return Number(encounter?.focus) >= required - FOCUS_EPSILON;
-}
-function canRecoverFocus() {
-  return Number(encounter?.focus) < Number(encounter?.max_focus) - FOCUS_EPSILON;
-}
 
 const DICTIONARY = {
   en: {
@@ -534,8 +532,6 @@ function triggerFx(type) {
 }
 const storage = typeof window !== "undefined" ? window["local" + "Storage"] : undefined;
 
-const TERMINAL_OUTCOMES = new Set(OUTCOMES.filter((outcome) => outcome !== "ACTIVE"));
-
 function percentage(current, maximum) {
   if (!Number.isSafeInteger(current) || !Number.isSafeInteger(maximum) || maximum <= 0) {
     return "0%";
@@ -556,29 +552,120 @@ function normalizeFloat(value, fallback, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function normalizeOutcomes(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((outcome) => typeof outcome === "string" && TERMINAL_OUTCOMES.has(outcome));
+function isCurrentCoreRecord(record) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return false;
+  const keys = Reflect.ownKeys(record);
+  if (keys.length !== 4 || !["rules_version", "command", "tick", "sequence"].every((key) => keys.includes(key))) return false;
+  return (
+    record.rules_version === RULES_VERSION
+    && COMMANDS.includes(record.command)
+    && Number.isSafeInteger(record.tick)
+    && Number.isSafeInteger(record.sequence)
+    && record.sequence >= 1
+  );
 }
 
-function normalizeRecords(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((record, index) => {
-      if (!record || typeof record !== "object" || Array.isArray(record)) return null;
-      if (!COMMANDS.includes(record.command)) return null;
-      const tick = normalizeInteger(record.tick, index, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
-      const sequence = normalizeInteger(record.sequence, index + 1, 1, Number.MAX_SAFE_INTEGER);
-      return makeCommand(record.command, tick, sequence);
-    })
-    .filter(Boolean);
+function replayStageJournal(stageIndex, storedJournal) {
+  if (!Array.isArray(storedJournal)) return null;
+
+  let state = initialEncounter(CAMPAIGN_SCHEDULES[stageIndex], stageIndex);
+  const acceptedRecords = [];
+  for (let index = 0; index < storedJournal.length; index += 1) {
+    const storedRecord = storedJournal[index];
+    if (!isCurrentCoreRecord(storedRecord) || storedRecord.sequence !== index + 1) return null;
+
+    const candidate = makeCommand(storedRecord.command, storedRecord.tick, storedRecord.sequence);
+    const result = reduceEncounter(state, candidate);
+    if (!result.accepted) return null;
+
+    acceptedRecords.push(candidate);
+    state = result.state;
+  }
+
+  return { state, records: acceptedRecords, sequence: acceptedRecords.length };
 }
 
-function normalizeEncounterIndex(value) {
-  if (!Number.isSafeInteger(value)) return 0;
-  if (value < 0) return 0;
-  if (value >= CAMPAIGN_SCHEDULES.length) return CAMPAIGN_SCHEDULES.length - 1;
-  return value;
+function replayStageJournals(storedJournals) {
+  if (!Array.isArray(storedJournals) || storedJournals.length < 1 || storedJournals.length > CAMPAIGN_SCHEDULES.length) {
+    return { restored: null, consumedAllJournals: false };
+  }
+
+  const journals = [];
+  const restoredOutcomes = [];
+  let total = 0;
+  let restored = null;
+
+  for (let stageIndex = 0; stageIndex < storedJournals.length; stageIndex += 1) {
+    const replay = replayStageJournal(stageIndex, storedJournals[stageIndex]);
+    if (!replay) return { restored, consumedAllJournals: false };
+
+    journals.push(replay.records);
+    total += replay.records.length;
+    if (replay.state.outcome !== "ACTIVE") restoredOutcomes.push(replay.state.outcome);
+    restored = {
+      encounterIndex: stageIndex,
+      encounter: replay.state,
+      records: [...replay.records],
+      sequence: replay.sequence,
+      stageJournals: journals,
+      outcomes: [...restoredOutcomes],
+      settlement: restoredOutcomes.length === CAMPAIGN_SCHEDULES.length ? settleCampaign(restoredOutcomes) : null,
+      totalCommandsRun: total,
+    };
+
+    if (replay.state.outcome === "ACTIVE" && stageIndex < storedJournals.length - 1) {
+      return { restored, consumedAllJournals: false };
+    }
+  }
+
+  return { restored, consumedAllJournals: true };
+}
+
+function restorePreferences(saveState) {
+  currentLang = normalizeLanguage(saveState.currentLang);
+  volumeBgm = normalizeFloat(saveState.volumeBgm, 0.5);
+  volumeSfx = normalizeFloat(saveState.volumeSfx, 0.8);
+  volumeNarr = normalizeFloat(saveState.volumeNarr, 1.0);
+  if (dom.bgmVolume) dom.bgmVolume.value = volumeBgm;
+  if (dom.sfxVolume) dom.sfxVolume.value = volumeSfx;
+  if (dom.narrVolume) dom.narrVolume.value = volumeNarr;
+}
+
+function projectRestoredTerminal() {
+  const dict = dictionaryFor();
+  const replayCheck = validateDeterministicReplay(encounter.schedule, records);
+  const award = awardFor(encounter.outcome);
+  const resolvedEncounterCount = outcomes.length;
+  dom.terminalSummary.textContent = `${terminalCopy(encounter.outcome)} ${dict.terminalAward}: ${award} ${
+    award === 1 ? dict.fragmentSingular : dict.fragmentPlural
+  }. ${replayCheck.matches ? dict.replayDeterministic : dict.replayMismatch}`;
+  dom.settlement.textContent = settlement
+    ? `${dict.stage5SettlementReady}: ${settlement.fragments_earned} ${settlement.fragments_earned === 1 ? dict.fragmentSingular : dict.fragmentPlural}. Wallet ${settlement.fragment_wallet}, resolve marks ${settlement.resolve_marks}.`
+    : `${dict.terminalReady} ${dict.encounterRecordsLabel}: ${resolvedEncounterCount}. ${dict.terminalNext}`;
+  dom.continue.hidden = Boolean(settlement);
+}
+
+function restoreCampaignSurface(next) {
+  surface = next;
+  for (const [name, screen] of Object.entries(dom.screens)) screen.hidden = name !== next;
+  if (next === "play") {
+    if (dom.terminalIllustration) dom.terminalIllustration.style.display = "none";
+    if (dom.screens.play && dom.screens.play.style) {
+      dom.screens.play.style.backgroundImage = `linear-gradient(rgba(11, 13, 20, 0.85), rgba(11, 13, 20, 0.85)), url('assets/images/stage${encounterIndex + 1}.png')`;
+    }
+    if (useRealTime && !rAFId) rAFId = requestAnimationFrame(rtsLoop);
+  } else if (dom.terminalIllustration) {
+    if (encounter.outcome === "VICTORY") {
+      dom.terminalIllustration.src = "assets/images/victory.png";
+      dom.terminalIllustration.style.display = "inline-block";
+    } else if (encounter.outcome.startsWith("DEFEAT")) {
+      dom.terminalIllustration.src = "assets/images/defeat.png";
+      dom.terminalIllustration.style.display = "inline-block";
+    } else {
+      dom.terminalIllustration.style.display = "none";
+    }
+  }
+  render();
 }
 
 function updateTelemetry() {
@@ -596,19 +683,11 @@ function updateTelemetry() {
 function saveGameState() {
   if (!storage) return;
   const saveState = {
-    encounterIndex,
-    sequence,
-    totalCommandsRun,
-    outcomes,
-    settlement,
-    records,
-    encounter,
-    surface,
-    lastMessage,
+    stageJournals,
     currentLang,
     volumeBgm,
     volumeSfx,
-    volumeNarr
+    volumeNarr,
   };
   storage.setItem("abyssal_surge_save", JSON.stringify(saveState));
   checkSave();
@@ -621,60 +700,28 @@ function loadGameState() {
     if (!data) return false;
 
     const saveState = JSON.parse(data);
-    if (!saveState || typeof saveState !== "object") return false;
+    if (!saveState || typeof saveState !== "object" || Array.isArray(saveState)) return false;
 
-    encounterIndex = normalizeEncounterIndex(saveState.encounterIndex);
-    totalCommandsRun = normalizeInteger(saveState.totalCommandsRun, 0);
-    outcomes = normalizeOutcomes(saveState.outcomes).slice(0, CAMPAIGN_SCHEDULES.length);
-    records = normalizeRecords(saveState.records);
-    settlement = null;
+    const replayResult = replayStageJournals(saveState.stageJournals);
+    const restored = replayResult.restored;
+    if (!restored) return false;
 
-    const schedule = CAMPAIGN_SCHEDULES[encounterIndex];
-    try {
-      encounter = replayEncounter(schedule, records).state;
-    } catch (err) {
-      console.warn("Failed to replay saved encounter state; using canonical seed state.", err);
-      encounter = initialEncounter(schedule, encounterIndex);
-      records = [];
-      outcomes = [];
-    }
+    restorePreferences(saveState);
+    encounterIndex = restored.encounterIndex;
+    encounter = restored.encounter;
+    records = restored.records;
+    sequence = restored.sequence;
+    stageJournals = restored.stageJournals;
+    outcomes = restored.outcomes;
+    settlement = restored.settlement;
+    totalCommandsRun = restored.totalCommandsRun;
+    lastMessage = encounter.outcome === "ACTIVE" ? encounterStartMessage() : dictionaryFor().terminalIdle;
+    announceAcceptedCommand = false;
 
-    sequence = records.reduce((maxSequence, record) => Math.max(maxSequence, normalizeInteger(record.sequence, 0, 1)), 0);
-    const savedSequence = normalizeInteger(saveState.sequence, 0, 0);
-    if (savedSequence > sequence) {
-      sequence = savedSequence;
-    } else if (sequence > Number.MAX_SAFE_INTEGER) {
-      sequence = Number.MAX_SAFE_INTEGER;
-    }
-
-    const savedLang = normalizeLanguage(saveState.currentLang);
-    currentLang = savedLang;
-    const dict = dictionaryFor(savedLang);
-    lastMessage = typeof saveState.lastMessage === "string" ? saveState.lastMessage : dict.terminalIdle;
-    if (outcomes.length === CAMPAIGN_SCHEDULES.length) {
-      try {
-        settlement = settleCampaign(outcomes);
-      } catch (err) {
-        settlement = null;
-        console.warn("Saved settlement did not validate; cleared settlement state.", err);
-      }
-    } else {
-      settlement = null;
-    }
-
-    // Restore volume preferences
-    volumeBgm = normalizeFloat(saveState.volumeBgm, 0.5);
-    volumeSfx = normalizeFloat(saveState.volumeSfx, 0.8);
-    volumeNarr = normalizeFloat(saveState.volumeNarr, 1.0);
-    if (dom.bgmVolume) dom.bgmVolume.value = volumeBgm;
-    if (dom.sfxVolume) dom.sfxVolume.value = volumeSfx;
-    if (dom.narrVolume) dom.narrVolume.value = volumeNarr;
-
-    if (encounter.outcome === "ACTIVE") {
-      showSurface("play");
-    } else {
-      showSurface("terminal");
-    }
+    resetRealtimeState({ clearUnits: true });
+    if (encounter.outcome !== "ACTIVE") projectRestoredTerminal();
+    restoreCampaignSurface(encounter.outcome === "ACTIVE" ? "play" : "terminal");
+    if (replayResult.consumedAllJournals) saveGameState();
     return true;
   } catch (err) {
     console.warn("Failed to load game state:", err);
@@ -694,10 +741,10 @@ function rtsLoop(timestamp) {
   if (surface !== "play" || encounter.outcome !== "ACTIVE") {
     return;
   }
-  
+
   if (!lastTickTime) lastTickTime = timestamp;
-  let dt = (timestamp - lastTickTime) / 1000; // in seconds
-  if (dt > 0.1) dt = 0.1; // cap DT to prevent giant jumps when tab loses focus
+  let dt = (timestamp - lastTickTime) / 1000;
+  if (dt > 0.1) dt = 0.1;
   lastTickTime = timestamp;
 
   // 1. Foe Attack charge progress
@@ -880,10 +927,14 @@ function rtsLoop(timestamp) {
       }
       nextUnits.push(unit);
     }
+
+    if (unit.element) {
+      unit.element.style.left = `${unit.x}%`;
+    }
+    nextUnits.push(unit);
   }
   activeUnits = nextUnits;
 
-  // Throttle saveGameState to once per second in real-time loops
   if (timestamp - lastSecondSave >= 1000) {
     saveGameState();
     lastSecondSave = timestamp;
@@ -1217,6 +1268,11 @@ function translateUI() {
     }
   }
 
+  if (dom.hotkeyGuide.strike) dom.hotkeyGuide.strike.innerHTML = `<strong>[S]</strong> ${commandLabel("STRIKE")}`;
+  if (dom.hotkeyGuide.brace) dom.hotkeyGuide.brace.innerHTML = `<strong>[B]</strong> ${commandLabel("BRACE")}`;
+  if (dom.hotkeyGuide.disrupt) dom.hotkeyGuide.disrupt.innerHTML = `<strong>[D]</strong> ${commandLabel("DISRUPT")}`;
+  if (dom.hotkeyGuide.recover) dom.hotkeyGuide.recover.innerHTML = `<strong>[R]</strong> ${commandLabel("RECOVER")}`;
+
   // Update toggle button text
   if (dom.langToggle) {
     dom.langToggle.textContent = currentLang === "ko" ? "English 🌐" : "한글 🌐";
@@ -1417,7 +1473,16 @@ function recordCommand(command) {
   play(command.toLowerCase());
   triggerFx(command);
 
-  // Avatar attack/defense charges
+  if (useRealTime && command !== "RECOVER") {
+    if (command === "DISRUPT") {
+      removeHostileUnits({ dispel: true });
+    }
+    spawnUnit(command);
+  }
+  if (useRealTime && entry && entry.foe_resolved && encounter.outcome === "ACTIVE") {
+    spawnHostileWave();
+  }
+
   if (command === "STRIKE" || command === "DISRUPT") {
     if (dom.voidAvatar && dom.voidAvatar.classList) {
       dom.voidAvatar.classList.add("damage-flash");
@@ -1428,29 +1493,21 @@ function recordCommand(command) {
       }, 400);
     }
   }
+
   if (command === "BRACE" || command === "RECOVER" || command === "DISRUPT") {
     if (dom.knightAvatar && dom.knightAvatar.classList) {
       dom.knightAvatar.classList.add("shield-glow");
+      if (useRealTime && command === "RECOVER") {
+        dom.knightAvatar.classList.add("recover-pulse");
+      }
       setTimeout(() => {
         if (dom.knightAvatar && dom.knightAvatar.classList) {
-          dom.knightAvatar.classList.remove("shield-glow");
+          dom.knightAvatar.classList.remove("shield-glow", "recover-pulse");
         }
-      }, 600);
+      }, command === "RECOVER" ? 800 : 600);
     }
   }
 
-  const record = makeCommand(command, encounter.round, ++sequence);
-  records.push(record);
-  const result = reduceEncounter(encounter, record);
-  if (!result.accepted) {
-    lastMessage = commandRejectionMessage(result.reason, command);
-    render();
-    return;
-  }
-  encounter = result.state;
-  const entry = encounter.trace.at(-1);
-
-  // Player damage flash check on adverse damage resolution
   if (entry && entry.foe_resolved && entry.adverse_damage > 0) {
     if (dom.knightAvatar && dom.knightAvatar.classList) {
       dom.knightAvatar.classList.add("damage-flash");
@@ -1461,6 +1518,28 @@ function recordCommand(command) {
       }, 400);
     }
   }
+}
+
+function recordCommand(command) {
+  if (!COMMAND_SET.has(command)) return;
+
+  const candidate = makeCommand(command, encounter.round, sequence + 1);
+  const result = reduceEncounter(encounter, candidate);
+  if (!result.accepted) {
+    lastMessage = commandRejectionMessage(result.reason, command);
+    announceAcceptedCommand = false;
+    render();
+    return;
+  }
+
+  sequence += 1;
+  records.push(candidate);
+  stageJournals[encounterIndex].push(candidate);
+  encounter = result.state;
+  totalCommandsRun += 1;
+
+  const entry = encounter.trace.at(-1);
+  presentAcceptedCommand(command, entry);
 
   const dict = dictionaryFor();
   const commandLabelText = commandLabel(command);
@@ -1468,7 +1547,11 @@ function recordCommand(command) {
   const outcomeTextLabel = entry ? traceOutcomeText(entry.outcome) : "";
   const adverseText = entryAdverseText(entry);
   const outcomeLabel = outcomeTextLabel ? `${dict.outcomeLabel}: ${outcomeTextLabel}.` : "";
-  lastMessage = `${roundPrefix} ${entry?.round}: ${commandLabelText}; ${adverseText}. ${outcomeLabel}`.trim();
+  lastMessage = entry
+    ? `${roundPrefix} ${entry.round}: ${commandLabelText}; ${adverseText}. ${outcomeLabel}`.trim()
+    : commandAcceptanceMessage(command);
+  announceAcceptedCommand = true;
+
   if (encounter.outcome !== "ACTIVE") finishEncounter();
   render();
   saveGameState();
@@ -1500,10 +1583,11 @@ function finishEncounter() {
 }
 
 function continueCampaign() {
-  if (settlement || encounter.outcome === "ACTIVE") return;
+  if (settlement || encounter.outcome === "ACTIVE" || encounterIndex >= CAMPAIGN_SCHEDULES.length - 1) return;
   encounterIndex += 1;
   sequence = 0;
   records = [];
+  stageJournals.push([]);
   encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
   resetRealtimeState({ clearUnits: true });
   lastMessage = encounterStartMessage();
@@ -1518,6 +1602,7 @@ function resetCampaign() {
   sequence = 0;
   totalCommandsRun = 0;
   records = [];
+  stageJournals = [[]];
   outcomes = [];
   settlement = null;
   encounter = initialEncounter(CAMPAIGN_SCHEDULES[0], 0);
@@ -1803,13 +1888,21 @@ function render() {
     return item;
   }));
 
-  // Narration with typing animation
-  if (surface === "play" && sequence > 0) {
+  // Only accepted commands animate narration; rejection feedback is immediate
+  // so it cannot trigger the typewriter's click SFX.
+  if (surface === "play" && sequence > 0 && announceAcceptedCommand) {
     if (dom.announcement.dataset && dom.announcement.dataset.lastMessage !== lastMessage) {
       dom.announcement.dataset.lastMessage = lastMessage;
       typeText(dom.announcement, lastMessage);
     }
   } else {
+    if (typingInterval) {
+      clearInterval(typingInterval);
+      typingInterval = null;
+    }
+    if (dom.announcement.classList) {
+      dom.announcement.classList.remove("typing");
+    }
     dom.announcement.textContent = lastMessage;
     if (dom.announcement.dataset) {
       dom.announcement.dataset.lastMessage = lastMessage;
@@ -1820,7 +1913,9 @@ function render() {
   updateTelemetry();
   translateUI();
 
-  for (const button of dom.commandButtons) button.disabled = !commandAvailable(button.dataset.command);
+  const previews = surface === "play" && encounter.outcome === "ACTIVE" ? previewCommands() : [];
+  for (const button of dom.commandButtons) button.disabled = !commandAvailable(button.dataset.command, previews);
+  if (dom.commandHelp) dom.commandHelp.textContent = commandHelpText(previews);
   document.querySelector("#threat-copy").textContent = threatCopy(encounter);
 }
 
@@ -1967,14 +2062,9 @@ function showSurface(next) {
     if (useRealTime) {
       lastTickTime = 0;
       foeCharge = 0;
-      // DET6-FOE (rev): the first charge cycle starts now — telegraph it.
-      if (encounter.outcome === "ACTIVE") {
-        spawnHostileWave();
-        // DET7-CINE: fresh full-initial-state entry (begin/continue) —
-        // the cinematic gates visually; deterministic state is untouched.
-        if (startCinematic) {
-          playStageCinematic(encounterIndex);
-        }
+      // Hostile telegraphs are created only from accepted reducer results.
+      if (encounter.outcome === "ACTIVE" && startCinematic) {
+        playStageCinematic(encounterIndex);
       }
       if (!rAFId) {
         rAFId = requestAnimationFrame(rtsLoop);
@@ -2039,28 +2129,24 @@ function counterCopy(state) {
   return `${commandLabel("BRACE")} costs ${commandCost(state, "BRACE")} focus and prevents this ${intentLabel(state.foe_intent)}'s 2 damage.`;
 }
 
-function commandAvailable(command) {
-  if (surface !== "play" || encounter.outcome !== "ACTIVE") return false;
+function previewCommands(state = encounter, nextSequence = sequence + 1) {
+  return COMMANDS.map((command) => ({
+    command,
+    preview: reduceEncounter(state, makeCommand(command, state.round, nextSequence)),
+  }));
+}
 
-  if (useRealTime) {
-    if (!COMMAND_SET.has(command)) return false;
+function commandHelpText(previews) {
+  const rejected = previews.filter(({ preview }) => !preview.accepted);
+  if (rejected.length === 0) return dictionaryFor().commandHelp;
+  return rejected
+    .map(({ command, preview }) => `${commandLabel(command)}: ${commandRejectText(preview.reason)}`)
+    .join(" ");
+}
 
-    // In RTS mode, we intentionally allow actions from fractional focus values
-    // produced by continuous recovery and avoid reducer parity checks that require
-    // turn-based integer ticks.
-    if (command === "STRIKE" || command === "BRACE" || command === "DISRUPT") {
-      if (!hasSufficientFocus()) return false;
-      if (command === "DISRUPT" && encounter.foe_intent !== "SURGE") return false;
-      return true;
-    }
-    if (command === "RECOVER") {
-      return canRecoverFocus();
-    }
-    return false;
-  }
-
-  const preview = reduceEncounter(encounter, makeCommand(command, encounter.round, sequence + 1));
-  return preview.accepted;
+function commandAvailable(command, previews = null) {
+  if (surface !== "play" || encounter.outcome !== "ACTIVE" || !COMMAND_SET.has(command)) return false;
+  return Boolean((previews || previewCommands()).find((entry) => entry.command === command)?.preview.accepted);
 }
 
 function terminalCopy(outcome) {
@@ -2158,7 +2244,7 @@ document.addEventListener("keydown", (event) => {
   if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || document.activeElement?.tagName === "INPUT") return;
   const keyboardCommands = { s: "STRIKE", b: "BRACE", d: "DISRUPT", r: "RECOVER" };
   const command = keyboardCommands[event.key.toLowerCase()];
-  if (!command || !commandAvailable(command)) return;
+  if (!command || surface !== "play" || encounter.outcome !== "ACTIVE") return;
   event.preventDefault();
   recordCommand(command);
 });
@@ -2166,6 +2252,13 @@ document.addEventListener("keydown", (event) => {
 if (dom.langToggle) {
   dom.langToggle.addEventListener("click", () => {
     currentLang = currentLang === "ko" ? "en" : "ko";
+    if (
+      surface === "lobby" &&
+      (lastMessage === dictionaryFor("en").terminalIdle ||
+        lastMessage === dictionaryFor("ko").terminalIdle)
+    ) {
+      lastMessage = dictionaryFor().terminalIdle;
+    }
     translateUI();
     render();
     saveGameState();
@@ -2178,12 +2271,11 @@ if (storage) {
     const saved = storage.getItem("abyssal_surge_save");
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed.currentLang) {
-        currentLang = parsed.currentLang;
-      }
+      currentLang = normalizeLanguage(parsed.currentLang);
     }
   } catch (e) {}
 }
+lastMessage = dictionaryFor().terminalIdle;
 
 translateUI();
 checkSave();
