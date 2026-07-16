@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene7_return,93.00,111.00,assets/audio/ambient.mp3,-17,all,귀환부 감정 잔향 레이어
+sfx_return_pull,93.80,95.20,assets/audio/extract.mp3,-4,bgm,성소로 회귀하는 전환음
+sfx_shrine_sync,98.20,101.20,assets/audio/domain.mp3,-3,bgm,영속 강화 반영 인터페이스 사운드
+sfx_epilogue_lock,105.30,110.80,assets/audio/extract.mp3,-2,bgm,세션 정산 확정 사운드

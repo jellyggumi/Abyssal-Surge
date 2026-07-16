@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene2_node,18.00,30.00,assets/audio/domain.mp3,-18,all,초반 전술 전환부 긴장 유지 베이스
+sfx_node_scan,18.40,19.40,assets/audio/extract.mp3,-5,bgm,거점 탐색 신호 하이라이트
+sfx_claim_beacon,22.20,24.30,assets/audio/extract.mp3,-3,bgm,거점 점령 시점의 장거리 반응음
+sfx_recovery_breath,26.00,30.00,assets/audio/ambient.mp3,-6,all,점령 후 안정화/재정렬 브리지

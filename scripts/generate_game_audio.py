@@ -43,6 +43,13 @@ SFX_PROMPTS = {
         "obsidian bridge above a red abyss; occasional ember crackle and far-off stone groan. "
         "No melody, no voices."
     ),
+    "bgm": (
+        "Original Shadow Lord game main theme: a grand, dark orchestral loop for the "
+        "Abyssal Command lobby. Slow rising low string drone and distant war drums, "
+        "building into a restrained wordless choir swell over deep brass, with a cold "
+        "metallic shimmer suggesting a dimensional gate. Ominous, epic, mysterious, "
+        "cinematic dark fantasy tone. No lyrics, no spoken words, seamless loop-friendly."
+    ),
 }
 NARRATION_PROMPT = (
     "Speak in a calm, grave fantasy narrator voice: \"The Cinder Span remembers every "

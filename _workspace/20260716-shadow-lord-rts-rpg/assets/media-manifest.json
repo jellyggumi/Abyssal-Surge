@@ -1,0 +1,934 @@
+{
+  "project": "shadow-lord-rts-rpg",
+  "module": "cinematic_scene_0",
+  "updated_at": "2026-07-16T15:24:17Z",
+  "assets": [
+    {
+      "asset_id": "scene_00_gate_opening_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_gate_opening.mp4",
+      "size_bytes": 174625,
+      "sha256": "7f90bb6693d08cd2284507f87fe3afff430716f6dd6f1574e5530bd7a7e46816",
+      "status": "present",
+      "role": "cinematic_video"
+    },
+    {
+      "asset_id": "scene_00_gate_opening_gotibo_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_gate_opening_gotibo_v01.mp4",
+      "size_bytes": 335398,
+      "sha256": "8b2b4611c5f909e75df3494406ae8b6c2109d4c15b5438e8fc2084977ae7c492",
+      "status": "present",
+      "role": "scene0_reference_gotibo"
+    },
+    {
+      "asset_id": "scene_00_gate_opening_gotibo_v02_scene0_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_gate_opening_gotibo_v02_scene0.mp4",
+      "size_bytes": 571130,
+      "sha256": "4056aee4fd7dd21a3278baeeecde8a416c497abcd963e0de92b985d18a97f7c8",
+      "status": "present",
+      "role": "scene0_reference_gotibo"
+    },
+    {
+      "asset_id": "scene_00_opening_gate_cinematic_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_opening_gate_cinematic_v01.mp4",
+      "size_bytes": 558010,
+      "sha256": "1af279699069f0da149f3550aec395eeeee473a6efb03be1de0c0715b7eba837",
+      "status": "present",
+      "role": "scene0_final"
+    },
+    {
+      "asset_id": "scene_00_opening_gate_cinematic_v01_subbed_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_opening_gate_cinematic_v01_subbed.mp4",
+      "size_bytes": 561477,
+      "sha256": "6b1a7b12f3d2ed5420cc105917bf10b2ed7f6e38947e4817f883288dd76486c3",
+      "status": "present",
+      "role": "scene0_final_subbed"
+    },
+    {
+      "asset_id": "scene_00_shot_domain_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_shot_domain_v01.mp4",
+      "size_bytes": 191453,
+      "sha256": "9000967e4bd242dd273b5b5c909612d9dd1a0bfd741e65b76748a34353c51ee7",
+      "status": "present",
+      "role": "scene0_shot_domain"
+    },
+    {
+      "asset_id": "scene_00_shot_gatev01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_shot_gatev01_v01.mp4",
+      "size_bytes": 126226,
+      "sha256": "3aeadc5a061623aa4dc38522493b129714cbae1a9ea8acde484317a784d643f1",
+      "status": "present",
+      "role": "cinematic_video"
+    },
+    {
+      "asset_id": "scene_00_shot_prompt_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_shot_prompt_v01.mp4",
+      "size_bytes": 75272,
+      "sha256": "500d8bb9615df525fd0c9b2de218c4d1db710723c035a965dffb703dbb6b389c",
+      "status": "present",
+      "role": "scene0_shot_prompt"
+    },
+    {
+      "asset_id": "scene_00_shot_soul_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_shot_soul_v01.mp4",
+      "size_bytes": 86513,
+      "sha256": "15cb1c36f139709ff5d1d7340ad81a999d650e2b51ea7302007df01907aa115e",
+      "status": "present",
+      "role": "scene0_shot_soul"
+    },
+    {
+      "asset_id": "scene_00_to_01_opening_encounter_cinematic_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
+      "size_bytes": 856442,
+      "sha256": "6d7a3299abab06388fa22e1d615b279f02adfeab65326d8e4685542d9ad09cfd",
+      "status": "present",
+      "role": "scene0_to_1_bridge"
+    },
+    {
+      "asset_id": "scene_00_to_01_opening_encounter_cinematic_v01_subbed_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_opening_encounter_cinematic_v01_subbed.mp4",
+      "size_bytes": 866550,
+      "sha256": "94db8bc4a491aaaf79cb2681656aaddf47d03eb1ade0d85de40ed00559f9e8d7",
+      "status": "present",
+      "role": "scene0_to_1_bridge"
+    },
+    {
+      "asset_id": "scene_01_shot_possession_hint_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_01_shot_possession_hint_v01.mp4",
+      "size_bytes": 168165,
+      "sha256": "8c55f5b1d5d100087655b6664e46ce0f31746ba4f73aae0a202f6fabf5a641e5",
+      "status": "present",
+      "role": "scene1_shot_possession_hint"
+    },
+    {
+      "asset_id": "scene_01_shot_soul_hunt_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_01_shot_soul_hunt_v01.mp4",
+      "size_bytes": 71750,
+      "sha256": "047d96a343c5ff2607630895c215bd61559912e5b91c1779f0bba006d41d8f44",
+      "status": "present",
+      "role": "scene1_shot_soul_hunt"
+    },
+    {
+      "asset_id": "scene_02_node_contest_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_02_node_contest_v01.mp4",
+      "size_bytes": 827090,
+      "sha256": "ef7352846720ef16fdbbc35514ba4cb89b1c99e5d1eff05ac6941508f43f9a00",
+      "status": "present",
+      "role": "scene2_node_contest"
+    },
+    {
+      "asset_id": "scene_02_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_02_shot_01_v01.mp4",
+      "size_bytes": 125771,
+      "sha256": "324b3f904c8e90903d200a036b51ac78846099c1d11f176b21cbdb66f7d6fa36",
+      "status": "present",
+      "role": "scene2_shot_1"
+    },
+    {
+      "asset_id": "scene_02_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_02_shot_02_v01.mp4",
+      "size_bytes": 274445,
+      "sha256": "b53e9b273bb17eed89aa0d870e5cf39b827af9ecf437eda4b926dce4ff640789",
+      "status": "present",
+      "role": "scene2_shot_2"
+    },
+    {
+      "asset_id": "scene_02_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_02_shot_03_v01.mp4",
+      "size_bytes": 313931,
+      "sha256": "e0fa235af2a86e094e8247e063bf41073215b749c0fa731145cd88e167d99fc0",
+      "status": "present",
+      "role": "scene2_shot_3"
+    },
+    {
+      "asset_id": "scene_02_to_03_arise_push_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_02_to_03_arise_push_v01.mp4",
+      "size_bytes": 1933135,
+      "sha256": "5ecadaf560227e25483dffa93c9c0c0c4aed0a1c91d90a714ced14dfdd8613fa",
+      "status": "present",
+      "role": "scene2_to_3_bridge"
+    },
+    {
+      "asset_id": "scene_03_engagement_bloom_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_03_engagement_bloom_v01.mp4",
+      "size_bytes": 880107,
+      "sha256": "b63c08cabbfc241b0335790bd97ce65b0dd00b7ddeaf832efe15635b6a4aec66",
+      "status": "present",
+      "role": "scene3_engagement_bloom"
+    },
+    {
+      "asset_id": "scene_03_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_03_shot_01_v01.mp4",
+      "size_bytes": 317453,
+      "sha256": "63519710a44e7527357447f55935dc95f1f03aa10fa27819da1abe095d3d5a31",
+      "status": "present",
+      "role": "scene3_shot_1"
+    },
+    {
+      "asset_id": "scene_03_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_03_shot_02_v01.mp4",
+      "size_bytes": 273336,
+      "sha256": "4c832389046e852eebb0d3ba6c6bb1fdc9154af149ecb7d68c946fc8356bec84",
+      "status": "present",
+      "role": "scene3_shot_2"
+    },
+    {
+      "asset_id": "scene_03_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_03_shot_03_v01.mp4",
+      "size_bytes": 199199,
+      "sha256": "ceb4b94616a14ea2e08f6e05f0995b9dc52c1514554ada472052cbf722db6718",
+      "status": "present",
+      "role": "scene3_shot_3"
+    },
+    {
+      "asset_id": "scene_03_to_04_engagement_shift_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_03_to_04_engagement_shift_v01.mp4",
+      "size_bytes": 1905965,
+      "sha256": "bd47782d1d61c787d62795215765b56a7b307867daa05c1fe1ae07dbfa1f678e",
+      "status": "present",
+      "role": "scene3_to_4_bridge"
+    },
+    {
+      "asset_id": "scene_04_comeback_shift_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_04_comeback_shift_v01.mp4",
+      "size_bytes": 889459,
+      "sha256": "5001843be812989bbf4edcb48df1ac2ef958f0823c589f7894e1ff7d4a657dfd",
+      "status": "present",
+      "role": "scene4_comeback_shift"
+    },
+    {
+      "asset_id": "scene_04_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_04_shot_01_v01.mp4",
+      "size_bytes": 282335,
+      "sha256": "0b513039e790c1557540b9585bc0d047eefc28929c9b705b999bf8e023f68da1",
+      "status": "present",
+      "role": "scene4_shot_1"
+    },
+    {
+      "asset_id": "scene_04_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_04_shot_02_v01.mp4",
+      "size_bytes": 317453,
+      "sha256": "63519710a44e7527357447f55935dc95f1f03aa10fa27819da1abe095d3d5a31",
+      "status": "present",
+      "role": "scene4_shot_2"
+    },
+    {
+      "asset_id": "scene_04_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_04_shot_03_v01.mp4",
+      "size_bytes": 199199,
+      "sha256": "ceb4b94616a14ea2e08f6e05f0995b9dc52c1514554ada472052cbf722db6718",
+      "status": "present",
+      "role": "scene4_shot_3"
+    },
+    {
+      "asset_id": "scene_04_to_05_dominance_fall_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_04_to_05_dominance_fall_v01.mp4",
+      "size_bytes": 1815254,
+      "sha256": "c496e82ae4e76c7b9490b2258d5a604c75f849122a886137cf7d10d571a41be8",
+      "status": "present",
+      "role": "scene4_to_5_bridge"
+    },
+    {
+      "asset_id": "scene_05_composure_storm_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_05_composure_storm_v01.mp4",
+      "size_bytes": 821859,
+      "sha256": "978c6886301a6a72ab9cddf27babe3aaefb09b98f70591799c6eccdbe3dbdc57",
+      "status": "present",
+      "role": "scene5_composure_storm"
+    },
+    {
+      "asset_id": "scene_05_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_05_shot_01_v01.mp4",
+      "size_bytes": 273336,
+      "sha256": "4c832389046e852eebb0d3ba6c6bb1fdc9154af149ecb7d68c946fc8356bec84",
+      "status": "present",
+      "role": "scene5_shot_1"
+    },
+    {
+      "asset_id": "scene_05_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_05_shot_02_v01.mp4",
+      "size_bytes": 127160,
+      "sha256": "4a1488edfc5bc4421f52e0e9b7d04b2f83f80cd28cb7e9d196615fa020bcd5ed",
+      "status": "present",
+      "role": "scene5_shot_2"
+    },
+    {
+      "asset_id": "scene_05_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_05_shot_03_v01.mp4",
+      "size_bytes": 314038,
+      "sha256": "af87d1f90e35ea2d47e01a4a69c2d2ca12dc92266c15394a49be4f63fd279398",
+      "status": "present",
+      "role": "scene5_shot_3"
+    },
+    {
+      "asset_id": "scene_05_to_06_storm_to_apex_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
+      "size_bytes": 1838855,
+      "sha256": "6327485401c34a151766648d8a791c88d0222e2bc3b6c0beee3f6cf723af6273",
+      "status": "present",
+      "role": "scene5_to_6_bridge"
+    },
+    {
+      "asset_id": "scene_06_apex_assault_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_06_apex_assault_v01.mp4",
+      "size_bytes": 919700,
+      "sha256": "11acfaf70578881e505d90536e507c7303b994c9a0634ac1f8b331e652e1e876",
+      "status": "present",
+      "role": "scene6_apex_assault"
+    },
+    {
+      "asset_id": "scene_06_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_06_shot_01_v01.mp4",
+      "size_bytes": 204843,
+      "sha256": "a58ff37804c05976bd3be20f9ac857155fc950e0bb5a0446090768227205df07",
+      "status": "present",
+      "role": "scene6_shot_1"
+    },
+    {
+      "asset_id": "scene_06_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_06_shot_02_v01.mp4",
+      "size_bytes": 279965,
+      "sha256": "94b5022672d2a14d7c482d5a9a4d3068eaed08fbf82795bac0cca58e898745ec",
+      "status": "present",
+      "role": "scene6_shot_2"
+    },
+    {
+      "asset_id": "scene_06_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_06_shot_03_v01.mp4",
+      "size_bytes": 322298,
+      "sha256": "e2da743316d1eff9ecb336c6608368f584cc9bf75c0c1ed4de711453c8120ea5",
+      "status": "present",
+      "role": "scene6_shot_3"
+    },
+    {
+      "asset_id": "scene_06_to_07_return_persistence_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_06_to_07_return_persistence_v01.mp4",
+      "size_bytes": 1875638,
+      "sha256": "72709c420d32bb2572d9027f798f53541821f279871b9c511136fd42095fc115",
+      "status": "present",
+      "role": "scene6_to_7_bridge"
+    },
+    {
+      "asset_id": "scene_07_return_persistence_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_07_return_persistence_v01.mp4",
+      "size_bytes": 892109,
+      "sha256": "90572ba4a822c109363084677cecd81cbfc557dc2ba65e09c6801a99d30a9ba7",
+      "status": "present",
+      "role": "scene7_return_persistence"
+    },
+    {
+      "asset_id": "scene_07_shot_01_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_07_shot_01_v01.mp4",
+      "size_bytes": 296635,
+      "sha256": "ad1b46166cf1a8b444c906115197a25ad37964494296e92c7fec3247a0302bd4",
+      "status": "present",
+      "role": "scene7_shot_1"
+    },
+    {
+      "asset_id": "scene_07_shot_02_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_07_shot_02_v01.mp4",
+      "size_bytes": 115941,
+      "sha256": "6d68cab730fc5e5539f1e18a6d05babafb45115b7ef81c0e8a1e9ca7c028a19d",
+      "status": "present",
+      "role": "scene7_shot_2"
+    },
+    {
+      "asset_id": "scene_07_shot_03_v01_mp4",
+      "category": "cinematic_video",
+      "path": "_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_07_shot_03_v01.mp4",
+      "size_bytes": 279965,
+      "sha256": "94b5022672d2a14d7c482d5a9a4d3068eaed08fbf82795bac0cca58e898745ec",
+      "status": "present",
+      "role": "scene7_shot_3"
+    },
+    {
+      "asset_id": "scene_00_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_00_concat_input.txt",
+      "size_bytes": 135,
+      "sha256": "3e6529bc349576a48ecac4dea914d4bbc54fca1c9d214561fc50af48fb3d8706",
+      "status": "present",
+      "role": "concat_manifest"
+    },
+    {
+      "asset_id": "scene_00_to_01_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_00_to_01_concat_input.txt",
+      "size_bytes": 125,
+      "sha256": "16d924cc62a953b8632feb7c984dfe07ad66712abd6ded03341517bd12bd5175",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_00_to_01_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_00_to_01_shot_subtitles.srt",
+      "size_bytes": 522,
+      "sha256": "6a0fbe665b4f5a3e53c9455130e4989aee0042829d196b9323cf2edba9764dc2",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_01_to_02_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_01_to_02_concat_input.txt",
+      "size_bytes": 78,
+      "sha256": "306781110a0502236e4a46c9fb233a9598823e8c7b018843061e0d17687aac41",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_01_to_02_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_01_to_02_shot_subtitles.srt",
+      "size_bytes": 376,
+      "sha256": "28053b0d91ed1633684b48c2d83f130e29a2893daab0f05c36bea65f85c421c7",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_02_to_03_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_02_to_03_concat_input.txt",
+      "size_bytes": 74,
+      "sha256": "3e15adbb5ea7a8c9fedce5a20e1d0a3f847d26f669456aa45df8292e4c2e79cf",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_02_to_03_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_02_to_03_shot_subtitles.srt",
+      "size_bytes": 314,
+      "sha256": "b660919803ffdb96f78e6d759adee0235c731d0c850e55d9adf4fe9b7f82e1d6",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_03_to_04_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_03_to_04_concat_input.txt",
+      "size_bytes": 76,
+      "sha256": "a34e2506bb4f1fae7b2e1a33e7f3892594dd121e2d25746ce3f32a3497db56d0",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_03_to_04_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_03_to_04_shot_subtitles.srt",
+      "size_bytes": 324,
+      "sha256": "477b0178514e17f962b0d1b151e68afdfae5a29fbe724d1d2755fc0764164f28",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_04_to_05_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_04_to_05_concat_input.txt",
+      "size_bytes": 75,
+      "sha256": "a0c5c3bcc9af5464c7f0594c8400eedb23d3273eff3de5a58cd3ea1c22884c1d",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_04_to_05_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_04_to_05_shot_subtitles.srt",
+      "size_bytes": 292,
+      "sha256": "7bbaed6ce3f6818b9b9f0c91f0c2c7227c9313277610a0c9b1ac89096d2bd76c",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_05_to_06_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_05_to_06_concat_input.txt",
+      "size_bytes": 73,
+      "sha256": "4b5cb1142831d8a68c94f2bd88e1f15862713119f1c262e9834946bc1ac39bbc",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_05_to_06_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_05_to_06_shot_subtitles.srt",
+      "size_bytes": 343,
+      "sha256": "69dc60f6c1bb31b21de459d9bd1b120620bd8ec16bc65b95891c064f5bdf058f",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_06_to_07_concat_input_txt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_06_to_07_concat_input.txt",
+      "size_bytes": 76,
+      "sha256": "7627883989c8ef780e7546418de2f3ad2022c520bc5c382d86fdff104858c2df",
+      "status": "present",
+      "role": "bridge_concat_manifest"
+    },
+    {
+      "asset_id": "scene_06_to_07_shot_subtitles_srt",
+      "category": "cinematic_data",
+      "path": "assets/video/scene_06_to_07_shot_subtitles.srt",
+      "size_bytes": 347,
+      "sha256": "8e28ab46fdb062800a629310a6053d7467a97cd8dd83b248f95080d70089c99d",
+      "status": "present",
+      "role": "bridge_subtitles"
+    },
+    {
+      "asset_id": "scene_00_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_00_audio_cue.csv",
+      "size_bytes": 452,
+      "sha256": "500d3e9b1c196551921ead3f0b5ee146bf44825da38658333f81e86789e0e735",
+      "status": "present",
+      "role": "audio_spec"
+    },
+    {
+      "asset_id": "scene_00_opening_gate_prompt_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_00_opening_gate_prompt.png",
+      "size_bytes": 1051038,
+      "sha256": "a303e334adf439248394f8ae501ac558dd60a19652e8f38f3324b8c849fadb00",
+      "status": "present",
+      "role": "key_art"
+    },
+    {
+      "asset_id": "scene_00_opening_gate_v01_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_00_opening_gate_v01.png",
+      "size_bytes": 2394576,
+      "sha256": "89f9f642a1f7ef933a420f26d282a440f953a7d3865f2441154459308409434f",
+      "status": "present",
+      "role": "vfx_variant"
+    },
+    {
+      "asset_id": "scene_00_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_00_scene_script.csv",
+      "size_bytes": 578,
+      "sha256": "4515fa6286a683a715fd1f6597bac31750681dc51a4d132271461846bda50ef4",
+      "status": "present",
+      "role": "timeline_spec"
+    },
+    {
+      "asset_id": "scene_00_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_00_shot_sheet.csv",
+      "size_bytes": 522,
+      "sha256": "24e2dd781f0c106c5eba4fc32bd4b6f26e563b0ca85149ea40765ba9d0c83149",
+      "status": "present",
+      "role": "shot_spec"
+    },
+    {
+      "asset_id": "scene_00_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_00_subtitles_kr.csv",
+      "size_bytes": 518,
+      "sha256": "63472b2853c3c1d87f90cfac574bd89ef8494a994e7617820e5c90ece8669bd7",
+      "status": "present",
+      "role": "subtitle_kr"
+    },
+    {
+      "asset_id": "scene_00_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_00_vfx_priority.csv",
+      "size_bytes": 579,
+      "sha256": "354ef27f312b1bb3922a3d14d6c2e33b5714114ebbc2604c83de885a9183ff2f",
+      "status": "present",
+      "role": "vfx_routing"
+    },
+    {
+      "asset_id": "scene_01_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_01_audio_cue.csv",
+      "size_bytes": 508,
+      "sha256": "712cf88c3754503f259c641a0d4d4e5aef955611d9ae56fa11a897cf0c3b6756",
+      "status": "present",
+      "role": "scene1_audio_spec"
+    },
+    {
+      "asset_id": "scene_01_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_01_scene_script.csv",
+      "size_bytes": 505,
+      "sha256": "29fee10ddd1fb19d194a55e5539ac813fde5c8bbb5a1c7a47c9fb8c7957c918a",
+      "status": "present",
+      "role": "scene1_timeline_spec"
+    },
+    {
+      "asset_id": "scene_01_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_01_shot_sheet.csv",
+      "size_bytes": 336,
+      "sha256": "877ab777c927088ecbedd7c89fc8ca132e3a88d07cea53b0482e4f19ab5e8846",
+      "status": "present",
+      "role": "scene1_shot_spec"
+    },
+    {
+      "asset_id": "scene_01_soul_pool_v01_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_01_soul_pool_v01.png",
+      "size_bytes": 2967501,
+      "sha256": "13f7687ee8a1b2d71725dcba332cbefbfa10e6f1245994e2bf9cfd3445a9c1ce",
+      "status": "present",
+      "role": "scene_transition"
+    },
+    {
+      "asset_id": "scene_01_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_01_subtitles_kr.csv",
+      "size_bytes": 459,
+      "sha256": "24d733a26f4494d08f50c37193131469f4adc92f45941ecc551b29c7ffc6b1a4",
+      "status": "present",
+      "role": "scene1_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_01_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_01_vfx_priority.csv",
+      "size_bytes": 499,
+      "sha256": "8b58dca82f0f22422e351983be31e138dbc77b1db2f277a21b967a3c6e18a0a4",
+      "status": "present",
+      "role": "scene1_vfx_routing"
+    },
+    {
+      "asset_id": "scene_02_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_02_audio_cue.csv",
+      "size_bytes": 478,
+      "sha256": "20db36ce0a195d17dc431180d034386c5c5a7cf19d0e20c8ff75f0ba2c5cf17f",
+      "status": "present",
+      "role": "scene2_audio_spec"
+    },
+    {
+      "asset_id": "scene_02_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_02_scene_script.csv",
+      "size_bytes": 613,
+      "sha256": "db1a7817fb8c8d2b3e11a8a34a4154283fa7c3eb1babc4f75354eb9f4a8d1553",
+      "status": "present",
+      "role": "scene2_timeline_spec"
+    },
+    {
+      "asset_id": "scene_02_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_02_shot_sheet.csv",
+      "size_bytes": 462,
+      "sha256": "1a6b8bc00d51196240d565b1839fb7ba602fe8d97759c0effb92b785a918ff4f",
+      "status": "present",
+      "role": "scene2_shot_spec"
+    },
+    {
+      "asset_id": "scene_02_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_02_subtitles_kr.csv",
+      "size_bytes": 388,
+      "sha256": "e0fcc3f5836c8bbed6ca18f4d43456e60743130e3024649912bdb09f2ec57e74",
+      "status": "present",
+      "role": "scene2_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_02_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_02_vfx_priority.csv",
+      "size_bytes": 352,
+      "sha256": "fb370013d6032e0c65d765839b38f4a798d29b364209e437f0c8b55d934d2e6a",
+      "status": "present",
+      "role": "scene2_vfx_routing"
+    },
+    {
+      "asset_id": "scene_03_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_03_audio_cue.csv",
+      "size_bytes": 442,
+      "sha256": "bd69a6b0f0a47ecdf78101751b6325a7494eebd738f7972de80083cc8d3c8841",
+      "status": "present",
+      "role": "scene3_audio_spec"
+    },
+    {
+      "asset_id": "scene_03_possession_action_v01_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_03_possession_action_v01.png",
+      "size_bytes": 2807974,
+      "sha256": "91e9dfa1d6fbecbd8ff42a8099764c0bf777d3a5c478c5428849b9b3eadfc08d",
+      "status": "present",
+      "role": "possession_reference"
+    },
+    {
+      "asset_id": "scene_03_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_03_scene_script.csv",
+      "size_bytes": 568,
+      "sha256": "2e83adf60582ddc79642059ceefece5a5aa774d40f84283e5cc9fd1cc6339f88",
+      "status": "present",
+      "role": "scene3_timeline_spec"
+    },
+    {
+      "asset_id": "scene_03_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_03_shot_sheet.csv",
+      "size_bytes": 452,
+      "sha256": "1c5973613d0d7977f0390dad8cb663997132d26f55313bf40ac196b02ea1add3",
+      "status": "present",
+      "role": "scene3_shot_spec"
+    },
+    {
+      "asset_id": "scene_03_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_03_subtitles_kr.csv",
+      "size_bytes": 392,
+      "sha256": "740e2930e09244c3247255757ab905ad4b3ca800cdf7bf81cb72c11dd812d498",
+      "status": "present",
+      "role": "scene3_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_03_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_03_vfx_priority.csv",
+      "size_bytes": 303,
+      "sha256": "c081aebdafd52376cb37214cc04c22247adc0a5117d1d94419030295642fa911",
+      "status": "present",
+      "role": "scene3_vfx_routing"
+    },
+    {
+      "asset_id": "scene_04_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_04_audio_cue.csv",
+      "size_bytes": 461,
+      "sha256": "701b126bff73d3bc6e7b3ddf60f1ee756d60e80a8b985a19a5fcdbcf29639124",
+      "status": "present",
+      "role": "scene4_audio_spec"
+    },
+    {
+      "asset_id": "scene_04_domain_shift_v01_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_04_domain_shift_v01.png",
+      "size_bytes": 3215520,
+      "sha256": "57dce583bc740ba73210c2a85cd12f8f154f4fea32211fb96a2bf9330751e3e7",
+      "status": "present",
+      "role": "shift_transition"
+    },
+    {
+      "asset_id": "scene_04_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_04_scene_script.csv",
+      "size_bytes": 583,
+      "sha256": "da9ec3271f624909420a304325f56639a4f7fb8b2f39d370211b1997a815b262",
+      "status": "present",
+      "role": "scene4_timeline_spec"
+    },
+    {
+      "asset_id": "scene_04_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_04_shot_sheet.csv",
+      "size_bytes": 423,
+      "sha256": "24bb5528a29c4bb7aebc1b18c2a7551c3325da39c4c81b16c730aca0577f5cd1",
+      "status": "present",
+      "role": "scene4_shot_spec"
+    },
+    {
+      "asset_id": "scene_04_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_04_subtitles_kr.csv",
+      "size_bytes": 379,
+      "sha256": "71adb8f866a8614bdc41f2704efd67e782e7cd779ab58c4ddc843a38e89b3d88",
+      "status": "present",
+      "role": "scene4_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_04_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_04_vfx_priority.csv",
+      "size_bytes": 299,
+      "sha256": "2d45efa2a5fa29d6e432da4b539525d7619e80de72e1afbf45f05fd502e7c62c",
+      "status": "present",
+      "role": "scene4_vfx_routing"
+    },
+    {
+      "asset_id": "scene_05_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_05_audio_cue.csv",
+      "size_bytes": 451,
+      "sha256": "55cd3c6f7d1625548bc92264fb1a85b256f628e23a4854a67b26b1621551b70c",
+      "status": "present",
+      "role": "scene5_audio_spec"
+    },
+    {
+      "asset_id": "scene_05_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_05_scene_script.csv",
+      "size_bytes": 569,
+      "sha256": "c1847e79ba8dffd75001343eb04d490b97aedf41664386b415d39096a1520a36",
+      "status": "present",
+      "role": "scene5_timeline_spec"
+    },
+    {
+      "asset_id": "scene_05_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_05_shot_sheet.csv",
+      "size_bytes": 425,
+      "sha256": "8dcaa9e9f7938b9ce34be7b25e8fa3164e117149b485425442233d4fc51e2587",
+      "status": "present",
+      "role": "scene5_shot_spec"
+    },
+    {
+      "asset_id": "scene_05_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_05_subtitles_kr.csv",
+      "size_bytes": 399,
+      "sha256": "4870d889dd6199688edb57ce51c98982ec2de70635e29034a478fb96baffddc9",
+      "status": "present",
+      "role": "scene5_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_05_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_05_vfx_priority.csv",
+      "size_bytes": 310,
+      "sha256": "bfb869436e842ffd978976720ae004d8a3412bc9620bde4392d4c3fcffe25bac",
+      "status": "present",
+      "role": "scene5_vfx_routing"
+    },
+    {
+      "asset_id": "scene_06_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_06_audio_cue.csv",
+      "size_bytes": 429,
+      "sha256": "93079ff032c9bcc9ebd18aaef3e15fc7b7bd9bcc20f2a98b12f871c220f03d01",
+      "status": "present",
+      "role": "scene6_audio_spec"
+    },
+    {
+      "asset_id": "scene_06_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_06_scene_script.csv",
+      "size_bytes": 575,
+      "sha256": "ba6c891a489fe3904622ffa22b233a761f34fb413cc7578b80a63a0f4363cc9b",
+      "status": "present",
+      "role": "scene6_timeline_spec"
+    },
+    {
+      "asset_id": "scene_06_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_06_shot_sheet.csv",
+      "size_bytes": 423,
+      "sha256": "8cae122e3decae45a0a1aea28f7e231859f5f58c96885117d6c8b318ced0cd6c",
+      "status": "present",
+      "role": "scene6_shot_spec"
+    },
+    {
+      "asset_id": "scene_06_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_06_subtitles_kr.csv",
+      "size_bytes": 356,
+      "sha256": "89837123ce9b18c2806d0539938a7ff8f788edf9058ea7652edc52978ee2c2eb",
+      "status": "present",
+      "role": "scene6_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_06_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_06_vfx_priority.csv",
+      "size_bytes": 286,
+      "sha256": "023daacf560f64e17d45f542bd8fc8948cc7e18bda6383d0287e603318ec10a1",
+      "status": "present",
+      "role": "scene6_vfx_routing"
+    },
+    {
+      "asset_id": "scene_07_audio_cue_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_07_audio_cue.csv",
+      "size_bytes": 458,
+      "sha256": "0baab7b6665147934567dfe409258fcbe7304706d0d8e5b0dc96d88e85e54063",
+      "status": "present",
+      "role": "scene7_audio_spec"
+    },
+    {
+      "asset_id": "scene_07_return_ui_v01_png",
+      "category": "cinematic_image",
+      "path": "design/assets/cinematic/scene_07_return_ui_v01.png",
+      "size_bytes": 2675730,
+      "sha256": "0d2440f7b044a86a313fd4851ca33daa7efcdf8b11dee65f62f7229f1cc83baf",
+      "status": "present",
+      "role": "epilogue_hud"
+    },
+    {
+      "asset_id": "scene_07_scene_script_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_07_scene_script.csv",
+      "size_bytes": 593,
+      "sha256": "3c63112426c77df9620e911cd63311dde8b8d520a312c0c011eaef05affd113b",
+      "status": "present",
+      "role": "scene7_timeline_spec"
+    },
+    {
+      "asset_id": "scene_07_shot_sheet_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_07_shot_sheet.csv",
+      "size_bytes": 422,
+      "sha256": "9fce957237bf79e624643e9c8d5f2ae2f64fc59548ab1308e01944f29be8b395",
+      "status": "present",
+      "role": "scene7_shot_spec"
+    },
+    {
+      "asset_id": "scene_07_subtitles_kr_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_07_subtitles_kr.csv",
+      "size_bytes": 414,
+      "sha256": "cebbef4f9dbfb976c2431ca3273f4c80b7cea910a0e48586c68652d6c1784b06",
+      "status": "present",
+      "role": "scene7_subtitle_kr"
+    },
+    {
+      "asset_id": "scene_07_vfx_priority_csv",
+      "category": "cinematic_data",
+      "path": "design/assets/cinematic/scene_07_vfx_priority.csv",
+      "size_bytes": 304,
+      "sha256": "3509ee77017ca77e729fce29d4ff11211a07846d0d5cf1634a3ff0cee1ca1a05",
+      "status": "present",
+      "role": "scene7_vfx_routing"
+    }
+  ]
+}

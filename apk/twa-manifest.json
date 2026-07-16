@@ -1,8 +1,8 @@
 {
   "packageId": "io.github.jellyggumi.abyssalsurge",
   "host": "jellyggumi.github.io",
-  "name": "Abyssal Surge",
-  "launcherName": "Abyssal Surge",
+  "name": "Abyssal Command",
+  "launcherName": "Abyssal Command",
   "display": "standalone",
   "orientation": "default",
   "themeColor": "#0b0d14",

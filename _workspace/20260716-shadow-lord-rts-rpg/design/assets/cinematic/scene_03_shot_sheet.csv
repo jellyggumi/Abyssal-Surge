@@ -1,0 +1,4 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S03_A,측면 압박으로 한전선 확대,5.0,design/assets/cinematic/scene_03_possession_action_v01.png,push,arc_flank_rush
+S03_B,빔/사슬 연계로 병력 확산,5.0,design/assets/cinematic/scene_04_domain_shift_v01.png,dip_to_white,wave_chain_bloom
+S03_C,전선 붕괴 직전 대기 동선 공개,5.0,design/assets/cinematic/scene_00_opening_gate_v01.png,flash,combat_breath_hold

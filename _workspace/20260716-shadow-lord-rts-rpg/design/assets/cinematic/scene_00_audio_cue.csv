@@ -1,0 +1,6 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_gate_loop,0.00,12.00,assets/audio/domain.mp3,-16,none,기본 긴장 대기 트랙
+sfx_gate_open,1.20,2.20,gate_effect,0.9,all,게이트 균열 진동 음
+sfx_residue_hum,6.20,8.20,extract,0.85,bgm,영혼 잔류 응고 전환
+sfx_invert_burst,9.00,9.35,extract,1.0,bgm+voices,0.3초 색반전 진입
+sfx_throne_call,10.80,12.00,assets/audio/extract.mp3,-2,all,영웅 각성 사운드

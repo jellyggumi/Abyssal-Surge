@@ -1,0 +1,4 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_WAVE_BLOOM,10,30.60,2.80,engage_wave_bloom,전면 파동 사운드 비주얼 동기화
+VFX_CHAIN_BURST,20,35.40,2.10,unit_chain,병력 연쇄 결속 그래픽
+VFX_RHYTHM_PULSE,30,40.00,4.80,combat_rhythm_strobe,한타 템포 고정용 플리커

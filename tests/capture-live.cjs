@@ -40,7 +40,13 @@ async function run() {
     });
   });
 
-  const browser = await playwright.chromium.connectOverCDP("http://127.0.0.1:9222");
+  let browser;
+  try {
+    browser = await playwright.chromium.connectOverCDP("http://127.0.0.1:9222");
+  } catch (e) {
+    console.log("Could not connect over CDP, launching headless chromium instead...");
+    browser = await playwright.chromium.launch({ headless: true });
+  }
   const contexts = browser.contexts();
   const context = contexts[0] || await browser.newContext();
   const page = await context.newPage();

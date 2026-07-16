@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene5_storm,60.00,75.00,assets/audio/extract.mp3,-16,all,위기 구간 다크 드론 레이어
+sfx_pressure_drop,60.30,61.80,assets/audio/domain.mp3,-3,bgm,체력 하락 지표 반응
+sfx_revival_tone,65.80,67.60,assets/audio/extract.mp3,-2,all,심연 흡수 준비 사운드
+sfx_victory_glimmer,70.20,74.60,assets/audio/ambient.mp3,-5,all,한시적 반격 임계 사전 경고톤

@@ -3,34 +3,44 @@
   "inventory_note": "Inventory of all currently supplied Shadow Lord media assets. Provenance is stated only where observed or supplied; pre-existing transition renderer details remain unrecorded.",
   "assets": [
     {
-      "filename": "assets/images/cinder-span.png",
-      "media_type": "image/png",
-      "bytes": 2430070,
-      "generated_by": "gti via private-codex",
+      "filename": "assets/audio/ambient.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 48501,
+      "generated_by": "ElevenLabs sound-generation",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
-      "sha256": "f6355a83db9568f22c0a32e5cf537377813c4e3af4a22bd5c8e9442f70fa9c36"
+      "derivation": "Original Shadow Lord ambient sound asset; prompt text is not stored in this manifest.",
+      "sha256": "564d3b64c89814ffdf7ff6437a2d4f3cee5eb9749f84ec9ef3d5ae98b32fa133"
     },
     {
-      "filename": "assets/images/veil-citadel.png",
-      "media_type": "image/png",
-      "bytes": 2745565,
-      "generated_by": "gti via private-codex",
+      "filename": "assets/audio/bgm-theme.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 353219,
+      "generated_by": "ElevenLabs sound-generation via scripts/generate_game_audio.py (prompt_id=bgm)",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
-      "sha256": "98444b35745b5ab8ba40607047299fba87dfad5693a1bfed0c1e1cfbe7fea854"
+      "derivation": "Original Abyssal Command lobby theme: dark orchestral drone with restrained choir swell, generated for a seamless 22s loop.",
+      "sha256": "c3bdf821e944ede78f66cb5dd3833b85e27fbe7d727861b16e0ef039d6587398"
     },
     {
-      "filename": "assets/images/echo-throne.png",
-      "media_type": "image/png",
-      "bytes": 2342720,
-      "generated_by": "gti via private-codex",
+      "filename": "assets/audio/domain.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 11512,
+      "generated_by": "ElevenLabs sound-generation",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Generated from the original final-stage prompt with no reference input.",
-      "sha256": "1707f00db629068286c0edaafef42f19c18dfe9666583692f98ccd0174d1a7ab"
+      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "sha256": "b566669782fd70deaadc73215a5599a40169b6c099a043857abb19f5891635cc"
+    },
+    {
+      "filename": "assets/audio/extract.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 10049,
+      "generated_by": "ElevenLabs sound-generation",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "sha256": "215ad0b37fd1f24a3911298497e96a98ad02df3ec7e85abe1f3bfa87ce9ddd4d"
     },
     {
       "filename": "assets/icons/icon-192.png",
@@ -61,34 +71,34 @@
       "sha256": "36e8dae44eb3e0c8b51dea7e39f6345eafe2f4b9992aefaf45bc7aa72b63f923"
     },
     {
-      "filename": "assets/audio/extract.mp3",
-      "media_type": "audio/mpeg",
-      "bytes": 10049,
-      "generated_by": "ElevenLabs sound-generation",
+      "filename": "assets/images/cinder-span.png",
+      "media_type": "image/png",
+      "bytes": 2430070,
+      "generated_by": "gti via private-codex",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
-      "sha256": "215ad0b37fd1f24a3911298497e96a98ad02df3ec7e85abe1f3bfa87ce9ddd4d"
+      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "sha256": "f6355a83db9568f22c0a32e5cf537377813c4e3af4a22bd5c8e9442f70fa9c36"
     },
     {
-      "filename": "assets/audio/domain.mp3",
-      "media_type": "audio/mpeg",
-      "bytes": 11512,
-      "generated_by": "ElevenLabs sound-generation",
+      "filename": "assets/images/echo-throne.png",
+      "media_type": "image/png",
+      "bytes": 2342720,
+      "generated_by": "gti via private-codex",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
-      "sha256": "b566669782fd70deaadc73215a5599a40169b6c099a043857abb19f5891635cc"
+      "derivation": "Generated from the original final-stage prompt with no reference input.",
+      "sha256": "1707f00db629068286c0edaafef42f19c18dfe9666583692f98ccd0174d1a7ab"
     },
     {
-      "filename": "assets/audio/ambient.mp3",
-      "media_type": "audio/mpeg",
-      "bytes": 48501,
-      "generated_by": "ElevenLabs sound-generation",
+      "filename": "assets/images/veil-citadel.png",
+      "media_type": "image/png",
+      "bytes": 2745565,
+      "generated_by": "gti via private-codex",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord ambient sound asset; prompt text is not stored in this manifest.",
-      "sha256": "564d3b64c89814ffdf7ff6437a2d4f3cee5eb9749f84ec9ef3d5ae98b32fa133"
+      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "sha256": "98444b35745b5ab8ba40607047299fba87dfad5693a1bfed0c1e1cfbe7fea854"
     },
     {
       "filename": "assets/video/cinder-span.mp4",
@@ -105,20 +115,6 @@
       "sha256": "cfed1763051cd7503f41ecd2a6d3ec0197b873fdf640b3a06b4032d307099e69"
     },
     {
-      "filename": "assets/video/veil-citadel.mp4",
-      "media_type": "video/mp4",
-      "bytes": 164728,
-      "generated_by": "pre-existing generated asset (renderer not recorded in shared contract)",
-      "source_key_art": [
-        "assets/images/veil-citadel.png"
-      ],
-      "source_assets": [
-        "assets/images/veil-citadel.png"
-      ],
-      "derivation": "Pre-existing shared-contract stage-transition render.",
-      "sha256": "692ae9327e662d68ced92b631e4e1d4aa1cfbeef2b754c95cb4a27cbae722d90"
-    },
-    {
       "filename": "assets/video/echo-throne.mp4",
       "media_type": "video/mp4",
       "bytes": 128618,
@@ -133,33 +129,24 @@
       "sha256": "e181703608aa317c76acff0b4cabb7cf86780ad35d1a97d92b5ef173923eddfc"
     },
     {
-      "filename": "assets/video/shadow-lord-cinematic.mp4",
-      "media_type": "video/mp4",
-      "bytes": 1287489,
-      "generated_by": "ffmpeg",
+      "filename": "assets/video/scene_00_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 143,
+      "generated_by": "ffmpeg concat manifest",
       "source_key_art": [
-        "assets/images/cinder-span.png",
-        "assets/images/veil-citadel.png",
-        "assets/images/echo-throne.png"
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4"
       ],
       "source_assets": [
-        "assets/images/cinder-span.png",
-        "assets/images/veil-citadel.png",
-        "assets/images/echo-throne.png",
-        "assets/audio/ambient.mp3"
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4"
       ],
-      "derivation": "13-second xfade and zoompan montage of all three key-art images with an AAC soundtrack transcoded from ambient.mp3.",
-      "sha256": "5ec63bb5a7b74f56de763cd83aa36dfbfaeee6e902c6e6ec834819135deab5fe"
-    },
-    {
-      "filename": "design/assets/cinematic/scene_00_opening_gate_prompt.png",
-      "media_type": "image/png",
-      "bytes": 1051038,
-      "generated_by": "Pollinations text-to-image URL fallback",
-      "source_key_art": [],
-      "source_assets": [],
-      "derivation": "Concept art still for cinematic Scene 0.",
-      "sha256": "a303e334adf439248394f8ae501ac558dd60a19652e8f38f3324b8c849fadb00"
+      "derivation": "FFmpeg concat input manifest generated for scene 00 final assembly",
+      "sha256": "6f3bfa8411c98166d9119265e951bff85ef1eab2ddfe2810a4c71542d86a2350"
     },
     {
       "filename": "assets/video/scene_00_gate_opening.mp4",
@@ -174,6 +161,1092 @@
       ],
       "derivation": "Single-shot cinematic draft for scene 0, 12s static art pan in 960x540.",
       "sha256": "7f90bb6693d08cd2284507f87fe3afff430716f6dd6f1574e5530bd7a7e46816"
+    },
+    {
+      "filename": "assets/video/scene_00_gate_opening_gotibo_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 335398,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "8b2b4611c5f909e75df3494406ae8b6c2109d4c15b5438e8fc2084977ae7c492"
+    },
+    {
+      "filename": "assets/video/scene_00_gate_opening_gotibo_v02_scene0.mp4",
+      "media_type": "video/mp4",
+      "bytes": 571130,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "4056aee4fd7dd21a3278baeeecde8a416c497abcd963e0de92b985d18a97f7c8"
+    },
+    {
+      "filename": "assets/video/scene_00_opening_gate_cinematic_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 558010,
+      "generated_by": "ffmpeg concat",
+      "source_key_art": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4"
+      ],
+      "source_assets": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4"
+      ],
+      "derivation": "12-sec scene 00 final cinematic (4 shots x 3sec, 960x540, 30fps, H.264)",
+      "sha256": "1af279699069f0da149f3550aec395eeeee473a6efb03be1de0c0715b7eba837"
+    },
+    {
+      "filename": "assets/video/scene_00_opening_gate_cinematic_v01_subbed.mp4",
+      "media_type": "video/mp4",
+      "bytes": 562021,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "a73287b3e968194fc3b6cc02daa40370b1cf7099b7d817678f8d452a7507c46a"
+    },
+    {
+      "filename": "assets/video/scene_00_shot_domain_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 191453,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "9000967e4bd242dd273b5b5c909612d9dd1a0bfd741e65b76748a34353c51ee7"
+    },
+    {
+      "filename": "assets/video/scene_00_shot_gatev01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 126226,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "3aeadc5a061623aa4dc38522493b129714cbae1a9ea8acde484317a784d643f1"
+    },
+    {
+      "filename": "assets/video/scene_00_shot_prompt_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 75272,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "500d8bb9615df525fd0c9b2de218c4d1db710723c035a965dffb703dbb6b389c"
+    },
+    {
+      "filename": "assets/video/scene_00_shot_soul_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 86513,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "15cb1c36f139709ff5d1d7340ad81a999d650e2b51ea7302007df01907aa115e"
+    },
+    {
+      "filename": "assets/video/scene_00_to_01_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 125,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4",
+        "assets/video/scene_01_shot_soul_hunt_v01.mp4",
+        "assets/video/scene_01_shot_possession_hint_v01.mp4"
+      ],
+      "source_assets": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4",
+        "assets/video/scene_01_shot_soul_hunt_v01.mp4",
+        "assets/video/scene_01_shot_possession_hint_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 00→01 18-sec transition package.",
+      "sha256": "16d924cc62a953b8632feb7c984dfe07ad66712abd6ded03341517bd12bd5175"
+    },
+    {
+      "filename": "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 856442,
+      "generated_by": "ffmpeg concat + xfade",
+      "source_key_art": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4",
+        "assets/video/scene_01_shot_soul_hunt_v01.mp4",
+        "assets/video/scene_01_shot_possession_hint_v01.mp4"
+      ],
+      "source_assets": [
+        "assets/video/scene_00_to_01_concat_input.txt"
+      ],
+      "derivation": "18-sec scene 00→01 cinematic sample (scene 00 bridge + scene 01 encounter continuation).",
+      "sha256": "6d7a3299abab06388fa22e1d615b279f02adfeab65326d8e4685542d9ad09cfd"
+    },
+    {
+      "filename": "assets/video/scene_00_to_01_opening_encounter_cinematic_v01_subbed.mp4",
+      "media_type": "video/mp4",
+      "bytes": 866550,
+      "generated_by": "ffmpeg concat + subtitles burn-in",
+      "source_key_art": [
+        "assets/video/scene_00_shot_prompt_v01.mp4",
+        "assets/video/scene_00_shot_gatev01_v01.mp4",
+        "assets/video/scene_00_shot_soul_v01.mp4",
+        "assets/video/scene_00_shot_domain_v01.mp4",
+        "assets/video/scene_01_shot_soul_hunt_v01.mp4",
+        "assets/video/scene_01_shot_possession_hint_v01.mp4"
+      ],
+      "source_assets": [
+        "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
+        "assets/video/scene_00_to_01_shot_subtitles.srt"
+      ],
+      "derivation": "18-sec scene 00→01 cinematic sample with hard-sub burn-in.",
+      "sha256": "94db8bc4a491aaaf79cb2681656aaddf47d03eb1ade0d85de40ed00559f9e8d7"
+    },
+    {
+      "filename": "assets/video/scene_00_to_01_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 522,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_00_scene_script.csv",
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 00→01 bridge subtitles for hard-sub workflow.",
+      "sha256": "6a0fbe665b4f5a3e53c9455130e4989aee0042829d196b9323cf2edba9764dc2"
+    },
+    {
+      "filename": "assets/video/scene_01_shot_possession_hint_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 168165,
+      "generated_by": "render_stage_video.py (ffmpeg/libx264)",
+      "source_key_art": [
+        "design/assets/cinematic/scene_03_possession_action_v01.png"
+      ],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_possession_action_v01.png"
+      ],
+      "derivation": "Scene 1 possession-hint hold shot (scene_01 shot_00).",
+      "sha256": "8c55f5b1d5d100087655b6664e46ce0f31746ba4f73aae0a202f6fabf5a641e5"
+    },
+    {
+      "filename": "assets/video/scene_01_shot_soul_hunt_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 71750,
+      "generated_by": "render_stage_video.py (ffmpeg/libx264)",
+      "source_key_art": [
+        "design/assets/cinematic/scene_01_soul_pool_v01.png"
+      ],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_soul_pool_v01.png"
+      ],
+      "derivation": "Scene 1 soul-hunt pursuit shot (scene_01 shot_01).",
+      "sha256": "047d96a343c5ff2607630895c215bd61559912e5b91c1779f0bba006d41d8f44"
+    },
+    {
+      "filename": "assets/video/scene_01_to_02_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 78,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_01_shot_possession_hint_v01.mp4",
+        "assets/video/scene_02_node_contest_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 01→02 transition package.",
+      "sha256": "306781110a0502236e4a46c9fb233a9598823e8c7b018843061e0d17687aac41"
+    },
+    {
+      "filename": "assets/video/scene_01_to_02_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 376,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 01→02 transition.",
+      "sha256": "28053b0d91ed1633684b48c2d83f130e29a2893daab0f05c36bea65f85c421c7"
+    },
+    {
+      "filename": "assets/video/scene_02_node_contest_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 827090,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "ef7352846720ef16fdbbc35514ba4cb89b1c99e5d1eff05ac6941508f43f9a00"
+    },
+    {
+      "filename": "assets/video/scene_02_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 125771,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "324b3f904c8e90903d200a036b51ac78846099c1d11f176b21cbdb66f7d6fa36"
+    },
+    {
+      "filename": "assets/video/scene_02_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 274445,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "b53e9b273bb17eed89aa0d870e5cf39b827af9ecf437eda4b926dce4ff640789"
+    },
+    {
+      "filename": "assets/video/scene_02_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 313931,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "e0fa235af2a86e094e8247e063bf41073215b749c0fa731145cd88e167d99fc0"
+    },
+    {
+      "filename": "assets/video/scene_02_to_03_arise_push_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1933135,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "5ecadaf560227e25483dffa93c9c0c0c4aed0a1c91d90a714ced14dfdd8613fa"
+    },
+    {
+      "filename": "assets/video/scene_02_to_03_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 74,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_02_node_contest_v01.mp4",
+        "assets/video/scene_03_engagement_bloom_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 02→03 transition package.",
+      "sha256": "3e15adbb5ea7a8c9fedce5a20e1d0a3f847d26f669456aa45df8292e4c2e79cf"
+    },
+    {
+      "filename": "assets/video/scene_02_to_03_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 314,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 02→03 transition.",
+      "sha256": "b660919803ffdb96f78e6d759adee0235c731d0c850e55d9adf4fe9b7f82e1d6"
+    },
+    {
+      "filename": "assets/video/scene_03_engagement_bloom_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 880107,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "b63c08cabbfc241b0335790bd97ce65b0dd00b7ddeaf832efe15635b6a4aec66"
+    },
+    {
+      "filename": "assets/video/scene_03_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 317453,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "63519710a44e7527357447f55935dc95f1f03aa10fa27819da1abe095d3d5a31"
+    },
+    {
+      "filename": "assets/video/scene_03_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 273336,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "4c832389046e852eebb0d3ba6c6bb1fdc9154af149ecb7d68c946fc8356bec84"
+    },
+    {
+      "filename": "assets/video/scene_03_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 199199,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "ceb4b94616a14ea2e08f6e05f0995b9dc52c1514554ada472052cbf722db6718"
+    },
+    {
+      "filename": "assets/video/scene_03_to_04_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 76,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_03_engagement_bloom_v01.mp4",
+        "assets/video/scene_04_comeback_shift_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 03→04 transition package.",
+      "sha256": "a34e2506bb4f1fae7b2e1a33e7f3892594dd121e2d25746ce3f32a3497db56d0"
+    },
+    {
+      "filename": "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1905965,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "bd47782d1d61c787d62795215765b56a7b307867daa05c1fe1ae07dbfa1f678e"
+    },
+    {
+      "filename": "assets/video/scene_03_to_04_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 324,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 03→04 transition.",
+      "sha256": "477b0178514e17f962b0d1b151e68afdfae5a29fbe724d1d2755fc0764164f28"
+    },
+    {
+      "filename": "assets/video/scene_04_comeback_shift_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 889459,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "5001843be812989bbf4edcb48df1ac2ef958f0823c589f7894e1ff7d4a657dfd"
+    },
+    {
+      "filename": "assets/video/scene_04_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 282335,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "0b513039e790c1557540b9585bc0d047eefc28929c9b705b999bf8e023f68da1"
+    },
+    {
+      "filename": "assets/video/scene_04_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 317453,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "63519710a44e7527357447f55935dc95f1f03aa10fa27819da1abe095d3d5a31"
+    },
+    {
+      "filename": "assets/video/scene_04_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 199199,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "ceb4b94616a14ea2e08f6e05f0995b9dc52c1514554ada472052cbf722db6718"
+    },
+    {
+      "filename": "assets/video/scene_04_to_05_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 75,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_04_comeback_shift_v01.mp4",
+        "assets/video/scene_05_composure_storm_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 04→05 transition package.",
+      "sha256": "a0c5c3bcc9af5464c7f0594c8400eedb23d3273eff3de5a58cd3ea1c22884c1d"
+    },
+    {
+      "filename": "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1815254,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "c496e82ae4e76c7b9490b2258d5a604c75f849122a886137cf7d10d571a41be8"
+    },
+    {
+      "filename": "assets/video/scene_04_to_05_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 292,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 04→05 transition.",
+      "sha256": "7bbaed6ce3f6818b9b9f0c91f0c2c7227c9313277610a0c9b1ac89096d2bd76c"
+    },
+    {
+      "filename": "assets/video/scene_05_composure_storm_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 821859,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "978c6886301a6a72ab9cddf27babe3aaefb09b98f70591799c6eccdbe3dbdc57"
+    },
+    {
+      "filename": "assets/video/scene_05_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 273336,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "4c832389046e852eebb0d3ba6c6bb1fdc9154af149ecb7d68c946fc8356bec84"
+    },
+    {
+      "filename": "assets/video/scene_05_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 127160,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "4a1488edfc5bc4421f52e0e9b7d04b2f83f80cd28cb7e9d196615fa020bcd5ed"
+    },
+    {
+      "filename": "assets/video/scene_05_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 314038,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "af87d1f90e35ea2d47e01a4a69c2d2ca12dc92266c15394a49be4f63fd279398"
+    },
+    {
+      "filename": "assets/video/scene_05_to_06_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 73,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_05_composure_storm_v01.mp4",
+        "assets/video/scene_06_apex_assault_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 05→06 transition package.",
+      "sha256": "4b5cb1142831d8a68c94f2bd88e1f15862713119f1c262e9834946bc1ac39bbc"
+    },
+    {
+      "filename": "assets/video/scene_05_to_06_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 343,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 05→06 transition.",
+      "sha256": "69dc60f6c1bb31b21de459d9bd1b120620bd8ec16bc65b95891c064f5bdf058f"
+    },
+    {
+      "filename": "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1838855,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "6327485401c34a151766648d8a791c88d0222e2bc3b6c0beee3f6cf723af6273"
+    },
+    {
+      "filename": "assets/video/scene_06_apex_assault_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 919700,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "11acfaf70578881e505d90536e507c7303b994c9a0634ac1f8b331e652e1e876"
+    },
+    {
+      "filename": "assets/video/scene_06_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 204843,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "a58ff37804c05976bd3be20f9ac857155fc950e0bb5a0446090768227205df07"
+    },
+    {
+      "filename": "assets/video/scene_06_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 279965,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "94b5022672d2a14d7c482d5a9a4d3068eaed08fbf82795bac0cca58e898745ec"
+    },
+    {
+      "filename": "assets/video/scene_06_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 322298,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "e2da743316d1eff9ecb336c6608368f584cc9bf75c0c1ed4de711453c8120ea5"
+    },
+    {
+      "filename": "assets/video/scene_06_to_07_concat_input.txt",
+      "media_type": "text/plain",
+      "bytes": 76,
+      "generated_by": "ffmpeg concat manifest",
+      "source_key_art": [],
+      "source_assets": [
+        "assets/video/scene_06_apex_assault_v01.mp4",
+        "assets/video/scene_07_return_persistence_v01.mp4"
+      ],
+      "derivation": "FFmpeg concat input manifest for scene 06→07 transition package.",
+      "sha256": "7627883989c8ef780e7546418de2f3ad2022c520bc5c382d86fdff104858c2df"
+    },
+    {
+      "filename": "assets/video/scene_06_to_07_return_persistence_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 1875638,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "72709c420d32bb2572d9027f798f53541821f279871b9c511136fd42095fc115"
+    },
+    {
+      "filename": "assets/video/scene_06_to_07_shot_subtitles.srt",
+      "media_type": "text/plain",
+      "bytes": 347,
+      "generated_by": "subtitle generation utility",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Bridge subtitles for scene 06→07 transition.",
+      "sha256": "8e28ab46fdb062800a629310a6053d7467a97cd8dd83b248f95080d70089c99d"
+    },
+    {
+      "filename": "assets/video/scene_07_return_persistence_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 892109,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "90572ba4a822c109363084677cecd81cbfc557dc2ba65e09c6801a99d30a9ba7"
+    },
+    {
+      "filename": "assets/video/scene_07_shot_01_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 296635,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "ad1b46166cf1a8b444c906115197a25ad37964494296e92c7fec3247a0302bd4"
+    },
+    {
+      "filename": "assets/video/scene_07_shot_02_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 115941,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "6d68cab730fc5e5539f1e18a6d05babafb45115b7ef81c0e8a1e9ca7c028a19d"
+    },
+    {
+      "filename": "assets/video/scene_07_shot_03_v01.mp4",
+      "media_type": "video/mp4",
+      "bytes": 279965,
+      "generated_by": "ffmpeg (auto-sync)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Cinematic segment generated during scene0~7 expansion and synchronized to shared manifest.",
+      "sha256": "94b5022672d2a14d7c482d5a9a4d3068eaed08fbf82795bac0cca58e898745ec"
+    },
+    {
+      "filename": "assets/video/shadow-lord-cinematic.mp4",
+      "media_type": "video/mp4",
+      "bytes": 705287,
+      "generated_by": "ffmpeg",
+      "source_key_art": [
+        "assets/images/cinder-span.png",
+        "assets/images/veil-citadel.png",
+        "assets/images/echo-throne.png"
+      ],
+      "source_assets": [
+        "assets/images/cinder-span.png",
+        "assets/images/veil-citadel.png",
+        "assets/images/echo-throne.png",
+        "assets/audio/ambient.mp3"
+      ],
+      "derivation": "13-second xfade and zoompan montage of all three key-art images with an AAC soundtrack transcoded from ambient.mp3.",
+      "sha256": "291d60cb7199b6923f24a20032d45ee1bb81d1b865b973eee74d41388713b118"
+    },
+    {
+      "filename": "assets/video/veil-citadel.mp4",
+      "media_type": "video/mp4",
+      "bytes": 164728,
+      "generated_by": "pre-existing generated asset (renderer not recorded in shared contract)",
+      "source_key_art": [
+        "assets/images/veil-citadel.png"
+      ],
+      "source_assets": [
+        "assets/images/veil-citadel.png"
+      ],
+      "derivation": "Pre-existing shared-contract stage-transition render.",
+      "sha256": "692ae9327e662d68ced92b631e4e1d4aa1cfbeef2b754c95cb4a27cbae722d90"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_00_opening_gate_prompt.png",
+      "media_type": "image/png",
+      "bytes": 1051038,
+      "generated_by": "Pollinations text-to-image URL fallback",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Concept art still for cinematic Scene 0.",
+      "sha256": "a303e334adf439248394f8ae501ac558dd60a19652e8f38f3324b8c849fadb00"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_01_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 508,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 01 audio cue map (sfx/bgm/vocal).",
+      "sha256": "712cf88c3754503f259c641a0d4d4e5aef955611d9ae56fa11a897cf0c3b6756"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_01_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 505,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_00_scene_script.csv"
+      ],
+      "derivation": "Scene 01 timeline spec (씬 1 전환/연속 구간 연출 룰).",
+      "sha256": "29fee10ddd1fb19d194a55e5539ac813fde5c8bbb5a1c7a47c9fb8c7957c918a"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_01_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 336,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 01 cut sheet and shot mapping.",
+      "sha256": "877ab777c927088ecbedd7c89fc8ca132e3a88d07cea53b0482e4f19ab5e8846"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_01_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 459,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 01 localized Korean subtitle timeline.",
+      "sha256": "24d733a26f4494d08f50c37193131469f4adc92f45941ecc551b29c7ffc6b1a4"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_01_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 499,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 01 VFX conflict-priority matrix and gating map.",
+      "sha256": "8b58dca82f0f22422e351983be31e138dbc77b1db2f277a21b967a3c6e18a0a4"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_02_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 478,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_02_scene_script.csv"
+      ],
+      "derivation": "Scene 2 audio cue map (sfx/bgm/vocal).",
+      "sha256": "20db36ce0a195d17dc431180d034386c5c5a7cf19d0e20c8ff75f0ba2c5cf17f"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_02_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 613,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_01_scene_script.csv"
+      ],
+      "derivation": "Scene 2 timeline spec (씬 2 transition and engagement mapping).",
+      "sha256": "db1a7817fb8c8d2b3e11a8a34a4154283fa7c3eb1babc4f75354eb9f4a8d1553"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_02_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 462,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_02_scene_script.csv"
+      ],
+      "derivation": "Scene 2 cut sheet and shot mapping.",
+      "sha256": "1a6b8bc00d51196240d565b1839fb7ba602fe8d97759c0effb92b785a918ff4f"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_02_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 388,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_02_scene_script.csv"
+      ],
+      "derivation": "Scene 2 localized Korean subtitle timeline.",
+      "sha256": "e0fcc3f5836c8bbed6ca18f4d43456e60743130e3024649912bdb09f2ec57e74"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_02_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 352,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_02_scene_script.csv"
+      ],
+      "derivation": "Scene 2 VFX conflict-priority matrix and gating map.",
+      "sha256": "fb370013d6032e0c65d765839b38f4a798d29b364209e437f0c8b55d934d2e6a"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_03_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 442,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_scene_script.csv"
+      ],
+      "derivation": "Scene 3 audio cue map (sfx/bgm/vocal).",
+      "sha256": "bd69a6b0f0a47ecdf78101751b6325a7494eebd738f7972de80083cc8d3c8841"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_03_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 568,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_02_scene_script.csv"
+      ],
+      "derivation": "Scene 3 timeline spec (씬 3 transition and engagement mapping).",
+      "sha256": "2e83adf60582ddc79642059ceefece5a5aa774d40f84283e5cc9fd1cc6339f88"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_03_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 452,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_scene_script.csv"
+      ],
+      "derivation": "Scene 3 cut sheet and shot mapping.",
+      "sha256": "1c5973613d0d7977f0390dad8cb663997132d26f55313bf40ac196b02ea1add3"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_03_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 392,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_scene_script.csv"
+      ],
+      "derivation": "Scene 3 localized Korean subtitle timeline.",
+      "sha256": "740e2930e09244c3247255757ab905ad4b3ca800cdf7bf81cb72c11dd812d498"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_03_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 303,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_scene_script.csv"
+      ],
+      "derivation": "Scene 3 VFX conflict-priority matrix and gating map.",
+      "sha256": "c081aebdafd52376cb37214cc04c22247adc0a5117d1d94419030295642fa911"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_04_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 461,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_04_scene_script.csv"
+      ],
+      "derivation": "Scene 4 audio cue map (sfx/bgm/vocal).",
+      "sha256": "701b126bff73d3bc6e7b3ddf60f1ee756d60e80a8b985a19a5fcdbcf29639124"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_04_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 583,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_03_scene_script.csv"
+      ],
+      "derivation": "Scene 4 timeline spec (씬 4 transition and engagement mapping).",
+      "sha256": "da9ec3271f624909420a304325f56639a4f7fb8b2f39d370211b1997a815b262"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_04_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 423,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_04_scene_script.csv"
+      ],
+      "derivation": "Scene 4 cut sheet and shot mapping.",
+      "sha256": "24bb5528a29c4bb7aebc1b18c2a7551c3325da39c4c81b16c730aca0577f5cd1"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_04_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 379,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_04_scene_script.csv"
+      ],
+      "derivation": "Scene 4 localized Korean subtitle timeline.",
+      "sha256": "71adb8f866a8614bdc41f2704efd67e782e7cd779ab58c4ddc843a38e89b3d88"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_04_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 299,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_04_scene_script.csv"
+      ],
+      "derivation": "Scene 4 VFX conflict-priority matrix and gating map.",
+      "sha256": "2d45efa2a5fa29d6e432da4b539525d7619e80de72e1afbf45f05fd502e7c62c"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_05_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 451,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_05_scene_script.csv"
+      ],
+      "derivation": "Scene 5 audio cue map (sfx/bgm/vocal).",
+      "sha256": "55cd3c6f7d1625548bc92264fb1a85b256f628e23a4854a67b26b1621551b70c"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_05_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 569,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_04_scene_script.csv"
+      ],
+      "derivation": "Scene 5 timeline spec (씬 5 transition and engagement mapping).",
+      "sha256": "c1847e79ba8dffd75001343eb04d490b97aedf41664386b415d39096a1520a36"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_05_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 425,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_05_scene_script.csv"
+      ],
+      "derivation": "Scene 5 cut sheet and shot mapping.",
+      "sha256": "8dcaa9e9f7938b9ce34be7b25e8fa3164e117149b485425442233d4fc51e2587"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_05_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 399,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_05_scene_script.csv"
+      ],
+      "derivation": "Scene 5 localized Korean subtitle timeline.",
+      "sha256": "4870d889dd6199688edb57ce51c98982ec2de70635e29034a478fb96baffddc9"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_05_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 310,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_05_scene_script.csv"
+      ],
+      "derivation": "Scene 5 VFX conflict-priority matrix and gating map.",
+      "sha256": "bfb869436e842ffd978976720ae004d8a3412bc9620bde4392d4c3fcffe25bac"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_06_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 429,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_06_scene_script.csv"
+      ],
+      "derivation": "Scene 6 audio cue map (sfx/bgm/vocal).",
+      "sha256": "93079ff032c9bcc9ebd18aaef3e15fc7b7bd9bcc20f2a98b12f871c220f03d01"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_06_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 575,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_05_scene_script.csv"
+      ],
+      "derivation": "Scene 6 timeline spec (씬 6 transition and engagement mapping).",
+      "sha256": "ba6c891a489fe3904622ffa22b233a761f34fb413cc7578b80a63a0f4363cc9b"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_06_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 423,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_06_scene_script.csv"
+      ],
+      "derivation": "Scene 6 cut sheet and shot mapping.",
+      "sha256": "8cae122e3decae45a0a1aea28f7e231859f5f58c96885117d6c8b318ced0cd6c"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_06_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 356,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_06_scene_script.csv"
+      ],
+      "derivation": "Scene 6 localized Korean subtitle timeline.",
+      "sha256": "89837123ce9b18c2806d0539938a7ff8f788edf9058ea7652edc52978ee2c2eb"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_06_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 286,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_06_scene_script.csv"
+      ],
+      "derivation": "Scene 6 VFX conflict-priority matrix and gating map.",
+      "sha256": "023daacf560f64e17d45f542bd8fc8948cc7e18bda6383d0287e603318ec10a1"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_07_audio_cue.csv",
+      "media_type": "text/csv",
+      "bytes": 458,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_07_scene_script.csv"
+      ],
+      "derivation": "Scene 7 audio cue map (sfx/bgm/vocal).",
+      "sha256": "0baab7b6665147934567dfe409258fcbe7304706d0d8e5b0dc96d88e85e54063"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_07_scene_script.csv",
+      "media_type": "text/csv",
+      "bytes": 593,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_06_scene_script.csv"
+      ],
+      "derivation": "Scene 7 timeline spec (씬 7 transition and engagement mapping).",
+      "sha256": "3c63112426c77df9620e911cd63311dde8b8d520a312c0c011eaef05affd113b"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_07_shot_sheet.csv",
+      "media_type": "text/csv",
+      "bytes": 422,
+      "generated_by": "cinematic timeline authoring tool",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_07_scene_script.csv"
+      ],
+      "derivation": "Scene 7 cut sheet and shot mapping.",
+      "sha256": "9fce957237bf79e624643e9c8d5f2ae2f64fc59548ab1308e01944f29be8b395"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_07_subtitles_kr.csv",
+      "media_type": "text/csv",
+      "bytes": 414,
+      "generated_by": "cinematic localization script",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_07_scene_script.csv"
+      ],
+      "derivation": "Scene 7 localized Korean subtitle timeline.",
+      "sha256": "cebbef4f9dbfb976c2431ca3273f4c80b7cea910a0e48586c68652d6c1784b06"
+    },
+    {
+      "filename": "design/assets/cinematic/scene_07_vfx_priority.csv",
+      "media_type": "text/csv",
+      "bytes": 304,
+      "generated_by": "cinematic production planner",
+      "source_key_art": [],
+      "source_assets": [
+        "design/assets/cinematic/scene_07_scene_script.csv"
+      ],
+      "derivation": "Scene 7 VFX conflict-priority matrix and gating map.",
+      "sha256": "3509ee77017ca77e729fce29d4ff11211a07846d0d5cf1634a3ff0cee1ca1a05"
     }
-  ]
+  ],
+  "updated_at": "2026-07-16T15:09:29Z"
 }

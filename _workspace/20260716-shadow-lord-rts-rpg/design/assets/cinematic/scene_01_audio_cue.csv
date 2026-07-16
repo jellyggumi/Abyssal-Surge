@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene1_hunt,12.00,18.00,assets/audio/hunt.mp3,-17,all,잦은 유닛 재현 구간의 긴장 기반 저역 레이어
+sfx_pool_residue,12.80,13.80,assets/audio/capture.mp3,-4,bgm,잔류 응고가 단위 병력으로 깨지는 음향
+sfx_summon_chain,14.50,16.10,assets/audio/materialize.mp3,-2,bgm,병력 호출 연결 반응 시그널
+sfx_possession_preload,16.20,18.00,assets/audio/possess.mp3,-1,bgm,빙의 진입 직전 공명/경고음

@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_04,45.00,50.00,그림자 교환/영역 스킬 각인으로 적측 압박을 한 박자 늦춤,스킬 미적중 시 S4_PAUSE,comeback_seed,comeback_trigger
+scene_04,50.00,55.00,그림자 군단과 영웅의 동시 이동으로 수직적 역전 포인트 형성,역전 실패 연장 시 S5_STORM,comeback_ascend,reverse_push
+scene_04,55.00,60.00,한 박자 반격으로 본영 압박권을 확보하고 씬6 진입 조건을 보강,역전 쿨다운 중 회복 미흡 시 S3_PRESSURE,comeback_lock,domain_lock

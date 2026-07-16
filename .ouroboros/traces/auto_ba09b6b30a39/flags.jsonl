@@ -1,0 +1,3 @@
+{"kind": "terminal_phase", "type": "state_flag", "value": "blocked"}
+{"kind": "blocker", "stop_reason_code": null, "type": "state_flag", "value": "pipeline_timeout: deadline exceeded by 0.0s during interview"}
+{"kind": "open_gaps", "type": "state_flag", "value": ["verification_plan"]}

@@ -1,54 +1,63 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="Abyssal Surge, an original mobile-first Shadow Lord RTS-RPG campaign." />
+    <meta name="description" content="Abyssal Command, an original mobile-first Shadow Lord RTS-RPG campaign." />
     <meta name="theme-color" content="#0a0d18" />
-    <title>Abyssal Surge — Shadow Lord Campaign</title>
+    <title>Abyssal Command — Shadow Lord Campaign</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
   </head>
   <body>
     <canvas id="particles-canvas" aria-hidden="true"></canvas>
-    <a class="skip-link" href="#command-panel">Skip to campaign commands</a>
+    <a class="skip-link" href="#command-panel" data-i18n="skipLink">캠페인 명령으로 건너뛰기</a>
     <header class="site-header">
       <div>
-        <p class="eyebrow">Original shadow RTS-RPG</p>
-        <h1 class="shiny-text">Abyssal Surge</h1>
-        <p class="subtitle shiny-text">Claim the drowned gate</p>
+        <p class="eyebrow" data-i18n="header.eyebrow">오리지널 그림자 RTS-RPG</p>
+        <h1 class="shiny-text">Abyssal Command</h1>
+        <p class="subtitle shiny-text" data-i18n="header.subtitle">가라앉은 문을 차지하라</p>
       </div>
-      <p id="build-label" class="build-label">Offline campaign ready</p>
+      <div class="header-controls">
+        <button id="bgm-toggle" type="button" class="ghost-toggle" aria-pressed="false" data-i18n-aria="bgmToggle.aria" aria-label="Toggle epic theme music">
+          <span class="ghost-toggle-icon" aria-hidden="true">♪</span>
+          <span data-i18n="bgmToggle.label">배경음악</span>
+        </button>
+        <button id="lang-toggle" type="button" class="ghost-toggle" aria-pressed="false" data-i18n-aria="langToggle.aria" aria-label="Switch to English">EN</button>
+        <p id="build-label" class="build-label" data-i18n="header.buildLabel">오프라인 캠페인 준비 완료</p>
+      </div>
     </header>
+    <audio id="bgm-player" src="assets/audio/bgm-theme.mp3" loop preload="none"></audio>
 
     <main id="game-root" tabindex="-1">
       <section id="campaign-lobby" class="panel lobby-panel" aria-labelledby="campaign-title">
-        <p class="eyebrow">Three-stage campaign</p>
-        <h2 id="campaign-title">Claim the drowned gate</h2>
-        <p class="lede">Command a shadow legion across Cinder Span, Veil Citadel, and Echo Throne. Every action is deterministic, works by touch or keyboard, and remains on this device.</p>
+        <p class="eyebrow" data-i18n="lobby.eyebrow">3단계 캠페인</p>
+        <h2 id="campaign-title" data-i18n="lobby.title">가라앉은 문을 차지하라</h2>
+        <p class="lede" data-i18n="lobby.lede">신더 스팬, 베일 시타델, 메아리 왕좌를 가로질러 그림자 군단을 지휘하라. 모든 행동은 결정론적이며 터치와 키보드 모두로 조작할 수 있고, 기록은 이 기기에만 남는다.</p>
         <div class="button-row">
-          <button id="start-campaign" class="primary" type="button" aria-describedby="campaign-description">Start new campaign</button>
-          <button id="resume-campaign" type="button" hidden>Resume local campaign</button>
+          <button id="start-campaign" class="primary" type="button" aria-describedby="campaign-description" data-i18n="lobby.startButton">새 캠페인 시작</button>
+          <button id="resume-campaign" type="button" hidden data-i18n="lobby.resumeButton">로컬 캠페인 이어하기</button>
         </div>
         <div class="cinematic-control">
-          <button id="play-cinematic" type="button" aria-controls="campaign-cinematic">Play optional campaign cinematic</button>
+          <button id="play-cinematic" type="button" aria-controls="campaign-cinematic" data-i18n="lobby.cinematicButton">선택형 캠페인 시네마틱 재생</button>
           <video id="campaign-cinematic" muted playsinline controls preload="none" hidden aria-label="Optional campaign cinematic"></video>
           <p id="cinematic-status" class="hint" aria-live="polite">Cinematic is optional and muted by default.</p>
         </div>
-        <p id="campaign-description" class="hint">New campaign replaces the current local run only after you confirm.</p>
+        <p id="campaign-description" class="hint" data-i18n="lobby.description">새 캠페인을 시작하면, 확인 후 현재 로컬 진행 상황이 대체됩니다.</p>
         <!-- Campaign Map & Movement Path -->
         <div class="campaign-map-section">
-          <h3 class="shiny-text">Campaign Map & Movement Path</h3>
-          <p class="hint">The path of the Dusk Warden across the fractured abyssal city.</p>
+          <h3 class="shiny-text" data-i18n="map.heading">캠페인 지도 &amp; 이동 경로</h3>
+          <p class="hint" data-i18n="map.hint">파편화된 심연 도시를 가로지르는 황혼의 감시자의 여정.</p>
           <div class="campaign-map-grid">
             <div class="map-node" id="map-node-1">
               <div class="map-node-image-wrapper">
                 <img src="assets/images/cinder-span.png" alt="Cinder Span" class="map-node-image" />
-                <div class="map-node-badge">Stage 1</div>
+                <div class="map-node-badge" data-i18n="map.stage1Badge">1단계</div>
               </div>
-              <h4>Cinder Span</h4>
-              <p>Locate and defeat Ash Echoes, extract souls, and capture the Sable Relay.</p>
+              <h4 data-i18n="map.node1Title">신더 스팬</h4>
+              <p data-i18n="map.node1Desc">재의 메아리를 찾아 처치하고, 영혼을 추출하고, 세이블 릴레이를 점거하라.</p>
             </div>
             <div class="map-connector">
               <span class="connector-arrow">➔</span>
@@ -56,10 +65,10 @@
             <div class="map-node" id="map-node-2">
               <div class="map-node-image-wrapper">
                 <img src="assets/images/veil-citadel.png" alt="Veil Citadel" class="map-node-image" />
-                <div class="map-node-badge">Stage 2</div>
+                <div class="map-node-badge" data-i18n="map.stage2Badge">2단계</div>
               </div>
-              <h4>Veil Citadel</h4>
-              <p>Possession becomes active. Hold two nodes concurrently to break the boss shield.</p>
+              <h4 data-i18n="map.node2Title">베일 시타델</h4>
+              <p data-i18n="map.node2Desc">빙의가 활성화된다. 두 거점을 동시에 장악해 보스의 방어막을 부숴라.</p>
             </div>
             <div class="map-connector">
               <span class="connector-arrow">➔</span>
@@ -67,54 +76,77 @@
             <div class="map-node" id="map-node-3">
               <div class="map-node-image-wrapper">
                 <img src="assets/images/echo-throne.png" alt="Echo Throne" class="map-node-image" />
-                <div class="map-node-badge">Stage 3</div>
+                <div class="map-node-badge" data-i18n="map.stage3Badge">3단계</div>
               </div>
-              <h4>Echo Throne</h4>
-              <p>Lord's Domain is unlocked. Defeat the Gate Sovereign to close the campaign.</p>
+              <h4 data-i18n="map.node3Title">메아리 왕좌</h4>
+              <p data-i18n="map.node3Desc">군주의 영역이 해금된다. 게이트 소버린을 처치해 캠페인을 마무리하라.</p>
             </div>
           </div>
         </div>
 
         <!-- Cinematic Storyboard -->
         <div class="storyboard-section">
-          <h3 class="shiny-text">Dusk Warden's Codex</h3>
-          <p class="hint">Visual records of the shadow extraction and tactical possession loop.</p>
+          <h3 class="shiny-text" data-i18n="storyboard.heading">황혼의 감시자 실록</h3>
+          <p class="hint" data-i18n="storyboard.hint">그림자 추출과 전술 빙의 루프의 시각 기록.</p>
           <div class="storyboard-grid">
             <div class="storyboard-card">
               <img src="assets/images/storyboard/scene_00_opening_gate_v01.jpg" alt="Opening Gate" />
               <div class="card-content">
-                <h5>00. Opening Gate</h5>
-                <p>A lunar fracture releases Echo Deep matter into coastal districts.</p>
+                <h5 data-i18n="storyboard.card00Title">00. 문이 열리다</h5>
+                <p data-i18n="storyboard.card00Desc">달의 균열이 해안 지구로 메아리 심연의 물질을 방출한다.</p>
               </div>
             </div>
             <div class="storyboard-card">
               <img src="assets/images/storyboard/scene_01_soul_pool_v01.jpg" alt="Soul Extraction" />
               <div class="card-content">
-                <h5>01. Soul Extraction</h5>
-                <p>Defeat Ash Echoes and invoke "Arise" to materialize shadow units.</p>
+                <h5 data-i18n="storyboard.card01Title">01. 영혼 추출</h5>
+                <p data-i18n="storyboard.card01Desc">재의 메아리를 처치하고 "일어나라"를 외쳐 그림자 유닛을 실체화하라.</p>
               </div>
             </div>
             <div class="storyboard-card">
               <img src="assets/images/storyboard/scene_03_possession_action_v01.jpg" alt="Possession" />
               <div class="card-content">
-                <h5>03. Tactical Possession</h5>
-                <p>Directly control shadow units to execute precise combat maneuvers.</p>
+                <h5 data-i18n="storyboard.card03Title">03. 전술 빙의</h5>
+                <p data-i18n="storyboard.card03Desc">그림자 유닛을 직접 조종해 정밀한 전투 기동을 수행하라.</p>
               </div>
             </div>
             <div class="storyboard-card">
               <img src="assets/images/storyboard/scene_04_domain_shift_v01.jpg" alt="Lord's Domain" />
               <div class="card-content">
-                <h5>04. Domain Shift</h5>
-                <p>Unleash the Lord's Domain to grant temporary invulnerability to your legion.</p>
+                <h5 data-i18n="storyboard.card04Title">04. 영역 전환</h5>
+                <p data-i18n="storyboard.card04Desc">군주의 영역을 발동해 군단에게 일시적 무적을 부여하라.</p>
               </div>
             </div>
             <div class="storyboard-card">
               <img src="assets/images/storyboard/scene_07_return_ui_v01.jpg" alt="Return to Shrine" />
               <div class="card-content">
-                <h5>07. Return & Persist</h5>
-                <p>Return to the Abyssal Shrine to upgrade your permanent shadow capacity.</p>
+                <h5 data-i18n="storyboard.card07Title">07. 귀환과 계승</h5>
+                <p data-i18n="storyboard.card07Desc">심연의 성소로 귀환해 영구 그림자 수용력을 강화하라.</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Planned Command Systems preview -->
+        <div class="feature-preview-section">
+          <h3 class="shiny-text" data-i18n="features.heading">예정된 사령부 체계</h3>
+          <p class="hint" data-i18n="features.hint">심연 저편에서 구상 중인 확장 시스템의 미리보기.</p>
+          <div class="feature-preview-grid">
+            <article class="feature-card feature-card-shop">
+              <span class="feature-tag" data-i18n="features.shop.tag">예정</span>
+              <h4 data-i18n="features.shop.title">상점 · 교환소</h4>
+              <p data-i18n="features.shop.body">거둔 영혼과 파편을 바쳐 군단의 외형과 힘을 해금할 교환소가 열립니다.</p>
+            </article>
+            <article class="feature-card feature-card-communication">
+              <span class="feature-tag" data-i18n="features.communication.tag">구상 중</span>
+              <h4 data-i18n="features.communication.title">교신 · 군단 결속</h4>
+              <p data-i18n="features.communication.body">언젠가 황혼의 감시자들이 유령 메아리를 남기고 군단의 결속을 맺게 됩니다.</p>
+            </article>
+            <article class="feature-card feature-card-interface">
+              <span class="feature-tag" data-i18n="features.interface.tag">예정</span>
+              <h4 data-i18n="features.interface.title">사령부 형상 개조</h4>
+              <p data-i18n="features.interface.body">명령 패널 배치와 심연 테마, 접근성 설정으로 사령부를 당신의 방식으로 빚으십시오.</p>
+            </article>
           </div>
         </div>
       </section>
@@ -126,14 +158,14 @@
             <h2 id="stage-heading" tabindex="-1" class="shiny-text">Cinder Span</h2>
             <p id="stage-region" class="muted"></p>
           </div>
-          <button id="retry-stage" type="button" aria-label="Retry current stage">Retry stage</button>
+          <button id="retry-stage" type="button" aria-label="Retry current stage" data-i18n="screen.retryButton">스테이지 재시도</button>
         </div>
 
         <nav id="stage-selector" class="stage-selector" aria-label="Campaign stage progression">
           <ol>
-            <li><button id="stage-select-1" type="button" aria-current="step" disabled><span>01</span> Cinder Span</button></li>
-            <li><button id="stage-select-2" type="button" disabled><span>02</span> Veil Citadel</button></li>
-            <li><button id="stage-select-3" type="button" disabled><span>03</span> Echo Throne</button></li>
+            <li><button id="stage-select-1" type="button" aria-current="step" disabled><span>01</span> <span data-i18n="map.node1Title">신더 스팬</span></button></li>
+            <li><button id="stage-select-2" type="button" disabled><span>02</span> <span data-i18n="map.node2Title">베일 시타델</span></button></li>
+            <li><button id="stage-select-3" type="button" disabled><span>03</span> <span data-i18n="map.node3Title">메아리 왕좌</span></button></li>
           </ol>
         </nav>
 
@@ -149,16 +181,16 @@
 
         <section class="panel campaign-status" aria-labelledby="status-heading">
           <div class="section-heading">
-            <h3 id="status-heading">Command status</h3>
+            <h3 id="status-heading" data-i18n="status.heading">지휘 상태</h3>
             <output id="campaign-status" class="status-message" aria-live="polite"></output>
           </div>
           <div class="status-body">
             <img id="boss-portrait" class="boss-portrait" src="assets/images/ui/boss-cinder-warden.png" alt="" hidden />
             <dl class="status-grid">
-              <div><dt>Souls</dt><dd id="souls-value">0</dd></div>
-              <div><dt>Legion slots</dt><dd id="legion-value">0 / 10</dd></div>
-              <div><dt>Nodes held</dt><dd id="nodes-value">0 / 1</dd></div>
-              <div><dt>Lord integrity</dt><dd id="integrity-value">10 / 10</dd></div>
+              <div><dt data-i18n="status.souls">영혼</dt><dd id="souls-value">0</dd></div>
+              <div><dt data-i18n="status.legion">군단 슬롯</dt><dd id="legion-value">0 / 10</dd></div>
+              <div><dt data-i18n="status.nodes">점거 거점</dt><dd id="nodes-value">0 / 1</dd></div>
+              <div><dt data-i18n="status.integrity">군주 내구도</dt><dd id="integrity-value">10 / 10</dd></div>
               <div><dt id="boss-label">Boss ward</dt><dd id="boss-value">8 / 8</dd></div>
             </dl>
           </div>
@@ -168,54 +200,55 @@
         <section id="command-panel" class="panel command-panel" aria-labelledby="commands-heading">
           <div class="section-heading">
             <div>
-              <h3 id="commands-heading">Semantic commands</h3>
-              <p class="hint">Use buttons, or press the shown key while a control is not focused.</p>
+              <h3 id="commands-heading" data-i18n="command.heading">의미 기반 명령</h3>
+              <p class="hint" data-i18n="command.hint">버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요.</p>
             </div>
           </div>
           <div class="command-grid">
-            <button id="action-hunt" data-action="hunt" type="button"><img class="action-icon" src="assets/images/ui/action-hunt.png" alt="" /><span class="key">H</span><strong>Hunt</strong><small>Map two rift spoor</small></button>
-            <button id="action-extract" data-action="extract" type="button"><img class="action-icon" src="assets/images/ui/action-extract.png" alt="" /><span class="key">E</span><strong>Extract</strong><small>Claim the shade cache</small></button>
-            <button id="action-materialize" data-action="materialize" type="button"><img class="action-icon" src="assets/images/ui/action-materialize.png" alt="" /><span class="key">M</span><strong>Materialize</strong><small>Raise shadow legion</small></button>
-            <button id="action-capture" data-action="capture" type="button"><img class="action-icon" src="assets/images/ui/action-capture.png" alt="" /><span class="key">C</span><strong>Capture</strong><small>Anchor a tech node</small></button>
-            <button id="action-possess" data-action="possess" type="button"><img class="action-icon" src="assets/images/ui/action-possess.png" alt="" /><span class="key">P</span><strong>Possess</strong><small>Unlocks in Stage 2</small></button>
-            <button id="action-domain" data-action="domain" type="button"><img class="action-icon" src="assets/images/ui/action-domain.png" alt="" /><span class="key">D</span><strong>Lord's Domain</strong><small>One use in Stage 3</small></button>
-            <button id="action-assault" data-action="assault" type="button"><img class="action-icon" src="assets/images/ui/action-assault.png" alt="" /><span class="key">A</span><strong>Assault</strong><small>Break the stage boss</small></button>
+            <button id="action-hunt" data-action="hunt" type="button"><img class="action-icon" src="assets/images/ui/action-hunt.png" alt="" /><span class="key">H</span><strong data-i18n="command.hunt.name">사냥</strong><small data-i18n="command.hunt.desc">균열 흔적 두 곳을 탐색</small></button>
+            <button id="action-extract" data-action="extract" type="button"><img class="action-icon" src="assets/images/ui/action-extract.png" alt="" /><span class="key">E</span><strong data-i18n="command.extract.name">추출</strong><small data-i18n="command.extract.desc">그림자 은닉처를 확보</small></button>
+            <button id="action-materialize" data-action="materialize" type="button"><img class="action-icon" src="assets/images/ui/action-materialize.png" alt="" /><span class="key">M</span><strong data-i18n="command.materialize.name">실체화</strong><small data-i18n="command.materialize.desc">그림자 군단을 소환</small></button>
+            <button id="action-capture" data-action="capture" type="button"><img class="action-icon" src="assets/images/ui/action-capture.png" alt="" /><span class="key">C</span><strong data-i18n="command.capture.name">점거</strong><small data-i18n="command.capture.desc">기술 거점을 고정</small></button>
+            <button id="action-possess" data-action="possess" type="button"><img class="action-icon" src="assets/images/ui/action-possess.png" alt="" /><span class="key">P</span><strong data-i18n="command.possess.name">빙의</strong><small data-i18n="command.possess.desc">2단계에서 해금</small></button>
+            <button id="action-domain" data-action="domain" type="button"><img class="action-icon" src="assets/images/ui/action-domain.png" alt="" /><span class="key">D</span><strong data-i18n="command.domain.name">군주의 영역</strong><small data-i18n="command.domain.desc">3단계에서 1회 사용</small></button>
+            <button id="action-assault" data-action="assault" type="button"><img class="action-icon" src="assets/images/ui/action-assault.png" alt="" /><span class="key">A</span><strong data-i18n="command.assault.name">총공격</strong><small data-i18n="command.assault.desc">스테이지 보스를 무너뜨림</small></button>
           </div>
         </section>
 
         <section id="reward-panel" class="panel reward-panel" aria-labelledby="reward-heading" hidden>
-          <p class="eyebrow">Exclusive reward</p>
-          <h3 id="reward-heading" tabindex="-1">Choose one lasting boon</h3>
-          <p id="reward-summary">The other reward will be lost to the rift.</p>
+          <p class="eyebrow" data-i18n="reward.eyebrow">특별 보상</p>
+          <h3 id="reward-heading" tabindex="-1" data-i18n="reward.heading">영구 보너스 하나를 선택하라</h3>
+          <p id="reward-summary" data-i18n="reward.summary">선택하지 않은 보상은 균열 속으로 사라집니다.</p>
           <div id="reward-options" class="reward-options" role="group" aria-label="Choose one reward"></div>
         </section>
 
         <section id="campaign-complete" class="panel completion-panel" aria-labelledby="completion-heading" hidden>
-          <p class="eyebrow">Campaign complete</p>
-          <h3 id="completion-heading" tabindex="-1">The drowned gate is silent</h3>
+          <p class="eyebrow" data-i18n="completion.eyebrow">캠페인 완료</p>
+          <h3 id="completion-heading" tabindex="-1" data-i18n="completion.heading">가라앉은 문이 침묵하다</h3>
           <img class="completion-emblem" src="assets/images/ui/emblem-gate-sovereign.jpg" alt="Low-poly monument of the defeated Gate Sovereign inside a glowing gate ring" />
           <p id="completion-summary"></p>
-          <button id="restart-campaign" class="primary" type="button">Begin another campaign</button>
+          <button id="restart-campaign" class="primary" type="button" data-i18n="completion.restartButton">새로운 캠페인 시작</button>
         </section>
 
         <section class="panel save-panel" aria-labelledby="save-heading">
           <div class="section-heading">
             <div>
-              <h3 id="save-heading">Local campaign save</h3>
+              <h3 id="save-heading" data-i18n="save.heading">로컬 캠페인 저장</h3>
               <p id="save-status" class="hint" role="status">Preparing local save…</p>
             </div>
             <div class="button-row">
-              <button id="export-save" type="button">Export save</button>
-              <label class="file-button" for="import-save">Import save<input id="import-save" type="file" accept="application/json,.json" /></label>
+              <button id="export-save" type="button" data-i18n="save.exportButton">저장 내보내기</button>
+              <label class="file-button" for="import-save"><span data-i18n="save.importButton">저장 불러오기</span><input id="import-save" type="file" accept="application/json,.json" /></label>
             </div>
           </div>
-          <p class="hint">Campaign state is stored locally in a versioned IndexedDB envelope. Export a file before clearing browser data.</p>
+          <p class="hint" data-i18n="save.hint">캠페인 상태는 버전이 관리되는 IndexedDB 봉투에 로컬로 저장됩니다. 브라우저 데이터를 지우기 전에 파일로 내보내세요.</p>
         </section>
       </section>
     </main>
 
     <div id="visual-effect" class="visual-effect" aria-hidden="true"></div>
-    <noscript><p class="noscript">JavaScript is required to command the Abyssal Surge campaign.</p></noscript>
+    <noscript><p class="noscript" data-i18n="noscript">Abyssal Command 캠페인을 지휘하려면 JavaScript가 필요합니다.</p></noscript>
+    <script type="module" src="i18n.js"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

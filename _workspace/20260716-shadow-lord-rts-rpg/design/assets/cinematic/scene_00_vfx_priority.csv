@@ -1,0 +1,6 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_GATE_CRACK,10,1.20,0.50,gate_rift_stutter,게이트 표면 균열 스파크와 저주파 떨림
+VFX_RESIDUE_POOL,20,6.00,3.00,residue_ink_pool,영혼 잔류 응고 번짐과 유체 표면 반짝임
+VFX_INVERS,30,9.00,0.30,invert_wave,컬러 인버전과 오디오 저역 봉쇄 동시 실행
+VFX_SUMMON_CHAIN,40,9.05,1.20,summon_chain_rise,흑색 연기와 청자색 사슬이 지면에서 발광하며 상승
+VFX_ASSEMBLE,50,10.80,1.20,hero_reconstitution,그림자 군단 실체화 전환 및 전투 개시 오버레이

@@ -1,6 +1,6 @@
 {
-  "name": "Abyssal Surge",
-  "short_name": "AbyssalSurge",
+  "name": "Abyssal Command",
+  "short_name": "AbyssalCommand",
   "description": "A browser-local deterministic dark fantasy strategy game.",
   "start_url": "./index.html",
   "display": "standalone",

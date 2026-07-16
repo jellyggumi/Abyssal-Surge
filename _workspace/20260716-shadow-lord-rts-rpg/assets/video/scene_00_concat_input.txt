@@ -1,0 +1,4 @@
+file scene_00_shot_prompt_v01.mp4
+file scene_00_shot_gatev01_v01.mp4
+file scene_00_shot_soul_v01.mp4
+file scene_00_shot_domain_v01.mp4

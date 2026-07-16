@@ -1,0 +1,4 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_COMEBACK_INV,10,46.50,0.30,inversion_pulse,컬러 반전과 오디오 컷 동기
+VFX_DOMAIN_RING,20,50.80,3.80,domain_lock_ring,영역 지배 링 및 방벽 표시
+VFX_BULK_RECALL,30,55.20,2.50,reunion_fade,전투 집중 복귀 오버레이

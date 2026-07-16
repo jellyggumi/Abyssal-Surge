@@ -1,9 +1,9 @@
-# Abyssal Surge (Shadow Lord)
+# Abyssal Command (Shadow Lord)
 
 [![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml)
 [![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Surge/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Surge/)
 
-**Abyssal Surge**는 《나 혼자만 레벨업》 IP에서 영감을 얻은 **전투 중심 무자원 RTS-RPG 하이브리드 웹 게임**입니다. 
+**Abyssal Command**는 《나 혼자만 레벨업》 IP에서 영감을 얻은 **전투 중심 무자원 RTS-RPG 하이브리드 웹 게임**입니다. 
 전투 성과를 곧바로 병력(그림자 군단)과 성장으로 전환하는 결정론적 규칙 엔진 기반으로 동작합니다.
 
 ---
@@ -59,6 +59,9 @@ python3 -m http.server 8000
 
 ### 테스트 실행
 ```bash
-# 핵심 규칙, 캠페인 상태 머신 및 5단계 플레이테스트 시뮬레이션 테스트
-node --test tests/game-core.test.mjs tests/campaign-state.test.mjs tests/playtest-5-stages.test.mjs
+# 핵심 규칙 및 현재 3단계 캠페인 상태 머신
+node --test tests/game-core.test.mjs tests/campaign-state.test.mjs
+#
+# UI 기반 3단계 종단 간 검증 (Node 환경에서 `playwright` 모듈을 해석할 수 있어야 함)
+node tests/playtest-browser-3stage.cjs
 ```

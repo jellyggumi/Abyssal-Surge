@@ -1,0 +1,4 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_STORM_SHADE,10,60.40,2.00,storm_drop,상대 압박 과열과 색상 탈색
+VFX_VOID_THRESHOLD,20,66.00,2.50,void_threshold_glow,심연 흡수 임계 판단 오라
+VFX_SURGE_PRELUDE,30,70.50,3.80,surge_waiting_wave,최종 반격 대기선 바닥 진동

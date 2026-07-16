@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene3_engage,30.00,45.00,assets/audio/hunt.mp3,-17,all,전면 확장 구간 지속 압박 레이어
+sfx_front_wave,30.80,33.20,assets/audio/extract.mp3,-3,bgm,교전 확산 신호
+sfx_overflow_shock,35.20,38.30,assets/audio/domain.mp3,-5,bgm,보강 라인 충돌 충격음
+sfx_fallback_glow,40.10,44.80,assets/audio/ambient.mp3,-4,bgm,재정렬 전환시 리듬 보정톤

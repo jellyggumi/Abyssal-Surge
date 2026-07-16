@@ -1,0 +1,3 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S01_A,영혼 잔류 지점에서 병력 동원,3.0,design/assets/cinematic/scene_01_soul_pool_v01.png,dissolve,spawn_wave_bloom
+S01_B,신규 병력 빙의 힌트 및 전환 각성,3.0,design/assets/cinematic/scene_03_possession_action_v01.png,flash,possess_tension_pull

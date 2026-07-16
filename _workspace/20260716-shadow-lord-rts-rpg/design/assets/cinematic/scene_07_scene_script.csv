@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_07,93.00,99.00,보스 격파 완료 직후 유닛 회수와 성소 귀환 경로 고정,귀환 실패 시 S7_RETURN 루프,return_phase,return_boot
+scene_07,99.00,105.00,영혼·유전자 수집량을 성소 메뉴로 송신해 영속 보너스 후보 노출,데이터 누락 시 성소 UI 재시도,shrine_sync,shrine_upload
+scene_07,105.00,111.00,세션 종료 결산 텍스트로 다음 매치 성장 반영과 재도전 유도,연결 지연 시 대기 상태 유지 후 재시도,epilogue_burn,persistence_breath

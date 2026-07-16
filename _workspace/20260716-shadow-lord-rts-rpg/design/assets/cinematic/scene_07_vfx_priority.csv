@@ -1,0 +1,4 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_RETURN_WARP,10,93.40,1.80,shrine_vortex,귀환 경로를 표시하는 나선형 잔광
+VFX_SHRINE_SYNC,20,99.20,3.20,data_stream_glow,성소 업적 반영 오라
+VFX_EPILOGUE_BURN,30,105.40,2.40,epilogue_fade,마무리 페이드와 잔상 결집

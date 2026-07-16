@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_03,30.00,35.00,소규모 교전을 대규모 확장 교전으로 확장,초기 돌파 미실패 시 S3_STAGGER,engagement_surge,engage_wave
+scene_03,35.00,40.00,거점 연계로 2차 전선까지 병력을 확산해 압박률 상승,연속 교전 패배 2회 시 S5_STORM로 전환,front_overflow,engage_split
+scene_03,40.00,45.00,그림자 병력 간 조율을 통해 한타 리듬을 완성하고 씬4 조건을 준비,조종 지연/정렬 붕괴 시 S3_PRESSURE,combat_rhythm,front_rhythm

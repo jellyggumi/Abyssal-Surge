@@ -1,0 +1,4 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S02_A,거점 후보 영역 하이라이트 확정,4.0,design/assets/cinematic/scene_01_soul_pool_v01.png,fade,map_grid_sweep
+S02_B,지점 점령 반응과 전선 축적,4.0,design/assets/cinematic/scene_04_domain_shift_v01.png,crossfade,control_line_pop
+S02_C,점령 전선 반전 경고와 후방 후퇴 동선,4.0,design/assets/cinematic/scene_03_possession_action_v01.png,flash,threat_recurve

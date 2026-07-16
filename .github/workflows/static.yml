@@ -52,21 +52,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html app.js game-core.js campaign-state.js styles.css privacy.html sw.js manifest.json icon.svg; do
+          for file in index.html app.js game-core.js campaign-state.js i18n.js styles.css privacy.html sw.js manifest.json icon.svg; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
           node --check app.js
           node --check game-core.js
           node --check campaign-state.js
+          node --check i18n.js
           node --check sw.js
           grep -Fq 'href="styles.css"' index.html
           grep -Fq '<script type="module" src="app.js"></script>' index.html
+          grep -Fq '<script type="module" src="i18n.js"></script>' index.html
           grep -Fq 'from "./campaign-state.js";' app.js
+
           # reject literal edit-tool markers that previously shipped a broken bundle
-          if grep -n "≔" index.html app.js game-core.js campaign-state.js styles.css sw.js; then
+          if grep -n "≔" index.html app.js game-core.js campaign-state.js i18n.js styles.css sw.js; then
             echo "stray edit markers found in shippable files" >&2
             exit 1
+
           fi
       - name: Build allowlisted Pages artifact
         shell: bash
@@ -74,8 +78,9 @@ jobs:
           set -euo pipefail
           rm -rf "$PAGES_ARTIFACT_DIR"
           mkdir -p "$PAGES_ARTIFACT_DIR"
-          git archive --format=tar "$PAGES_REVISION" -- index.html app.js game-core.js campaign-state.js styles.css privacy.html sw.js manifest.json icon.svg assets | tar -x -C "$PAGES_ARTIFACT_DIR"
-          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- index.html app.js game-core.js campaign-state.js styles.css privacy.html sw.js manifest.json icon.svg assets | sort)"
+          git archive --format=tar "$PAGES_REVISION" -- index.html app.js game-core.js campaign-state.js i18n.js styles.css privacy.html sw.js manifest.json icon.svg assets | tar -x -C "$PAGES_ARTIFACT_DIR"
+          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- index.html app.js game-core.js campaign-state.js i18n.js styles.css privacy.html sw.js manifest.json icon.svg assets | sort)"
+
           actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^${PAGES_ARTIFACT_DIR}/##" | sort)"
           test "$actual" = "$expected"
 

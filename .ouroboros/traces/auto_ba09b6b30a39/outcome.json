@@ -1,0 +1,44 @@
+{
+  "assumptions": [],
+  "auto_session_id": "auto_ba09b6b30a39",
+  "blocker": "pipeline_timeout: deadline exceeded by 0.0s during interview",
+  "counts": {
+    "ambiguity": 0,
+    "decisions": 10,
+    "flags": 3,
+    "gated": 0,
+    "lateral": 0,
+    "promoted": 10,
+    "questions": 1,
+    "rejected": 0
+  },
+  "degraded": false,
+  "gate_findings": [],
+  "grade": null,
+  "interview_closure_mode": null,
+  "interview_session_id": "interview_f08552bc60f34044",
+  "non_goals": [],
+  "open_gaps": [
+    "verification_plan"
+  ],
+  "phase": "blocked",
+  "provenance_histogram": {
+    "maintainer_policy": 2,
+    "user_confirmed": 8
+  },
+  "qa": {
+    "differences": [],
+    "passed": null,
+    "score": null,
+    "suggestions": [],
+    "verdict": null
+  },
+  "run_id": "auto_ba09b6b30a39",
+  "seed_decision_provenance": {},
+  "seed_id": null,
+  "seed_origin": "none",
+  "seed_path": null,
+  "status": "blocked",
+  "stop_reason_code": null,
+  "unverified_provenance_findings": []
+}

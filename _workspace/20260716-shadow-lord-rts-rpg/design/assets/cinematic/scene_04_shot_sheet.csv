@@ -1,0 +1,4 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S04_A,그림자 교환 전조,5.0,design/assets/cinematic/scene_04_domain_shift_v01.png,flash,invert_preload
+S04_B,영역 확장과 군단 역추진,5.0,design/assets/cinematic/scene_03_possession_action_v01.png,dip_to_white,domain_burst
+S04_C,역전 타이밍 정지/가시화,5.0,design/assets/cinematic/scene_00_opening_gate_v01.png,dissolve,arc_reverse

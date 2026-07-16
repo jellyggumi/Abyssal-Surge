@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene4_comeback,45.00,60.00,assets/audio/domain.mp3,-16,all,역전 구간의 긴장-정전환 레이어
+sfx_shadow_swap,46.20,47.00,assets/audio/extract.mp3,-1,all,그림자 교환 액티베이션
+sfx_domain_ring,50.50,52.80,assets/audio/extract.mp3,-2,bgm,영역 스킬 전개 반지름 노출
+sfx_comeback_lock,56.00,60.00,assets/audio/ambient.mp3,-4,bgm,역전 고정 구간 음역 강화

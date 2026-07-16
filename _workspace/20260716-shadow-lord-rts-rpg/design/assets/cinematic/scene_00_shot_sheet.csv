@@ -1,0 +1,5 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S00_A,항만 붕괴 오프닝,3.0,design/assets/cinematic/scene_00_opening_gate_prompt.png,fade,slow_push_in
+S00_B,게이트 탑 균열 확장,3.0,design/assets/cinematic/scene_00_opening_gate_v01.png,dip_to_white,breathing_scale
+S00_C,영혼 잔류 응고 전조,3.0,design/assets/cinematic/scene_01_soul_pool_v01.png,flash,liquid_pool_wobble
+S00_D,영역 역전 전환 징후,3.0,design/assets/cinematic/scene_04_domain_shift_v01.png,cut,inversion_spark

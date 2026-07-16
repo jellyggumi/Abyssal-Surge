@@ -1,0 +1,4 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S05_A,대량 손실 직후의 재편성,5.0,design/assets/cinematic/scene_04_domain_shift_v01.png,fade,despair_breathe
+S05_B,심연 흡수 직전 분기,5.0,design/assets/cinematic/scene_01_soul_pool_v01.png,flash,nihility_scan
+S05_C,반격 카운트 대기와 재집결,5.0,design/assets/cinematic/scene_03_possession_action_v01.png,crossfade,stabilize_core

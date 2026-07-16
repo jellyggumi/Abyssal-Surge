@@ -489,26 +489,98 @@ export const ShadowLordCinematic = () => (
 - 배경-자막-브랜딩 충돌 여부(텍스트 중첩/가독성) 1회라도 실패하면 리컷.
 - 영속 성장 연동 컷(씬 7)은 실제 수치 반영이 보이는 UI로 끝맺음.
 
-## 22) 갓티보이미젠용 컨셉시안 프롬프트 5종 (저장본)
+## 22) 갓티보이미젠용 컨셉시안 프롬프트 5종 (+확장 5종) (저장본)
 
-요청된 추가 컨셉시안 5장용 텍스트 프롬프트는 별도 산출물로 관리한다.  
-저장 경로: `_workspace/20260716-shadow-lord-rts-rpg/design/concept-image-prompts-gotibo.md`
+요청된 기본 컨셉시안 5종과 씬 전환/연출 밀도 보강용 확장 5종을 분리 관리한다.
 
-핵심 키워드 집합(요약):
+- 기본 5종: `_workspace/20260716-shadow-lord-rts-rpg/design/concept-image-prompts-gotibo.md`
+- 확장 5종(씬 0~7 연동 컷): `_workspace/20260716-shadow-lord-rts-rpg/design/concept-image-prompts-gotibo-extended.md`
+
+기본 5종 요약:
 - 붕괴 도시 게이트 개방 / 레드 스펙트럼 + 청보라 귀신 불꽃
 - 영혼 잔류 웅덩이 + `일어나라` 실체화 모션
 - 빙의 액션(이그리트) 1인칭/숄더뷰 하이브리드
 - `그림자 교환/군주의 영역` 역전 연출 + 인버전 타이밍
 - 성소 귀환과 영속 성장 UI 동결컷(종결감과 다음 목표 제시)
-## 22.1 씬 0 실행 산출물(현재 반영본, 워크스페이스)
+
+확장 5종 요약:
+- 씬 0 브릿지 확장, 씬 0-1/1-2 전이, 씬 3 액션, 씬 6 정점 컷
+
+## 22.1 씬 0/0→1 실행 산출물(현재 반영본, 워크스페이스)
 
 - **씬 0 정적 원본(컨셉 아트):**
   - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_00_opening_gate_prompt.png`
-- **씬 0 1차 렌더 비디오(12초):**
+- **씬 0 렌더 비디오(1차):**
   - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_gate_opening.mp4`
-- **자산 인벤토리 메타:**
-  - `assets/media-manifest.json`(이미지/영상 SHA, 바이트, 파생 경로 반영)
+- **씬 0 최종본(4컷 concat, 12초):**
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_opening_gate_cinematic_v01.mp4`
+- **씬 0 최종본 하드자막본(12초):**
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_opening_gate_cinematic_v01_subbed.mp4`
+- **씬 1 연속 샘플(2컷 + 컷시트):**
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_01_shot_soul_hunt_v01.mp4`
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_01_shot_possession_hint_v01.mp4`
+  - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_01_scene_script.csv`
+  - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_01_shot_sheet.csv`
+  - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_01_audio_cue.csv`
+  - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_01_subtitles_kr.csv`
+  - `_workspace/20260716-shadow-lord-rts-rpg/design/assets/cinematic/scene_01_vfx_priority.csv`
+- **씬 0→1 브릿지 샘플(총 18초):**
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4`
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_opening_encounter_cinematic_v01_subbed.mp4`
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_concat_input.txt`
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/video/scene_00_to_01_shot_subtitles.srt`
+- **씬 0/1 통합 매니페스트 반영:**
+  - `_workspace/20260716-shadow-lord-rts-rpg/assets/media-manifest.json`
+  - `assets/media-manifest.json` (루트 기준 핵심 진입본, `updated_at: 2026-07-16T23:59:59Z`)
+
 ### 사용 규칙
-- 컷 번호 체계: `scene_00_*`
-- 최종 리뷰본은 `v100` 버전 명명 규칙으로 `design/cinematic/` 또는 `assets/video/` 하위에 보관.
+- 컷 번호 체계: `scene_00_*`, `scene_01_*`(씬 전환부 포함)
+- 최종 리뷰본은 `v100` 규격으로 `design/` 또는 `assets/video/` 하위에 보관.
 - 2차 컷 확장 시 `scene_00_gate_opening_v010.mp4` 형태로 리비전.
+
+### 연동 상태
+- 패키지 문서(`design/cinematic-scene-00-package.md`), 매니페스트(워크스페이스/루트), llm-wiki 산출물 동기화 상태: ✅ 반영됨
+## 22.2 씬 전환/시나리오 확장(구현용 v2) — 워크스페이스 반영본
+
+요청한 「주요 씬전환/시나리오 구체화」를 이어서 확정한다.
+
+### 적용 위치
+
+- `scene-state` 확장 원안: `_workspace/20260716-shadow-lord-rts-rpg/design/cinematic-transition-roadmap-expanded.md`
+- 이 문서(섹션 15)에서 1차 표기한 규칙을 그대로 계승하면서, **실패 상태(복구 루프) + 분기 시나리오(F~H)**를 추가 반영
+- 기존 `씬 0` 제작물은 `_workspace/20260716-shadow-lord-rts-rpg/design/cinematic-scene-00-package.md` 유지
+
+### 확장 핵심 요약
+
+1. **상태머신 확장**
+   - 기본: `S0_OPENING → S1_HUNT → S2_NODE → S3_BLOOM → S4_COMEBACK → S5_STORM → S6_APEX → S7_RETURN`
+   - 추가 실패/복귀: `S0_DEGRADED, S1_RETRY, S2_FLEEBACK, S3_STAGGER, S5_DESPAIR, FAIL_PIVOT`
+   - 실패 루트는 모두 `S7_RETURN` 또는 동일 씬 보강 후 복귀하여 **끊김 없이 진행**되게 설계
+
+2. **씬별 전환 임계값 구체화**
+   - `S1→S2`: Arise 입력 + 실체화 이벤트 1회 동시 감지
+   - `S2→S3`: 점령률 20% 돌파 또는 적 압박 완화 임계 충족
+   - `S3→S4`: 체력/교전 압박 임계(평균 55% 하향)
+   - `S4→S6`: 본영 접근권 획득 후 역전 스킬 유효 사용
+   - `S6→S7`: 보스 체력 20% 이하 또는 보스 페이즈 전환 완료
+
+3. **시나리오 확장**
+   - 기존 A~E 외에 `F~H`를 추가(초반 교란, 본영 되돌림, 성소 리텐션 검증)
+   - 각 시나리오는 실패 루트를 포함해 **성공/실패 모두 통과 로그를 남김**
+
+### 바로 적용되는 산출물 규칙
+
+- 컷 시트/오디오/자막 키는 `scene_0x` 접두사로 고정하고, 상태 태그는 `state:*` 형태로 병행.
+- 실패 복귀 컷이 투입될 경우 파일 태그: `_fallback_v01`, `_retry_v01`, `_pivot_v01`.
+- 브릿지는 항상 `scene_00_to_01_*` 처럼 `scene_<from>_to_<to>_*` 형식으로 명명하여 매니페스트 매칭 규칙을 단순화.
+- 최종 승인본 네이밍 규칙은 `v100`을 기본으로 하고, 미리보기는 `v01~v09` 단계에서 운영한다.
+
+### 반영 상태
+
+- `docs` 업데이트: 본 항목 반영 완료
+- `workspace` 반영: `_workspace/20260716-shadow-lord-rts-rpg/design/cinematic-transition-roadmap-expanded.md` 신규 생성 및 상태머신/실패 루트 반영 완료
+- `매니페스트` 연동: 루트 `assets/media-manifest.json` 누락 36건(mp4) 및 워크스페이스 `assets/media-manifest.json` 누락 42건(mp4) 등록 완료  
+  - 루트 기준: `assets/video/*.mp4` 46개 전량 반영
+  - 워크스페이스 기준: `_workspace/20260716-shadow-lord-rts-rpg/assets/video/*.mp4` 42개 전량 반영
+- `scene_02~scene_07` 상태 확정: 씬 `CSV`(scene_script/shot_sheet/audio_cue/subtitles/vfx_priority)와 `concat manifest`/bridge SRT 준비 완료.
+- 다음 단계: 컷 간 동기화 QA(프레임 경계·오디오 싱크·장면 전환 스테이트 로그) 통과 후, `v100` 승인본 패키지로 루트/워크스페이스 동시 패키징.

@@ -1,0 +1,9 @@
+WARNING: This project calls an unsupported private Codex backend path. The contract may break without notice.
+{
+  "provider": "codex-cli",
+  "savedPath": "/Users/jangyoung/orca/Abyssal-Surge/assets/images/ui/action-extract.png",
+  "responseId": null,
+  "sessionId": "019f6b5b-c1e5-7b01-8ccb-e2c2e49885b4",
+  "revisedPrompt": null,
+  "httpStatus": 0
+}

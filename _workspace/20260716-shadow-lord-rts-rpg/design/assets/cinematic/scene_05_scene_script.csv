@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_05,60.00,65.00,적 반격이 심해지는 구간에서 손실을 감내하고 재편성 루틴 진입,회복 지연 시 S5_DESPAIR,collapse_critical,storm_hold
+scene_05,65.00,70.00,심연의 흡수 조건 충족 여부를 점검해 극단 복귀를 판단,회복 불가 시 FAIL_PIVOT,storm_evaluate,rebirth_check
+scene_05,70.00,75.00,최소 병력 남김 없이도 한 박자 버틴 뒤 역전 카운트를 재개,보상 임계 미달 시 S3_STAGGER로 되돌림,final_push_wait,storm_ignite

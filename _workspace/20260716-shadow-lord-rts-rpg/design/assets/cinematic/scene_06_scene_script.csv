@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_06,75.00,81.00,보스 본영 진입 직전 병력 집중과 최종 공격 루프 진입,진입 실패 시 S5_STORM,apex_gate,apex_arrival
+scene_06,81.00,87.00,단일 웨이브 붕괴와 핵심 체력 게이트를 공략해 한타 완주,패턴 반복 급증 시 S6_OVERDRIVE,apex_wave,beacon_pressure
+scene_06,87.00,93.00,보스 2차 패턴 이전에 한 번 더 지연/반격 타이밍을 고정하고 귀환 상태를 확보,시간 초과/오디오 드랍 시 S5_DESPAIR,apex_lock,final_overdrive

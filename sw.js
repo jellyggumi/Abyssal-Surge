@@ -1,14 +1,16 @@
-const CACHE_NAME = "abyssal-surge-static-v2";
+const CACHE_NAME = "abyssal-surge-static-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./campaign-state.js",
+  "./i18n.js",
   "./styles.css",
   "./sw.js",
   "./manifest.json",
   "./icon.svg"
 ];
+
 const OPTIONAL_MEDIA = [
   "./assets/images/cinder-span.png",
   "./assets/images/veil-citadel.png",
@@ -52,6 +54,7 @@ const OPTIONAL_MEDIA = [
   "./assets/audio/narr-stage3.mp3",
   "./assets/audio/narr-victory.mp3",
   "./assets/audio/narr-defeat.mp3",
+  "./assets/audio/bgm-theme.mp3",
   "./assets/video/cinder-span.mp4",
   "./assets/video/veil-citadel.mp4",
   "./assets/video/echo-throne.mp4",
@@ -67,7 +70,7 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-state.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-state.js", "/i18n.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 self.addEventListener("install", (event) => {

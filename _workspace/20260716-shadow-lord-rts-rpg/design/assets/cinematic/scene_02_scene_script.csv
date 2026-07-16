@@ -1,0 +1,4 @@
+scene_id,in_sec,out_sec,scene_goal,fail_state,visual_keywords,sfx_key
+scene_02,18.00,22.00,점령 후보 구역을 확정하고 거점 점령 라인을 형성,점령 신호 누락 시 귀환 루프 진입,node_gate_scan, node_scan
+scene_02,22.00,26.00,거점 전투 첫 라운드를 열고 점령률을 안정적으로 20% 이상으로 끌어올림,20초간 지속 손실 시 S2_FLEEBACK,zone_contest,claim_beacon
+scene_02,26.00,30.00,교전 중 전술 표식(진입/후방/우회)을 표시하고 씬3 전환을 준비,동시 정찰률 미도달/조준 상실 시 S1_RETRY로 복귀,contested_frontier,pre_bloom

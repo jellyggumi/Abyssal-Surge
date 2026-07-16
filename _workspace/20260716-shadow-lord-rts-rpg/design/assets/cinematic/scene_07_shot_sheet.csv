@@ -1,0 +1,4 @@
+shot_id,shot_desc,duration_sec,source_image,transition,motion_tag
+S07_A,성소 귀환 동선 열림,6.0,design/assets/cinematic/scene_07_return_ui_v01.png,dissolve,return_pull
+S07_B,영혼/유전자 정산 UI 표기,6.0,design/assets/cinematic/scene_00_opening_gate_prompt.png,crossfade,shrine_commit
+S07_C,영속 성장 프리뷰 및 마무리,6.0,design/assets/cinematic/scene_04_domain_shift_v01.png,fade,epilogue_lock

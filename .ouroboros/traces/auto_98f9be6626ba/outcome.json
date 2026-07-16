@@ -1,0 +1,48 @@
+{
+  "assumptions": [],
+  "auto_session_id": "auto_98f9be6626ba",
+  "blocker": "pipeline_timeout: deadline exceeded by 0.0s during interview",
+  "counts": {
+    "ambiguity": 0,
+    "decisions": 11,
+    "flags": 3,
+    "gated": 0,
+    "lateral": 0,
+    "promoted": 11,
+    "questions": 4,
+    "rejected": 0
+  },
+  "degraded": false,
+  "gate_findings": [],
+  "grade": null,
+  "interview_closure_mode": null,
+  "interview_session_id": "interview_07fdd8a02e0e4b7f",
+  "non_goals": [
+    "For auto MVP scope, cloud sync, paid services, authentication are non-goals unless explicitly requested."
+  ],
+  "open_gaps": [
+    "actors",
+    "failure_modes",
+    "runtime_context"
+  ],
+  "phase": "blocked",
+  "provenance_histogram": {
+    "maintainer_policy": 2,
+    "user_confirmed": 9
+  },
+  "qa": {
+    "differences": [],
+    "passed": null,
+    "score": null,
+    "suggestions": [],
+    "verdict": null
+  },
+  "run_id": "auto_98f9be6626ba",
+  "seed_decision_provenance": {},
+  "seed_id": null,
+  "seed_origin": "none",
+  "seed_path": null,
+  "status": "blocked",
+  "stop_reason_code": null,
+  "unverified_provenance_findings": []
+}

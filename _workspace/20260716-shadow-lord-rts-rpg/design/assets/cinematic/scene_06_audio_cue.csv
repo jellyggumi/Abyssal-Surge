@@ -1,0 +1,5 @@
+cue_id,start_sec,end_sec,track,volume_db,duck_target,description
+bgm_scene6_apex,75.00,93.00,assets/audio/domain.mp3,-15,all,정점 한타 압박 레이어
+sfx_apex_enter,75.60,77.20,assets/audio/extract.mp3,-2,bgm,본영 접근 카운트 사운드
+sfx_phase_gate,81.20,84.50,assets/audio/extract.mp3,-1,bgm,보스 패턴 전환 징표
+sfx_last_burn,87.40,92.60,assets/audio/ambient.mp3,-3,bgm,최종 과열 구간 상승 라인

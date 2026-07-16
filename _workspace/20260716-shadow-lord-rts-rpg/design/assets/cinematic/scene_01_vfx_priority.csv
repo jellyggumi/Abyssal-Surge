@@ -1,0 +1,5 @@
+vfx_id,priority,trigger_sec,duration_sec,vfx_tag,desc
+VFX_SOUL_CLUSTER,20,12.20,3.00,soul_cluster_pulse,잔류영혼이 한 점으로 모이며 사슬형 응고를 형성
+VFX_CHAIN_FORM,30,14.70,1.20,entity_chain_rise,병력이 순차적으로 실체화되는 연쇄 발광
+VFX_SCREEN_BRAKE,40,16.00,2.00,shadow_breach_flare,빙의 모드 가능 UI 잔광 및 주변 음영 확장
+VFX_OCCLUSION,50,16.80,0.80,focus_lock_marker,시선 집중 오버레이를 띄워 다음 씬 조준 상태를 암시

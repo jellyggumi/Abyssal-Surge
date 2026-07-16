@@ -1,0 +1,585 @@
+#!/usr/bin/env node
+// Campaign balance simulator + exploit fuzzer for Abyssal Surge (balance v2).
+// Node 22, zero dependencies. Reads the deterministic rules engine and measures
+// G2 (balance), G3 (archetype diversity), G7 (loop) inputs plus exploit probes.
+// Usage: node scripts/run-campaign-balance-sim.mjs   (prints one JSON summary)
+
+import {
+  BALANCE,
+  RULES_VERSION,
+  STAGES,
+  createCampaign,
+  startCampaign,
+  applyAction,
+  chooseReward,
+  retryStage,
+  getStageChecklist,
+  getAvailableActions,
+  createSaveEnvelope,
+  restoreSaveEnvelope
+} from "../campaign-state.js";
+
+const ACTIONS = ["hunt", "extract", "materialize", "capture", "possess", "domain", "assault"];
+const ALL_REWARD_IDS = STAGES.flatMap((s) => s.rewards.map((r) => r.id));
+const CASUAL_TRIALS = 200;
+const FUZZ_SEQUENCES = 1000;
+const FUZZ_OPS_PER_SEQ = 150;
+const MAX_CAMPAIGN_STEPS = 500;
+// G7 proxy assumption: per semantic action pacing band (design has no measured
+// seconds-per-action; 75 s stage-1 target / 8 actions ~ 9.4 s/action sits inside).
+const SEC_PER_ACTION_MIN = 5;
+const SEC_PER_ACTION_MAX = 15;
+
+// --- deterministic PRNG (mulberry32) ---
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
+
+// --- shared helpers over BALANCE (mirror engine math for policy targeting) ---
+function counterAt(stageNumber, legion) {
+  const shield = Math.floor(legion / BALANCE.shieldDivisor);
+  const base = BALANCE.counterBase[stageNumber - 1];
+  const thin = legion < BALANCE.thinMargin + stageNumber ? BALANCE.thinPenalty : 0;
+  return Math.max(1, base - shield) + thin;
+}
+// smallest even legion tier (materialize summons 2) within cap whose counter is 1
+function counterOneTarget(stageNumber, capacity, startLegion) {
+  for (let legion = Math.max(2, startLegion); legion <= capacity; legion += BALANCE.materializeSummon) {
+    if (counterAt(stageNumber, legion) === 1) return legion;
+  }
+  return null;
+}
+function wantsEconomy(state, targetLegion) {
+  const s = state.stage;
+  if (s.legion >= targetLegion) return null;
+  const avail = getAvailableActions(state);
+  if (avail.includes("materialize")) return "materialize";
+  if (avail.includes("extract")) return "extract";
+  if (avail.includes("hunt")) return "hunt";
+  return null;
+}
+function checklistNext(state) {
+  const avail = getAvailableActions(state);
+  for (const item of getStageChecklist(state)) {
+    if (!item.complete && avail.includes(item.id)) return item.id;
+  }
+  return avail[0];
+}
+
+// --- archetype policies: state -> chosen action (from available set) ---
+function byPriority(priority) {
+  return (state) => {
+    const avail = getAvailableActions(state);
+    for (const action of priority) if (avail.includes(action)) return action;
+    return avail[0];
+  };
+}
+const policies = {
+  // (a) straight to the boss: minimum legion, never domain, never S3 possess.
+  // capture outranks materialize so the legion stays at the thin minimum.
+  rusher(state) {
+    const avail = getAvailableActions(state);
+    const stage = STAGES[state.stageIndex];
+    const order = stage.number === 3
+      ? ["assault", "capture", "materialize", "extract", "hunt"] // skips domain + possess
+      : ["assault", "possess", "capture", "materialize", "extract", "hunt"];
+    for (const action of order) if (avail.includes(action)) return action;
+    return avail[0];
+  },
+  // (b) economy first: build to the counter-1 fortress tier before fighting;
+  // when no reachable tier hits counter 1, wall up to full capacity instead.
+  "greedy-economy"(state) {
+    const stage = STAGES[state.stageIndex];
+    const s = state.stage;
+    const target = counterOneTarget(stage.number, s.capacity, s.legion) ?? s.capacity;
+    return wantsEconomy(state, target) ?? checklistNext(state);
+  },
+  // (c) adaptive optimal: in S1/S2 build the cheapest legion tier that keeps
+  // the counter at 1; in Echo Throne prefer domain + possess and build only
+  // enough legion that the non-killing exposed counterblows cannot reach 0
+  // integrity (the killing blow lands before its counter matters).
+  optimal(state) {
+    const stage = STAGES[state.stageIndex];
+    const s = state.stage;
+    let target;
+    if (stage.number < 3) {
+      target = counterOneTarget(stage.number, s.capacity, s.legion) ?? 2;
+    } else {
+      const lens = state.rewards.some((r) => r.rewardId === "rift-lens") ? BALANCE.lensDamage : 0;
+      const damage = BALANCE.assaultBase[2] + BALANCE.possessDamage + lens;
+      const assaults = Math.ceil(s.bossHealth / damage);
+      const aegis = s.domainUses === 0 ? BALANCE.domainAegis : s.aegis;
+      const nonKillingExposed = Math.max(0, assaults - aegis - 1);
+      const postDomainIntegrity = s.domainUses === 0
+        ? Math.min(BALANCE.maxIntegrity, s.integrity + BALANCE.domainRestore)
+        : s.integrity;
+      target = 2;
+      if (nonKillingExposed > 0) {
+        let best = 2;
+        for (let legion = 2; legion <= s.capacity; legion += BALANCE.materializeSummon) {
+          best = legion;
+          if (postDomainIntegrity - nonKillingExposed * counterAt(3, legion) > 0) break;
+        }
+        target = best;
+      }
+    }
+    const eco = wantsEconomy(state, target);
+    if (eco) return eco;
+    const avail = getAvailableActions(state);
+    if (stage.number === 3) {
+      for (const action of ["capture", "domain", "possess", "assault"]) {
+        if (avail.includes(action)) return action;
+      }
+    }
+    return checklistNext(state);
+  },
+  // (d) uniform random over available actions (seeded outside)
+  casual(state, rng) {
+    return pick(rng, getAvailableActions(state));
+  },
+  // (e) comeback: burn integrity with the rusher's thin line through S1/S2,
+  // then in Echo Throne pivot to capture -> domain -> possess and win off the
+  // Domain's restore + aegis. Same early trajectory as rusher; the divergence
+  // is exactly the domain decision.
+  comeback(state, _rng, probe) {
+    const stage = STAGES[state.stageIndex];
+    const avail = getAvailableActions(state);
+    if (stage.number === 3) {
+      if (avail.includes("capture")) return "capture";
+      if (avail.includes("domain")) {
+        probe.integrityBeforeDomain = state.stage.integrity;
+        return "domain";
+      }
+      if (avail.includes("possess")) return "possess";
+      for (const action of ["assault", "materialize", "extract", "hunt"]) {
+        if (avail.includes(action)) return action;
+      }
+      return avail[0];
+    }
+    for (const action of ["assault", "possess", "capture", "materialize", "extract", "hunt"]) {
+      if (avail.includes(action)) return action;
+    }
+    return avail[0];
+  }
+};
+
+// reward preference per archetype (stage3 reward is terminal-cosmetic)
+const rewardPrefs = {
+  rusher: { "cinder-span": "rift-lens", "veil-citadel": "veil-vanguard", "echo-throne": "throne-echo" },
+  "greedy-economy": { "cinder-span": "ember-cohort", "veil-citadel": "anchor-shard", "echo-throne": "dawnless-crown" },
+  optimal: { "cinder-span": "rift-lens", "veil-citadel": "veil-vanguard", "echo-throne": "throne-echo" },
+  comeback: { "cinder-span": "rift-lens", "veil-citadel": "anchor-shard", "echo-throne": "throne-echo" }
+};
+
+// A campaign is WON only if it completes without a single defeat.
+// The first defeat ends the measured run (retry loops are a UX affordance,
+// not a balance excuse).
+function runCampaign(name, rng, rewardPlan) {
+  let state = startCampaign(createCampaign()).state;
+  const probe = { integrityBeforeDomain: null };
+  const perStage = STAGES.map(() => ({ actions: 0, sequence: [], integrityEntry: null, integrityEnd: null, integrityMin: BALANCE.maxIntegrity }));
+  perStage[0].integrityEntry = BALANCE.maxIntegrity;
+  const rewardsTaken = [];
+  let steps = 0;
+  let defeatedAt = null;
+  while (state.status !== "campaign-complete" && steps < MAX_CAMPAIGN_STEPS) {
+    steps += 1;
+    if (state.status === "defeat") {
+      defeatedAt = STAGES[state.stageIndex].id;
+      break;
+    }
+    if (state.status === "reward") {
+      const stage = STAGES[state.stageIndex];
+      const rewardId = rewardPlan
+        ? rewardPlan[stage.id] ?? pick(rng, stage.rewards.map((r) => r.id))
+        : pick(rng, stage.rewards.map((r) => r.id));
+      rewardsTaken.push(rewardId);
+      state = chooseReward(state, rewardId).state;
+      if (state.status === "active") perStage[state.stageIndex].integrityEntry = state.stage.integrity;
+      continue;
+    }
+    const bucket = perStage[state.stageIndex];
+    const action = policies[name](state, rng, probe);
+    const result = applyAction(state, action);
+    if (!result.accepted) throw new Error(`policy ${name} chose rejected action ${action}`);
+    state = result.state;
+    bucket.actions += 1;
+    bucket.sequence.push(action);
+    bucket.integrityMin = Math.min(bucket.integrityMin, state.stage?.integrity ?? bucket.integrityMin);
+    if (state.status === "reward" || state.status === "campaign-complete") {
+      bucket.integrityEnd = state.stage.integrity;
+    }
+  }
+  return {
+    win: state.status === "campaign-complete",
+    defeatedAt,
+    totalActions: perStage.reduce((sum, s) => sum + s.actions, 0),
+    perStage,
+    rewardsTaken,
+    sequenceSignature: perStage.map((s) => s.sequence.join(">")).join(" | "),
+    integrityTrail: perStage.map((s) => s.integrityEnd),
+    probe
+  };
+}
+
+// --- archetype measurement ---
+function measureArchetypes() {
+  const out = {};
+  for (const name of ["rusher", "greedy-economy", "optimal", "comeback"]) {
+    const run = runCampaign(name, mulberry32(1), rewardPrefs[name]);
+    out[name] = {
+      trials: 1,
+      deterministic: true,
+      winRatePct: run.win ? 100 : 0,
+      defeatedAt: run.defeatedAt,
+      totalActions: run.totalActions,
+      perStage: run.perStage.map((s, i) => ({
+        stage: STAGES[i].id,
+        actions: s.actions,
+        integrityEntry: s.integrityEntry,
+        integrityEnd: s.integrityEnd,
+        integrityMin: s.integrityMin
+      })),
+      sequenceSignature: run.sequenceSignature,
+      probe: run.probe
+    };
+  }
+  // casual: seeded random legal walker, first defeat = loss
+  const casualRuns = [];
+  for (let t = 0; t < CASUAL_TRIALS; t += 1) {
+    casualRuns.push(runCampaign("casual", mulberry32(1000 + t), null));
+  }
+  const wins = casualRuns.filter((r) => r.win);
+  const totals = wins.map((r) => r.totalActions);
+  const defeatStages = {};
+  for (const r of casualRuns) {
+    if (r.defeatedAt) defeatStages[r.defeatedAt] = (defeatStages[r.defeatedAt] ?? 0) + 1;
+  }
+  const uniqueSeqs = new Set(casualRuns.map((r) => r.sequenceSignature));
+  out.casual = {
+    trials: CASUAL_TRIALS,
+    deterministic: false,
+    winRatePct: (wins.length / CASUAL_TRIALS) * 100,
+    defeats: CASUAL_TRIALS - wins.length,
+    defeatStageHistogram: defeatStages,
+    totalActionsOnWins: totals.length
+      ? { min: Math.min(...totals), max: Math.max(...totals), mean: totals.reduce((a, b) => a + b, 0) / totals.length }
+      : null,
+    uniqueSequences: uniqueSeqs.size
+  };
+  return out;
+}
+
+// --- reward combo trajectories (4 combos, adaptive optimal policy) ---
+function measureCombos() {
+  const combos = [];
+  for (const s1 of ["ember-cohort", "rift-lens"]) {
+    for (const s2 of ["veil-vanguard", "anchor-shard"]) {
+      const plan = { "cinder-span": s1, "veil-citadel": s2, "echo-throne": "throne-echo" };
+      const run = runCampaign("optimal", mulberry32(7), plan);
+      combos.push({
+        combo: `${s1} + ${s2}`,
+        win: run.win,
+        totalActions: run.totalActions,
+        perStageActions: run.perStage.map((s) => s.actions),
+        integrityEndPerStage: run.integrityTrail,
+        evPerAction: run.win ? 1 / run.totalActions : 0
+      });
+    }
+  }
+  const evs = combos.map((c) => c.evPerAction).sort((a, b) => a - b);
+  const median = (evs[1] + evs[2]) / 2;
+  const outcomeKeys = new Set(combos.map((c) => `${c.totalActions}:${c.integrityEndPerStage.join(",")}`));
+  return {
+    combos,
+    medianEv: median,
+    maxEvRatio: median > 0 ? Math.max(...evs) / median : null,
+    distinctOutcomes: outcomeKeys.size,
+    identicalOutcomes: outcomeKeys.size === 1
+  };
+}
+
+// --- targeted contract probes (B1/B3 resolution evidence) ---
+function contractProbes() {
+  const play = (seqStages, rewards) => {
+    let state = startCampaign(createCampaign()).state;
+    const applied = [];
+    for (let i = 0; i < 3; i += 1) {
+      for (const action of seqStages[i]) {
+        const result = applyAction(state, action);
+        if (!result.accepted) return { status: "rejected", at: `${STAGES[i].id}:${action}`, applied };
+        state = result.state;
+        applied.push(action);
+        if (state.status === "defeat") return { status: "defeat", stage: STAGES[state.stageIndex].id, integrity: state.stage.integrity, applied };
+      }
+      if (state.status === "reward") state = chooseReward(state, rewards[i]).state;
+    }
+    return { status: state.status, applied };
+  };
+  const thinLine = ["hunt", "hunt", "extract", "materialize"];
+  const s1 = [...thinLine, "capture", "assault", "assault", "assault"];
+  const s2 = [...thinLine, "capture", "capture", "possess", "assault", "assault"];
+  const rusherS3 = [...thinLine, "capture", "assault"];
+  const comebackS3 = [...thinLine, "capture", "domain", "possess", "assault", "assault", "assault"];
+  const rewards = ["rift-lens", "anchor-shard", "throne-echo"];
+  const rusherDefeat = play([s1, s2, rusherS3], rewards);
+  const comebackWin = play([s1, s2, comebackS3], rewards);
+  return {
+    rusherDefeatSequence: {
+      description: "thin-legion rush (1 materialize per stage), no Domain: first Echo Throne assault is lethal",
+      rewards,
+      perStage: [s1, s2, rusherS3],
+      result: rusherDefeat
+    },
+    comebackDomainFlip: {
+      description: "identical S1/S2 line; Echo Throne opens with Domain (+4 integrity, aegis 2) and wins",
+      rewards,
+      perStage: [s1, s2, comebackS3],
+      result: comebackWin
+    },
+    domainConvertsDefeatToWin: rusherDefeat.status === "defeat" && comebackWin.status === "campaign-complete"
+  };
+}
+
+// --- exploit fuzzer ---
+function stageInvariantErrors(state) {
+  const errs = [];
+  const stage = STAGES[state.stageIndex];
+  const s = state.stage;
+  if (!(s.integrity >= 0 && s.integrity <= BALANCE.maxIntegrity)) errs.push(`integrity out of [0,${BALANCE.maxIntegrity}]: ${s.integrity}`);
+  if (!(s.entryIntegrity >= 0 && s.entryIntegrity <= BALANCE.maxIntegrity)) errs.push(`entryIntegrity out of range: ${s.entryIntegrity}`);
+  if (!(s.souls >= 0)) errs.push(`souls negative: ${s.souls}`);
+  if (!(s.legion >= 0 && s.legion <= s.capacity)) errs.push(`legion out of [0,capacity]: ${s.legion}/${s.capacity}`);
+  if (!(s.capacity >= 10 && s.capacity <= 100)) errs.push(`capacity out of [10,100]: ${s.capacity}`);
+  if (!(s.bossHealth >= 0 && s.bossHealth <= stage.bossHealth)) errs.push(`bossHealth out of bounds: ${s.bossHealth}`);
+  if (!(s.hunted >= 0 && s.hunted <= 2)) errs.push(`hunted out of [0,2]: ${s.hunted}`);
+  if (!(s.aegis >= 0 && s.aegis <= BALANCE.domainAegis)) errs.push(`aegis out of [0,${BALANCE.domainAegis}]: ${s.aegis}`);
+  if (!(s.nodes >= 0 && s.nodes <= stage.nodeGoal)) errs.push(`nodes exceed goal: ${s.nodes}/${stage.nodeGoal}`);
+  if (s.integrity === 0 && state.status === "active") errs.push("integrity 0 while status active (integrity-0 bypass)");
+  const stageIds = state.rewards.map((r) => r.stageId);
+  if (new Set(stageIds).size !== stageIds.length) errs.push("duplicate reward for a stage");
+  if (state.rewards.length > state.stageIndex + 1) errs.push("more rewards than stages entered (stage skip / reward dup)");
+  return errs;
+}
+
+function semanticEqual(a, b) {
+  return JSON.stringify({ i: a.stageIndex, st: a.status, r: a.rewards, sg: a.stage }) ===
+    JSON.stringify({ i: b.stageIndex, st: b.status, r: b.rewards, sg: b.stage });
+}
+
+function fuzz() {
+  const findings = [];
+  let opsTotal = 0;
+  let acceptedTotal = 0;
+  let roundTrips = 0;
+  let defeatsSeen = 0;
+  const record = (kind, seed, opIndex, detail, replay) => {
+    findings.push({ kind, seed, opIndex, detail, replay });
+  };
+  for (let seed = 0; seed < FUZZ_SEQUENCES; seed += 1) {
+    const rng = mulberry32(90000 + seed);
+    let state = createCampaign();
+    const replayLog = [];
+    let prevStageIndex = 0;
+    for (let op = 0; op < FUZZ_OPS_PER_SEQ; op += 1) {
+      opsTotal += 1;
+      const roll = rng();
+      let result;
+      let opDesc;
+      try {
+        if (roll < 0.62) {
+          const action = pick(rng, ACTIONS);
+          opDesc = `applyAction(${action})`;
+          result = applyAction(state, action);
+        } else if (roll < 0.74) {
+          const rewardId = rng() < 0.85 ? pick(rng, ALL_REWARD_IDS) : "forged-crown-of-nothing";
+          opDesc = `chooseReward(${rewardId})`;
+          result = chooseReward(state, rewardId);
+        } else if (roll < 0.84) {
+          opDesc = "retryStage()";
+          result = retryStage(state);
+        } else if (roll < 0.94) {
+          opDesc = "startCampaign()";
+          result = startCampaign(state);
+        } else {
+          opDesc = "save/restore roundtrip";
+          const restored = restoreSaveEnvelope(createSaveEnvelope(state));
+          roundTrips += 1;
+          if (!semanticEqual(state, restored)) {
+            record("save-restore-divergence", seed, op, "restored state differs semantically", replayLog.slice());
+          }
+          continue;
+        }
+      } catch (error) {
+        record("engine-throw", seed, op, `${opDesc} threw: ${error.message}`, replayLog.slice());
+        break;
+      }
+      replayLog.push(opDesc);
+      if (replayLog.length > 40) replayLog.shift();
+      if (result.accepted) {
+        acceptedTotal += 1;
+        const next = result.state;
+        if (next.status === "defeat") defeatsSeen += 1;
+        // stage skip: stageIndex may only step by +1 and only via reward
+        if (next.stageIndex > prevStageIndex + 1) {
+          record("stage-skip", seed, op, `stageIndex ${prevStageIndex} -> ${next.stageIndex}`, replayLog.slice());
+        }
+        prevStageIndex = Math.max(prevStageIndex, next.stageIndex);
+        for (const err of stageInvariantErrors(next)) {
+          record("bound-violation", seed, op, `${opDesc}: ${err}`, replayLog.slice());
+        }
+        state = next;
+      }
+      // liveness: from any non-complete state some operation must be accepted
+      if (state.status !== "campaign-complete") {
+        const live = getAvailableActions(state).length > 0 ||
+          STAGES[state.stageIndex].rewards.some((r) => chooseReward(state, r.id).accepted) ||
+          retryStage(state).accepted ||
+          startCampaign(state).accepted;
+        if (!live) record("stall", seed, op, `no accepted operation from status=${state.status}`, replayLog.slice());
+      }
+    }
+  }
+  // targeted probe: oversized trace envelope must be rejected
+  let oversizeRejected = false;
+  try {
+    restoreSaveEnvelope({
+      schema: "abyssal-surge-campaign",
+      schemaVersion: 2,
+      rulesVersion: RULES_VERSION,
+      trace: Array.from({ length: 401 }, () => ({ kind: "action", action: "hunt" }))
+    });
+  } catch {
+    oversizeRejected = true;
+  }
+  // targeted probe: v1 envelope must be rejected with the migration message
+  let v1Rejection = null;
+  try {
+    restoreSaveEnvelope({
+      schema: "abyssal-surge-campaign",
+      schemaVersion: 1,
+      rulesVersion: "abyssal-surge-rules-v1",
+      trace: [{ kind: "start" }]
+    });
+  } catch (error) {
+    v1Rejection = error.message;
+  }
+  return {
+    sequences: FUZZ_SEQUENCES,
+    opsPerSequence: FUZZ_OPS_PER_SEQ,
+    opsTotal,
+    acceptedTotal,
+    defeatsReachedByFuzzer: defeatsSeen,
+    saveRestoreRoundTrips: roundTrips,
+    oversizeTraceRejected: oversizeRejected,
+    v1EnvelopeRejection: v1Rejection,
+    findings
+  };
+}
+
+// --- branch census over real runs: fraction of decision states with >1 option ---
+function branchCensus() {
+  const observe = (name, rng, plan) => {
+    let state = startCampaign(createCampaign()).state;
+    let decisions = 0;
+    let branchPoints = 0;
+    let steps = 0;
+    const probe = { integrityBeforeDomain: null };
+    while (state.status !== "campaign-complete" && state.status !== "defeat" && steps < MAX_CAMPAIGN_STEPS) {
+      steps += 1;
+      if (state.status === "reward") {
+        state = chooseReward(state, plan ? plan[STAGES[state.stageIndex].id] : STAGES[state.stageIndex].rewards[0].id).state;
+        continue;
+      }
+      const avail = getAvailableActions(state);
+      decisions += 1;
+      if (avail.length > 1) branchPoints += 1;
+      state = applyAction(state, policies[name](state, rng, probe)).state;
+    }
+    return { policy: name, decisions, branchPoints, branchFraction: decisions ? branchPoints / decisions : 0 };
+  };
+  const rows = [
+    observe("optimal", mulberry32(11), rewardPrefs.optimal),
+    observe("greedy-economy", mulberry32(11), rewardPrefs["greedy-economy"]),
+    observe("rusher", mulberry32(11), rewardPrefs.rusher),
+    observe("comeback", mulberry32(11), rewardPrefs.comeback),
+    observe("casual", mulberry32(4242), null)
+  ];
+  return rows;
+}
+
+// --- determinism check: identical seeds twice must give identical output ---
+function determinismCheck() {
+  const snap = () => JSON.stringify({
+    a: measureArchetypes(),
+    c: measureCombos()
+  });
+  return snap() === snap();
+}
+
+// --- assemble ---
+const startedAt = new Date().toISOString();
+const archetypes = measureArchetypes();
+const combos = measureCombos();
+const probes = contractProbes();
+const fuzzReport = fuzz();
+const branches = branchCensus();
+const deterministic = determinismCheck();
+
+const deterministicSignatures = new Set(
+  ["rusher", "greedy-economy", "optimal", "comeback"].map((n) => archetypes[n].sequenceSignature)
+);
+const outcomeVariety = new Set(
+  ["rusher", "greedy-economy", "optimal", "comeback"].map((n) => {
+    const a = archetypes[n];
+    return `${a.winRatePct}:${a.totalActions}:${a.perStage.map((s) => s.integrityEnd).join(",")}`;
+  })
+);
+
+const summary = {
+  simulator: "run-campaign-balance-sim.mjs",
+  rulesVersion: RULES_VERSION,
+  balance: BALANCE,
+  startedAt,
+  finishedAt: new Date().toISOString(),
+  winDefinition: "campaign-complete with zero defeats; first defeat ends the measured run",
+  archetypes,
+  comboEv: combos,
+  contractProbes: probes,
+  fuzz: {
+    ...fuzzReport,
+    findings: fuzzReport.findings.slice(0, 20),
+    findingsTotal: fuzzReport.findings.length
+  },
+  diversity: {
+    branchCensus: branches,
+    uniqueDeterministicSequences: deterministicSignatures.size,
+    distinctDeterministicOutcomes: outcomeVariety.size
+  },
+  determinismDoubleRunIdentical: deterministic,
+  g7Proxy: {
+    assumption: `seconds-per-action band ${SEC_PER_ACTION_MIN}-${SEC_PER_ACTION_MAX}s (75s stage-1 target / 8 actions = 9.4s/action)`,
+    perStage: STAGES.map((stage, i) => {
+      const actions = archetypes.optimal.perStage[i].actions;
+      return {
+        stage: stage.id,
+        actionsPerLoop: actions,
+        derivedLoopSecondsMin: actions * SEC_PER_ACTION_MIN,
+        derivedLoopSecondsMax: actions * SEC_PER_ACTION_MAX,
+        band: "30-180",
+        rewardEventsPerLoop: 1
+      };
+    }),
+    repeatRateProxy: "NOT-RUN (requires live playtest sessions, not simulatable)"
+  }
+};
+
+process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
