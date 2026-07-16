@@ -304,12 +304,25 @@ function playCue(effect) {
 }
 
 function flashEffect(effect) {
-  elements.effect.className = "visual-effect";
-  void elements.effect.offsetWidth;
-  elements.effect.classList.add("is-active", `effect-${effect}`);
-  elements.effect.addEventListener("animationend", () => {
+  const isCritical = ["materialize", "domain", "assault"].includes(effect);
+  if (isCritical) {
+    elements.effect.className = "visual-effect effect-inversion is-active";
+    setTimeout(() => {
+      elements.effect.className = "visual-effect";
+      void elements.effect.offsetWidth;
+      elements.effect.classList.add("is-active", `effect-${effect}`);
+      elements.effect.addEventListener("animationend", () => {
+        elements.effect.className = "visual-effect";
+      }, { once: true });
+    }, 150);
+  } else {
     elements.effect.className = "visual-effect";
-  }, { once: true });
+    void elements.effect.offsetWidth;
+    elements.effect.classList.add("is-active", `effect-${effect}`);
+    elements.effect.addEventListener("animationend", () => {
+      elements.effect.className = "visual-effect";
+    }, { once: true });
+  }
 }
 
 async function persistCampaign(context = "Campaign saved") {
@@ -475,12 +488,13 @@ function wireControls() {
 }
 
 function initReactBitsEffects() {
-  // 1. Particles Background
+  // 1. Interactive Particles Background (Fluid Shadow Smoke Particles)
   const canvas = document.querySelector("#particles-canvas");
   if (canvas) {
     const ctx = canvas.getContext("2d");
     let particles = [];
-    const maxParticles = 40;
+    const maxParticles = 50;
+    let mouse = { x: -1000, y: -1000 };
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -489,10 +503,40 @@ function initReactBitsEffects() {
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
+    window.addEventListener("mousemove", (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    window.addEventListener("mouseleave", () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    });
+
+    // Spawn extra particles on click
+    window.addEventListener("click", (e) => {
+      for (let i = 0; i < 8; i++) {
+        particles.push(new Particle(e.clientX, e.clientY, true));
+      }
+      if (particles.length > maxParticles + 20) {
+        particles.splice(0, particles.length - (maxParticles + 20));
+      }
+    });
+
     class Particle {
-      constructor() {
-        this.reset();
-        this.y = Math.random() * canvas.height;
+      constructor(x, y, isSpawned = false) {
+        this.isSpawned = isSpawned;
+        if (isSpawned) {
+          this.x = x + (Math.random() - 0.5) * 20;
+          this.y = y + (Math.random() - 0.5) * 20;
+          this.size = Math.random() * 4 + 2;
+          this.speedY = (Math.random() - 0.5) * 1.5;
+          this.speedX = (Math.random() - 0.5) * 1.5;
+          this.alpha = 0.8;
+        } else {
+          this.reset();
+          this.y = Math.random() * canvas.height;
+        }
       }
       reset() {
         this.x = Math.random() * canvas.width;
@@ -504,14 +548,36 @@ function initReactBitsEffects() {
         this.color = Math.random() > 0.5 ? "112, 229, 208" : "171, 104, 255"; // aqua or purple
       }
       update() {
+        // Interaction with mouse
+        if (mouse.x !== -1000) {
+          const dx = mouse.x - this.x;
+          const dy = mouse.y - this.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 120) {
+            // Repel slightly
+            const force = (120 - dist) / 120;
+            this.x -= (dx / dist) * force * 1.5;
+            this.y -= (dy / dist) * force * 1.5;
+          }
+        }
+
         this.y += this.speedY;
         this.x += this.speedX;
-        if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
-          this.reset();
+
+        if (this.isSpawned) {
+          this.alpha -= 0.015;
+          if (this.alpha <= 0) {
+            const idx = particles.indexOf(this);
+            if (idx > -1) particles.splice(idx, 1);
+          }
+        } else {
+          if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
         }
       }
       draw() {
-        ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+        ctx.fillStyle = `rgba(${this.color || "112, 229, 208"}, ${this.alpha})`;
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
@@ -524,9 +590,12 @@ function initReactBitsEffects() {
 
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of particles) {
-        p.update();
-        p.draw();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        if (p) {
+          p.update();
+          p.draw();
+        }
       }
       requestAnimationFrame(animate);
     }
@@ -535,7 +604,7 @@ function initReactBitsEffects() {
 
   // 2. Spotlight & Tilt Effects (only on devices with hover capability)
   if (window.matchMedia("(hover: hover)").matches) {
-    const panels = document.querySelectorAll(".panel");
+    const panels = document.querySelectorAll(".panel, .map-node, .storyboard-card");
     panels.forEach((panel) => {
       panel.addEventListener("mousemove", (e) => {
         const rect = panel.getBoundingClientRect();
@@ -553,6 +622,32 @@ function initReactBitsEffects() {
 
       panel.addEventListener("mouseleave", () => {
         panel.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
+      });
+    });
+
+    // 3. Magnetic Buttons Effect
+    const buttons = document.querySelectorAll("button, .file-button");
+    buttons.forEach((btn) => {
+      btn.classList.add("magnetic-button");
+      window.addEventListener("mousemove", (e) => {
+        const rect = btn.getBoundingClientRect();
+        const btnX = rect.left + rect.width / 2;
+        const btnY = rect.top + rect.height / 2;
+        const dx = e.clientX - btnX;
+        const dy = e.clientY - btnY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 70) {
+          // Pull button towards cursor
+          const pullX = dx * 0.25;
+          const pullY = dy * 0.25;
+          btn.style.transform = `translate(${pullX}px, ${pullY}px)`;
+        } else {
+          btn.style.transform = "";
+        }
+      });
+      btn.addEventListener("mouseleave", () => {
+        btn.style.transform = "";
       });
     });
   }

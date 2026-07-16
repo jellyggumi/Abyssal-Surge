@@ -38,6 +38,86 @@
           <p id="cinematic-status" class="hint" aria-live="polite">Cinematic is optional and muted by default.</p>
         </div>
         <p id="campaign-description" class="hint">New campaign replaces the current local run only after you confirm.</p>
+        <!-- Campaign Map & Movement Path -->
+        <div class="campaign-map-section">
+          <h3 class="shiny-text">Campaign Map & Movement Path</h3>
+          <p class="hint">The path of the Dusk Warden across the fractured abyssal city.</p>
+          <div class="campaign-map-grid">
+            <div class="map-node" id="map-node-1">
+              <div class="map-node-image-wrapper">
+                <img src="assets/images/cinder-span.png" alt="Cinder Span" class="map-node-image" />
+                <div class="map-node-badge">Stage 1</div>
+              </div>
+              <h4>Cinder Span</h4>
+              <p>Locate and defeat Ash Echoes, extract souls, and capture the Sable Relay.</p>
+            </div>
+            <div class="map-connector">
+              <span class="connector-arrow">➔</span>
+            </div>
+            <div class="map-node" id="map-node-2">
+              <div class="map-node-image-wrapper">
+                <img src="assets/images/veil-citadel.png" alt="Veil Citadel" class="map-node-image" />
+                <div class="map-node-badge">Stage 2</div>
+              </div>
+              <h4>Veil Citadel</h4>
+              <p>Possession becomes active. Hold two nodes concurrently to break the boss shield.</p>
+            </div>
+            <div class="map-connector">
+              <span class="connector-arrow">➔</span>
+            </div>
+            <div class="map-node" id="map-node-3">
+              <div class="map-node-image-wrapper">
+                <img src="assets/images/echo-throne.png" alt="Echo Throne" class="map-node-image" />
+                <div class="map-node-badge">Stage 3</div>
+              </div>
+              <h4>Echo Throne</h4>
+              <p>Lord's Domain is unlocked. Defeat the Gate Sovereign to close the campaign.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cinematic Storyboard -->
+        <div class="storyboard-section">
+          <h3 class="shiny-text">Dusk Warden's Codex</h3>
+          <p class="hint">Visual records of the shadow extraction and tactical possession loop.</p>
+          <div class="storyboard-grid">
+            <div class="storyboard-card">
+              <img src="design/assets/cinematic/scene_00_opening_gate_v01.png" alt="Opening Gate" />
+              <div class="card-content">
+                <h5>00. Opening Gate</h5>
+                <p>A lunar fracture releases Echo Deep matter into coastal districts.</p>
+              </div>
+            </div>
+            <div class="storyboard-card">
+              <img src="design/assets/cinematic/scene_01_soul_pool_v01.png" alt="Soul Extraction" />
+              <div class="card-content">
+                <h5>01. Soul Extraction</h5>
+                <p>Defeat Ash Echoes and invoke "Arise" to materialize shadow units.</p>
+              </div>
+            </div>
+            <div class="storyboard-card">
+              <img src="design/assets/cinematic/scene_03_possession_action_v01.png" alt="Possession" />
+              <div class="card-content">
+                <h5>03. Tactical Possession</h5>
+                <p>Directly control shadow units to execute precise combat maneuvers.</p>
+              </div>
+            </div>
+            <div class="storyboard-card">
+              <img src="design/assets/cinematic/scene_04_domain_shift_v01.png" alt="Lord's Domain" />
+              <div class="card-content">
+                <h5>04. Domain Shift</h5>
+                <p>Unleash the Lord's Domain to grant temporary invulnerability to your legion.</p>
+              </div>
+            </div>
+            <div class="storyboard-card">
+              <img src="design/assets/cinematic/scene_07_return_ui_v01.png" alt="Return to Shrine" />
+              <div class="card-content">
+                <h5>07. Return & Persist</h5>
+                <p>Return to the Abyssal Shrine to upgrade your permanent shadow capacity.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="campaign-screen" hidden aria-labelledby="stage-heading">
