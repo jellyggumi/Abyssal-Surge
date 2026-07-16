@@ -15,7 +15,6 @@ import {
 } from "./campaign-state.js";
 import { BattleVisualizer } from "./battle-visualizer.js";
 import { getBattlePresentation } from "./battle-presentation.js";
-import { createLiquidEther } from "./liquid-ether.js";
 
 const BUILD_TAG = "abyssal-surge-static-v1";
 const DB_NAME = "abyssal-surge-campaign";
@@ -67,14 +66,43 @@ const CUE_BY_EFFECT = Object.freeze({
   reward: "assets/audio/reward.mp3"
 });
 const NARRATION = Object.freeze({
-  intro: Object.freeze({ audio: "assets/audio/narr-intro.mp3", line: "심연의 문이 열렸다. 황혼의 감시자여, 군단을 결속하라." }),
-  "cinder-span": Object.freeze({ audio: "assets/audio/narr-stage1.mp3", line: "잿빛 교량, 신더 스팬. 재의 메아리를 사냥하고 영혼을 거두어라." }),
-  "veil-citadel": Object.freeze({ audio: "assets/audio/narr-stage2.mp3", line: "장막 성채, 베일 시타델. 빙의의 힘이 깨어난다. 두 거점을 동시에 장악하라." }),
-  "echo-throne": Object.freeze({ audio: "assets/audio/narr-stage3.mp3", line: "메아리 왕좌. 군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라." }),
-  victory: Object.freeze({ audio: "assets/audio/narr-victory.mp3", line: "침묵한 문 앞에서, 그림자 군단이 왕좌에 오른다." }),
-  defeat: Object.freeze({ audio: "assets/audio/narr-defeat.mp3", line: "군단의 닻이 끊어졌다. 다시 결속하라." })
+  intro: Object.freeze({
+    audio: null,
+    lines: Object.freeze(["심연의 문이 열렸다.", "황혼의 감시자여, 군단을 결속하라."]),
+    msPerChar: 45,
+    holdMs: 1400
+  }),
+  "cinder-span": Object.freeze({
+    audio: "assets/audio/narr-stage1.mp3",
+    lines: Object.freeze(["잿빛 교량, 신더 스팬.", "재의 메아리를 사냥하고 영혼을 거두어라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "veil-citadel": Object.freeze({
+    audio: "assets/audio/narr-stage2.mp3",
+    lines: Object.freeze(["장막 성채, 베일 시타델.", "빙의의 힘이 깨어난다.", "두 거점을 동시에 장악하라."]),
+    msPerChar: 45,
+    holdMs: 1700
+  }),
+  "echo-throne": Object.freeze({
+    audio: "assets/audio/narr-stage3.mp3",
+    lines: Object.freeze(["메아리 왕좌.", "군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  victory: Object.freeze({
+    audio: null,
+    lines: Object.freeze(["침묵한 문 앞에서,", "심연의 군단이 새 질서를 세운다."]),
+    msPerChar: 45,
+    holdMs: 1400
+  }),
+  defeat: Object.freeze({
+    audio: null,
+    lines: Object.freeze(["군단의 닻이 끊어졌다.", "다시 결속하라."]),
+    msPerChar: 45,
+    holdMs: 1400
+  })
 });
-const TYPE_MS_PER_CHAR = 28;
 const BOSS_BY_STAGE = Object.freeze({
   "cinder-span": "assets/images/ui/boss-cinder-warden.png",
   "veil-citadel": "assets/images/ui/boss-veil-tactician.png",
@@ -106,13 +134,17 @@ class CampaignStorage {
     try {
       this.db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
+        // A pending deleteDatabase (e.g. another tab holding a connection)
+        // queues this open indefinitely with NO event - the game would sit
+        // at "Preparing local save..." forever. Fall back instead of hanging.
+        const guard = window.setTimeout(() => reject(new Error("IndexedDB open timed out.")), 2500);
         request.onupgradeneeded = () => {
           const db = request.result;
           if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id" });
         };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-        request.onblocked = () => reject(new Error("IndexedDB is blocked by another tab."));
+        request.onsuccess = () => { window.clearTimeout(guard); resolve(request.result); };
+        request.onerror = () => { window.clearTimeout(guard); reject(request.error); };
+        request.onblocked = () => { window.clearTimeout(guard); reject(new Error("IndexedDB is blocked by another tab.")); };
       });
       this.mode = "indexeddb";
     } catch {
@@ -267,7 +299,10 @@ let storage = new CampaignStorage();
 let cuePlayer = null;
 let ambiencePlayer = null;
 let narrationPlayer = null;
-let typingTimer = 0;
+let narrationRun = 0;
+let liquidEtherBackground = null;
+let liquidEtherLoad = null;
+let particleBackground = null;
 let narratedStageId = null;
 let narratedOutcome = null;
 let activeView = "scenario";
@@ -524,6 +559,7 @@ function showView(view) {
   if (view === "battle" && campaign.status !== "active") return;
   if (activeView === "battle" && view !== "battle") stopBattle();
   activeView = view;
+  syncBackgroundEffects();
   for (const [name, node] of Object.entries(elements.views)) node.hidden = name !== view;
   if (view === "battle") startBattle();
   render();
@@ -702,31 +738,44 @@ function playCue(effect) {
   cuePlayer.play().catch(() => undefined);
 }
 
-function typeText(target, text) {
-  window.clearInterval(typingTimer);
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    target.textContent = text;
-    target.classList.remove("is-typing");
-    return;
-  }
-  let index = 0;
-  target.textContent = "";
-  target.classList.add("is-typing");
-  typingTimer = window.setInterval(() => {
-    index += 1;
-    target.textContent = text.slice(0, index);
-    if (index >= text.length) {
-      window.clearInterval(typingTimer);
-      target.classList.remove("is-typing");
+function waitForNarration(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function typeNarration(entry, run) {
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const line of entry.lines) {
+    if (run !== narrationRun) return;
+    elements.narrationLine.textContent = "";
+    elements.narrationLine.classList.toggle("is-typing", !reduceMotion);
+    if (reduceMotion) {
+      elements.narrationLine.textContent = line;
+    } else {
+      for (let index = 1; index <= line.length; index += 1) {
+        if (run !== narrationRun) return;
+        elements.narrationLine.textContent = line.slice(0, index);
+        await waitForNarration(entry.msPerChar);
+      }
     }
-  }, TYPE_MS_PER_CHAR);
+    await waitForNarration(entry.holdMs);
+  }
+  if (run === narrationRun) elements.narrationLine.classList.remove("is-typing");
 }
 
 function playNarration(key) {
   const entry = NARRATION[key];
   if (!entry) return;
-  typeText(elements.narrationLine, entry.line);
-  elements.narrationSr.textContent = entry.line;
+  const run = ++narrationRun;
+  elements.narrationSr.textContent = entry.lines.join(" ");
+  void typeNarration(entry, run);
+  if (!entry.audio) {
+    if (narrationPlayer) {
+      narrationPlayer.pause();
+      narrationPlayer.removeAttribute("src");
+      narrationPlayer.load();
+    }
+    return;
+  }
   if (!narrationPlayer) {
     narrationPlayer = new Audio();
     narrationPlayer.preload = "none";
@@ -1058,34 +1107,60 @@ function wireControls() {
   });
 }
 
-function initLiquidEtherBackground() {
+function startLiquidEtherBackground() {
+  if (activeView === "battle" || liquidEtherBackground || liquidEtherLoad) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const container = document.querySelector("#liquid-ether-bg");
   if (!container) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  try {
-    createLiquidEther(container, {
-      colors: ["#6F2969", "#B32B2B", "#395781"],
-      mouseForce: 20,
-      cursorSize: 100,
-      isViscous: false,
-      viscous: 30,
-      iterationsViscous: 32,
-      iterationsPoisson: 32,
-      resolution: 0.5,
-      isBounce: false,
-      autoDemo: true,
-      autoSpeed: 0.5,
-      autoIntensity: 2.2,
-      takeoverDuration: 0.25,
-      autoResumeDelay: 3000,
-      autoRampDuration: 0.6
+  liquidEtherLoad = import("./liquid-ether.js")
+    .then(({ createLiquidEther }) => {
+      if (activeView === "battle" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      liquidEtherBackground = createLiquidEther(container, {
+        colors: ["#6F2969", "#B32B2B", "#395781"],
+        mouseForce: 20,
+        cursorSize: 100,
+        isViscous: false,
+        viscous: 30,
+        iterationsViscous: 32,
+        iterationsPoisson: 32,
+        resolution: 0.5,
+        isBounce: false,
+        autoDemo: true,
+        autoSpeed: 0.5,
+        autoIntensity: 2.2,
+        takeoverDuration: 0.25,
+        autoResumeDelay: 3000,
+        autoRampDuration: 0.6
+      });
+      liquidEtherBackground?.start();
+    })
+    .catch(() => {
+      // WebGL unavailable or blocked; leave the static CSS gradient background in place.
+    })
+    .finally(() => {
+      liquidEtherLoad = null;
     });
-  } catch {
-    // WebGL unavailable or blocked; leave the static CSS gradient background in place.
+}
+
+function syncBackgroundEffects() {
+  const liquidContainer = document.querySelector("#liquid-ether-bg");
+  if (activeView === "battle") {
+    if (liquidContainer) liquidContainer.hidden = true;
+    liquidEtherBackground?.pause();
+    particleBackground?.pause();
+    return;
   }
+  if (liquidContainer) liquidContainer.hidden = false;
+  particleBackground?.resume();
+  if (liquidEtherBackground) {
+    liquidEtherBackground.start();
+    return;
+  }
+  startLiquidEtherBackground();
 }
 
 function initReactBitsEffects() {
+  let particleLoop = null;
   // 1. Interactive Particles Background (Fluid Shadow Smoke Particles)
   const canvas = document.querySelector("#particles-canvas");
   const ctx = canvas?.getContext("2d");
@@ -1188,23 +1263,49 @@ function initReactBitsEffects() {
       particles.push(new Particle());
     }
 
-    function animate() {
+    let particleFrame = 0;
+    let particlesRunning = false;
+
+    function drawParticles(update) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        if (p) {
-          p.update();
-          p.draw();
-        }
+      for (let i = particles.length - 1; i >= 0; i -= 1) {
+        const particle = particles[i];
+        if (!particle) continue;
+        if (update) particle.update();
+        particle.draw();
       }
-      if (!reduceMotion) requestAnimationFrame(animate);
     }
-    animate();
+
+    function animateParticles() {
+      if (!particlesRunning) return;
+      drawParticles(true);
+      particleFrame = window.requestAnimationFrame(animateParticles);
+    }
+
+    function pauseParticles() {
+      particlesRunning = false;
+      if (particleFrame) {
+        window.cancelAnimationFrame(particleFrame);
+        particleFrame = 0;
+      }
+    }
+
+    function resumeParticles() {
+      if (reduceMotion) {
+        drawParticles(false);
+        return;
+      }
+      if (particlesRunning) return;
+      particlesRunning = true;
+      animateParticles();
+    }
+
+    particleLoop = Object.freeze({ pause: pauseParticles, resume: resumeParticles });
     if (reduceMotion) {
-      window.addEventListener("mousemove", () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (const p of particles) p.draw();
-      });
+      drawParticles(false);
+      window.addEventListener("mousemove", () => drawParticles(false));
+    } else {
+      resumeParticles();
     }
   }
 
@@ -1257,6 +1358,7 @@ function initReactBitsEffects() {
       });
     });
   }
+  return particleLoop;
 }
 
 async function initialize() {
@@ -1276,8 +1378,8 @@ async function initialize() {
     setSaveStatus(storage.mode === "indexeddb" ? "No local campaign yet. IndexedDB is ready." : "IndexedDB is unavailable; this session will use the safe local fallback.");
   }
   wireControls();
-  initLiquidEtherBackground();
-  initReactBitsEffects();
+  particleBackground = initReactBitsEffects();
+  syncBackgroundEffects();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);
 }
 
