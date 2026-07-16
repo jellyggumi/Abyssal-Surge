@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "balance-retune",
+  "completed_at": "2026-07-17T01:10:00+09:00",
+  "went_well": [
+    "8/12 integer-knob iterations reached the 45-55% casual band exactly (51.0%, n=200) while keeping optimal at 100%",
+    "All five QA-proven defects (B1-B5) resolved with reproducible evidence: reachable defeat, live rewards (4 combos -> 4 outcomes, EV 1.119), domain comeback flip, S3 possess as real choice, expanded strategy space",
+    "14/14 tests, 150k-op fuzz zero violations, deterministic double-run identical"
+  ],
+  "went_wrong": [
+    "Initial contract knobs (counterBase [2,3,4]) were far off band (90.5%); S3 pressure had to triple (counterBase[2]=8) because casual's domain usage absorbed most pressure",
+    "TTK seconds target remains undefined in design, so the G2 TTK row still cannot be judged"
+  ],
+  "metrics": [
+    {
+      "name": "casual_winrate",
+      "value": 51.0,
+      "unit": "%",
+      "method": "node scripts/run-campaign-balance-sim.mjs (n=200, seeded)"
+    },
+    {
+      "name": "combo_ev_ratio",
+      "value": 1.119,
+      "unit": "x-median",
+      "method": "adaptive optimal x 4 combos"
+    },
+    {
+      "name": "knob_iterations",
+      "value": 8,
+      "unit": "rounds",
+      "method": "balance-sheet.md appendix log"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Define a seconds-based TTK target in the balance sheet so the G2 TTK row becomes judgeable",
+      "owner": "game-designer",
+      "apply_in_phase": "ship",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "_workspace/20260716-shadow-lord-rts-rpg/design/balance-sheet.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/qa/exploit-register.md"
+  ]
+}

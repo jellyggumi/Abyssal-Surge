@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "live-playtest",
+  "completed_at": "2026-07-17T01:25:00+09:00",
+  "went_well": [
+    "Full 3-stage campaign completed on the LIVE production deploy (47 actions, S3 cleared at integrity 0 - dramatic arc realized)",
+    "Assault-first reckless bot died in Stage 2 live - defeat path (B1 fix) proven in production, not just simulation",
+    "Frame budget crushed: p95 9.2ms vs 16.7ms budget, 0/300 long frames, 3.1MB heap, SW cache serving 0-transfer reloads"
+  ],
+  "went_wrong": [
+    "MCP transport 30s cap forced chunked drivers; one G7 human-pace session lost when the shared Chrome tab was closed externally",
+    "Greedy first-enabled bot policy infinite-looped on v2's repeatable hunt (200-action guard hit) - policy had to become priority-based",
+    "Playwriter extension recording requires activeTab permission; automated video capture fell back to headless Puppeteer screencast"
+  ],
+  "metrics": [
+    {
+      "name": "live_campaign_actions",
+      "value": 47,
+      "unit": "actions",
+      "method": "headless Chromium production run"
+    },
+    {
+      "name": "frame_p95",
+      "value": 9.2,
+      "unit": "ms",
+      "method": "rAF 300-frame sampling on live site"
+    },
+    {
+      "name": "stage_clears",
+      "value": 3,
+      "unit": "stages",
+      "method": "live log stage-clear events"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Collect 10 human voluntary-repeat sessions to close the G7 repeat-proxy PARTIAL",
+      "owner": "game-qa",
+      "apply_in_phase": "ship",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/engineering/perf-budget.md"
+  ]
+}

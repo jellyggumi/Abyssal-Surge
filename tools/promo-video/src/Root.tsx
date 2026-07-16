@@ -14,7 +14,7 @@ export const RemotionRoot: React.FC = () => {
       width={1280}
       height={720}
       defaultProps={{
-        gameplaySrc: staticFile("gameplay.mp4"),
+        gameplaySrc: "gameplay.mp4",
         gameplaySeconds: 42,
       }}
       calculateMetadata={({ props }) => ({

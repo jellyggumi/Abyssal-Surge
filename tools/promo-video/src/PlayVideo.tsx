@@ -50,7 +50,7 @@ const TitleCard: React.FC = () => {
             textShadow: `0 0 ${40 * glow}px ${aqua}`,
           }}
         >
-          ABYSSAL SURGE
+          ABYSSAL COMMAND
         </div>
         <div style={{ color: aqua, fontSize: 30, marginTop: 16 }}>
           심연의 문이 열렸다 — 그림자 군주여, 일어나라
@@ -96,6 +96,9 @@ export const PlayVideo: React.FC<{ gameplaySrc: string; gameplaySeconds: number 
   gameplaySrc,
   gameplaySeconds,
 }) => {
+  const resolvedSrc = gameplaySrc.startsWith("http")
+    ? gameplaySrc
+    : staticFile(gameplaySrc.replace(/^\/+/, ""));
   const gameplayFrames = Math.round(gameplaySeconds * FPS);
   return (
     <AbsoluteFill style={{ backgroundColor: abyss }}>
@@ -105,7 +108,7 @@ export const PlayVideo: React.FC<{ gameplaySrc: string; gameplaySeconds: number 
       <Sequence from={TITLE_S * FPS} durationInFrames={gameplayFrames}>
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
           <OffthreadVideo
-            src={gameplaySrc}
+            src={resolvedSrc}
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
             muted
           />

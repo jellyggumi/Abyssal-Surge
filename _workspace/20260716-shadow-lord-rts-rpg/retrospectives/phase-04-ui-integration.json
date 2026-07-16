@@ -29,7 +29,8 @@
       "action": "After balance v2 merges, re-read campaign-state STAGES/messages and sync any UI copy that cites numbers",
       "owner": "game-programmer",
       "apply_in_phase": "balance-retune",
-      "applied": false
+      "applied": true,
+      "evidence_when_applied": "campaign-state.js v2 lastMessage strings updated by BalanceRetune (domain/extract/assault counterblow messages); app.js narration lines verified number-free"
     }
   ],
   "evidence_paths": [
