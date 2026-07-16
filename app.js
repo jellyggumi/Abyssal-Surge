@@ -62,6 +62,7 @@ const dom = {
   terminalIllustration: document.querySelector("#terminal-illustration"),
   foeChargeBar: document.querySelector("#foe-charge-bar"),
   unitsContainer: document.querySelector("#units-container"),
+  battlefieldLane: document.querySelector("#battlefield-lane") || document.querySelector("#rts-units-layer") || null,
   monitorTitle: document.querySelector("#monitor-title"),
   monitorTitleText: document.querySelector("#monitor-title-text"),
   monitorActiveLabel: document.querySelector("#monitor-active-label"),
@@ -98,6 +99,27 @@ let recoverTimer = 0;
 let lastSecondSave = 0;
 
 const FOCUS_EPSILON = 1e-9;
+
+// DET-STAGE: per-stage real-time presets (presentation-layer only; semantic core untouched).
+// Indexed by encounterIndex, clamped to array bounds.
+const STAGE_RT_PRESETS = [
+  { foeCooldown: 3.5, unitSpeed: 33.3 }, // Stage 1 — baseline, tutorial pacing
+  { foeCooldown: 3.2, unitSpeed: 33.3 }, // Stage 2 — pressure introduction
+  { foeCooldown: 3.0, unitSpeed: 36.0 }, // Stage 3 — mid-campaign tempo rise
+  { foeCooldown: 2.8, unitSpeed: 36.0 }, // Stage 4 — competing-responsibility stress
+  { foeCooldown: 2.5, unitSpeed: 40.0 }, // Stage 5 — accountable-stewardship finale
+];
+
+function stageRtPreset(index = encounterIndex) {
+  const numeric = Number.isFinite(Number(index)) ? Number(index) : 0;
+  const clamped = Math.min(Math.max(numeric, 0), STAGE_RT_PRESETS.length - 1);
+  return STAGE_RT_PRESETS[clamped];
+}
+
+// DET-RTS mouse: one-shot spawn origin (% of lane width, 0-20) set by the lane
+// click handler immediately before recordCommand("STRIKE"), consumed once by
+// spawnUnit. null means "spawn at 0%" (keyboard / button path).
+let pendingSpawnOriginPct = null;
 
 function resetRealtimeState({ clearUnits = true } = {}) {
   if (rAFId) {
@@ -169,6 +191,7 @@ const DICTIONARY = {
     encounterRecordsLabel: "encounter records",
     fragmentSingular: "fragment",
     fragmentPlural: "fragments",
+    laneClickHint: "Click lane: STRIKE at position",
   },
   ko: {
     lobbyTitle: "1단계 커맨드 인카운터",
@@ -213,6 +236,7 @@ const DICTIONARY = {
     encounterRecordsLabel: "인카운터 기록",
     fragmentSingular: "파편",
     fragmentPlural: "파편",
+    laneClickHint: "전장 클릭: 해당 위치에서 공격 (STRIKE)",
   },
 };
 const COMMAND_LABELS = {
@@ -646,7 +670,7 @@ function rtsLoop(timestamp) {
   lastTickTime = timestamp;
 
   // 1. Foe Attack charge progress
-  const foeAttackCooldown = 3.5;
+  const foeAttackCooldown = stageRtPreset().foeCooldown;
   foeCharge += dt;
   if (foeCharge >= foeAttackCooldown) {
     foeCharge = 0;
@@ -769,24 +793,50 @@ function rtsLoop(timestamp) {
   rAFId = requestAnimationFrame(rtsLoop);
 }
 
+// DET-RES sprite wiring: concept-art sprites with inline-SVG silhouette fallback.
+// Files may be absent while the pipeline runs — onerror swaps back to the SVG,
+// invisible to gameplay.
+const UNIT_SPRITE_SOURCES = {
+  STRIKE: "assets/images/unit_strike.png",
+  BRACE: "assets/images/unit_brace.png",
+};
+
+const UNIT_SVG_FALLBACKS = {
+  STRIKE: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`,
+  BRACE: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #3b82f6; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`,
+};
+
 function spawnUnit(type) {
+  // Consume the one-shot click origin even if rendering is unavailable,
+  // so a stale value never bleeds into a later spawn.
+  const originPct = Number.isFinite(pendingSpawnOriginPct)
+    ? Math.min(20, Math.max(0, pendingSpawnOriginPct))
+    : 0;
+  pendingSpawnOriginPct = null;
   if (!dom.unitsContainer) return;
   const unitId = ++nextUnitId;
   const element = document.createElement("div");
   element.className = `spawned-unit ${type === "STRIKE" ? "unit-soldier" : "unit-shield"}`;
-  element.style.left = "0%";
-  
-  // High-fidelity SVG silhouettes matching the theme
-  element.innerHTML = type === "STRIKE"
-    ? `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`
-    : `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #3b82f6; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`;
+  element.style.left = `${originPct}%`;
+
+  const sprite = document.createElement("img");
+  sprite.src = UNIT_SPRITE_SOURCES[type] || UNIT_SPRITE_SOURCES.STRIKE;
+  sprite.alt = "";
+  sprite.style.cssText = type === "STRIKE"
+    ? "width: 24px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"
+    : "width: 24px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));";
+  sprite.onerror = () => {
+    // Sprite missing or failed to decode: fall back to the inline SVG silhouette.
+    element.innerHTML = UNIT_SVG_FALLBACKS[type] || UNIT_SVG_FALLBACKS.STRIKE;
+  };
+  element.appendChild(sprite);
 
   dom.unitsContainer.appendChild(element);
   activeUnits.push({
     id: unitId,
     type: type,
-    x: 0,
-    speed: 33.3, // takes 3 seconds to cross the screen (100% / 3)
+    x: originPct,
+    speed: stageRtPreset().unitSpeed,
     element: element
   });
 }
@@ -860,6 +910,9 @@ function translateUI() {
   }
   if (dom.monitorPlaceholder) {
     dom.monitorPlaceholder.textContent = dict.noSignals;
+  }
+  if (dom.battlefieldLane) {
+    dom.battlefieldLane.title = dict.laneClickHint;
   }
 
   // Translate command buttons
@@ -1411,6 +1464,31 @@ dom.continue.addEventListener("click", continueCampaign);
 dom.restart.addEventListener("click", resetCampaign);
 for (const button of dom.commandButtons) {
   button.addEventListener("click", () => recordCommand(button.dataset.command));
+}
+
+// DET-RTS mouse: lane click issues a contextual STRIKE at the clicked lane
+// position through the SAME recordCommand pipeline (no second command path).
+if (dom.battlefieldLane) {
+  if (dom.battlefieldLane.style) {
+    // styles.css ships .rts-units-layer { pointer-events: none; } — re-enable
+    // for the mouse affordance without touching the stylesheet.
+    dom.battlefieldLane.style.pointerEvents = "auto";
+    dom.battlefieldLane.style.cursor = "crosshair";
+  }
+  dom.battlefieldLane.addEventListener("click", (event) => {
+    if (surface !== "play" || encounter.outcome !== "ACTIVE") return;
+    const lane = (event && event.currentTarget) || dom.battlefieldLane;
+    let clickedPct = 0;
+    if (lane && typeof lane.getBoundingClientRect === "function") {
+      const rect = lane.getBoundingClientRect();
+      if (rect && rect.width > 0) {
+        clickedPct = ((event.clientX - rect.left) / rect.width) * 100;
+      }
+    }
+    pendingSpawnOriginPct = Math.min(20, Math.max(0, clickedPct));
+    recordCommand("STRIKE"); // same deterministic pipeline; reject path fires unchanged
+    pendingSpawnOriginPct = null; // one-shot: never bleeds into a later spawn
+  });
 }
 
 if (dom.audioToggle) {

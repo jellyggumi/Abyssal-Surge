@@ -116,6 +116,46 @@ async function run() {
     console.log(`[Stage ${stageNum}] Avatars loaded status: Knight: ${avatarsLoaded.knight}, Void: ${avatarsLoaded.void}`);
     assert.equal(avatarsLoaded.knight, true, "Knight avatar image must be loaded successfully");
     assert.equal(avatarsLoaded.void, true, "Void avatar image must be loaded successfully");
+
+    // DET-RTS: Mouse lane-click spawn assertion (Stage 1 only, once)
+    if (stageNum === 1) {
+      console.log("[Stage 1] Testing mouse lane-click STRIKE spawn...");
+      const laneClickResult = await page.evaluate(() => {
+        const lane = document.querySelector("#rts-units-layer");
+        if (!lane) return { error: "lane element missing" };
+        const rect = lane.getBoundingClientRect();
+        const before = {
+          units: window.activeUnits ? window.activeUnits.length : -1,
+          focus: window.encounter ? window.encounter.focus : -1
+        };
+        const evt = new MouseEvent("click", {
+          bubbles: true,
+          clientX: rect.left + rect.width * 0.15,
+          clientY: rect.top + rect.height / 2
+        });
+        lane.dispatchEvent(evt);
+        const spawned = window.activeUnits && window.activeUnits.length > before.units
+          ? window.activeUnits[window.activeUnits.length - 1]
+          : null;
+        return {
+          before,
+          after: {
+            units: window.activeUnits ? window.activeUnits.length : -1,
+            focus: window.encounter ? window.encounter.focus : -1
+          },
+          spawnedX: spawned ? spawned.x : null,
+          spawnedImg: spawned && spawned.element
+            ? (spawned.element.querySelector("img")?.getAttribute("src") || "no-img")
+            : null
+        };
+      });
+      console.log("[Stage 1] Lane click result:", JSON.stringify(laneClickResult));
+      assert.ok(!laneClickResult.error, "Battlefield lane element must exist");
+      assert.equal(laneClickResult.after.units, laneClickResult.before.units + 1, "Lane click must spawn exactly one unit");
+      assert.ok(laneClickResult.spawnedX >= 10 && laneClickResult.spawnedX <= 20, `Spawn origin must reflect click position ~15% (got ${laneClickResult.spawnedX})`);
+      assert.ok(String(laneClickResult.spawnedImg).includes("unit_strike"), `Spawned unit must render sprite image (got ${laneClickResult.spawnedImg})`);
+      assert.ok(laneClickResult.after.focus < laneClickResult.before.focus, "Lane click STRIKE must consume focus via recordCommand");
+    }
     
     while (true) {
       const status = await page.evaluate(() => {

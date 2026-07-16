@@ -1,0 +1,142 @@
+{
+  "schema_version": "cycle-retrospective/v1",
+  "artifact_path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/retrospectives/cycle-005-p3-detail-v1.json",
+  "run_id": "20260716-stage5-rts-detail-cycle-005-v1",
+  "cycle_index": 5,
+  "process_phase": "P3-detail-execution",
+  "status": "final",
+  "owner": "retrospective-validator",
+  "created_at": "2026-07-16T06:05:00Z",
+  "input_artifacts": [
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/intake/production-brief.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/production/task-manifest.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/production/decision-log.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260715-stage1-cycle-004-v1/messages/009-game-production-director.md"
+  ],
+  "input_hashes": [
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/intake/production-brief.md",
+      "sha256": "9b4c8d99ab8a3ac318e202b9c1e3200d6b8552a1f22121b918093dc7d71fc4aa"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/production/task-manifest.md",
+      "sha256": "8685384c5a63d421e8cc8f6a68283b88547d4b455acadcbc84bc7612c884dcba"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-005-v1/production/decision-log.md",
+      "sha256": "e22391ae71ac381c1891e79f2dd7eb0fd997355b5c7294a24ae251a5ec79c3d5"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260715-stage1-cycle-004-v1/messages/009-game-production-director.md",
+      "sha256": "33997900076b17d59dca60d59a399dc50a780aee3590c25102b7069988c065ec"
+    }
+  ],
+  "decision_ids": ["C005-D-001"],
+  "detail_directive_state": {
+    "det_rts": "completed_verified",
+    "det_stage": "completed_verified",
+    "det_res": "completed_verified",
+    "det_narr": "verified_no_regression",
+    "det_qa": "passed",
+    "det_doc": "completed"
+  },
+  "claims": [
+    {
+      "claim_id": "C005-RETRO-001",
+      "category": "verification",
+      "statement": "DET-RTS: battlefield lane mouse click routes through the single recordCommand('STRIKE') deterministic pipeline with 0-20% clamped spawn origin; Playwright E2E asserted spawn at ~14.93% for a 15%-width click, one-unit spawn, sprite img render, and focus consumption (3 to 2). Keyboard s/b/d/r paths unchanged.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest-browser.cjs",
+        "/Users/jangyoung/orca/Abyssal-Surge/app.js"
+      ]
+    },
+    {
+      "claim_id": "C005-RETRO-002",
+      "category": "verification",
+      "statement": "DET-STAGE: STAGE_RT_PRESETS delivers per-stage real-time tempo (foeCooldown 3.5/3.2/3.0/2.8/2.5s, unitSpeed 33.3/33.3/36/36/40 %/s) in the presentation layer only; game-core.js reducer untouched; adaptive scripted driver cleared all 5 stages to VICTORY and settlement (10 fragments, wallet 4, resolve marks 2) in the same E2E run.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/app.js",
+        "/Users/jangyoung/orca/Abyssal-Surge/game-core.js",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest-browser.cjs"
+      ]
+    },
+    {
+      "claim_id": "C005-RETRO-003",
+      "category": "verification",
+      "statement": "DET-RES: unit_strike.png and unit_brace.png generated via god-tibo-imagen (gti) with knight.png style reference, downscaled to 170x256 (39.8KB/47.0KB), wired into spawnUnit() with verbatim SVG-silhouette onerror fallback; fallback path manually triggered and confirmed in headless browser.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/assets/images/unit_strike.png",
+        "/Users/jangyoung/orca/Abyssal-Surge/assets/images/unit_brace.png",
+        "/Users/jangyoung/orca/Abyssal-Surge/app.js"
+      ]
+    },
+    {
+      "claim_id": "C005-RETRO-004",
+      "category": "verification",
+      "statement": "DET-QA: stage1-vertical-slice (2/2), playtest-5-stages (PASS), validate-cycle-retrospective suite (27/27), and full Playwright browser playtest (5 stages VICTORY, avatar-load asserts, lane-click assert, settlement summary) all passed on the post-change tree; visual evidence refreshed for desktop and mobile viewports.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/stage1-vertical-slice.test.mjs",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest-5-stages.test.mjs",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest_walk_mid.png",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest_walk_mid_mobile.png"
+      ]
+    },
+    {
+      "claim_id": "C005-RETRO-005",
+      "category": "observation",
+      "statement": "DET-DOC: RTS keyboard+mouse identity recorded in llm-wiki report 2026-07-16-abyssal-surge-rts-kbm-direction.md (obsidian-cli write), wiki index line added, and repo docs/game-production-coordination-brief.md gained the append-only Cycle 005 section.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/docs/game-production-coordination-brief.md"
+      ]
+    },
+    {
+      "claim_id": "C005-RETRO-006",
+      "category": "boundary",
+      "statement": "Cycle-004 records remain immutable and its P3 governance remediation unresolved; this run executed under the recorded user mandate handoff (C004-D-024) and claims no cycle-004 phase completion, QA PASS, or release authority on cycle-004's behalf.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260715-stage1-cycle-004-v1/messages/009-game-production-director.md"
+      ]
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption_id": "ASM-001",
+      "statement": "Lane element binding relies on the #rts-units-layer fallback selector because index.html ships no #battlefield-lane id.",
+      "validation_boundary": "If index.html later renames or splits the lane element, the dom.battlefieldLane cache and the E2E lane-click assertion must be updated together in the same change."
+    },
+    {
+      "assumption_id": "ASM-002",
+      "statement": "Existing 16 ElevenLabs audio assets cover spawn/counter SFX needs; no new API spend was required this cycle.",
+      "validation_boundary": "New audio generation requires a fresh directive with cost note; do not call provider APIs implicitly."
+    }
+  ],
+  "blockers": [],
+  "next_action": {
+    "action_id": "C005-NEXT-001",
+    "phase": "stage5-content-depth-and-apk-research",
+    "owners": ["game-production-director", "game-engineering-lead"],
+    "scope": "Stage-specific foe behaviors/unit variety beyond tempo presets, vox-director cutscene budget review with compresso, and APK (TWA/Capacitor) packaging survey for the mobile port",
+    "prohibited_work": [
+      "game-core.js reducer semantic changes without a new directive",
+      "monetization or telemetry-egress surface",
+      "cycle-004 record modification"
+    ]
+  },
+  "pydantic_ai_integration": {
+    "adapter_status": "available_not_executed",
+    "probe_command": ".venv/bin/python -m pip show pydantic-ai",
+    "observed_version": "2.9.1",
+    "provider_call_executed": false,
+    "agent_run_executed": false
+  },
+  "reflection_result": {
+    "status": "validated",
+    "pydantic_version": "2.13.4",
+    "metrics": {
+      "validation_sample_count": 1,
+      "first_pass_success": true,
+      "retry_rate": 0.0,
+      "field_error_rate": 0.0
+    }
+  }
+}
