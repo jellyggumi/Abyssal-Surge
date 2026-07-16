@@ -115,10 +115,12 @@ async function run() {
   await page.screenshot({ path: walkEndPath });
   console.log("Saved walk-end screenshot to:", walkEndPath);
   
-  // Clean up
+  // Clean up — deterministic shutdown: destroy keep-alive sockets and await
+  // server close so the success exit code reflects real completion.
   await page.close();
   await browser.close();
-  server.close();
+  server.closeAllConnections?.();
+  await new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
   console.log("=== Visual Capture Complete ===");
 }
 
