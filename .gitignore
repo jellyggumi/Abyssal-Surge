@@ -6,3 +6,8 @@
 
 # OS files
 .DS_Store
+# Node dependencies (promo-video render tool)
+node_modules/
+
+# Scratch outputs
+tmp/
