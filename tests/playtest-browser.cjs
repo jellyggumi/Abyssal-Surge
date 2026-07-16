@@ -358,6 +358,43 @@ async function run() {
   console.log("Campaign 2 Settlement:", settlement2);
   assert.ok(settlement2.includes("10 fragments"), `Trade campaign must settle at 10 fragments (got "${settlement2}")`);
 
+  // DET8 single-application probe: a reducer-routed Stage 5 STRIKE must change
+  // foe health exactly once — unit arrival (~2.5s traversal at 40%/s) is a
+  // pure impact animation, never a second application.
+  console.log("\n=== VERIFYING STAGE 5 SINGLE-APPLICATION (arrival is cosmetic) ===");
+  await page.evaluate(() => {
+    localStorage.setItem("abyssal_surge_save", JSON.stringify({
+      encounterIndex: 4,
+      sequence: 0,
+      totalCommandsRun: 0,
+      outcomes: ["HOLD", "HOLD", "HOLD", "HOLD"],
+      settlement: null,
+      records: [],
+      encounter: null,
+      surface: "play",
+      lastMessage: "",
+      currentLang: "en",
+      volumeBgm: 0, volumeSfx: 0, volumeNarr: 0
+    }));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#resume-button", { state: "visible", timeout: 3000 });
+  await page.click("#resume-button");
+  await page.waitForSelector("#play-screen:not([hidden])", { timeout: 3000 });
+  const singleApp = await page.evaluate(async () => {
+    const before = window.encounter.foe_health;
+    window.recordCommand ? window.recordCommand("STRIKE") : document.querySelector('[data-command="STRIKE"]').click();
+    const afterCommand = window.encounter.foe_health;
+    // Wait past a full lane traversal (100% / 40%/s = 2.5s) + margin.
+    await new Promise((r) => setTimeout(r, 3200));
+    const afterTraversal = window.encounter.foe_health;
+    return { before, afterCommand, afterTraversal, outcome: window.encounter.outcome };
+  });
+  console.log("Single-application probe:", JSON.stringify(singleApp));
+  assert.equal(singleApp.before - singleApp.afterCommand, 2, "Reducer must apply the STRIKE effect once at command time");
+  assert.equal(singleApp.afterTraversal, singleApp.afterCommand, "Unit arrival must NOT re-apply the STRIKE effect (foe health unchanged across traversal)");
+  await page.evaluate(() => localStorage.clear());
+
   // DET7-SW: real service-worker integration check (v3 controls the page, fresh core via network-first)
   console.log("\n=== VERIFYING SERVICE WORKER v3 ===");
   await page.reload({ waitUntil: "networkidle" });
@@ -410,7 +447,7 @@ async function run() {
   assert.ok(swState.canonicalURL && swState.canonicalURL.endsWith("/sw.js"), "The canonical sw.js registration must be restored");
   assert.deepEqual(swState.appKeys, ["abyssal-surge-v3"], "Activate must purge stale app-owned caches, keeping exactly abyssal-surge-v3");
   assert.equal(swState.probeSurvived, true, "Activate cleanup must NOT delete unrelated same-origin caches (origin-wide Cache Storage)");
-  assert.equal(swState.buildTag, "c007", "Reload under SW control must serve the fresh c007 app.js (network-first core)");
+  assert.equal(swState.buildTag, "c008", "Reload under SW control must serve the fresh c008 app.js (network-first core)");
 
   // Reload under the claimed worker: page must be controlled and still fresh
   await page.reload({ waitUntil: "networkidle" });
@@ -425,7 +462,7 @@ async function run() {
   });
   console.log("SW-controlled reload:", JSON.stringify(controlledTag));
   assert.equal(controlledTag.controlled, true, "Page must remain SW-controlled across reloads");
-  assert.equal(controlledTag.buildTag, "c007", "SW-controlled reload must still serve fresh core (network-first, cache fallback)");
+  assert.equal(controlledTag.buildTag, "c008", "SW-controlled reload must still serve fresh core (network-first, cache fallback)");
   console.log("Service worker v3 integration verified.");
   
   // 10. Clean up

@@ -8,6 +8,7 @@ import {
   initialEncounter,
   makeCommand,
   reduceEncounter,
+  replayEncounter,
   settleCampaign,
   validateDeterministicReplay,
 } from "./game-core.js";
@@ -828,33 +829,47 @@ function rtsLoop(timestamp) {
         nextUnits.push(unit);
       }
     } else if (unit.x >= 100) {
-      // Unit reached Foe base! Strike!
-      if (unit.type === "STRIKE") {
-        encounter.foe_health = Math.max(0, encounter.foe_health - 2);
-        play("strike");
-        triggerFx("STRIKE");
-        if (dom.voidAvatar && dom.voidAvatar.classList) {
-          dom.voidAvatar.classList.add("damage-flash");
-          setTimeout(() => {
-            if (dom.voidAvatar && dom.voidAvatar.classList) {
-              dom.voidAvatar.classList.remove("damage-flash");
-            }
-          }, 400);
+      // Unit reached Foe base!
+      if (unit.semanticResolved) {
+        // Reducer-routed round (Stage 5): the effect already applied at
+        // command time — arrival is a pure impact animation, no state change.
+        if (unit.type === "STRIKE") {
+          play("strike");
+          triggerFx("STRIKE");
+        } else if (unit.type === "BRACE") {
+          play("brace");
         }
-      } else if (unit.type === "BRACE") {
-        encounter.guard = Math.min(2, encounter.guard + 2);
-        play("brace");
-      }
+        if (unit.element && unit.element.parentNode) {
+          unit.element.parentNode.removeChild(unit.element);
+        }
+      } else {
+        if (unit.type === "STRIKE") {
+          encounter.foe_health = Math.max(0, encounter.foe_health - 2);
+          play("strike");
+          triggerFx("STRIKE");
+          if (dom.voidAvatar && dom.voidAvatar.classList) {
+            dom.voidAvatar.classList.add("damage-flash");
+            setTimeout(() => {
+              if (dom.voidAvatar && dom.voidAvatar.classList) {
+                dom.voidAvatar.classList.remove("damage-flash");
+              }
+            }, 400);
+          }
+        } else if (unit.type === "BRACE") {
+          encounter.guard = Math.min(2, encounter.guard + 2);
+          play("brace");
+        }
 
-      // Remove element from DOM
-      if (unit.element && unit.element.parentNode) {
-        unit.element.parentNode.removeChild(unit.element);
-      }
+        // Remove element from DOM
+        if (unit.element && unit.element.parentNode) {
+          unit.element.parentNode.removeChild(unit.element);
+        }
 
-      if (encounter.foe_health <= 0) {
-        encounter.outcome = "VICTORY";
-        finishEncounter();
-        return;
+        if (encounter.foe_health <= 0) {
+          encounter.outcome = "VICTORY";
+          finishEncounter();
+          return;
+        }
       }
     } else {
       // Update visual position
@@ -929,7 +944,7 @@ const UNIT_MONITOR_NAME_KEYS = {
   VOIDSPAWN: "unitVoidspawn",
 };
 
-function spawnUnit(type, { hostile = false, startX = null, speed = null } = {}) {
+function spawnUnit(type, { hostile = false, startX = null, speed = null, semanticResolved = false } = {}) {
   let originPct;
   if (hostile) {
     // Hostile spawns enter at the lane's right edge (or a caller-provided
@@ -969,6 +984,9 @@ function spawnUnit(type, { hostile = false, startX = null, speed = null } = {}) 
     speed: Number.isFinite(speed) ? speed : stageRtPreset().unitSpeed * (UNIT_SPEED_MULTIPLIERS[type] || 1),
     direction: hostile ? -1 : 1,
     hostile: hostile,
+    // stage1-rules-v2 Stage 5: the reducer already applied this command's
+    // semantic effect at command time — arrival must stay presentation-only.
+    semanticResolved: semanticResolved,
     element: element
   });
 }
@@ -1253,7 +1271,7 @@ function recordCommand(command) {
       play(command.toLowerCase());
       triggerFx(command);
       if (command === "STRIKE" || command === "DISRUPT") {
-        spawnUnit(command);
+        spawnUnit(command, { semanticResolved: true });
         if (dom.voidAvatar && dom.voidAvatar.classList) {
           dom.voidAvatar.classList.add("damage-flash");
           setTimeout(() => {
@@ -1263,7 +1281,7 @@ function recordCommand(command) {
           }, 400);
         }
       } else if (command === "BRACE") {
-        spawnUnit("BRACE");
+        spawnUnit("BRACE", { semanticResolved: true });
       } else if (command === "RECOVER" && dom.knightAvatar && dom.knightAvatar.classList) {
         dom.knightAvatar.classList.add("recover-pulse");
         setTimeout(() => {

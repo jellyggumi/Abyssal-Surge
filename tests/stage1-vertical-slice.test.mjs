@@ -157,6 +157,7 @@ async function loadApp({ replayOverride } = {}) {
     export const OUTCOMES = core.OUTCOMES;
     export const initialEncounter = core.initialEncounter;
     export const reduceEncounter = core.reduceEncounter;
+    export const replayEncounter = core.replayEncounter;
     export const settleCampaign = core.settleCampaign;
     export const makeCommand = core.makeCommand;
     export const validateDeterministicReplay = (...args) => {
