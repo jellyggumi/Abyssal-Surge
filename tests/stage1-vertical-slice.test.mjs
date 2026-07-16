@@ -153,6 +153,7 @@ async function loadApp({ replayOverride } = {}) {
     export const COMMANDS = core.COMMANDS;
     export const RULES_VERSION = core.RULES_VERSION;
     export const awardFor = core.awardFor;
+    export const commandCost = core.commandCost;
     export const OUTCOMES = core.OUTCOMES;
     export const initialEncounter = core.initialEncounter;
     export const reduceEncounter = core.reduceEncounter;

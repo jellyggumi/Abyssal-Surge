@@ -1,5 +1,6 @@
 import {
   CAMPAIGN_SCHEDULES,
+  commandCost,
   COMMANDS,
   OUTCOMES,
   RULES_VERSION,
@@ -160,7 +161,7 @@ const DICTIONARY = {
     lobbyIntro: "Each encounter resolves one to three visible foe intents (Strike or Surge). Choose a declared command; deterministic reduction keeps pointer input and keyboard input identical.",
     lobbyBrief1: "Brace blocks Strike damage. Disrupt blocks Surge damage and pressure. Both actions cost 1 focus.",
     lobbyBrief2: "Integrity 0 is an integrity defeat, pressure 4 is a pressure defeat, and foe health 0 is victory. Surviving the final scheduled round is a Hold.",
-    lobbyBrief3: "A campaign contains exactly five terminal encounters. Victory grants 2 fragments, Hold grants 1, and defeat grants 0. Settlement turns every 3 fragments into 1 resolve mark, capped at 2.",
+    lobbyBrief3: "A campaign contains exactly five terminal encounters. Victory grants 2 fragments; Hold grants 0. Settlement turns every 3 fragments into 1 resolve mark, capped at 2.",
     btnBegin: "Begin local campaign",
     btnResume: "Resume campaign",
     btnContinue: "Start next local encounter",
@@ -212,7 +213,7 @@ const DICTIONARY = {
     lobbyIntro: "각 전투는 1~3회의 적대 의도(공격/돌입)를 공개합니다. 선언된 커맨드를 마우스나 단축키로 입력하면 결정론적 리듀서가 키보드 입력과 포인터 입력을 동일하게 처리합니다.",
     lobbyBrief1: "대비(Brace)는 공격 대미지를 막고, 방해(Disrupt)는 돌입 대미지와 압박을 막습니다. 각 행동은 정신력(Focus) 1을 소모합니다.",
     lobbyBrief2: "생명력(Integrity)이 0이면 패배, 압박(Pressure)이 4가 되면 패배이며, 적 체력(Foe Health)이 0이면 승리합니다. 마지막 예정 라운드를 버티면 홀드(Hold)입니다.",
-    lobbyBrief3: "캠페인은 총 5번의 종결 전투로 구성됩니다. 승리 시 2개, 홀드 시 1개, 패배 시 0개의 파편을 획득합니다. 정산은 3개 파편당 1개의 복기 마크를 지급하며 최대 2개입니다.",
+    lobbyBrief3: "캠페인은 총 5번의 종결 전투로 구성됩니다. 승리 시 2개, 홀드 시 0개의 파편을 획득합니다. 정산은 3개 파편당 1개의 복기 마크를 지급하며 최대 2개입니다.",
     btnBegin: "캠페인 시작하기",
     btnResume: "이어서 진행하기",
     btnContinue: "다음 인카운터 시작",
@@ -1689,7 +1690,7 @@ function showSurface(next) {
   } else if (next === "terminal") {
     fadeBgm();
     if (dom.terminalIllustration) {
-      if (encounter.outcome === "VICTORY" || encounter.outcome === "HOLD") {
+      if (encounter.outcome === "VICTORY") {
         dom.terminalIllustration.src = "assets/images/victory.png";
         dom.terminalIllustration.style.display = "inline-block";
       } else if (encounter.outcome && encounter.outcome.startsWith("DEFEAT")) {
@@ -1699,7 +1700,7 @@ function showSurface(next) {
         dom.terminalIllustration.style.display = "none";
       }
     }
-    if (encounter.outcome === "VICTORY" || encounter.outcome === "HOLD") {
+    if (encounter.outcome === "VICTORY") {
       play("victory");
       play("narr_victory");
     } else if (encounter.outcome && encounter.outcome.startsWith("DEFEAT")) {
@@ -1731,9 +1732,9 @@ function threatCopy(state) {
 
 function counterCopy(state) {
   if (state.foe_intent === "SURGE") {
-    return `${commandLabel("DISRUPT")} costs 1 focus, deals 1 foe damage, and prevents this ${intentLabel(state.foe_intent)}.`;
+    return `${commandLabel("DISRUPT")} costs ${commandCost(state, "DISRUPT")} focus, deals 1 foe damage, and prevents this ${intentLabel(state.foe_intent)}.`;
   }
-  return `${commandLabel("BRACE")} costs 1 focus and prevents this ${intentLabel(state.foe_intent)}'s 2 damage.`;
+  return `${commandLabel("BRACE")} costs ${commandCost(state, "BRACE")} focus and prevents this ${intentLabel(state.foe_intent)}'s 2 damage.`;
 }
 
 function commandAvailable(command) {
