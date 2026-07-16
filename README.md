@@ -1,12 +1,12 @@
 # Abyssal Command (Shadow Lord)
 
-[![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml)
-[![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Surge/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Surge/)
+[![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Command/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Command/actions/workflows/static.yml)
+[![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Command/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Command/)
 
 **Abyssal Command**는 《나 혼자만 레벨업》 IP에서 영감을 얻은 **전투 중심 무자원 RTS-RPG 하이브리드 웹 게임**입니다.
 전투 성과를 곧바로 병력(그림자 군단)과 성장으로 전환하는 결정론적 규칙 엔진 위에서, 3단계 캠페인이 게이트 검증(G1–G8)을 통과하며 사이클로 제작됩니다.
 
-**▶ 플레이**: https://jellyggumi.github.io/Abyssal-Surge/ (모바일·데스크톱, PWA 오프라인 지원)
+**▶ 플레이**: https://jellyggumi.github.io/Abyssal-Command/ (모바일·데스크톱, PWA 오프라인 지원)
 
 [**🎬 풀 캠페인 플레이 영상 (67s)**](docs/media/abyssal-surge-play.mp4)
 
