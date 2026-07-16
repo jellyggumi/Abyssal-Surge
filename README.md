@@ -59,6 +59,6 @@ python3 -m http.server 8000
 
 ### 테스트 실행
 ```bash
-# 핵심 규칙 및 캠페인 상태 머신 테스트
-node --test tests/game-core.test.mjs tests/campaign-state.test.mjs
+# 핵심 규칙, 캠페인 상태 머신 및 5단계 플레이테스트 시뮬레이션 테스트
+node --test tests/game-core.test.mjs tests/campaign-state.test.mjs tests/playtest-5-stages.test.mjs
 ```
