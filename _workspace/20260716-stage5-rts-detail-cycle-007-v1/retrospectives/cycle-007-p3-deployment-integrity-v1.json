@@ -1,0 +1,149 @@
+{
+  "schema_version": "cycle-retrospective/v1",
+  "artifact_path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/retrospectives/cycle-007-p3-deployment-integrity-v1.json",
+  "run_id": "20260716-stage5-rts-detail-cycle-007-v1",
+  "cycle_index": 7,
+  "process_phase": "P3-deployment-integrity",
+  "status": "final",
+  "owner": "retrospective-validator",
+  "created_at": "2026-07-16T17:40:00Z",
+  "input_artifacts": [
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/intake/production-brief.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/task-manifest.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/decision-log.md",
+    "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/worktree-coop-note-v2.md"
+  ],
+  "input_hashes": [
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/intake/production-brief.md",
+      "sha256": "20cbf95aa8f341f844c2a50eecb45d8ce39912e1c22086d9a6b04f5b4bd9aa47"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/task-manifest.md",
+      "sha256": "bcb3278a84045b5e841d3c11792a0f640c480d31b7691cea9e12e874942ed2ce"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/decision-log.md",
+      "sha256": "2d19c0888b481ea1c7e10c88d3d2ee0cd0d18342d339b678a97da0497c7e17f4"
+    },
+    {
+      "path": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/worktree-coop-note-v2.md",
+      "sha256": "2a83834ca31f4ef0d9b22dc9accf7516aa4a78d8bcaff7b4a294b90b9c7d4ae7"
+    }
+  ],
+  "decision_ids": [
+    "C007-D-001"
+  ],
+  "detail_directive_state": {
+    "det7_sw": "completed_verified_live",
+    "det7_cine": "completed_verified",
+    "det7_read": "completed_verified",
+    "det7_apk": "kit_delivered_no_build_claim",
+    "det7_qa": "passed",
+    "det7_doc": "completed"
+  },
+  "claims": [
+    {
+      "claim_id": "C007-RETRO-001",
+      "category": "verification",
+      "statement": "DET7-SW P0 resolved end-to-end: Pages workflow allowlist expanded from 5 files to the full PWA closure (8 root files + assets tree, git ls-tree inventory, node --check sw.js guard); sw.js v3 ships network-first core with skipWaiting/clients.claim, and its activate cleanup is PREFIX-SCOPED (deletes only abyssal-surge-* keys) because Cache Storage is origin-wide on github.io. E2E activation probe: a planted stale abyssal-surge-v1-sentinel was purged while a planted unrelated other-project-cache-probe survived; canonical sw.js registration restored and BUILD_TAG 'c007' stayed fresh across SW-controlled reloads. Live verification: Pages run success for 945f10a; curl 200 across the closure; live sw.js v3; live app.js BUILD_TAG c007.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/.github/workflows/static.yml",
+        "/Users/jangyoung/orca/Abyssal-Surge/sw.js",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest-browser.cjs"
+      ]
+    },
+    {
+      "claim_id": "C007-RETRO-002",
+      "category": "verification",
+      "statement": "DET7-CINE: five ffmpeg zoompan Ken Burns cinematics (960x540, 24fps, 6.0s, CRF 30, no audio) total 1.01MB (140-278KB each, under the 1.2MB/file and 6MB budgets); app.js overlay shows once per new encounter with skip isolation (capture-phase listeners), 7s hard timeout, immediate error fallback, reduced-motion skip, and no replay on retry/resume. E2E: all five overlays observed with correct per-stage src; skip keypress never leaked focus (3->3, 4->4, 5->5).",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/assets/video/stage_intro_1.mp4",
+        "/Users/jangyoung/orca/Abyssal-Surge/app.js",
+        "/Users/jangyoung/orca/Abyssal-Surge/styles.css"
+      ]
+    },
+    {
+      "claim_id": "C007-RETRO-003",
+      "category": "verification",
+      "statement": "DET7-READ: lane-spawn-flash 250ms right-edge pulse fires on every hostile wave spawn (reduced-motion collapses to static tint); verified in Eng007 headless smoke (applied at spawn instant, cleared ~320ms).",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/app.js",
+        "/Users/jangyoung/orca/Abyssal-Surge/styles.css"
+      ]
+    },
+    {
+      "claim_id": "C007-RETRO-004",
+      "category": "verification",
+      "statement": "DET7-APK: TWA kit delivered — apk/twa-manifest.json (bubblewrap-compatible), apk/assetlinks-template.json, apk/BUILD.md (79 lines incl. the origin-scoped verification subsection: assetlinks.json must publish at the jellyggumi.github.io HOST ROOT via the user-site repo or a custom domain; failure symptom = silent Custom Tabs fallback); icons icon-512/icon-192 PNGs rasterized and wired into manifest.json. No APK build claimed (no Android tooling in this environment).",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/apk/BUILD.md",
+        "/Users/jangyoung/orca/Abyssal-Surge/apk/twa-manifest.json",
+        "/Users/jangyoung/orca/Abyssal-Surge/assets/icons/icon-512.png"
+      ]
+    },
+    {
+      "claim_id": "C007-RETRO-005",
+      "category": "verification",
+      "statement": "DET7-QA: stage1-vertical-slice 2/2 (incl. updated closure pin test), playtest-5-stages PASS, browser E2E exit 0 unfiltered (5/5 VICTORY, cinematic+skip-isolation asserts, cycle-006 telegraph/dispel asserts retained, settlement, SW v3 activation-probe integration), capture-live exit 0 with cinematic dismissal, desktop+mobile PNGs refreshed.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/stage1-vertical-slice.test.mjs",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest-browser.cjs",
+        "/Users/jangyoung/orca/Abyssal-Surge/tests/playtest_walk_mid.png"
+      ]
+    },
+    {
+      "claim_id": "C007-RETRO-006",
+      "category": "boundary",
+      "statement": "Shared-worktree interference occurred three times (28 tracked records deleted; cycle-007 pre-commit governance files deleted; then the whole _workspace tree except the peer run deleted at ~17:00 KST, destroying this file's first uncommitted version). All tracked files restored and committed (945f10a, db58194); this record was rewritten. Deletion source unknown — verified not this session. Future cycles run in a dedicated git worktree; peer notified via shared-memory worktree-coop-protocol-20260716 v2. game-core.js remains byte-identical; no monetization/telemetry egress.",
+      "evidence_paths": [
+        "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260716-stage5-rts-detail-cycle-007-v1/production/worktree-coop-note-v2.md",
+        "/Users/jangyoung/orca/Abyssal-Surge/game-core.js"
+      ]
+    }
+  ],
+  "assumptions": [
+    {
+      "assumption_id": "ASM-001",
+      "statement": "GitHub Pages CDN propagates within the verification window; curl 200 evidence reflects the deployed artifact rather than a stale edge cache.",
+      "validation_boundary": "If a user reports stale content after this deploy, re-verify with cache-busting query params before touching code."
+    },
+    {
+      "assumption_id": "ASM-002",
+      "statement": "The peer session (rts-hero-rework-20260716-a) respects the shared-memory co-op protocol until its P3 gate opens.",
+      "validation_boundary": "Before any future runtime commit, re-run git status and restore-audit; adopt the dedicated worktree for cycle 008 regardless."
+    }
+  ],
+  "blockers": [],
+  "next_action": {
+    "action_id": "C007-NEXT-001",
+    "phase": "worktree-isolation-and-stage-depth",
+    "owners": [
+      "game-production-director",
+      "game-engineering-lead"
+    ],
+    "scope": "Move cycle-008 to a dedicated git worktree; then stage-depth work (per-stage foe behavior variety beyond tempo, boss telegraph patterns for stage 5) and APK build execution on Android-tooled hardware",
+    "prohibited_work": [
+      "game-core.js reducer semantic changes without a new directive",
+      "monetization or telemetry-egress surface",
+      "cycle<=006 record modification"
+    ]
+  },
+  "pydantic_ai_integration": {
+    "adapter_status": "available_not_executed",
+    "probe_command": ".venv/bin/python -m pip show pydantic-ai",
+    "observed_version": "2.9.1",
+    "provider_call_executed": false,
+    "agent_run_executed": false
+  },
+  "reflection_result": {
+    "status": "validated",
+    "pydantic_version": "2.13.4",
+    "metrics": {
+      "validation_sample_count": 1,
+      "first_pass_success": true,
+      "retry_rate": 0.0,
+      "field_error_rate": 0.0
+    }
+  }
+}

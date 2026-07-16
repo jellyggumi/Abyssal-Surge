@@ -305,35 +305,68 @@ async function run() {
   // DET7-SW: real service-worker integration check (v3 controls the page, fresh core via network-first)
   console.log("\n=== VERIFYING SERVICE WORKER v3 ===");
   await page.reload({ waitUntil: "networkidle" });
+
+  // Plant an unrelated-origin-neighbor probe cache and a stale app-owned
+  // sentinel, then register sw.js under a cache-busting query so the browser
+  // treats it as a NEW worker and must run install+activate over both planted
+  // caches (same-URL re-register just resurrects the old registration).
   const swState = await page.evaluate(async () => {
     if (!("serviceWorker" in navigator)) return { error: "no serviceWorker API" };
-    const reg = await navigator.serviceWorker.ready;
-    // Wait (bounded) for the active worker to claim this client
-    for (let i = 0; i < 50 && !navigator.serviceWorker.controller; i++) {
+    await caches.open("other-project-cache-probe");
+    await caches.open("abyssal-surge-v1-sentinel");
+    const reg = await navigator.serviceWorker.register(`sw.js?activation-probe=${Date.now()}`);
+    // Activation proof: the new worker's activate handler deletes stale
+    // app-owned caches; wait (bounded) for the sentinel to disappear.
+    let keys = [];
+    for (let i = 0; i < 80; i++) {
+      keys = await caches.keys();
+      if (!keys.includes("abyssal-surge-v1-sentinel")) break;
       await new Promise((r) => setTimeout(r, 100));
     }
-    const keys = await caches.keys();
+    const appKeys = keys.filter((k) => k.startsWith("abyssal-surge-"));
+    const probeSurvived = keys.includes("other-project-cache-probe");
+    await caches.delete("other-project-cache-probe");
+    const activeURL = (reg.active || reg.waiting || reg.installing || {}).scriptURL || null;
+    // Restore the canonical registration for the reload checks below; the new
+    // worker activates asynchronously, so wait for its scriptURL to win.
+    await reg.unregister();
+    const canonical = await navigator.serviceWorker.register("sw.js");
+    let canonicalURL = null;
+    for (let i = 0; i < 80; i++) {
+      const active = canonical.active;
+      if (active && active.scriptURL.endsWith("/sw.js") && !active.scriptURL.includes("?")) {
+        canonicalURL = active.scriptURL;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
     return {
-      scriptURL: reg.active ? reg.active.scriptURL : null,
-      controlled: !!navigator.serviceWorker.controller,
-      controllerURL: navigator.serviceWorker.controller ? navigator.serviceWorker.controller.scriptURL : null,
-      cacheKeys: keys,
+      scriptURL: activeURL,
+      canonicalURL,
+      appKeys,
+      probeSurvived,
       buildTag: window.BUILD_TAG || null
     };
   });
   console.log("SW state:", JSON.stringify(swState));
   assert.ok(!swState.error, "Service worker API must be available");
-  assert.ok(swState.scriptURL && swState.scriptURL.endsWith("/sw.js"), "sw.js must be the active service worker");
-  assert.equal(swState.controlled, true, "The v3 service worker must control the page (clients.claim)");
-  assert.deepEqual(swState.cacheKeys, ["abyssal-surge-v3"], "Only the abyssal-surge-v3 cache may remain after activate");
+  assert.ok(swState.scriptURL && swState.scriptURL.includes("sw.js?activation-probe="), "The activation-probe worker must have installed");
+  assert.ok(swState.canonicalURL && swState.canonicalURL.endsWith("/sw.js"), "The canonical sw.js registration must be restored");
+  assert.deepEqual(swState.appKeys, ["abyssal-surge-v3"], "Activate must purge stale app-owned caches, keeping exactly abyssal-surge-v3");
+  assert.equal(swState.probeSurvived, true, "Activate cleanup must NOT delete unrelated same-origin caches (origin-wide Cache Storage)");
   assert.equal(swState.buildTag, "c007", "Reload under SW control must serve the fresh c007 app.js (network-first core)");
 
-  // Second reload now flows through the SW fetch handler end-to-end
+  // Reload under the claimed worker: page must be controlled and still fresh
   await page.reload({ waitUntil: "networkidle" });
-  const controlledTag = await page.evaluate(() => ({
-    controlled: !!navigator.serviceWorker.controller,
-    buildTag: window.BUILD_TAG || null
-  }));
+  const controlledTag = await page.evaluate(async () => {
+    for (let i = 0; i < 50 && !navigator.serviceWorker.controller; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return {
+      controlled: !!navigator.serviceWorker.controller,
+      buildTag: window.BUILD_TAG || null
+    };
+  });
   console.log("SW-controlled reload:", JSON.stringify(controlledTag));
   assert.equal(controlledTag.controlled, true, "Page must remain SW-controlled across reloads");
   assert.equal(controlledTag.buildTag, "c007", "SW-controlled reload must still serve fresh core (network-first, cache fallback)");

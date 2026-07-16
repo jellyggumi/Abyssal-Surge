@@ -91,7 +91,9 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys.map((key) => {
-            if (key !== CACHE_NAME) {
+            // Cache Storage is ORIGIN-wide (shared by every project page on
+            // this github.io origin). Only clean up caches this app owns.
+            if (key.startsWith("abyssal-surge-") && key !== CACHE_NAME) {
               return caches.delete(key);
             }
           })
