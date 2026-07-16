@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "ship",
+  "completed_at": "2026-07-17T02:20:00+09:00",
+  "went_well": [
+    "4 fragmented wiki design docs merged into one canonical file (wiki/reports/shadow-lord-rts-rpg-hybrid-design.md); originals trashed; index/log/graph updated (3,472 nodes)",
+    "Battle-screen SPA plan (4 views, cooldown pad, wave/breach) promoted to confirmed design with determinism invariant stated explicitly",
+    "Resource plan formalized: dungeon/player/enemy/skill/effect/sound/animation/object with P1-P3 pipeline (gti painterly, ElevenLabs, Blender headless)",
+    "Action-verb dictionary (move/strike/cast/explore/scout/jump/guard/evade) with authority column + seeded-FSM AI NPC spec (6 archetypes, 250ms tick)",
+    "TTK bands finally defined (S1 75s / S2 100s / S3 120s ±15%) — G2 TTK row now judgeable"
+  ],
+  "went_wrong": [
+    "v1 log-growth formula survived in docs long after code diverged — canonical-source rule (code wins) was written down only now",
+    "Cooldown-reduction reward (Stillwater Hourglass) shipped in battle screen without combo-EV re-verification",
+    "Wiki discoverability was poor: 60+ auto-ingested noise entries dominated index over 4 real design docs"
+  ],
+  "metrics": [
+    {
+      "name": "design_docs_merged",
+      "value": 4,
+      "unit": "files",
+      "method": "obsidian-cli delete after consolidation"
+    },
+    {
+      "name": "graph_nodes",
+      "value": 3472,
+      "unit": "nodes",
+      "method": "graphify update ."
+    },
+    {
+      "name": "ttk_bands_defined",
+      "value": 3,
+      "unit": "stages",
+      "method": "balance-sheet.md band-overrides table"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Re-verify combo EV including cooldown-reduction reward in next simulator batch (G2)",
+      "owner": "game-designer",
+      "apply_in_phase": "balance-retune",
+      "applied": false
+    },
+    {
+      "action": "Port tests/playtest-browser-3stage.cjs to a puppeteer-core fallback so battle E2E runs without playwright dependency",
+      "owner": "game-qa",
+      "apply_in_phase": "live-playtest",
+      "applied": false
+    },
+    {
+      "action": "Produce resource batch P1 (player 3-pose, 3 enemy sprites, 3 arena floors, breach alarm) per canonical §4 naming/size guards",
+      "owner": "game-designer",
+      "apply_in_phase": "asset-production",
+      "applied": false
+    },
+    {
+      "action": "Implement seeded-FSM AI NPC per canonical §4.2 with breach as the only engine-touching output",
+      "owner": "game-programmer",
+      "apply_in_phase": "balance-retune",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "_workspace/20260716-shadow-lord-rts-rpg/design/balance-sheet.md"
+  ]
+}

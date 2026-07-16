@@ -37,7 +37,8 @@
       "action": "Define a seconds-based TTK target in the balance sheet so the G2 TTK row becomes judgeable",
       "owner": "game-designer",
       "apply_in_phase": "ship",
-      "applied": false
+      "applied": true,
+      "evidence_when_applied": "balance-sheet.md 'Band overrides — TTK 목표' section: S1 75s / S2 100s / S3 120s ±15%, synced with canonical wiki §2 (2026-07-17)"
     }
   ],
   "evidence_paths": [
