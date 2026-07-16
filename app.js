@@ -107,13 +107,15 @@ let fadeInterval = null;
 // RTS Engine Variables
 const useRealTime = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
 const COMMAND_SET = new Set(COMMANDS);
+const RECOVER_CHANNEL_SECONDS = 1;
+let isRecovering = false;
+let recoverTimer = 0;
 let activeUnits = [];
 let foeCharge = 0;
 let lastTickTime = 0;
 let rAFId = null;
 let nextUnitId = 0;
 let lastSecondSave = 0;
-
 
 // DET-STAGE: per-stage real-time presets (presentation-layer only; semantic core untouched).
 // Indexed by encounterIndex, clamped to array bounds.
@@ -157,7 +159,10 @@ function resetRealtimeState({ clearUnits = true } = {}) {
   lastTickTime = 0;
   nextUnitId = 0;
   lastSecondSave = 0;
+  isRecovering = false;
+  recoverTimer = 0;
 }
+ 
 
 
 const DICTIONARY = {
@@ -1291,175 +1296,7 @@ function entryAdverseText(entry) {
   return dict.adverseSkipped;
 }
 
-function recordCommand(command) {
-  if (!COMMANDS.includes(command)) return;
-
-  if (useRealTime) {
-    if (encounter.outcome !== "ACTIVE") return;
-
-    // Custom RTS logic: check if player has enough Focus
-    const reject = (reasonCode) => {
-      lastMessage = commandRejectionMessage(reasonCode, command);
-      play("defeat"); // warning buzz
-      render();
-    };
-
-    // ── stage1-rules-v2 Stage 5: reducer-routed rounds ──────────────────
-    // Every accepted command IS one full semantic round (player effect +
-    // foe effect + round advance) applied by the frozen core reducer, so
-    // the real-time game and the deterministic contract are one game.
-    // The charge wrap never mutates state here (pure telegraph); HOLD
-    // terminates naturally at round === schedule.length.
-    if (encounterIndex === 4) {
-      const record = makeCommand(command, encounter.round, sequence + 1);
-      const result = reduceEncounter(encounter, record);
-      if (!result.accepted) {
-        reject(result.reason);
-        return;
-      }
-      sequence += 1;
-      records.push(record);
-      totalCommandsRun++;
-      const before = encounter;
-      encounter = result.state;
-
-      // Presentation of the resolved round:
-      play(command.toLowerCase());
-      triggerFx(command);
-      if (command === "STRIKE" || command === "DISRUPT") {
-        spawnUnit(command, { semanticResolved: true });
-        if (dom.voidAvatar && dom.voidAvatar.classList) {
-          dom.voidAvatar.classList.add("damage-flash");
-          setTimeout(() => {
-            if (dom.voidAvatar && dom.voidAvatar.classList) {
-              dom.voidAvatar.classList.remove("damage-flash");
-            }
-          }, 400);
-        }
-      } else if (command === "BRACE") {
-        spawnUnit("BRACE", { semanticResolved: true });
-      } else if (command === "RECOVER" && dom.knightAvatar && dom.knightAvatar.classList) {
-        dom.knightAvatar.classList.add("recover-pulse");
-        setTimeout(() => {
-          if (dom.knightAvatar && dom.knightAvatar.classList) {
-            dom.knightAvatar.classList.remove("recover-pulse");
-          }
-        }, 800);
-      }
-      if (encounter.integrity < before.integrity && dom.knightAvatar && dom.knightAvatar.classList) {
-        dom.knightAvatar.classList.add("damage-flash");
-        setTimeout(() => {
-          if (dom.knightAvatar && dom.knightAvatar.classList) {
-            dom.knightAvatar.classList.remove("damage-flash");
-          }
-        }, 400);
-      }
-
-      // The old round is resolved: clear its telegraph, then either finish
-      // or telegraph the next round immediately (fresh charge cycle).
-      removeHostileUnits({ dispel: true });
-      if (encounter.outcome !== "ACTIVE") {
-        finishEncounter();
-        return;
-      }
-      foeCharge = 0;
-      spawnHostileWave();
-      lastMessage = commandAcceptanceMessage(command);
-      render();
-      saveGameState();
-      return;
-    }
-
-    if (command === "STRIKE") {
-      const cost = commandCost(encounter, "STRIKE");
-      if (!hasSufficientFocus(cost)) {
-        reject("FOCUS");
-        return;
-      }
-      encounter.focus -= cost;
-      spawnUnit("STRIKE");
-    } else if (command === "BRACE") {
-      const cost = commandCost(encounter, "BRACE");
-      if (!hasSufficientFocus(cost)) {
-        reject("FOCUS");
-        return;
-      }
-      encounter.focus -= cost;
-      spawnUnit("BRACE");
-    } else if (command === "DISRUPT") {
-      // stage1-rules-v2: DISRUPT cost escalates with disrupt_uses on Stage 5.
-      // Same commandCost() source as the reducer — no divergent RT economy.
-      const cost = commandCost(encounter, "DISRUPT");
-      if (!hasSufficientFocus(cost)) {
-        reject("FOCUS");
-        return;
-      }
-      if (encounter.foe_intent !== "SURGE") {
-        reject("INTENT");
-        return;
-      }
-      encounter.focus -= cost;
-      encounter.disrupt_uses += 1;
-      encounter.foe_health = Math.max(0, encounter.foe_health - 1);
-      // DET6-FOE (rev): the counter landed (surge_countered false→true) —
-      // dispel the live telegraph wave so the response reads on the lane.
-      if (!encounter.surge_countered) {
-        removeHostileUnits({ dispel: true });
-      }
-      encounter.surge_countered = true;
-      spawnUnit("DISRUPT");
-      play("disrupt");
-      triggerFx("DISRUPT");
-      if (dom.voidAvatar && dom.voidAvatar.classList) {
-        dom.voidAvatar.classList.add("damage-flash");
-        setTimeout(() => {
-          if (dom.voidAvatar && dom.voidAvatar.classList) {
-            dom.voidAvatar.classList.remove("damage-flash");
-          }
-        }, 400);
-      }
-      if (encounter.foe_health <= 0) {
-        encounter.outcome = "VICTORY";
-        finishEncounter();
-        return;
-      }
-    } else if (command === "RECOVER") {
-      if (!canRecoverFocus()) {
-        lastMessage = commandRejectionMessage("FOCUS_CAP", command);
-        render();
-        return;
-      }
-      isRecovering = true;
-      recoverTimer = 1.0; // 1 second recovery channel
-      play("recover");
-      triggerFx("RECOVER");
-      // DET6-UNIT: RECOVER has no lane unit — pulse the knight avatar instead.
-      if (dom.knightAvatar && dom.knightAvatar.classList) {
-        dom.knightAvatar.classList.add("recover-pulse");
-        setTimeout(() => {
-          if (dom.knightAvatar && dom.knightAvatar.classList) {
-            dom.knightAvatar.classList.remove("recover-pulse");
-          }
-        }, 800);
-      }
-    } else {
-      return;
-    }
-
-    totalCommandsRun++;
-    // Log the input with the current elapsed foeCharge/round ticks for deterministic replay!
-    const record = makeCommand(command, encounter.round, ++sequence);
-    records.push(record);
-    lastMessage = commandAcceptanceMessage(command);
-    render();
-    saveGameState();
-    return;
-  }
-
-  // Turn-based fallback
-  if (!commandAvailable(command)) return;
-  totalCommandsRun++;
-
+function presentAcceptedCommand(command, entry) {
   // Play SFX & Visual FX
   play(command.toLowerCase());
   triggerFx(command);
@@ -1470,6 +1307,7 @@ function recordCommand(command) {
     }
     spawnUnit(command);
   }
+
   if (useRealTime && entry && entry.foe_resolved && encounter.outcome === "ACTIVE") {
     spawnHostileWave();
   }
@@ -1511,6 +1349,7 @@ function recordCommand(command) {
   }
 }
 
+
 function recordCommand(command) {
   if (!COMMAND_SET.has(command)) return;
 
@@ -1528,6 +1367,10 @@ function recordCommand(command) {
   stageJournals[encounterIndex].push(candidate);
   encounter = result.state;
   totalCommandsRun += 1;
+  if (command === "RECOVER") {
+    isRecovering = true;
+    recoverTimer = RECOVER_CHANNEL_SECONDS;
+  }
 
   const entry = encounter.trace.at(-1);
   presentAcceptedCommand(command, entry);
