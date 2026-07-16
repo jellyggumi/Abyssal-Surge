@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "research",
+  "completed_at": "2026-07-16T23:50:00+09:00",
+  "went_well": [
+    "4-lane survey with 17 direct-page-retrieval sources; Z1 zero-backend ghost-share adopted with measured 287-char envelope",
+    "restore+replay 0.349ms mean (1000 runs) proves save-envelope sharing is latency-free"
+  ],
+  "went_wrong": [
+    "Firebase Spark limits only reached indexed-snippet evidence grade",
+    "survey validator script absent in this repo; heading contract checked manually"
+  ],
+  "metrics": [
+    {
+      "name": "campaign_envelope_b64url_gzip",
+      "value": 287,
+      "unit": "chars",
+      "method": "gzip+base64url of real 32-event save (Bun 1.3.14)"
+    },
+    {
+      "name": "restore_replay_mean",
+      "value": 0.349,
+      "unit": "ms",
+      "method": "1000-run mean, M2 Pro"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Re-verify Firebase Spark quota numbers against official pricing before any serverless adoption",
+      "owner": "game-pm",
+      "apply_in_phase": "ship",
+      "applied": false
+    },
+    {
+      "action": "Vendor the survey artifact validator into this repo so heading contracts are machine-checked",
+      "owner": "game-production-director",
+      "apply_in_phase": "optimization",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    ".survey/shadow-lord-db-multiplayer/solutions.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/engineering/tech-verification/db-multiplayer.md"
+  ]
+}

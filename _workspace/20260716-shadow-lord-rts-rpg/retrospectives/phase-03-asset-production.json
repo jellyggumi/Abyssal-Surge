@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "asset-production",
+  "completed_at": "2026-07-17T00:20:00+09:00",
+  "went_well": [
+    "12 ElevenLabs audio files first-pass success, loudness outliers detected and normalized (+16/+14dB), 462KB total",
+    "16/16 gti sprites delivered with id-exact filenames enabling reward-${id}.png binding",
+    "Blender headless pipeline produced a 661-poly Gate Sovereign emblem in 9.2s wall time"
+  ],
+  "went_wrong": [
+    "Image generator painted fake checkerboard/greenscreen instead of alpha on 16/16 sprites; required flood-fill background repair",
+    "ElevenLabs key lacks voices_read scope, blocking voice catalog selection (premade Daniel voice used)",
+    "BlenderMCP addon cannot run in background mode; MCP tools timed out and CLI fallback was required"
+  ],
+  "metrics": [
+    {
+      "name": "sprite_payload",
+      "value": 0.9,
+      "unit": "MB",
+      "method": "Pillow MEDIANCUT 256-color quantization, 6.01MB source"
+    },
+    {
+      "name": "audio_payload",
+      "value": 462,
+      "unit": "KB",
+      "method": "du after 96k re-encode"
+    },
+    {
+      "name": "sovereign_polys",
+      "value": 661,
+      "unit": "polygons",
+      "method": "BLENDER_RESULT stdout from headless run"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Request transparent-background via explicit checker-detection prompt suffix or post-process pipeline as default for future sprite batches",
+      "owner": "game-designer",
+      "apply_in_phase": "ship",
+      "applied": false
+    },
+    {
+      "action": "For animated 3D pipeline (rig+action) run Blender with GUI or xvfb so BlenderMCP addon can serve live sessions",
+      "owner": "game-programmer",
+      "apply_in_phase": "ship",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "_workspace/20260716-shadow-lord-rts-rpg/design/ui-sprite-manifest.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/engineering/audio-manifest.md",
+    "tmp/gate-sovereign.blend"
+  ]
+}

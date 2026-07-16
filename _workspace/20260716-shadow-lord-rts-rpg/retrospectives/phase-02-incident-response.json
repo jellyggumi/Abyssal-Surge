@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "incident-response",
+  "completed_at": "2026-07-17T00:05:00+09:00",
+  "went_well": [
+    "Live-site SyntaxError root-caused to literal hashline markers in committed app.js:656/index.html:20 within minutes via deployed-bundle curl + node --check",
+    "Storyboard 404s fixed by moving images inside the Pages allowlist with 800px JPEG re-encode (13.5MB PNG → 600KB)"
+  ],
+  "went_wrong": [
+    "Main session initially misdiagnosed the markers as read-tool display artifacts because local node --check passed while file was mid-edit by a concurrent session",
+    "CI's node --check gate was bypassed because the branch moved between check and deploy"
+  ],
+  "metrics": [
+    {
+      "name": "storyboard_payload",
+      "value": 600,
+      "unit": "KB",
+      "method": "du -h assets/images/storyboard after ffmpeg -q:v 4 scale=800"
+    },
+    {
+      "name": "live_page_errors_after_fix",
+      "value": 0,
+      "unit": "errors",
+      "method": "Playwright getLatestLogs on localhost:8123 reload"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Verify claims against the deployed bundle (curl + node --check), never only the mutable working tree, when diagnosing live incidents",
+      "owner": "game-qa",
+      "apply_in_phase": "live-playtest",
+      "applied": true,
+      "evidence_when_applied": "tmp/deployed-app.mjs check in this session transcript"
+    },
+    {
+      "action": "Add a pre-push grep for non-ASCII edit markers (≔) across allowlisted files",
+      "owner": "game-programmer",
+      "apply_in_phase": "optimization",
+      "applied": true,
+      "evidence_when_applied": ".github/workflows/static.yml guard step (grep ≔ over shippable files)"
+    }
+  ],
+  "evidence_paths": [
+    "tmp/deployed-app.mjs"
+  ]
+}

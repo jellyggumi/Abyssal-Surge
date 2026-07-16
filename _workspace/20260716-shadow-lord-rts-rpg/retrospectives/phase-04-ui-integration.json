@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "ui-integration",
+  "completed_at": "2026-07-17T00:35:00+09:00",
+  "went_well": [
+    "Narration + typing engine shipped with reduced-motion and sr-only accessibility paths in one pass",
+    "Live Playwright verification: 7/7 action icons decoded, boss portrait swaps, narration types Korean intro"
+  ],
+  "went_wrong": [
+    "Reward heal message strings in app.js will drift from campaign-state v2 numbers unless synced after BalanceRetune lands"
+  ],
+  "metrics": [
+    {
+      "name": "action_icons_loaded",
+      "value": 7,
+      "unit": "images",
+      "method": "page.evaluate naturalWidth check via Playwright"
+    },
+    {
+      "name": "campaign_tests",
+      "value": 5,
+      "unit": "pass",
+      "method": "node --test tests/campaign-state.test.mjs"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "After balance v2 merges, re-read campaign-state STAGES/messages and sync any UI copy that cites numbers",
+      "owner": "game-programmer",
+      "apply_in_phase": "balance-retune",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "app.js",
+    "index.html",
+    "styles.css"
+  ]
+}
