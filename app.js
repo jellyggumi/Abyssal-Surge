@@ -11,6 +11,11 @@ import {
   validateDeterministicReplay,
 } from "./game-core.js";
 
+// DET7: cycle build marker — readable via page eval to verify the v3 service
+// worker serves fresh app.js after a deploy.
+const BUILD_TAG = "c007";
+if (typeof window !== "undefined") window.BUILD_TAG = BUILD_TAG;
+
 const dom = {
   screens: {
     lobby: document.querySelector("#lobby-screen"),
@@ -951,6 +956,26 @@ function removeHostileUnits({ dispel = false } = {}) {
   activeUnits = survivors;
 }
 
+// DET7-READ: hostile wave just spawned — pulse the lane's right edge so the
+// short-cooldown waves register peripherally. Class is removed after ~250ms;
+// repeat spawns restart the pulse (clearTimeout + reflow restart). Purely
+// cosmetic — no encounter state touched. Null-guarded for fake-DOM tests.
+let laneFlashTimer = null;
+function flashLaneSpawn() {
+  const lane = dom.battlefieldLane;
+  if (!lane || !lane.classList) return;
+  clearTimeout(laneFlashTimer);
+  laneFlashTimer = null;
+  lane.classList.remove("lane-spawn-flash");
+  // Reading offsetWidth forces a reflow so back-to-back waves restart the CSS animation.
+  if (typeof lane.offsetWidth === "number") void lane.offsetWidth;
+  lane.classList.add("lane-spawn-flash");
+  laneFlashTimer = setTimeout(() => {
+    laneFlashTimer = null;
+    if (lane.classList) lane.classList.remove("lane-spawn-flash");
+  }, 250);
+}
+
 // DET6-FOE (rev): a foe charge cycle just began — telegraph it. The wave marches
 // from x=100 toward the player at 100 / foeCooldown %/s so arrival coincides with
 // the attack firing. Edge survivors of the previous cycle are cleared first.
@@ -963,6 +988,7 @@ function spawnHostileWave() {
   for (let i = 0; i < hostileCount; i += 1) {
     spawnUnit("VOIDSPAWN", { hostile: true, startX: 100 - i * 3, speed: telegraphSpeed });
   }
+  flashLaneSpawn();
 }
 const STAGE_TITLES_LOCALIZED = {
   en: [
@@ -1271,6 +1297,8 @@ function continueCampaign() {
   encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
   resetRealtimeState({ clearUnits: true });
   lastMessage = encounterStartMessage();
+  // DET7-CINE: continue enters a fresh full-initial encounter — arm the cinematic.
+  cinematicPending = true;
   showSurface("play");
   saveGameState();
 }
@@ -1511,18 +1539,139 @@ function commandRejectionMessage(reason, command = null) {
 }
 
 
+// DET7-CINE: stage-intro cinematic overlay (presentation-only).
+// Shown once per encounterIndex per page session, and only when the encounter
+// enters at full initial state through the begin/continue flow — the same
+// entry that fires the initial telegraph wave. Saved-state resume and repeat
+// entries of an already-seen encounter skip it. The deterministic encounter
+// state is created exactly as before; the overlay only gates visually while
+// typed narration + narration audio start as usual beneath it.
+const cinematicShown = new Set();
+let cinematicPending = false;
+let cinematicCleanup = null;
+
+function prefersReducedMotion() {
+  try {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return Boolean(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  } catch (err) {
+    return false;
+  }
+}
+
+function dismissCinematic({ immediate = false } = {}) {
+  if (typeof cinematicCleanup === "function") cinematicCleanup(immediate);
+}
+
+function playStageCinematic(index) {
+  if (cinematicShown.has(index)) return;
+  if (prefersReducedMotion()) return;
+  const host = dom.screens.play;
+  // Fake-DOM safety: bail before creating elements, timers, or listeners.
+  if (!host || typeof host.appendChild !== "function") return;
+  if (typeof document === "undefined" || typeof document.createElement !== "function") return;
+
+  const overlay = document.createElement("div");
+  const video = document.createElement("video");
+  if (!overlay || !video || !overlay.classList || typeof video.addEventListener !== "function") return;
+
+  cinematicShown.add(index);
+
+  overlay.id = "cinematic-overlay";
+  overlay.className = "cinematic-overlay";
+  if (typeof overlay.setAttribute === "function") overlay.setAttribute("aria-hidden", "true");
+
+  video.id = "stage-cinematic";
+  video.muted = true;
+  video.autoplay = true;
+  video.preload = "none";
+  if (typeof video.setAttribute === "function") {
+    video.setAttribute("muted", "");
+    video.setAttribute("autoplay", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("preload", "none");
+  }
+  video.src = `assets/video/stage_intro_${index + 1}.mp4`;
+
+  let done = false;
+  let hardTimer = null;
+
+  const removeOverlay = () => {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  };
+
+  const finish = (immediate = false) => {
+    if (done) return;
+    done = true;
+    cinematicCleanup = null;
+    clearTimeout(hardTimer);
+    try {
+      document.removeEventListener("keydown", onSkipKey, true);
+      document.removeEventListener("click", onSkipClick, true);
+    } catch (err) {}
+    try {
+      video.pause?.();
+    } catch (err) {}
+    if (immediate || !overlay.classList) {
+      // Video error/stalled path: no fade, no black screen — the stage
+      // backdrop beneath is already painted.
+      removeOverlay();
+    } else {
+      overlay.classList.add("cinematic-fade-out");
+      setTimeout(removeOverlay, 300);
+    }
+  };
+
+  const onSkipKey = (event) => {
+    if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+    finish(false);
+  };
+  const onSkipClick = (event) => {
+    if (event && typeof event.stopPropagation === "function") event.stopPropagation();
+    if (event && typeof event.preventDefault === "function") event.preventDefault();
+    finish(false);
+  };
+
+  video.addEventListener("ended", () => finish(false));
+  video.addEventListener("error", () => finish(true));
+  video.addEventListener("stalled", () => finish(true));
+  document.addEventListener("keydown", onSkipKey, true);
+  document.addEventListener("click", onSkipClick, true);
+  hardTimer = setTimeout(() => finish(false), 7000);
+  cinematicCleanup = finish;
+
+  overlay.appendChild(video);
+  host.appendChild(overlay);
+
+  try {
+    const playAttempt = video.play?.();
+    if (playAttempt && typeof playAttempt.catch === "function") {
+      playAttempt.catch(() => {});
+    }
+  } catch (err) {}
+}
+
 function showSurface(next) {
   surface = next;
+  if (next !== "play") dismissCinematic({ immediate: true });
   for (const [name, screen] of Object.entries(dom.screens)) screen.hidden = name !== next;
   
   // Audio transitions & Illustration/Backdrop updates
   if (next === "play") {
+    // DET7-CINE: consume the begin/continue arm exactly once per entry.
+    const startCinematic = cinematicPending;
+    cinematicPending = false;
     if (useRealTime) {
       lastTickTime = 0;
       foeCharge = 0;
       // DET6-FOE (rev): the first charge cycle starts now — telegraph it.
       if (encounter.outcome === "ACTIVE") {
         spawnHostileWave();
+        // DET7-CINE: fresh full-initial-state entry (begin/continue) —
+        // the cinematic gates visually; deterministic state is untouched.
+        if (startCinematic) {
+          playStageCinematic(encounterIndex);
+        }
       }
       if (!rAFId) {
         rAFId = requestAnimationFrame(rtsLoop);
@@ -1618,7 +1767,11 @@ function terminalCopy(outcome) {
 }
 
 
-dom.begin.addEventListener("click", () => showSurface("play"));
+dom.begin.addEventListener("click", () => {
+  // DET7-CINE: begin enters the boot-time full-initial encounter — arm the cinematic.
+  cinematicPending = true;
+  showSurface("play");
+});
 dom.continue.addEventListener("click", continueCampaign);
 dom.restart.addEventListener("click", resetCampaign);
 for (const button of dom.commandButtons) {

@@ -1,0 +1,26 @@
+{
+  "packageId": "io.github.jellyggumi.abyssalsurge",
+  "host": "jellyggumi.github.io",
+  "name": "Abyssal Surge",
+  "launcherName": "Abyssal Surge",
+  "display": "standalone",
+  "orientation": "default",
+  "themeColor": "#0b0d14",
+  "navigationColor": "#0b0d14",
+  "backgroundColor": "#0b0d14",
+  "startUrl": "/Abyssal-Surge/index.html",
+  "iconUrl": "https://jellyggumi.github.io/Abyssal-Surge/assets/icons/icon-512.png",
+  "maskableIconUrl": "https://jellyggumi.github.io/Abyssal-Surge/assets/icons/icon-512.png",
+  "appVersion": "0.7.0",
+  "appVersionName": "0.7.0",
+  "appVersionCode": 7,
+  "shortcuts": [],
+  "enableNotifications": false,
+  "isChromeOSOnly": false,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "fallbackType": "customtabs",
+  "webManifestUrl": "https://jellyggumi.github.io/Abyssal-Surge/manifest.json"
+}

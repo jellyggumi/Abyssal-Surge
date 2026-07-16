@@ -108,6 +108,30 @@ async function run() {
     console.log(`\n=== PLAYING STAGE ${stageNum} ===`);
     await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
 
+    // DET7-CINE: stage-intro cinematic overlay must appear once per new encounter,
+    // then be skippable; skip input must NOT leak into gameplay.
+    const cine = await page.evaluate(() => {
+      const overlay = document.querySelector(".cinematic-overlay");
+      const video = overlay ? overlay.querySelector("video") : null;
+      return {
+        present: !!overlay,
+        src: video ? video.getAttribute("src") : null
+      };
+    });
+    console.log(`[Stage ${stageNum}] Cinematic overlay:`, JSON.stringify(cine));
+    if (stageNum === 1) {
+      assert.equal(cine.present, true, "First entry into a new encounter must show the stage cinematic overlay");
+      assert.equal(cine.src, `assets/video/stage_intro_${stageNum}.mp4`, "Cinematic must load the per-stage intro video");
+    }
+    if (cine.present) {
+      const focusBefore = await page.evaluate(() => (window.encounter ? window.encounter.focus : -1));
+      await page.keyboard.press("s"); // consumed as skip by the capture-phase listener
+      await page.waitForFunction(() => !document.querySelector(".cinematic-overlay"), { timeout: 3000 });
+      const focusAfter = await page.evaluate(() => (window.encounter ? window.encounter.focus : -1));
+      assert.ok(focusAfter >= focusBefore, "Cinematic skip keypress must not leak into gameplay (no focus spend)");
+      console.log(`[Stage ${stageNum}] Cinematic skipped cleanly (focus ${focusBefore} -> ${focusAfter})`);
+    }
+
     // DET6-TITLE: world-bible encounter naming (Stage 1 only)
     if (stageNum === 1) {
       const campaignTitle = await page.locator("#campaign-value").textContent();
@@ -277,6 +301,43 @@ async function run() {
   const settlementText = await page.locator("#settlement-summary").textContent();
   console.log("Settlement Summary:", settlementText);
   assert.ok(settlementText.includes("settled"), "Settlement summary must indicate campaign is settled");
+
+  // DET7-SW: real service-worker integration check (v3 controls the page, fresh core via network-first)
+  console.log("\n=== VERIFYING SERVICE WORKER v3 ===");
+  await page.reload({ waitUntil: "networkidle" });
+  const swState = await page.evaluate(async () => {
+    if (!("serviceWorker" in navigator)) return { error: "no serviceWorker API" };
+    const reg = await navigator.serviceWorker.ready;
+    // Wait (bounded) for the active worker to claim this client
+    for (let i = 0; i < 50 && !navigator.serviceWorker.controller; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const keys = await caches.keys();
+    return {
+      scriptURL: reg.active ? reg.active.scriptURL : null,
+      controlled: !!navigator.serviceWorker.controller,
+      controllerURL: navigator.serviceWorker.controller ? navigator.serviceWorker.controller.scriptURL : null,
+      cacheKeys: keys,
+      buildTag: window.BUILD_TAG || null
+    };
+  });
+  console.log("SW state:", JSON.stringify(swState));
+  assert.ok(!swState.error, "Service worker API must be available");
+  assert.ok(swState.scriptURL && swState.scriptURL.endsWith("/sw.js"), "sw.js must be the active service worker");
+  assert.equal(swState.controlled, true, "The v3 service worker must control the page (clients.claim)");
+  assert.deepEqual(swState.cacheKeys, ["abyssal-surge-v3"], "Only the abyssal-surge-v3 cache may remain after activate");
+  assert.equal(swState.buildTag, "c007", "Reload under SW control must serve the fresh c007 app.js (network-first core)");
+
+  // Second reload now flows through the SW fetch handler end-to-end
+  await page.reload({ waitUntil: "networkidle" });
+  const controlledTag = await page.evaluate(() => ({
+    controlled: !!navigator.serviceWorker.controller,
+    buildTag: window.BUILD_TAG || null
+  }));
+  console.log("SW-controlled reload:", JSON.stringify(controlledTag));
+  assert.equal(controlledTag.controlled, true, "Page must remain SW-controlled across reloads");
+  assert.equal(controlledTag.buildTag, "c007", "SW-controlled reload must still serve fresh core (network-first, cache fallback)");
+  console.log("Service worker v3 integration verified.");
   
   // 10. Clean up
   await page.close();

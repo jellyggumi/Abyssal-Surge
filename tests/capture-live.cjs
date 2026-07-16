@@ -63,6 +63,14 @@ async function run() {
   // 2. Click Begin
   await page.click("#begin-button");
   await page.waitForSelector("#play-screen:not([hidden])");
+
+  // Dismiss the stage cinematic overlay (Cycle 007) so captures show the battlefield
+  const hadCinematic = await page.evaluate(() => !!document.querySelector(".cinematic-overlay"));
+  if (hadCinematic) {
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector(".cinematic-overlay"), { timeout: 3000 });
+    console.log("Dismissed stage cinematic overlay for battlefield capture.");
+  }
   
   // 3. Toggle settings panel and capture it
   await page.click("#settings-toggle");
