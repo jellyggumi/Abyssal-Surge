@@ -474,6 +474,96 @@ function wireControls() {
   });
 }
 
+function initReactBitsEffects() {
+  // 1. Particles Background
+  const canvas = document.querySelector("#particles-canvas");
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    const maxParticles = 40;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor() {
+        this.reset();
+        this.y = Math.random() * canvas.height;
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = canvas.height + 20;
+        this.size = Math.random() * 3 + 1;
+        this.speedY = -(Math.random() * 0.8 + 0.2);
+        this.speedX = (Math.random() - 0.5) * 0.4;
+        this.alpha = Math.random() * 0.5 + 0.1;
+        this.color = Math.random() > 0.5 ? "112, 229, 208" : "171, 104, 255"; // aqua or purple
+      }
+      update() {
+        this.y += this.speedY;
+        this.x += this.speedX;
+        if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+          this.reset();
+        }
+      }
+      draw() {
+        ctx.fillStyle = `rgba(${this.color}, ${this.alpha})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(new Particle());
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particles) {
+        p.update();
+        p.draw();
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+
+  // 2. Spotlight & Tilt Effects (only on devices with hover capability)
+  if (window.matchMedia("(hover: hover)").matches) {
+    const panels = document.querySelectorAll(".panel");
+    panels.forEach((panel) => {
+      panel.addEventListener("mousemove", (e) => {
+        const rect = panel.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        panel.style.setProperty("--mouse-x", `${x}px`);
+        panel.style.setProperty("--mouse-y", `${y}px`);
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = ((y - centerY) / centerY) * -6; // max 6 degrees tilt
+        const rotateY = ((x - centerX) / centerX) * 6;
+        panel.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      });
+
+      panel.addEventListener("mouseleave", () => {
+        panel.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
+      });
+    });
+  }
+}
+
+≔493ep..495ac
+  wireControls();
+  initReactBitsEffects();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);
+}
+
 async function initialize() {
   document.documentElement.dataset.rulesVersion = RULES_VERSION;
   document.documentElement.dataset.buildTag = BUILD_TAG;
