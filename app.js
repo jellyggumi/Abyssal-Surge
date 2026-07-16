@@ -110,6 +110,7 @@ const COMMAND_SET = new Set(COMMANDS);
 const RECOVER_CHANNEL_SECONDS = 1;
 let isRecovering = false;
 let recoverTimer = 0;
+let focusRegenAccumulator = 0;
 let activeUnits = [];
 let foeCharge = 0;
 let lastTickTime = 0;
@@ -161,6 +162,7 @@ function resetRealtimeState({ clearUnits = true } = {}) {
   lastSecondSave = 0;
   isRecovering = false;
   recoverTimer = 0;
+  focusRegenAccumulator = 0;
 }
  
 
@@ -823,18 +825,24 @@ function rtsLoop(timestamp) {
     }
   }
 
-  // 2. Player Focus regeneration (per-stage preset; stage 5 has NO passive
-  // regen under stage1-rules-v2 — the RECOVER channel remains the only source)
   let regenRate = stageRtPreset().focusRegen;
+  const recoverWindowSeconds = isRecovering ? Math.min(Math.max(recoverTimer, 0), dt) : 0;
   if (isRecovering) {
-    recoverTimer -= dt;
-    if (recoverTimer <= 0) {
-      isRecovering = false;
-    } else {
-      regenRate = 1.5; // +1.5 Focus per second during recover channel
-    }
+    recoverTimer = Math.max(0, recoverTimer - dt);
+    isRecovering = recoverTimer > 0;
   }
-  encounter.focus = Math.min(encounter.max_focus, encounter.focus + regenRate * dt);
+  const activeRecoverRate = recoverWindowSeconds > 0 ? 1.5 : 0;
+  const passiveWindowSeconds = Math.max(0, dt - recoverWindowSeconds);
+  const rawRegen = activeRecoverRate * recoverWindowSeconds + regenRate * passiveWindowSeconds;
+  const totalRegen = rawRegen + focusRegenAccumulator;
+  const regenGain = Math.floor(totalRegen);
+  if (regenGain > 0) {
+    const nextFocus = Math.min(encounter.max_focus, encounter.focus + regenGain);
+    focusRegenAccumulator = nextFocus === encounter.max_focus ? 0 : totalRegen - regenGain;
+    encounter.focus = nextFocus;
+  } else {
+    focusRegenAccumulator = totalRegen;
+  }
 
   // 3. Move and Update Deployed Units
   // Friendly units (direction +1) march right and resolve at the foe base;
@@ -848,6 +856,7 @@ function rtsLoop(timestamp) {
   for (const unit of activeUnits) {
     const direction = unit.direction === -1 ? -1 : 1;
     let moveDt = dt;
+    let retainUnit = true;
     if (unit.hostile && Number.isFinite(unit.feintAt) && !unit.feintDone) {
       if (unit.pauseLeft > 0) {
         // Mid-feint: x stays frozen while the pause timer burns down. Any
@@ -874,11 +883,11 @@ function rtsLoop(timestamp) {
         if (unit.element && unit.element.parentNode) {
           unit.element.parentNode.removeChild(unit.element);
         }
+        retainUnit = false;
       } else {
         if (unit.element) {
           unit.element.style.left = `${unit.x}%`;
         }
-        nextUnits.push(unit);
       }
     } else if (unit.x >= 100) {
       // Unit reached Foe base!
@@ -923,21 +932,19 @@ function rtsLoop(timestamp) {
           return;
         }
       }
+      retainUnit = false;
     } else {
       // Update visual position
       if (unit.element) {
         unit.element.style.left = `${unit.x}%`;
       }
+    }
+
+    if (retainUnit) {
       nextUnits.push(unit);
     }
-
-    if (unit.element) {
-      unit.element.style.left = `${unit.x}%`;
-    }
-    nextUnits.push(unit);
   }
   activeUnits = nextUnits;
-
   if (timestamp - lastSecondSave >= 1000) {
     saveGameState();
     lastSecondSave = timestamp;
@@ -1370,6 +1377,7 @@ function recordCommand(command) {
   if (command === "RECOVER") {
     isRecovering = true;
     recoverTimer = RECOVER_CHANNEL_SECONDS;
+    focusRegenAccumulator = 0;
   }
 
   const entry = encounter.trace.at(-1);

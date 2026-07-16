@@ -10,15 +10,19 @@
 - Stage 5의 `DISRUPT`는 SURGE 회차에서 누적 비용(1→2→3…)으로 계산됩니다. (`game-core.js`)
 - `game-core.js`는 스테이지/스케줄 바인딩 정합성 및 포렌식 계열 상태 위조(`forged state`, `journal`, `replay`) 방어를 강화했습니다.
 - `app.js`는 입력/표시/재개 시나리오에서 허용/거부 상태의 정합적 동기화를 개선해, 거부된 제어가 canonical 상태를 변경하지 않도록 정렬했습니다.
-- `app.js`는 `RECOVER` 커맨드에 대해 1초 회복 채널을 재도입해, 활성 1.5 Focus/s 회복률 창이 텔레그래프/유닛 업데이트와 동기화되며 상태 오류 없이 동작합니다.
+- `app.js`는 실시간 루프에서 `RECOVER` 승인 시 회복 누적치(`focusRegenAccumulator`)를 리셋해, 1초 회복창/유닛 이동 오버랩 버그를 제거했습니다.
+- 실시간 연산 안정성: `rtsLoop` 유닛 갱신 경로를 통합해 사라진 유닛과 생존 유닛 상태 갱신이 서로 충돌하지 않도록 수정했습니다.
+- 현재 구현은 5-stage 캠페인을 하나의 반복 주기로 유지하며, PM 정리 루프(`README`·테스트 증거·결정 기록)까지 반영됩니다.
 - 정합 검증:
   - `node --check app.js`
   - `node --check game-core.js`
-  - `node --test tests/game-core.test.mjs tests/stage1-vertical-slice.test.mjs tests/playtest-5-stages.test.mjs`
+  - `node --check sw.js`
+  - `node --test tests/game-core.test.mjs tests/stage1-vertical-slice.test.mjs tests/playtest-5-stages.test.mjs tests/validate-cycle-retrospective.test.mjs`
+  - `python3 -m unittest tests/test_workflow_state.py tests/test_workflow_contract.py`
 
 ### 배포 산출물 allowlist (static.yml 기준)
 
-- 배포는 다음 파일 전체를 기준으로 생성됩니다: `index.html`, `app.js`, `game-core.js`, `styles.css`, `privacy.html`, `sw.js`, `manifest.json`, `icon.svg`, `assets/`
+- 배포는 다음 파일/경로 전체를 기준으로 생성됩니다: `index.html`, `app.js`, `game-core.js`, `styles.css`, `privacy.html`, `sw.js`, `manifest.json`, `icon.svg`, `assets/`
 
 ---
 
@@ -113,6 +117,10 @@
 ## 📐 아키텍처 다이어그램
 
 ![Abyssal Surge architecture](docs/abyssal-surge-architecture.svg)
+
+### 제작 루프 시각화 (기획-구현-테스트-PM)
+
+![Abyssal Surge production loop](docs/abyssal-surge-production-cycle.svg)
 
 ---
 
