@@ -1,3 +1,8 @@
+# 업데이트 노트 (최근 반영)
+
+- 문서 기준 규칙 스냅샷은 `game-core.js`/`app.js`의 현재 스테이지 구조와 일치합니다.
+- 스테이지 5는 `DISRUPT` 누적 비용(1→2→3…)이 적용되며, 정산 규칙은 `VICTORY=2`, `HOLD/DEFEAT=0`입니다.
+- 배포용 산출물은 GitHub Pages Workflow(`static.yml`) 기준으로 정합성 검사 후 `index/app/game-core/styles` 중심으로 게시됩니다.
 # Abyssal Surge
 
 [![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml)
