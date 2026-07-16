@@ -72,7 +72,8 @@ jobs:
           grep -Fq 'from "./campaign-state.js";' app.js
           grep -Fq 'from "./battle-visualizer.js";' app.js
           grep -Fq 'from "./battle-presentation.js";' app.js
-          grep -Fq 'from "./liquid-ether.js";' app.js
+          # liquid-ether may be statically or dynamically imported (lazy load)
+          grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
 
           # reject literal edit-tool markers that previously shipped a broken bundle
           if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js game-core.js campaign-state.js i18n.js liquid-ether.js styles.css sw.js; then
