@@ -30,6 +30,13 @@ const presets = presetMatches.map((m) => ({
   unitSpeed: Number(m[2]),
   focusRegen: Number(m[3]),
 }));
+// Hard guard: a formatting refactor of STAGE_RT_PRESETS must fail loudly here,
+// never silently produce an incomplete balance report.
+if (presets.length !== CAMPAIGN_SCHEDULES.length ||
+    presets.some((p) => !Number.isFinite(p.foeCooldown) || !Number.isFinite(p.unitSpeed) || !Number.isFinite(p.focusRegen))) {
+  console.error(`FATAL: parsed ${presets.length} RT presets (expected ${CAMPAIGN_SCHEDULES.length}) — STAGE_RT_PRESETS format drifted; update the parser or export the table.`);
+  process.exit(2);
+}
 
 function sweepStage(stageIndex) {
   const schedule = CAMPAIGN_SCHEDULES[stageIndex];
@@ -76,30 +83,44 @@ const json = rows.map((r, i) => ({
   },
   disrupt_cost_curve: r.disruptCosts,
   rt_preset: presets[i] || null,
-  idle_defeat_estimate_s: presets[i]
-    ? (r.schedule.includes("SURGE")
-        ? Math.ceil(r.seed.max_integrity / 4) * presets[i].foeCooldown
-        : Math.ceil(r.seed.max_integrity / 2) * presets[i].foeCooldown)
-    : null,
+  // Universal telegraph-only wrap: idling never damages — the number that
+  // matters is the DECISION BUDGET: schedule length x charge cooldown.
+  decision_budget_s: presets[i] ? r.schedule.length * presets[i].foeCooldown : null,
   plan_space_64: r.outcomes,
   victory_plans: r.victoryPlans,
   awards: { VICTORY: awardFor("VICTORY"), HOLD: awardFor("HOLD") },
 }));
 
+const gateFailures = json.filter((r) =>
+  r.plan_space_64.VICTORY < 1 ||
+  (r.plan_space_64.DEFEAT_INTEGRITY + r.plan_space_64.DEFEAT_PRESSURE) < 1
+);
+
 if (process.argv.includes("--json")) {
   console.log(JSON.stringify(json, null, 2));
 } else {
   console.log("# Quantified balance — stage envelopes (frozen reducer sweep)\n");
-  console.log("| Stage | Schedule | INT/FOC/FOE | DISRUPT curve | RT cd/speed/regen | Idle defeat ≈ | 64-plan V/H/Di/Dp/A/inv | Victory plans |");
+  console.log("| Stage | Schedule | INT/FOC/FOE | DISRUPT curve | RT cd/speed/regen | Decision budget | 64-plan V/H/Di/Dp/A/inv | Victory plans |");
   console.log("|---|---|---|---|---|---|---|---|");
   for (const r of json) {
     const o = r.plan_space_64;
     console.log(
       `| ${r.stage} | ${r.schedule.join("/")} | ${r.seed.integrity}/${r.seed.focus}/${r.seed.foe_health}` +
       ` | ${r.disrupt_cost_curve.join("→")} | ${r.rt_preset ? `${r.rt_preset.foeCooldown}s/${r.rt_preset.unitSpeed}%/${r.rt_preset.focusRegen}` : "-"}` +
-      ` | ${r.idle_defeat_estimate_s}s | ${o.VICTORY}/${o.HOLD}/${o.DEFEAT_INTEGRITY}/${o.DEFEAT_PRESSURE}/${o.ACTIVE}/${o.INVALID}` +
+      ` | ${r.decision_budget_s}s | ${o.VICTORY}/${o.HOLD}/${o.DEFEAT_INTEGRITY}/${o.DEFEAT_PRESSURE}/${o.ACTIVE}/${o.INVALID}` +
       ` | ${r.victory_plans.slice(0, 3).join(" · ") || "—"} |`
     );
   }
   console.log("\nAwards: VICTORY=2 fragments, HOLD=0 (stage1-rules-v2).");
+  if (gateFailures.length) {
+    console.log(`\n⛔ STOP-SHIP BALANCE FINDING: stage(s) ${gateFailures.map((r) => r.stage).join(", ")} lack an intentional victory plan and/or a reachable defeat — semantic economy decision owned by P2 systems (peer). Run with --gate to enforce as CI failure.`);
+  }
+}
+
+if (process.argv.includes("--gate")) {
+  if (gateFailures.length) {
+    console.error(`GATE FAIL: stages without >=1 victory plan and >=1 reachable defeat: ${gateFailures.map((r) => r.stage).join(", ")}`);
+    process.exit(1);
+  }
+  console.log("GATE PASS: every stage has >=1 victory plan and >=1 reachable defeat.");
 }

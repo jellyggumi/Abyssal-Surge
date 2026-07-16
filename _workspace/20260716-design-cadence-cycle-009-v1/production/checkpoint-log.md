@@ -67,3 +67,33 @@ lower foe HP, or accept HOLD-gated progression. Relayed via shared memory.
 
 Agenda: peer response on stages 2-4 economy; float polish review on live;
 lobby copy vs quantified table (surface victory-plan hints?); APK icon check.
+
+## Checkpoint #1 — close (2026-07-16T22:35Z)
+
+LIVE P0 discovered mid-checkpoint: peer commits e1dd073/c7f15c3 shipped a
+universal reducer-routed recordCommand refactor DIRECTLY to main with (a) a
+duplicate recordCommand declaration (ES module SyntaxError — game does not
+boot on live), (b) presentAcceptedCommand called but never defined, (c) stale
+isRecovering window exposure. Hotfix in cycle-009: kept the peer's universal
+reducer routing, deleted the legacy RT command path, implemented the
+presentation bridge (SFX/FX + semanticResolved lane units + avatar reactions +
+next-round telegraph), made the rtsLoop wrap telegraph-only for ALL stages,
+removed canonical passive focus regen (reducer owns focus now).
+
+DET9 shipped: state-diff combat floats + screen shake + DISRUPT cost badge +
+balance-numbers script (hardened preset parser, decision-budget metric,
+--gate mode: FAILS today on stages 2-4) + S5 HOLD copy + S5 help note.
+
+E2E rebuilt balance-agnostic: stage-1 VICTORY pinned, stages 2-4 accept
+{VICTORY|HOLD} so a peer rebalance lands without editing the suite; settlement
+asserts derive from observed victories. Inline trade-line probes (real
+campaign state, no synthetic saves): strikeApplied=2, no arrival re-apply,
+damageFloatSeen, floatsDelta=4, DISRUPT badge "2⚡" after escalation.
+
+Gates: vertical-slice 27/27 (peer suite green for the first time since their
+push), game-core 22/22, 5-stage sim PASS, E2E exit 0, capture exit 0.
+
+OPEN STOP-SHIP (peer-owned): stages 2/3/4 zero victory plans (max reachable
+damage 5/5/4 vs foe 8/10/12). Enforcement: scripts/balance-numbers.mjs --gate.
+Numeric proposals relayed: lower foe HP to 5/5/4-reachable bands (e.g. 5/5/4)
+OR extend schedules beyond 3 rounds with focus rebudget.
