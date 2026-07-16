@@ -25,6 +25,8 @@ const dom = {
   campaign: document.querySelector("#campaign-value"),
   ruleVersion: document.querySelector("#rules-version"),
   intent: document.querySelector("#intent-value"),
+  intentTitle: document.querySelector("#intent-title-text"),
+  threat: document.querySelector("#threat-copy"),
   counter: document.querySelector("#counter-value"),
   integrity: document.querySelector("#integrity-value"),
   focusValue: document.querySelector("#focus-value"),
@@ -60,6 +62,12 @@ const dom = {
   terminalIllustration: document.querySelector("#terminal-illustration"),
   foeChargeBar: document.querySelector("#foe-charge-bar"),
   unitsContainer: document.querySelector("#units-container"),
+  monitorTitle: document.querySelector("#monitor-title"),
+  monitorTitleText: document.querySelector("#monitor-title-text"),
+  monitorActiveLabel: document.querySelector("#monitor-active-label"),
+  monitorActiveCount: document.querySelector("#monitor-active-count"),
+  monitorPlaceholder: document.querySelector("#monitor-placeholder"),
+  monitorListContainer: document.querySelector("#monitor-list-container"),
 };
 
 let surface = "lobby";
@@ -69,13 +77,13 @@ let encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIn
 let records = [];
 let outcomes = [];
 let settlement = null;
-let lastMessage = "Awaiting a semantic command.";
-
 let currentLang = "en";
+let lastMessage = "";
 let audioMuted = true;
 let totalCommandsRun = 0;
 let typingInterval = null;
 let fadeInterval = null;
+
 
 // RTS Engine Variables
 const useRealTime = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
@@ -89,8 +97,27 @@ let isRecovering = false;
 let recoverTimer = 0;
 let lastSecondSave = 0;
 
-// Real-time mode intentionally uses fractional focus regeneration; tolerate floating-point drift.
 const FOCUS_EPSILON = 1e-9;
+
+function resetRealtimeState({ clearUnits = true } = {}) {
+  if (rAFId) {
+    cancelAnimationFrame(rAFId);
+    rAFId = null;
+  }
+  if (clearUnits) {
+    activeUnits = [];
+    if (dom.unitsContainer) {
+      dom.unitsContainer.innerHTML = "";
+    }
+  }
+  foeCharge = 0;
+  lastTickTime = 0;
+  isRecovering = false;
+  recoverTimer = 0;
+  nextUnitId = 0;
+  lastSecondSave = 0;
+}
+
 function hasSufficientFocus(required = 1) {
   return Number(encounter?.focus) >= required - FOCUS_EPSILON;
 }
@@ -101,47 +128,226 @@ function canRecoverFocus() {
 const DICTIONARY = {
   en: {
     lobbyTitle: "Stage 1 command encounter",
-    lobbyIntro: "Each encounter resolves one to three visible STRIKE or SURGE intents. Choose a declared command; the same deterministic reducer resolves keyboard and pointer/touch input.",
-    lobbyBrief1: "BRACE prevents STRIKE damage. DISRUPT prevents SURGE damage and pressure. Both cost 1 focus.",
-    lobbyBrief2: "Integrity 0 is DEFEAT_INTEGRITY; pressure 4 is DEFEAT_PRESSURE; foe health 0 is VICTORY; a safe final round is HOLD.",
-    lobbyBrief3: "A campaign contains exactly five terminal encounters. Awards are 2 fragments for VICTORY, 1 for HOLD, and 0 for either defeat; settlement spends 3 fragments per resolve mark, capped at 2.",
+    lobbyIntro: "Each encounter resolves one to three visible foe intents (Strike or Surge). Choose a declared command; deterministic reduction keeps pointer input and keyboard input identical.",
+    lobbyBrief1: "Brace blocks Strike damage. Disrupt blocks Surge damage and pressure. Both actions cost 1 focus.",
+    lobbyBrief2: "Integrity 0 is an integrity defeat, pressure 4 is a pressure defeat, and foe health 0 is victory. Surviving the final scheduled round is a Hold.",
+    lobbyBrief3: "A campaign contains exactly five terminal encounters. Victory grants 2 fragments, Hold grants 1, and defeat grants 0. Settlement turns every 3 fragments into 1 resolve mark, capped at 2.",
     btnBegin: "Begin local campaign",
     btnResume: "Resume campaign",
     btnContinue: "Start next local encounter",
     btnRestart: "Restart local campaign",
     ruleVersion: "Rules version:",
-    intentTitle: "Published adverse intent: ",
+    intentTitle: "Current threat:",
     commandsTitle: "Semantic commands",
     commandHelp: "Pointer/touch clicks and keyboard shortcuts record the same versioned command before the deterministic reducer resolves it. Unavailable commands are disabled rather than substituted.",
     traceTitle: "Resolution trace",
     terminalTitle: "Stage 1 result",
-    btnStrike: "Strike S",
-    btnBrace: "Brace B",
-    btnDisrupt: "Disrupt D",
-    btnRecover: "Recover R"
+    btnStrike: "Strike",
+    btnBrace: "Brace",
+    btnDisrupt: "Disrupt",
+    btnRecover: "Recover",
+    roundLabel: "Round",
+    progressLabel: "Progress",
+    etaLabel: "ETA",
+    monitorTitle: "RTS Tactical Monitor",
+    activeSignalsLabel: "Active signals:",
+    noSignals: "STANDBY - NO ACTIVE SIGNALS",
+    adverseResolved: "Adverse effect resolved",
+    adverseSkipped: "Adverse effect skipped",
+    outcomeLabel: "Outcome",
+    terminalAward: "Award",
+    replayDeterministic: "Replay check: deterministic.",
+    replayMismatch: "Replay check: mismatch.",
+    terminalIdle: "Awaiting a semantic command.",
+    encounterStartPrefix: "Encounter",
+    encounterStartsWith: "starts with",
+    encounterStartSuffix: "intent.",
+    terminalReady: "This is encounter",
+    stage5SettlementReady: "Campaign settled locally",
+    terminalNext: "The terminal record is ready for the next local encounter.",
+    encounterRecordLabel: "encounter record",
+    encounterRecordsLabel: "encounter records",
+    fragmentSingular: "fragment",
+    fragmentPlural: "fragments",
   },
   ko: {
     lobbyTitle: "1단계 커맨드 인카운터",
-    lobbyIntro: "각 전투는 1~3회의 STRIKE 또는 SURGE 적대 의도를 해결해야 합니다. 선언된 커맨드를 마우스나 단축키로 입력하면 동일한 결정론적 리듀서가 동작합니다.",
-    lobbyBrief1: "BRACE는 STRIKE 피해를 막고, DISRUPT는 SURGE 피해와 압박을 막습니다. 각각 정신력(Focus) 1이 소모됩니다.",
-    lobbyBrief2: "생명력(Integrity)이 0이 되면 격퇴 패배, 압박(Pressure)이 4가 되면 압박 패배하며, 적 체력(Foe Health)이 0이 되면 승리합니다.",
-    lobbyBrief3: "캠페인은 총 5번의 인카운터를 거치며 승리 시 2개, 홀드 시 1개의 파편을 얻습니다. 3개의 파편당 복기 마크를 1개 획득합니다.",
+    lobbyIntro: "각 전투는 1~3회의 적대 의도(공격/돌입)를 공개합니다. 선언된 커맨드를 마우스나 단축키로 입력하면 결정론적 리듀서가 키보드 입력과 포인터 입력을 동일하게 처리합니다.",
+    lobbyBrief1: "대비(Brace)는 공격 대미지를 막고, 방해(Disrupt)는 돌입 대미지와 압박을 막습니다. 각 행동은 정신력(Focus) 1을 소모합니다.",
+    lobbyBrief2: "생명력(Integrity)이 0이면 패배, 압박(Pressure)이 4가 되면 패배이며, 적 체력(Foe Health)이 0이면 승리합니다. 마지막 예정 라운드를 버티면 홀드(Hold)입니다.",
+    lobbyBrief3: "캠페인은 총 5번의 종결 전투로 구성됩니다. 승리 시 2개, 홀드 시 1개, 패배 시 0개의 파편을 획득합니다. 정산은 3개 파편당 1개의 복기 마크를 지급하며 최대 2개입니다.",
     btnBegin: "캠페인 시작하기",
     btnResume: "이어서 진행하기",
     btnContinue: "다음 인카운터 시작",
     btnRestart: "캠페인 초기화",
     ruleVersion: "규칙 버전:",
-    intentTitle: "공개된 적대 의도: ",
+    intentTitle: "현재 위협:",
     commandsTitle: "커맨드 콘솔",
-    commandHelp: "마우스 클릭이나 키보드 단축키(S, B, D, R)를 누르면 커맨드가 입력되어 결정론적으로 전투 상태를 감소시킵니다. 불가능한 행동은 비활성화됩니다.",
+    commandHelp: "마우스 클릭이나 키보드 단축키(S, B, D, R)를 누르면 결정론적 리듀서가 커맨드 입력을 처리합니다. 사용할 수 없는 커맨드는 비활성화됩니다.",
     traceTitle: "전투 분석 로그",
     terminalTitle: "전투 결과 기록",
-    btnStrike: "공격 (Strike) S",
-    btnBrace: "대비 (Brace) B",
-    btnDisrupt: "방해 (Disrupt) D",
-    btnRecover: "회복 (Recover) R"
-  }
+    btnStrike: "공격",
+    btnBrace: "대비",
+    btnDisrupt: "방해",
+    btnRecover: "회복",
+    roundLabel: "라운드",
+    progressLabel: "진행",
+    etaLabel: "도착예정",
+    monitorTitle: "RTS 전술 모니터",
+    activeSignalsLabel: "활성 신호:",
+    noSignals: "대기중 - 활성 신호 없음",
+    adverseResolved: "부정 효과 적용",
+    adverseSkipped: "부정 효과 스킵",
+    outcomeLabel: "결과",
+    terminalAward: "획득",
+    replayDeterministic: "재생 재검증: 결정론적.",
+    replayMismatch: "재생 재검증: 불일치.",
+    terminalIdle: "커맨드 입력을 기다리는 중입니다.",
+    encounterStartPrefix: "번째 인카운터가 ",
+    encounterStartsWith: "의 위협으로 시작",
+    encounterStartSuffix: "되었습니다.",
+    terminalReady: "이 인카운터는",
+    stage5SettlementReady: "캠페인 정산 완료",
+    terminalNext: "터미널 기록이 다음 로컬 인카운터 시작 준비를 완료했습니다.",
+    encounterRecordLabel: "인카운터 기록",
+    encounterRecordsLabel: "인카운터 기록",
+    fragmentSingular: "파편",
+    fragmentPlural: "파편",
+  },
 };
+const COMMAND_LABELS = {
+  en: {
+    STRIKE: "Strike",
+    BRACE: "Brace",
+    DISRUPT: "Disrupt",
+    RECOVER: "Recover",
+  },
+  ko: {
+    STRIKE: "공격",
+    BRACE: "대비",
+    DISRUPT: "방해",
+    RECOVER: "회복",
+  },
+};
+
+const INTENT_LABELS = {
+  en: {
+    STRIKE: "Strike",
+    SURGE: "Surge",
+  },
+  ko: {
+    STRIKE: "공격",
+    SURGE: "돌입",
+  },
+};
+
+const OUTCOME_DESCRIPTIONS = {
+  en: {
+    VICTORY: "foe health reached 0 before the round's adverse effect resolved",
+    HOLD: "the final scheduled round resolved without a defeat condition",
+    DEFEAT_INTEGRITY: "integrity reached 0",
+    DEFEAT_PRESSURE: "pressure reached 4",
+  },
+  ko: {
+    VICTORY: "적 체력이 0이 되어 해당 라운드의 부정적 결과 처리 이전에 종결됨",
+    HOLD: "마지막 예정 라운드가 패배 조건 없이 종료됨",
+    DEFEAT_INTEGRITY: "생명력이 0이 되어 패배",
+    DEFEAT_PRESSURE: "압박이 4가 되어 패배",
+  },
+};
+
+const OUTCOME_TRACE_DESCRIPTIONS = {
+  en: {
+    VICTORY: "Victory",
+    HOLD: "Hold",
+    DEFEAT_INTEGRITY: "Defeat",
+    DEFEAT_PRESSURE: "Defeat",
+  },
+  ko: {
+    VICTORY: "승리",
+    HOLD: "홀드",
+    DEFEAT_INTEGRITY: "패배",
+    DEFEAT_PRESSURE: "패배",
+  },
+};
+
+const COMMAND_REJECTION_COPY = {
+  en: {
+    FOCUS: "insufficient focus",
+    FOCUS_CAP: "focus is already full",
+    INTENT: "command is not valid for the current threat",
+    UNKNOWN_COMMAND: "unknown command",
+    TERMINAL: "encounter already ended",
+    TICK: "command tick mismatch",
+    SEQUENCE: "command sequence mismatch",
+    RULES_VERSION: "rules version mismatch",
+    MALFORMED_RECORD: "command record is malformed",
+    MALFORMED_STATE: "encounter state is malformed",
+    STATE_RULES_VERSION: "encounter uses a different rule version",
+    STATE_BOUNDS: "encounter value exceeded expected bounds",
+    SCHEDULE: "invalid foe intent schedule",
+    TRACE: "invalid trace state",
+    ROUND: "invalid round value",
+    ROUND_COHERENCE: "round state is inconsistent",
+    FOE_INTENT: "foe intent did not match expectation",
+    ACTIVE_TERMINAL_VALUE: "encounter state is already terminal",
+    TERMINAL_COHERENCE: "terminal consistency check failed",
+    DUPLICATE_SEQUENCE: "duplicate command sequence",
+  },
+  ko: {
+    FOCUS: "정신력 부족",
+    FOCUS_CAP: "정신력이 이미 가득 찼습니다",
+    INTENT: "현재 위협에 사용할 수 없는 커맨드입니다",
+    UNKNOWN_COMMAND: "알 수 없는 커맨드",
+    TERMINAL: "인카운터가 이미 종료됨",
+    TICK: "커맨드 타임스탬프 불일치",
+    SEQUENCE: "커맨드 시퀀스 불일치",
+    RULES_VERSION: "룰 버전이 일치하지 않습니다",
+    MALFORMED_RECORD: "커맨드 레코드 형식이 잘못되었습니다",
+    MALFORMED_STATE: "인카운터 상태가 손상되었습니다",
+    STATE_RULES_VERSION: "인카운터가 다른 룰 버전을 사용합니다",
+    STATE_BOUNDS: "인카운터 수치가 허용 범위를 벗어났습니다",
+    SCHEDULE: "적의 의도 스케줄이 잘못되었습니다",
+    TRACE: "전투 추적 기록이 잘못되었습니다",
+    ROUND: "라운드 값이 잘못되었습니다",
+    ROUND_COHERENCE: "라운드 상태가 일관되지 않습니다",
+    FOE_INTENT: "적의 현재 위협이 기대값과 다릅니다",
+    ACTIVE_TERMINAL_VALUE: "전투 상태가 이미 종결 상태입니다",
+    TERMINAL_COHERENCE: "종결 기록 정합성이 깨졌습니다",
+    DUPLICATE_SEQUENCE: "커맨드 시퀀스가 중복됩니다",
+  },
+};
+
+function commandLabel(command, lang = currentLang) {
+  const dict = COMMAND_LABELS[lang] || COMMAND_LABELS.en;
+  return dict[command] || command.toLowerCase();
+}
+
+function dictionaryFor(lang = currentLang) {
+  return DICTIONARY[lang] || DICTIONARY.en;
+}
+
+function intentLabel(intent, lang = currentLang) {
+  const dict = INTENT_LABELS[lang] || INTENT_LABELS.en;
+  return dict[intent] || intent;
+}
+
+function outcomeText(outcome, lang = currentLang) {
+  const dict = OUTCOME_DESCRIPTIONS[lang] || OUTCOME_DESCRIPTIONS.en;
+  return dict[outcome] || outcome;
+}
+
+function traceOutcomeText(outcome, lang = currentLang) {
+  const dict = OUTCOME_TRACE_DESCRIPTIONS[lang] || OUTCOME_TRACE_DESCRIPTIONS.en;
+  return dict[outcome] || outcome;
+}
+
+function commandRejectText(code, lang = currentLang) {
+  const dict = COMMAND_REJECTION_COPY[lang] || COMMAND_REJECTION_COPY.en;
+  if (typeof code === "string" && dict[code]) return dict[code];
+  return typeof code === "string" ? code.toLowerCase().replace(/_/g, " ") : "";
+}
+
 
 let volumeBgm = 0.5;
 let volumeSfx = 0.8;
@@ -386,8 +592,10 @@ function loadGameState() {
       sequence = Number.MAX_SAFE_INTEGER;
     }
 
-    lastMessage = typeof saveState.lastMessage === "string" ? saveState.lastMessage : "Awaiting a semantic command.";
-    currentLang = normalizeLanguage(saveState.currentLang);
+    const savedLang = normalizeLanguage(saveState.currentLang);
+    currentLang = savedLang;
+    const dict = dictionaryFor(savedLang);
+    lastMessage = typeof saveState.lastMessage === "string" ? saveState.lastMessage : dict.terminalIdle;
     if (outcomes.length === CAMPAIGN_SCHEDULES.length) {
       try {
         settlement = settleCampaign(outcomes);
@@ -566,10 +774,14 @@ function spawnUnit(type) {
   const unitId = ++nextUnitId;
   const element = document.createElement("div");
   element.className = `spawned-unit ${type === "STRIKE" ? "unit-soldier" : "unit-shield"}`;
-  element.textContent = type === "STRIKE" ? "⚔️" : "🛡️";
   element.style.left = "0%";
-  dom.unitsContainer.appendChild(element);
+  
+  // High-fidelity SVG silhouettes matching the theme
+  element.innerHTML = type === "STRIKE"
+    ? `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`
+    : `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #3b82f6; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`;
 
+  dom.unitsContainer.appendChild(element);
   activeUnits.push({
     id: unitId,
     type: type,
@@ -605,10 +817,9 @@ function translateUI() {
   };
 
   el("#lobby-title", dict.lobbyTitle);
-  
   const lobbyIntro = document.querySelector("#lobby-screen .lede");
   if (lobbyIntro) {
-    lobbyIntro.innerHTML = dict.lobbyIntro.replace(/STRIKE/g, "<strong>STRIKE</strong>").replace(/SURGE/g, "<strong>SURGE</strong>");
+    lobbyIntro.textContent = dict.lobbyIntro;
   }
 
   const b1 = document.querySelector("#brief-1");
@@ -616,7 +827,7 @@ function translateUI() {
   const b3 = document.querySelector("#brief-3");
   if (b1) b1.innerHTML = `<dt>${currentLang === "ko" ? "대응 전술" : "Visible counterplay"}</dt><dd>${dict.lobbyBrief1}</dd>`;
   if (b2) b2.innerHTML = `<dt>${currentLang === "ko" ? "경계 규칙" : "Bounded outcome"}</dt><dd>${dict.lobbyBrief2}</dd>`;
-  if (b3) b3.innerHTML = `<dt>${currentLang === "ko" ? "캠페인 합산" : "Local settlement"}</dt><dd>${dict.lobbyBrief3}</dd>`;
+  if (b3) b3.innerHTML = `<dt>${currentLang === "ko" ? "정산 규칙" : "Settlement rule"}</dt><dd>${dict.lobbyBrief3}</dd>`;
 
   el("#begin-button", dict.btnBegin);
   if (dom.resume) dom.resume.textContent = dict.btnResume;
@@ -625,7 +836,7 @@ function translateUI() {
   if (commandConsoleEyebrow) {
     commandConsoleEyebrow.textContent = currentLang === "ko" ? "제어 콘솔" : "Command console";
   }
-  
+
   const rulesVersionLabel = document.querySelector("#play-screen .play-heading p");
   if (rulesVersionLabel) {
     rulesVersionLabel.innerHTML = `${dict.ruleVersion} <code id="rules-version">${RULES_VERSION}</code>`;
@@ -637,6 +848,19 @@ function translateUI() {
   el("#terminal-title", dict.terminalTitle);
   el("#continue-button", dict.btnContinue);
   el("#restart-button", dict.btnRestart);
+
+  if (dom.intentTitle) {
+    dom.intentTitle.textContent = dict.intentTitle;
+  }
+  if (dom.monitorTitleText) {
+    dom.monitorTitleText.textContent = dict.monitorTitle;
+  }
+  if (dom.monitorActiveLabel) {
+    dom.monitorActiveLabel.textContent = `${dict.activeSignalsLabel} `;
+  }
+  if (dom.monitorPlaceholder) {
+    dom.monitorPlaceholder.textContent = dict.noSignals;
+  }
 
   // Translate command buttons
   const buttonsMap = { STRIKE: dict.btnStrike, BRACE: dict.btnBrace, DISRUPT: dict.btnDisrupt, RECOVER: dict.btnRecover };
@@ -657,6 +881,427 @@ function translateUI() {
     }
   }
 }
+
+function encounterStartMessage() {
+  const dict = dictionaryFor();
+  const intent = intentLabel(encounter.foe_intent);
+  if (currentLang === "ko") {
+    return `${encounterIndex + 1}${dict.encounterStartPrefix}${intent}${dict.encounterStartsWith} ${dict.encounterStartSuffix}`;
+  }
+  return `${dict.encounterStartPrefix} ${encounterIndex + 1} ${dict.encounterStartsWith} ${intent} ${dict.encounterStartSuffix}`;
+}
+
+function entryAdverseText(entry) {
+  const dict = dictionaryFor();
+  if (!entry) return "";
+  if (entry.foe_resolved) {
+    return `${dict.adverseResolved}: ${entry.adverse_damage} integrity damage, ${entry.adverse_pressure} pressure`;
+  }
+  return dict.adverseSkipped;
+}
+
+function recordCommand(command) {
+  if (!COMMANDS.includes(command)) return;
+
+  if (useRealTime) {
+    if (encounter.outcome !== "ACTIVE") return;
+
+    // Custom RTS logic: check if player has enough Focus
+    const reject = (reasonCode) => {
+      lastMessage = commandRejectionMessage(reasonCode, command);
+      play("defeat"); // warning buzz
+      render();
+    };
+
+    if (command === "STRIKE") {
+      if (!hasSufficientFocus()) {
+        reject("FOCUS");
+        return;
+      }
+      encounter.focus -= 1;
+      spawnUnit("STRIKE");
+    } else if (command === "BRACE") {
+      if (!hasSufficientFocus()) {
+        reject("FOCUS");
+        return;
+      }
+      encounter.focus -= 1;
+      spawnUnit("BRACE");
+    } else if (command === "DISRUPT") {
+      if (!hasSufficientFocus()) {
+        reject("FOCUS");
+        return;
+      }
+      if (encounter.foe_intent !== "SURGE") {
+        reject("INTENT");
+        return;
+      }
+      encounter.focus -= 1;
+      encounter.foe_health = Math.max(0, encounter.foe_health - 1);
+      encounter.surge_countered = true;
+      play("disrupt");
+      triggerFx("DISRUPT");
+      if (dom.voidAvatar && dom.voidAvatar.classList) {
+        dom.voidAvatar.classList.add("damage-flash");
+        setTimeout(() => {
+          if (dom.voidAvatar && dom.voidAvatar.classList) {
+            dom.voidAvatar.classList.remove("damage-flash");
+          }
+        }, 400);
+      }
+      if (encounter.foe_health <= 0) {
+        encounter.outcome = "VICTORY";
+        finishEncounter();
+        return;
+      }
+    } else if (command === "RECOVER") {
+      if (!canRecoverFocus()) {
+        lastMessage = commandRejectionMessage("FOCUS_CAP", command);
+        render();
+        return;
+      }
+      isRecovering = true;
+      recoverTimer = 1.0; // 1 second recovery channel
+      play("recover");
+      triggerFx("RECOVER");
+    } else {
+      return;
+    }
+
+    totalCommandsRun++;
+    // Log the input with the current elapsed foeCharge/round ticks for deterministic replay!
+    const record = makeCommand(command, encounter.round, ++sequence);
+    records.push(record);
+    lastMessage = commandAcceptanceMessage(command);
+    render();
+    saveGameState();
+    return;
+  }
+
+  // Turn-based fallback
+  if (!commandAvailable(command)) return;
+  totalCommandsRun++;
+
+  // Play SFX & Visual FX
+  play(command.toLowerCase());
+  triggerFx(command);
+
+  // Avatar attack/defense charges
+  if (command === "STRIKE" || command === "DISRUPT") {
+    if (dom.voidAvatar && dom.voidAvatar.classList) {
+      dom.voidAvatar.classList.add("damage-flash");
+      setTimeout(() => {
+        if (dom.voidAvatar && dom.voidAvatar.classList) {
+          dom.voidAvatar.classList.remove("damage-flash");
+        }
+      }, 400);
+    }
+  }
+  if (command === "BRACE" || command === "RECOVER" || command === "DISRUPT") {
+    if (dom.knightAvatar && dom.knightAvatar.classList) {
+      dom.knightAvatar.classList.add("shield-glow");
+      setTimeout(() => {
+        if (dom.knightAvatar && dom.knightAvatar.classList) {
+          dom.knightAvatar.classList.remove("shield-glow");
+        }
+      }, 600);
+    }
+  }
+
+  const record = makeCommand(command, encounter.round, ++sequence);
+  records.push(record);
+  const result = reduceEncounter(encounter, record);
+  if (!result.accepted) {
+    lastMessage = commandRejectionMessage(result.reason, command);
+    render();
+    return;
+  }
+  encounter = result.state;
+  const entry = encounter.trace.at(-1);
+
+  // Player damage flash check on adverse damage resolution
+  if (entry && entry.foe_resolved && entry.adverse_damage > 0) {
+    if (dom.knightAvatar && dom.knightAvatar.classList) {
+      dom.knightAvatar.classList.add("damage-flash");
+      setTimeout(() => {
+        if (dom.knightAvatar && dom.knightAvatar.classList) {
+          dom.knightAvatar.classList.remove("damage-flash");
+        }
+      }, 400);
+    }
+  }
+
+  const dict = dictionaryFor();
+  const commandLabelText = commandLabel(command);
+  const roundPrefix = dict.roundLabel;
+  const outcomeTextLabel = entry ? traceOutcomeText(entry.outcome) : "";
+  const adverseText = entryAdverseText(entry);
+  const outcomeLabel = outcomeTextLabel ? `${dict.outcomeLabel}: ${outcomeTextLabel}.` : "";
+  lastMessage = `${roundPrefix} ${entry?.round}: ${commandLabelText}; ${adverseText}. ${outcomeLabel}`.trim();
+  if (encounter.outcome !== "ACTIVE") finishEncounter();
+  render();
+  saveGameState();
+}
+
+function finishEncounter() {
+  const replayCheck = validateDeterministicReplay(encounter.schedule, records);
+  const dict = dictionaryFor();
+  outcomes.push(encounter.outcome);
+  const resolvedEncounterCount = outcomes.length;
+  const award = awardFor(encounter.outcome);
+  if (outcomes.length === CAMPAIGN_SCHEDULES.length) settlement = settleCampaign(outcomes);
+  const encounterLabel = `${resolvedEncounterCount} ${
+    resolvedEncounterCount === 1 ? dict.encounterRecordLabel : dict.encounterRecordsLabel
+  }`;
+  const outcomeSummary = `${terminalCopy(encounter.outcome)} ${dict.terminalAward}: ${award} ${
+    award === 1 ? dict.fragmentSingular : dict.fragmentPlural
+  }. ${replayCheck.matches ? dict.replayDeterministic : dict.replayMismatch}`;
+  dom.terminalSummary.textContent = outcomeSummary;
+  dom.settlement.textContent = settlement
+    ? `${dict.stage5SettlementReady}: ${settlement.fragments_earned} ${settlement.fragments_earned === 1 ? dict.fragmentSingular : dict.fragmentPlural}. Wallet ${settlement.fragment_wallet}, resolve marks ${settlement.resolve_marks}.`
+    : `${dict.terminalReady} ${dict.encounterRecordsLabel}: ${resolvedEncounterCount}. ${dict.terminalNext}`;
+  dom.continue.hidden = Boolean(settlement);
+  showSurface("terminal");
+  saveGameState();
+}
+
+function continueCampaign() {
+  if (settlement || encounter.outcome === "ACTIVE") return;
+  encounterIndex += 1;
+  sequence = 0;
+  records = [];
+  encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
+  resetRealtimeState({ clearUnits: true });
+  lastMessage = encounterStartMessage();
+  showSurface("play");
+  saveGameState();
+}
+
+function resetCampaign() {
+  encounterIndex = 0;
+  sequence = 0;
+  totalCommandsRun = 0;
+  records = [];
+  outcomes = [];
+  settlement = null;
+  encounter = initialEncounter(CAMPAIGN_SCHEDULES[0], 0);
+  lastMessage = dictionaryFor().terminalIdle;
+  resetRealtimeState({ clearUnits: true });
+
+  if (storage) {
+    storage.removeItem("abyssal_surge_save");
+  }
+  showSurface("lobby");
+  checkSave();
+}
+
+
+function render() {
+  if (typeof window !== "undefined") {
+    window.surface = surface;
+    window.encounter = encounter;
+    window.activeUnits = activeUnits;
+    window.rAFId = rAFId;
+    window.lastTickTime = lastTickTime;
+    window.foeCharge = foeCharge;
+    window.useRealTime = useRealTime;
+    window.isRecovering = isRecovering;
+    window.recoverTimer = recoverTimer;
+  }
+  const titles = STAGE_TITLES_LOCALIZED[currentLang] || STAGE_TITLES_LOCALIZED.en;
+  const dict = DICTIONARY[currentLang] || DICTIONARY.en;
+  const stageTitle = titles[encounterIndex] || `${dict.encounterStartPrefix} ${encounterIndex + 1}`;
+  const maxIntegrity = normalizeInteger(encounter.max_integrity, 6, 0);
+  const maxFocus = normalizeInteger(encounter.max_focus, 3, 0);
+  const maxGuard = 2;
+  const maxPressure = normalizeInteger(encounter.max_pressure, 4, 0);
+  const maxFoeHealth = normalizeInteger(encounter.max_foe_health, 6, 0);
+  dom.campaign.textContent = `${encounterIndex + 1} / ${CAMPAIGN_SCHEDULES.length} — ${stageTitle}`;
+  dom.ruleVersion.textContent = RULES_VERSION;
+  dom.intent.textContent = intentLabel(encounter.foe_intent);
+  dom.counter.textContent = counterCopy(encounter);
+  dom.integrity.textContent = `${encounter.integrity} / ${maxIntegrity}`;
+  dom.focusValue.textContent = `${encounter.focus} / ${maxFocus}`;
+  dom.guard.textContent = `${encounter.guard} / ${maxGuard}`;
+  dom.pressure.textContent = `${encounter.pressure} / ${maxPressure}`;
+  dom.foeHealth.textContent = `${encounter.foe_health} / ${maxFoeHealth}`;
+
+  // Update progress bars (defensive checks to support test environments)
+  if (dom.integrityBar) dom.integrityBar.style.width = percentage(encounter.integrity, maxIntegrity);
+  if (dom.focusBar) dom.focusBar.style.width = percentage(encounter.focus, maxFocus);
+  if (dom.guardBar) dom.guardBar.style.width = percentage(encounter.guard, maxGuard);
+  if (dom.pressureBar) dom.pressureBar.style.width = percentage(encounter.pressure, maxPressure);
+  if (dom.foeHealthBar) dom.foeHealthBar.style.width = percentage(encounter.foe_health, maxFoeHealth);
+
+  // Update Foe active intent visual alerts
+  if (dom.voidAvatar && dom.voidAvatar.classList) {
+    if (encounter.outcome === "ACTIVE") {
+      if (encounter.foe_intent === "SURGE") {
+        dom.voidAvatar.classList.add("surge-alert");
+        dom.voidAvatar.classList.remove("strike-vibe");
+      } else {
+        dom.voidAvatar.classList.add("strike-vibe");
+        dom.voidAvatar.classList.remove("surge-alert");
+      }
+    } else {
+      dom.voidAvatar.classList.remove("surge-alert");
+      dom.voidAvatar.classList.remove("strike-vibe");
+    }
+  }
+  // Update RTS Monitor Panel
+  const monitorActiveCount = document.querySelector("#monitor-active-count");
+  const monitorListContainer = document.querySelector("#monitor-list-container");
+  const monitorPlaceholder = document.querySelector("#monitor-placeholder");
+
+  if (monitorActiveCount && monitorListContainer) {
+    monitorActiveCount.textContent = activeUnits.length;
+    
+    // 1. Remove obsolete monitor items whose units have despawned
+    const activeIds = new Set(activeUnits.map(u => u.id));
+    const items = [...monitorListContainer.querySelectorAll(".monitor-item")];
+    for (const item of items) {
+      const unitId = parseInt(item.dataset.unitId, 10);
+      if (!activeIds.has(unitId)) {
+        if (item.parentNode) item.parentNode.removeChild(item);
+      }
+    }
+    
+    if (activeUnits.length === 0) {
+      if (monitorPlaceholder) monitorPlaceholder.style.display = "block";
+    } else {
+      if (monitorPlaceholder) monitorPlaceholder.style.display = "none";
+      
+      const dict = dictionaryFor();
+      const currentLang = dict.lang || "en";
+      
+      // 2. Add new items or update existing ones in place
+      for (const unit of activeUnits) {
+        let item = monitorListContainer.querySelector(`.monitor-item[data-unit-id="${unit.id}"]`);
+        const eta = ((100 - unit.x) / unit.speed).toFixed(1);
+        
+        if (!item) {
+          // SPAWN: Create DOM node once
+          item = document.createElement("div");
+          item.className = "monitor-item";
+          item.dataset.unitId = unit.id;
+          
+          item.style.display = "flex";
+          item.style.alignItems = "center";
+          item.style.justifyContent = "space-between";
+          item.style.fontSize = "0.85rem";
+          item.style.padding = "0.4rem 0.8rem";
+          item.style.background = "rgba(11, 13, 20, 0.7)";
+          item.style.border = `1px solid ${unit.type === "STRIKE" ? "rgba(239, 68, 68, 0.3)" : "rgba(59, 130, 246, 0.3)"}`;
+          item.style.borderRadius = "0.4rem";
+          item.style.gap = "0.8rem";
+          item.style.boxShadow = `0 2px 6px rgba(0,0,0,0.5), inset 0 0 8px ${unit.type === "STRIKE" ? "rgba(239, 68, 68, 0.05)" : "rgba(59, 130, 246, 0.05)"}`;
+
+          const badgeColor = unit.type === "STRIKE" ? "color: #ef4444;" : "color: #3b82f6;";
+          const name = unit.type === "STRIKE" ? (currentLang === "ko" ? "성기사 전위병" : "Knight Vanguard") : (currentLang === "ko" ? "강철 방벽병" : "Iron Bulwark");
+          const actionLabel = currentLang === "ko" ? "진격중" : "TRAVERSING";
+
+          item.innerHTML = `
+            <!-- Character Card Portrait: Silhouette -->
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid ${unit.type === "STRIKE" ? "#ef4444" : "#3b82f6"}; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px ${unit.type === "STRIKE" ? "rgba(239,68,68,0.4)" : "rgba(59,130,246,0.4)"}; flex-shrink: 0;">
+              ${unit.type === "STRIKE" 
+                ? `<svg viewBox="0 0 24 24" width="20" height="20" style="fill: #ef4444;"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`
+                : `<svg viewBox="0 0 24 24" width="20" height="20" style="fill: #3b82f6;"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`
+              }
+            </div>
+            
+            <!-- Character Card Center: Identity and State -->
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="${badgeColor} font-weight: bold; font-size: 0.9rem;">${name}</span>
+                <span style="font-size: 0.7rem; color: #10b981; background: rgba(16,185,129,0.1); padding: 0.05rem 0.35rem; border-radius: 0.2rem; border: 1px solid rgba(16,185,129,0.2); font-weight: bold; letter-spacing: 0.05em;">${actionLabel}</span>
+              </div>
+              <div style="position: relative; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-top: 0.1rem;">
+                <div class="monitor-progress-fill" style="position: absolute; left: 0; top: 0; bottom: 0; width: ${unit.x}%; background: ${unit.type === "STRIKE" ? "#ef4444" : "#3b82f6"};"></div>
+              </div>
+            </div>
+            
+            <!-- Character Card Right: Lane Position and ETA -->
+            <div style="text-align: right; min-width: 90px; display: flex; flex-direction: column; justify-content: center; gap: 0.1rem; flex-shrink: 0;">
+              <span class="monitor-pos-text" style="color: var(--muted); font-size: 0.8rem; font-weight: bold;">Pos: ${unit.x.toFixed(1)}%</span>
+              <span class="monitor-eta-text" style="color: var(--ink); font-size: 0.75rem;">ETA: ${eta}s</span>
+            </div>
+          `;
+          monitorListContainer.appendChild(item);
+        } else {
+          // UPDATE IN-PLACE: Fast update of dynamic elements only
+          const progressFill = item.querySelector(".monitor-progress-fill");
+          const posText = item.querySelector(".monitor-pos-text");
+          const etaText = item.querySelector(".monitor-eta-text");
+          
+          if (progressFill) progressFill.style.width = `${unit.x}%`;
+          if (posText) posText.textContent = `Pos: ${unit.x.toFixed(1)}%`;
+          if (etaText) etaText.textContent = `ETA: ${eta}s`;
+        }
+      }
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    window.surface = surface;
+    window.encounter = encounter;
+    window.activeUnits = activeUnits;
+  }
+
+  // Foe Charge Bar rendering
+  if (dom.foeChargeBar) {
+    if (encounter.outcome === "ACTIVE" && useRealTime) {
+      dom.foeChargeBar.style.width = `${(foeCharge / 3.5) * 100}%`;
+    } else {
+      dom.foeChargeBar.style.width = "0%";
+    }
+  }
+
+  dom.trace.replaceChildren(...encounter.trace.map((entry) => {
+    const item = document.createElement("li");
+    const entryOutcome = entry?.foe_resolved ? traceOutcomeText(entry.outcome) : traceOutcomeText("VICTORY");
+    const entryAdverse = entry ? entryAdverseText(entry) : "";
+    item.textContent = `${dict.roundLabel} ${entry?.round}: ${commandLabel(entry?.command)}; ${entryAdverse}; ${dict.outcomeLabel}: ${entryOutcome}.`;
+    return item;
+  }));
+
+  // Narration with typing animation
+  if (surface === "play" && sequence > 0) {
+    if (dom.announcement.dataset && dom.announcement.dataset.lastMessage !== lastMessage) {
+      dom.announcement.dataset.lastMessage = lastMessage;
+      typeText(dom.announcement, lastMessage);
+    }
+  } else {
+    dom.announcement.textContent = lastMessage;
+    if (dom.announcement.dataset) {
+      dom.announcement.dataset.lastMessage = lastMessage;
+    }
+  }
+
+  // Local telemetry logs ledger updates
+  updateTelemetry();
+  translateUI();
+
+  for (const button of dom.commandButtons) button.disabled = !commandAvailable(button.dataset.command);
+  document.querySelector("#threat-copy").textContent = threatCopy(encounter);
+}
+
+function commandAcceptanceMessage(command) {
+  const localized = commandLabel(command);
+  if (!localized) return "";
+  return currentLang === "ko" ? `${localized} 커맨드를 실행했습니다.` : `${localized} executed.`;
+}
+
+function commandRejectionMessage(reason, command = null) {
+  const reasonText = commandRejectText(reason);
+  if (!reasonText) return "";
+  const localized = command ? commandLabel(command) : "";
+  return currentLang === "ko"
+    ? localized
+      ? `${localized}: ${reasonText}.`
+      : `${reasonText}.`
+    : `${localized ? `${localized}: ` : ""}${reasonText}.`;
+}
+
 
 function showSurface(next) {
   surface = next;
@@ -716,15 +1361,18 @@ function showSurface(next) {
 }
 
 function threatCopy(state) {
-  return state.foe_intent === "SURGE"
-    ? "SURGE: 4 integrity damage and +2 pressure unless DISRUPT is used."
-    : "STRIKE: 2 integrity damage unless BRACE is used.";
+  const intent = intentLabel(state.foe_intent);
+  if (state.foe_intent === "SURGE") {
+    return `${intent}: 4 integrity damage and +2 pressure unless ${commandLabel("DISRUPT")} is used.`;
+  }
+  return `${intent}: 2 integrity damage unless ${commandLabel("BRACE")} is used.`;
 }
 
 function counterCopy(state) {
-  return state.foe_intent === "SURGE"
-    ? "DISRUPT costs 1 focus, deals 1 foe damage, and prevents this SURGE."
-    : "BRACE costs 1 focus and prevents this STRIKE's 2 damage.";
+  if (state.foe_intent === "SURGE") {
+    return `${commandLabel("DISRUPT")} costs 1 focus, deals 1 foe damage, and prevents this ${intentLabel(state.foe_intent)}.`;
+  }
+  return `${commandLabel("BRACE")} costs 1 focus and prevents this ${intentLabel(state.foe_intent)}'s 2 damage.`;
 }
 
 function commandAvailable(command) {
@@ -752,344 +1400,11 @@ function commandAvailable(command) {
 }
 
 function terminalCopy(outcome) {
-  return {
-    VICTORY: "VICTORY — foe health reached 0 before the round's adverse effect resolved.",
-    HOLD: "HOLD — the final scheduled round resolved without a defeat condition.",
-    DEFEAT_INTEGRITY: "DEFEAT_INTEGRITY — integrity reached 0; this priority is evaluated before pressure.",
-    DEFEAT_PRESSURE: "DEFEAT_PRESSURE — pressure reached 4 while integrity remained above 0.",
-  }[outcome];
+  const label = traceOutcomeText(outcome);
+  const details = outcomeText(outcome);
+  return `${label} — ${details}.`;
 }
 
-function recordCommand(command) {
-  if (!COMMANDS.includes(command)) return;
-
-  if (useRealTime) {
-    if (encounter.outcome !== "ACTIVE") return;
-
-    // Custom RTS logic: check if player has enough Focus
-    if (command === "STRIKE") {
-      if (!hasSufficientFocus()) {
-        lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
-        play("defeat"); // warning buzz
-        render();
-        return;
-      }
-      encounter.focus -= 1;
-      spawnUnit("STRIKE");
-    } else if (command === "BRACE") {
-      if (!hasSufficientFocus()) {
-        lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
-        play("defeat");
-        render();
-        return;
-      }
-      encounter.focus -= 1;
-      spawnUnit("BRACE");
-    } else if (command === "DISRUPT") {
-      if (!hasSufficientFocus()) {
-        lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
-        play("defeat");
-        render();
-        return;
-      }
-      if (encounter.foe_intent !== "SURGE") {
-        lastMessage = currentLang === "ko" ? "적의 SURGE 파동이 켜져있지 않습니다!" : "Enemy is not channeling SURGE!";
-        play("defeat");
-        render();
-        return;
-      }
-      encounter.focus -= 1;
-      encounter.foe_health = Math.max(0, encounter.foe_health - 1);
-      encounter.surge_countered = true;
-      play("disrupt");
-      triggerFx("DISRUPT");
-      if (dom.voidAvatar && dom.voidAvatar.classList) {
-        dom.voidAvatar.classList.add("damage-flash");
-        setTimeout(() => {
-          if (dom.voidAvatar && dom.voidAvatar.classList) {
-            dom.voidAvatar.classList.remove("damage-flash");
-          }
-        }, 400);
-      }
-      if (encounter.foe_health <= 0) {
-        encounter.outcome = "VICTORY";
-        finishEncounter();
-        return;
-      }
-    } else if (command === "RECOVER") {
-      if (!canRecoverFocus()) {
-        lastMessage = currentLang === "ko" ? "정신력이 이미 가득 찼습니다!" : "Focus is already full!";
-        render();
-        return;
-      }
-      isRecovering = true;
-      recoverTimer = 1.0; // 1 second recovery channel
-      play("recover");
-      triggerFx("RECOVER");
-    } else {
-      return;
-    }
-
-    totalCommandsRun++;
-    // Log the input with the current elapsed foeCharge/round ticks for deterministic replay!
-    const record = makeCommand(command, encounter.round, ++sequence);
-    records.push(record);
-    lastMessage = currentLang === "ko" ? `${command} 커맨드를 실행했습니다.` : `Executed command: ${command}.`;
-    render();
-    saveGameState();
-    return;
-  }
-
-  // Turn-based fallback
-  if (!commandAvailable(command)) return;
-  totalCommandsRun++;
-
-  // Play SFX & Visual FX
-  play(command.toLowerCase());
-  triggerFx(command);
-
-  // Avatar attack/defense charges
-  if (command === "STRIKE" || command === "DISRUPT") {
-    if (dom.voidAvatar && dom.voidAvatar.classList) {
-      dom.voidAvatar.classList.add("damage-flash");
-      setTimeout(() => {
-        if (dom.voidAvatar && dom.voidAvatar.classList) {
-          dom.voidAvatar.classList.remove("damage-flash");
-        }
-      }, 400);
-    }
-  }
-  if (command === "BRACE" || command === "RECOVER" || command === "DISRUPT") {
-    if (dom.knightAvatar && dom.knightAvatar.classList) {
-      dom.knightAvatar.classList.add("shield-glow");
-      setTimeout(() => {
-        if (dom.knightAvatar && dom.knightAvatar.classList) {
-          dom.knightAvatar.classList.remove("shield-glow");
-        }
-      }, 600);
-    }
-  }
-
-  const record = makeCommand(command, encounter.round, ++sequence);
-  records.push(record);
-  const result = reduceEncounter(encounter, record);
-  if (!result.accepted) {
-    lastMessage = `Command rejected: ${result.reason}.`;
-    render();
-    return;
-  }
-  encounter = result.state;
-  const entry = encounter.trace.at(-1);
-
-  // Player damage flash check on adverse damage resolution
-  if (entry && entry.foe_resolved && entry.adverse_damage > 0) {
-    if (dom.knightAvatar && dom.knightAvatar.classList) {
-      dom.knightAvatar.classList.add("damage-flash");
-      setTimeout(() => {
-        if (dom.knightAvatar && dom.knightAvatar.classList) {
-          dom.knightAvatar.classList.remove("damage-flash");
-        }
-      }, 400);
-    }
-  }
-
-  lastMessage = `Round ${entry.round}: ${command}; ${entry.foe_resolved ? `adverse effect resolved (${entry.adverse_damage} integrity damage, ${entry.adverse_pressure} pressure).` : "VICTORY resolved before the adverse effect."}`;
-  if (encounter.outcome !== "ACTIVE") finishEncounter();
-  render();
-  saveGameState();
-}
-  
-
-function finishEncounter() {
-  const replayCheck = validateDeterministicReplay(encounter.schedule, records);
-  outcomes.push(encounter.outcome);
-  const resolvedEncounterCount = outcomes.length;
-  const award = awardFor(encounter.outcome);
-  if (outcomes.length === CAMPAIGN_SCHEDULES.length) settlement = settleCampaign(outcomes);
-  const encounterLabel = `${resolvedEncounterCount} encounter record${resolvedEncounterCount === 1 ? "" : "s"}`;
-  dom.terminalSummary.textContent = `${terminalCopy(encounter.outcome)} Award: ${award} fragment${award === 1 ? "" : "s"}. Replay check: ${replayCheck.matches ? "deterministic." : "mismatch."}`;
-  dom.settlement.textContent = settlement
-    ? `${encounterLabel} settled locally: ${settlement.fragments_earned} fragments earned, ${settlement.fragment_wallet} in wallet after settlement, ${settlement.resolve_marks} resolve marks. Nothing persists after a reload.`
-    : `This is encounter ${outcomes.length} of ${CAMPAIGN_SCHEDULES.length}; the terminal record is ready for the next local encounter.`;
-  dom.continue.hidden = Boolean(settlement);
-  showSurface("terminal");
-  saveGameState();
-}
-
-function continueCampaign() {
-  if (settlement || encounter.outcome === "ACTIVE") return;
-  encounterIndex += 1;
-  sequence = 0;
-  records = [];
-  encounter = initialEncounter(CAMPAIGN_SCHEDULES[encounterIndex], encounterIndex);
-  lastMessage = `Encounter ${encounterIndex + 1} starts with the displayed ${encounter.foe_intent} intent.`;
-  showSurface("play");
-  saveGameState();
-}
-
-function resetCampaign() {
-  encounterIndex = 0;
-  sequence = 0;
-  totalCommandsRun = 0;
-  records = [];
-  outcomes = [];
-  settlement = null;
-  encounter = initialEncounter(CAMPAIGN_SCHEDULES[0], 0);
-  lastMessage = "Awaiting a semantic command.";
-  
-  if (rAFId) {
-    cancelAnimationFrame(rAFId);
-    rAFId = null;
-  }
-  activeUnits = [];
-  if (dom.unitsContainer) dom.unitsContainer.innerHTML = "";
-  
-  if (storage) {
-    storage.removeItem("abyssal_surge_save");
-  }
-  showSurface("lobby");
-  checkSave();
-}
-
-function render() {
-  if (typeof window !== "undefined") {
-    window.surface = surface;
-    window.encounter = encounter;
-    window.activeUnits = activeUnits;
-    window.rAFId = rAFId;
-    window.lastTickTime = lastTickTime;
-    window.foeCharge = foeCharge;
-    window.useRealTime = useRealTime;
-    window.isRecovering = isRecovering;
-    window.recoverTimer = recoverTimer;
-  }
-  const titles = STAGE_TITLES_LOCALIZED[currentLang] || STAGE_TITLES_LOCALIZED.en;
-  const stageTitle = titles[encounterIndex] || `Encounter ${encounterIndex + 1}`;
-  const maxIntegrity = normalizeInteger(encounter.max_integrity, 6, 0);
-  const maxFocus = normalizeInteger(encounter.max_focus, 3, 0);
-  const maxGuard = 2;
-  const maxPressure = normalizeInteger(encounter.max_pressure, 4, 0);
-  const maxFoeHealth = normalizeInteger(encounter.max_foe_health, 6, 0);
-  dom.campaign.textContent = `${encounterIndex + 1} / ${CAMPAIGN_SCHEDULES.length} — ${stageTitle}`;
-  dom.ruleVersion.textContent = RULES_VERSION;
-  dom.intent.textContent = encounter.foe_intent;
-  dom.counter.textContent = counterCopy(encounter);
-  dom.integrity.textContent = `${encounter.integrity} / ${maxIntegrity}`;
-  dom.focusValue.textContent = `${encounter.focus} / ${maxFocus}`;
-  dom.guard.textContent = `${encounter.guard} / ${maxGuard}`;
-  dom.pressure.textContent = `${encounter.pressure} / ${maxPressure}`;
-  dom.foeHealth.textContent = `${encounter.foe_health} / ${maxFoeHealth}`;
-
-  // Update progress bars (defensive checks to support test environments)
-  if (dom.integrityBar) dom.integrityBar.style.width = percentage(encounter.integrity, maxIntegrity);
-  if (dom.focusBar) dom.focusBar.style.width = percentage(encounter.focus, maxFocus);
-  if (dom.guardBar) dom.guardBar.style.width = percentage(encounter.guard, maxGuard);
-  if (dom.pressureBar) dom.pressureBar.style.width = percentage(encounter.pressure, maxPressure);
-  if (dom.foeHealthBar) dom.foeHealthBar.style.width = percentage(encounter.foe_health, maxFoeHealth);
-
-  // Update Foe active intent visual alerts
-  if (dom.voidAvatar && dom.voidAvatar.classList) {
-    if (encounter.outcome === "ACTIVE") {
-      if (encounter.foe_intent === "SURGE") {
-        dom.voidAvatar.classList.add("surge-alert");
-        dom.voidAvatar.classList.remove("strike-vibe");
-      } else {
-        dom.voidAvatar.classList.add("strike-vibe");
-        dom.voidAvatar.classList.remove("surge-alert");
-      }
-    } else {
-      dom.voidAvatar.classList.remove("surge-alert");
-      dom.voidAvatar.classList.remove("strike-vibe");
-    }
-  }
-  // Update RTS Monitor Panel
-  const monitorActiveCount = document.querySelector("#monitor-active-count");
-  const monitorListContainer = document.querySelector("#monitor-list-container");
-  const monitorPlaceholder = document.querySelector("#monitor-placeholder");
-
-  if (monitorActiveCount && monitorListContainer) {
-    monitorActiveCount.textContent = activeUnits.length;
-    
-    // Clear old elements
-    const items = [...monitorListContainer.querySelectorAll(".monitor-item")];
-    for (const item of items) {
-      if (item.parentNode) item.parentNode.removeChild(item);
-    }
-    
-    if (activeUnits.length === 0) {
-      if (monitorPlaceholder) monitorPlaceholder.style.display = "block";
-    } else {
-      if (monitorPlaceholder) monitorPlaceholder.style.display = "none";
-      
-      for (const unit of activeUnits) {
-        const item = document.createElement("div");
-        item.className = "monitor-item";
-        item.style.display = "flex";
-        item.style.alignItems = "center";
-        item.style.justifyContent = "space-between";
-        item.style.fontSize = "0.85rem";
-        item.style.padding = "0.3rem 0.6rem";
-        item.style.background = "rgba(255,255,255,0.02)";
-        item.style.border = "1px solid rgba(255,255,255,0.05)";
-        item.style.borderRadius = "0.3rem";
-        
-        const badge = unit.type === "STRIKE" ? "⚔️ [STRIKE Soldier]" : "🛡️ [BRACE Shield]";
-        const badgeColor = unit.type === "STRIKE" ? "color: #ef4444;" : "color: #3b82f6;";
-        const eta = ((100 - unit.x) / unit.speed).toFixed(1);
-        
-        item.innerHTML = `
-          <span style="${badgeColor} font-weight: bold; min-width: 140px;">${badge}</span>
-          <div style="flex: 1; margin: 0 1rem; position: relative; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
-            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${unit.x}%; background: ${unit.type === "STRIKE" ? "#ef4444" : "#3b82f6"};"></div>
-          </div>
-          <span style="color: var(--muted); min-width: 90px; text-align: right;">Progress: ${unit.x.toFixed(1)}% (ETA: ${eta}s)</span>
-        `;
-        monitorListContainer.appendChild(item);
-      }
-    }
-  }
-
-  if (typeof window !== "undefined") {
-    window.surface = surface;
-    window.encounter = encounter;
-    window.activeUnits = activeUnits;
-  }
-
-  // Foe Charge Bar rendering
-  if (dom.foeChargeBar) {
-    if (encounter.outcome === "ACTIVE" && useRealTime) {
-      dom.foeChargeBar.style.width = `${(foeCharge / 3.5) * 100}%`;
-    } else {
-      dom.foeChargeBar.style.width = "0%";
-    }
-  }
-
-  dom.trace.replaceChildren(...encounter.trace.map((entry) => {
-    const item = document.createElement("li");
-    item.textContent = `Round ${entry.round}: ${entry.command}; ${entry.foe_resolved ? `effect ${entry.adverse_damage} integrity / ${entry.adverse_pressure} pressure; ${entry.outcome}.` : "adverse effect skipped; VICTORY."}`;
-    return item;
-  }));
-
-  // Narration with typing animation
-  if (surface === "play" && sequence > 0) {
-    if (dom.announcement.dataset && dom.announcement.dataset.lastMessage !== lastMessage) {
-      dom.announcement.dataset.lastMessage = lastMessage;
-      typeText(dom.announcement, lastMessage);
-    }
-  } else {
-    dom.announcement.textContent = lastMessage;
-    if (dom.announcement.dataset) {
-      dom.announcement.dataset.lastMessage = lastMessage;
-    }
-  }
-
-  // Local telemetry logs ledger updates
-  updateTelemetry();
-  translateUI();
-
-  for (const button of dom.commandButtons) button.disabled = !commandAvailable(button.dataset.command);
-  document.querySelector("#threat-copy").textContent = threatCopy(encounter);
-}
 
 dom.begin.addEventListener("click", () => showSurface("play"));
 dom.continue.addEventListener("click", continueCampaign);

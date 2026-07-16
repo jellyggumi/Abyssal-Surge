@@ -103,6 +103,19 @@ async function run() {
   async function playStage(stageNum) {
     console.log(`\n=== PLAYING STAGE ${stageNum} ===`);
     await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
+    // Verify avatar images loaded successfully
+    const avatarsLoaded = await page.evaluate(() => {
+      const knightImg = document.querySelector("#knight-avatar img");
+      const voidImg = document.querySelector("#void-avatar img");
+      const isLoaded = (img) => img && img.complete && typeof img.naturalWidth !== "undefined" && img.naturalWidth > 0;
+      return {
+        knight: isLoaded(knightImg),
+        void: isLoaded(voidImg)
+      };
+    });
+    console.log(`[Stage ${stageNum}] Avatars loaded status: Knight: ${avatarsLoaded.knight}, Void: ${avatarsLoaded.void}`);
+    assert.equal(avatarsLoaded.knight, true, "Knight avatar image must be loaded successfully");
+    assert.equal(avatarsLoaded.void, true, "Void avatar image must be loaded successfully");
     
     while (true) {
       const status = await page.evaluate(() => {
