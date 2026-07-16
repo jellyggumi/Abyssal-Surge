@@ -1,4 +1,4 @@
-# Abyssal Surge — Stage 1
+# Abyssal Surge
 
 [![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml)
 [![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Surge/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Surge/)
@@ -7,96 +7,165 @@
 
 ---
 
-## 🎮 게임 소개 (Game Introduction)
+## 🎮 게임 소개
 
-**Abyssal Surge — Stage 1**은 웹 브라우저 로컬 환경에서 실행되는 결정론적(Deterministic) 전술 전략 시뮬레이션 게임입니다. 
+**Abyssal Surge**는 웹 우선으로 빌드되는 **결정론적 전술 전투 웹 게임**입니다.
 
-플레이어는 **The Stewardship(수호자)** 진영을 지휘하여 심연의 위협인 **The Abyssal Terror(심연의 공포)**와 대적하게 됩니다. 게임은 총 5회의 조우(Encounter)로 구성된 캠페인 형식으로 진행되며, 적의 예정된 행동 정보(STRIKE / SURGE 공격 의도)를 미리 파악하고 자원을 배분하여 적을 무찌르거나 공격을 막아내는 전술 퍼즐형 메커니즘을 가지고 있습니다.
+현재 레포에서 실제 동작하는 핵심은 아래와 같습니다.
 
-### ⚠️ GitHub Pages 배포 제약 사항 및 로컬 실행 권장
-GitHub Pages에 배포되는 라이브 서비스는 보안 및 자산 경계 거버넌스 정책에 따라 오직 5개의 정적 핵심 파일(`index.html`, `app.js`, `game-core.js`, `styles.css`, `privacy.html`)만 업로드하는 제한적인 배포 명세(`static.yml` allowlist)를 사용합니다.
-
-이에 따라, **온라인 배포 페이지에서는 배경음/효과음 오디오(`assets/audio/`), 캐릭터 및 카드 이미지(`assets/images/`), PWA 서비스 워커(`sw.js`), 앱 매니페스트(`manifest.json`), 그리고 아이콘(`icon.svg`) 파일이 배포 대상에서 제외됩니다.** 이로 인해 온라인 페이지에서는 해당 미디어 자원들과 PWA 기능을 제공하지 않으며 텍스트 및 레이아웃 기반의 코어 로직만 동작합니다.
-
-**사운드와 다이내믹 시각 효과(VFX), 아바타 이미지 등을 포함한 온전한 PWA 게임 경험을 누리기 위해서는 반드시 저장소를 클론한 뒤 로컬 컴퓨터 환경(Local/Source-only Run)에서 실행해주시기 바랍니다.**
-
----
-
-## ⚙️ 핵심 메커니즘 (Core Mechanics)
-
-### 1. 결정론적 상태 감소기 (Deterministic Reducer State Machine)
-게임의 모든 전투 판정은 동일한 입력(커맨드, 틱, 시퀀스 정보)에 대해 항상 동일한 출력 상태를 보장하도록 설계된 무상태(Stateless) 감축기(`reduceEncounter`)를 통해 이루어집니다. 마우스/터치 클릭과 키보드 단축키 입력 모두 이 결정론적 상태 머신으로 통일되어 정확한 동기화를 보장합니다.
-
-### 2. 전술 액션 카테고리 (Semantic Commands)
-플레이어는 매 라운드 1의 포커스를 회복하거나 소모하여 아래의 커맨드 중 하나를 입력할 수 있습니다.
-*   **STRIKE (공격)**: 포커스 1을 소모하여 적의 체력(Foe Health)을 2만큼 감소시킵니다.
-*   **BRACE (방어)**: 포커스 1을 소모하여 적의 `STRIKE` 피해를 흡수하는 가드(Guard) 수치를 2만큼 채웁니다.
-*   **DISRUPT (방해)**: 적의 공격 의도가 `SURGE`일 때만 유효하며, 포커스 1을 소모하여 적의 체력을 1 감소시키고 강력한 `SURGE` 피해와 압박(Pressure) 증가를 완전히 무력화시킵니다.
-*   **RECOVER (회복)**: 현재 포커스가 2 이하일 때만 사용할 수 있으며, 포커스 1을 즉시 충전합니다.
-
-### 3. 승리 및 패배 조건 (Outcomes & Rules)
-*   **VICTORY (승리)**: 적의 체력(Foe Health)이 0이 되면 즉시 승리하며 캠페인 조각(Fragments) 2개를 획득합니다.
-*   **HOLD (버티기)**: 적의 모든 공격을 버텨내고 예정된 모든 라운드를 생존하여 생명력을 지키면 버티기 성공으로 판정되어 조각 1개를 획득합니다.
-*   **DEFEAT_INTEGRITY (생명력 소진 패배)**: 플레이어의 생명력(Integrity)이 0이 되면 게임오버가 되며 조각 0개를 얻습니다.
-*   **DEFEAT_PRESSURE (압박 수치 패배)**: 심연의 압박(Pressure) 게이지가 최대치인 4에 도달하면 패배(0개 획득)로 처리됩니다.
-*   **정산 (Settlement)**: 캠페인에서 획득한 조각들은 징표(Resolve Marks)로 정산됩니다. (징표 1개당 3 조각 소모, 최대 2개 징표 교환 가능)
-
-### 4. 실시간 연출 엔진 & PWA (로컬 실행 시에만 온전히 지원)
-*   `requestAnimationFrame` 기반의 실시간 렌더링 루프로 아군 요새(Castle)와 포탈 간 유닛들의 이동 및 격돌 상태를 다이내믹하게 묘사합니다.
-*   공격/방어/방해 동작 시 발생하는 Visual FX 오버레이 효과가 전투의 몰입감을 더해줍니다.
-*   PWA(Progressive Web App)를 지원하도록 Service Worker(`sw.js`)와 Manifest가 구성되어 있어, 로컬 실행 시 브라우저 오프라인 환경에서도 설치 및 즉시 플레이가 가능합니다.
+- 1회차 설계 목표(현재 Stage 1 규칙) 기반의 **5회 인카운터 캠페인**
+- 순수 결정론 엔진 `game-core.js` + 프레젠테이션 레이어 `app.js`
+- 단일 입력 경로(`recordCommand`)로 키보드/버튼/레인 클릭 처리
+- `STRIKE / BRACE / DISRUPT / RECOVER` 명령군
+- 스테이지별 난이도/리듬/체감 속도 차등(시뮬레이션/시각화 레이어 분리)
+- 오프라인 동작을 위한 PWA(`sw.js`, `manifest.json`) + Android 포팅 전단계 준비(`apk/`)
 
 ---
 
-## 📂 프로젝트 구조 (Project Directory Structure)
+## 🧭 게임 규칙 개요(스냅샷)
+
+### 1) 상태값과 액터
+
+- 핵심 상태: `integrity`, `focus`, `guard`, `pressure`, `foe_health`
+- 라운드 기반 적 행동 시퀀스: `CAMPAIGN_SCHEDULES`
+- 결정론 처리 경로: `makeCommand()` → `reduceEncounter()`
+
+### 2) 전투 커맨드
+
+| 커맨드 | 비용(포커스) | 효과 |
+|---|---:|---|
+| `STRIKE` | 1 | 적 체력 `foe_health -2` |
+| `BRACE` | 1 | `guard +2` (최대 2), 다음 라운드 적 STRIKE 피해 상쇄 보조 |
+| `DISRUPT` | 기본 1<br/>`SURGE` 회차 차단 시 | **필요 조건:** 현재 `SURGE`일 때만 가능, 적 체력 -1, 해당 라운드 SURGE 피해/압박 무효화 |
+| `DISRUPT`(스테이지 5) | 1 → 2 → 3 ... | 스테이지 5(캠페인 인덱스 4)에서 누적 사용 횟수만큼 비용 증가 (`1 + disrupt_uses`) |
+| `RECOVER` | 0 | `focus +1` (상한: `focus <= 2` 제한을 통과해야 함) |
+
+> 입력 가능성은 `commandAvailable()`에서 `makeCommand`/`reduceEncounter` 미리 실행으로 계산되어 버튼이 비활성화됩니다.
+
+### 3) 결과 판정
+
+- `VICTORY`: `foe_health === 0`
+- `HOLD`: 마지막 예정 라운드까지 생존(패배 조건 미도달)
+- `DEFEAT_INTEGRITY`: `integrity === 0`
+- `DEFEAT_PRESSURE`: `pressure === 4`
+
+### 4) 정산 규칙(캠페인)
+
+- `awardFor(VICTORY) = 2`
+- `awardFor(HOLD / DEFEAT_*) = 0`
+- 5개 인카운터 종료 후 `settleCampaign()` 적용
+- 3 파편당 Resolve Mark 1개 지급(최대 2개)
+
+---
+
+## 🗺️ 스테이지(캠페인)
+
+### 현재 스테이지 라벨
+
+- The Bell Beneath Blackwater / 블랙워터 아래의 종
+- The Quiet Standard / 침묵의 군기
+- The Shore That Remembers / 기억하는 해안
+- Names Under the Foam / 물거품 속의 이름들
+- The First Surge / 첫 번째 서지
+
+### 스테이지별 기초 설정(현재 구현값)
+
+| 인카운터 | `max_integrity` | `max_focus` | `max_foe_health` | 시작 `pressure` |
+|---:|---:|---:|---:|---:|
+| 1 | 6 | 3 | 6 | 0 |
+| 2 | 6 | 3 | 8 | 0 |
+| 3 | 8 | 4 | 10 | 0 |
+| 4 | 6 | 3 | 12 | 1 |
+| 5 | 6 | 4 | 5 | 0 |
+
+> 1~3 라운드짜리 일정표(`STRIKE`/`SURGE`) 조합은 `CAMPAIGN_SCHEDULES`에서 고정됩니다.
+
+---
+
+## 📐 아키텍처 다이어그램
+
+![Abyssal Surge architecture](docs/abyssal-surge-architecture.svg)
+
+---
+
+## 📂 프로젝트 구조
 
 ```text
 Abyssal-Surge/
-├── index.html          # 게임 메인 UI 구조 및 Cloudflare 웹 애널리틱스 동의 배너
-├── styles.css          # 다크 판타지 스타일의 CSS 및 반응형 디자인 레이아웃
-├── app.js              # UI 이벤트 바인딩, 다국어(EN/KR) 사전 토글, 오디오 믹서, 실시간 연출 컨트롤러
-├── game-core.js        # 게임 규칙 버전을 정의한 무상태 결정론적 Reducer 및 Replay 검증 엔진
-├── sw.js               # 오프라인 정적 파일 캐싱을 위한 서비스 워커 (PWA - 로컬 전용)
-├── manifest.json       # PWA 설치 명세서 (로컬 전용)
-├── privacy.html        # 데이터 수집 최소화를 보장하는 개인정보 처리방침 페이지
+├── index.html          # 엔트리 HTML + 접근성 레이블
+├── styles.css          # 룰/상태/레인 렌더 스타일
+├── app.js              # 입력 처리, HUD/연출, 오디오, RTPS 레이어
+├── game-core.js        # 순수 규칙 엔진(결정론 Reducer)
+├── sw.js               # Service Worker(v3): NETWORK-FIRST 앱 업데이트 + 오프라인 미디어 캐시
+├── manifest.json       # PWA 매니페스트
+├── privacy.html        # 개인정보 안내
+├── icon.svg            # 배포 아이콘
 │
-├── assets/             # 게임 리소스 폴더 (로컬 전용)
-│   ├── images/         # 일러스트(스테이지 1~5), 아바타(수호자, 심연의 눈) 및 결과 이미지
-│   └── audio/          # 오디오 배경음, 각 행동별 효과음(Strike, Brace 등) 및 네레이션 음원
+├── assets/
+│   ├── icons/          # 아이콘 192/512
+│   ├── images/         # 유닛/배경/단계 소개 이미지
+│   ├── audio/          # SFX/BGM/Narration
+│   └── video/          # 스테이지 시네마틱 영상
+│
+├── docs/
+│   └── abyssal-surge-architecture.svg
+│
+├── apk/
+│   ├── BUILD.md        # TWA 패키징 실행 지침
+│   ├── twa-manifest.json
+│   └── assetlinks-template.json
 │
 ├── tests/
-│   ├── game-core.test.mjs             # 상태 변화 및 정산 규칙에 대한 결정론 검사 유닛 테스트
-│   ├── stage1-vertical-slice.test.mjs  # UI 컨트롤 바인딩 및 정적 배포 상태 검증
-│   ├── playtest-5-stages.test.mjs     # 5단계의 전체 캠페인 시뮬레이션 통합 플레이테스트
-│   ├── validate-cycle-retrospective.test.mjs # 거버넌스 사양 검증 및 정책 제약사항 테스트
-│   ├── test_workflow_state.py         # 파이썬 기반 거버넌스 워크플로우 상태 검증 테스트
-│   ├── test_workflow_contract.py      # 파이썬 기반 거버넌스 워크플로우 계약 조건 테스트
-│   └── playtest-browser.cjs           # Playwright 헤드리스 브라우저 테스트 및 캡처 스크립트
+│   ├── game-core.test.mjs
+│   ├── stage1-vertical-slice.test.mjs
+│   ├── playtest-5-stages.test.mjs
+│   ├── validate-cycle-retrospective.test.mjs
+│   ├── test_workflow_state.py
+│   ├── test_workflow_contract.py
+│   └── playtest-browser.cjs
 │
-└── _workspace/         # 사이클 1~4까지 진행된 설계, 기획, QA, 밸런스 등 역사적 이력 아카이브
+├── scripts/
+│   └── validate-cycle-retrospective.py
+│
+└── .github/workflows/
+    └── static.yml      # GitHub Pages allowlist/복원성 검사
 ```
 
 ---
 
-## 🧪 테스트 및 실행 방법 (Execution & Testing Guide)
+## 🚀 실행/테스트
 
-### 1. 로컬 실행
-브라우저에서 정적 파일을 바로 실행할 경우, 모듈 임포트(`type="module"`) 정책으로 인해 로컬 웹 서버가 필요합니다.
+### 로컬 실행
+
 ```bash
-# Python을 사용한 초간단 웹 서버 실행
 python -m http.server 8000
 ```
-웹 서버 실행 후 브라우저에서 `http://localhost:8000`으로 접속하여 모든 오디오 및 시각 효과가 포함된 온전한 게임을 즐기실 수 있습니다.
 
-### 2. 테스트 스위트 실행
-본 저장소는 자바스크립트 테스트 및 파이썬 거버넌스 테스트를 포함하고 있습니다.
+브라우저에서 `http://localhost:8000` 접속
 
-#### JavaScript 테스트 실행 (Node.js v18 이상 권장)
+### 테스트(현재 커버하는 규칙)
+
 ```bash
 node --test tests/game-core.test.mjs tests/stage1-vertical-slice.test.mjs tests/playtest-5-stages.test.mjs tests/validate-cycle-retrospective.test.mjs
-```
-
-#### Python 테스트 실행 (Python 3.10 이상 권장)
-```bash
 python3 -m unittest tests/test_workflow_state.py tests/test_workflow_contract.py
 ```
+
+### 배포 점검 포인트
+
+- `.github/workflows/static.yml`는 정적 배포 artifact를 `index.html`, `app.js`, `game-core.js`, `styles.css`, `privacy.html`, `sw.js`, `manifest.json`, `icon.svg`, `assets/`로 구성해 Pages 업로드 전 정확성 검증
+- `node --check`로 핵심 JS 문법 검사 수행
+
+---
+
+## 🛠️ 모바일 포팅 상태
+
+- `apk/` 폴더에 Bubblewrap 기반 TWA 흐름 문서 제공(`apk/BUILD.md`)
+- 현재 코드 기준: 웹 빌드 안정성 검증 후 로컬 Android 빌드 단계는 사용자 환경에서 수행해야 함
+
+---
+
+## 🗂️ Roadmap 정합성(현재 구현 대비)
+
+- 기존 기획에서 제안한 `Scout → Mark → Coordinate → Recover` 형태는 목표 설계 단계입니다.
+- 현재 public 릴리즈는 위 규칙의 **축소판 커맨드 루프**(`STRIKE/BRACE/DISRUPT/RECOVER`)로 안정화되어 있으며,
+  다음 단계는 `command 모드 상태 머신`(명령 선택→대상 지정→재개)을 코드 경로에 넣어 설계 목표와 1:1 정합성으로 확장하는 것을 준비 단계로 두고 있습니다.
