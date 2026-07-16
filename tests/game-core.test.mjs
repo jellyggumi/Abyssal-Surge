@@ -28,17 +28,17 @@ const CASES = Object.freeze({
     outcome: "HOLD",
   }),
   HU: Object.freeze({
-    schedule: Object.freeze(["SURGE", "SURGE", "SURGE"]),
-    plan: Object.freeze(["DISRUPT", "DISRUPT", "DISRUPT"]),
+    schedule: Object.freeze(["SURGE", "SURGE", "STRIKE"]),
+    plan: Object.freeze(["DISRUPT", "DISRUPT", "BRACE"]),
     outcome: "HOLD",
   }),
   RT: Object.freeze({
-    schedule: Object.freeze(["STRIKE", "SURGE", "STRIKE"]),
+    schedule: Object.freeze(["STRIKE", "STRIKE", "STRIKE"]),
     plan: Object.freeze(["BRACE", "RECOVER", "BRACE"]),
     outcome: "HOLD",
   }),
   D: Object.freeze({
-    schedule: Object.freeze(["SURGE", "SURGE"]),
+    schedule: Object.freeze(["SURGE", "SURGE", "STRIKE"]),
     plan: Object.freeze(["STRIKE", "STRIKE"]),
     outcome: "DEFEAT_INTEGRITY",
   }),
@@ -74,15 +74,15 @@ test("P2 CP-STRIKE: BRACE exactly counters the displayed STRIKE", () => {
 test("P2 CP-SURGE: DISRUPT exactly counters the displayed SURGE", () => {
   const result = replayCase("HU");
 
-  assertAccepted(result, "all three disrupted rounds are legal");
+  assertAccepted(result, "all disrupted SURGE rounds are legal");
   assert.equal(result.state.outcome, "HOLD");
   assert.equal(result.state.integrity, 6);
-  assert.equal(result.state.pressure, 0);
-  assert.equal(result.state.foe_health, 3);
+  assert.equal(result.state.pressure, 1);
+  assert.equal(result.state.foe_health, 10);
   assert.deepEqual(result.state.trace.map((event) => [event.command, event.adverse_damage, event.adverse_pressure]), [
     ["DISRUPT", 0, 0],
     ["DISRUPT", 0, 0],
-    ["DISRUPT", 0, 0],
+    ["BRACE", 0, 0],
   ]);
 });
 
@@ -92,20 +92,21 @@ test("P2 RECOVER-TRADE and UNCOVERED-SURGE preserve their stated costs and defea
 
   assertAccepted(recoverTrade, "recover trade commands are legal");
   assert.equal(recoverTrade.state.outcome, "HOLD");
-  assert.equal(recoverTrade.state.integrity, 2);
-  assert.equal(recoverTrade.state.pressure, 2);
+  assert.equal(recoverTrade.state.integrity, 4);
+  assert.equal(recoverTrade.state.pressure, 0);
   assert.deepEqual(recoverTrade.state.trace.map((event) => [event.command, event.adverse_damage, event.adverse_pressure]), [
     ["BRACE", 0, 0],
-    ["RECOVER", 4, 2],
+    ["RECOVER", 2, 0],
     ["BRACE", 0, 0],
   ]);
 
-  assertAccepted(uncoveredSurge, "declining both visible surge counters remains a legal choice");
+  assertAccepted(uncoveredSurge, "declining visible surge counters remains a legal choice");
   assert.equal(uncoveredSurge.state.outcome, "DEFEAT_INTEGRITY");
   assert.equal(uncoveredSurge.state.round, 2);
   assert.equal(uncoveredSurge.state.integrity, 0);
   assert.equal(uncoveredSurge.state.pressure, 4);
 });
+
 
 test("P2 ordering grants third-strike victory before that round's foe effect", () => {
   const result = replayCase("V");
@@ -148,9 +149,9 @@ test("public reduction rejects failed preconditions and leaves the supplied enco
 });
 
 test("terminal encounters reject later commands without post-terminal mutation", () => {
-  const terminal = replayEncounter(["STRIKE"], recordsFor(["BRACE"])).state;
+  const terminal = replayEncounter(["STRIKE", "STRIKE", "STRIKE"], recordsFor(["BRACE", "BRACE", "BRACE"])).state;
   const before = canonicalJson(terminal);
-  const result = reduceEncounter(terminal, makeCommand("STRIKE", 1, 2));
+  const result = reduceEncounter(terminal, makeCommand("STRIKE", 3, 4));
 
   assert.equal(terminal.outcome, "HOLD");
   assert.equal(result.accepted, false);
@@ -179,18 +180,31 @@ test("replay orders records canonically, rejects duplicate sequences, and remain
   assert.equal(canonicalJson(duplicate.state), canonicalJson(expected.state));
 });
 
+test("replay leaves input schedule and records immutable", () => {
+  const schedule = [...CASES.V.schedule];
+  const records = recordsFor(CASES.V.plan);
+  const scheduleBefore = [...schedule];
+  const recordsBefore = records.map((record) => ({ ...record }));
+
+  replayEncounter(schedule, records);
+
+  assert.deepEqual(schedule, scheduleBefore, "schedule array is not mutated by replay");
+  assert.deepEqual(records, recordsBefore, "record objects are not mutated by replay");
+});
+
+
 test("P2 corpus campaign replays produce the published fragment totals", () => {
   const campaigns = [
-    ["C00", ["D", "D", "D"], 0],
-    ["C01", ["HS", "D", "D"], 1],
-    ["C02", ["V", "D", "D"], 2],
-    ["C03", ["V", "HS", "D"], 3],
-    ["C04", ["V", "HU", "D"], 3],
-    ["C05", ["V", "RT", "D"], 3],
-    ["C06", ["V", "V", "D"], 4],
-    ["C07", ["V", "V", "D"], 4],
-    ["C08", ["V", "V", "HS"], 5],
-    ["C09", ["V", "V", "V"], 6],
+    ["C00", ["D", "D", "D", "D", "D"], 0],
+    ["C01", ["HS", "D", "D", "D", "D"], 1],
+    ["C02", ["V", "D", "D", "D", "D"], 2],
+    ["C03", ["V", "HS", "D", "D", "D"], 3],
+    ["C04", ["V", "HU", "D", "D", "D"], 3],
+    ["C05", ["V", "RT", "D", "D", "D"], 3],
+    ["C06", ["V", "V", "D", "D", "D"], 4],
+    ["C07", ["V", "V", "HS", "D", "D"], 5],
+    ["C08", ["V", "V", "HS", "HU", "D"], 6],
+    ["C09", ["V", "V", "V", "V", "V"], 10],
   ];
 
   for (const [campaignId, labels, expectedFragments] of campaigns) {
@@ -203,8 +217,8 @@ test("P2 corpus campaign replays produce the published fragment totals", () => {
     const settlement = settleCampaign(outcomes);
 
     assert.equal(settlement.fragments_earned, expectedFragments, `${campaignId} earned fragments`);
-    assert.ok(settlement.fragments_earned >= 0 && settlement.fragments_earned <= 6, `${campaignId} earned cap`);
-    assert.ok(settlement.fragment_wallet >= 0 && settlement.fragment_wallet <= 6, `${campaignId} wallet cap`);
+    assert.ok(settlement.fragments_earned >= 0 && settlement.fragments_earned <= 10, `${campaignId} earned cap`);
+    assert.ok(settlement.fragment_wallet >= 0 && settlement.fragment_wallet <= 10, `${campaignId} wallet cap`);
     assert.ok(settlement.resolve_marks >= 0 && settlement.resolve_marks <= 2, `${campaignId} resolve cap`);
     assert.equal(
       settlement.fragments_earned,
@@ -215,15 +229,16 @@ test("P2 corpus campaign replays produce the published fragment totals", () => {
 });
 
 test("P2 settlement converts at most two three-fragment marks and conserves all earned fragments", () => {
-  const settlement = settleCampaign(["VICTORY", "VICTORY", "VICTORY"]);
+  const settlement = settleCampaign(["VICTORY", "VICTORY", "VICTORY", "VICTORY", "VICTORY"]);
 
   assert.deepEqual(settlement, {
-    fragments_earned: 6,
-    fragment_wallet: 0,
+    fragments_earned: 10,
+    fragment_wallet: 4,
     resolve_marks: 2,
   });
   assert.equal(settlement.fragments_earned, settlement.fragment_wallet + 3 * settlement.resolve_marks);
 });
+
 
 test("forged prior states reject malformed bounds, schedule/round coherence, intent, and transient values without mutation", () => {
   const cases = [

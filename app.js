@@ -79,6 +79,7 @@ let fadeInterval = null;
 
 // RTS Engine Variables
 const useRealTime = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
+const COMMAND_SET = new Set(COMMANDS);
 let activeUnits = [];
 let foeCharge = 0;
 let lastTickTime = 0;
@@ -87,6 +88,15 @@ let nextUnitId = 0;
 let isRecovering = false;
 let recoverTimer = 0;
 let lastSecondSave = 0;
+
+// Real-time mode intentionally uses fractional focus regeneration; tolerate floating-point drift.
+const FOCUS_EPSILON = 1e-9;
+function hasSufficientFocus(required = 1) {
+  return Number(encounter?.focus) >= required - FOCUS_EPSILON;
+}
+function canRecoverFocus() {
+  return Number(encounter?.focus) < Number(encounter?.max_focus) - FOCUS_EPSILON;
+}
 
 const DICTIONARY = {
   en: {
@@ -263,6 +273,53 @@ function triggerFx(type) {
 }
 const storage = typeof window !== "undefined" ? window["local" + "Storage"] : undefined;
 
+const TERMINAL_OUTCOMES = new Set(OUTCOMES.filter((outcome) => outcome !== "ACTIVE"));
+
+function percentage(current, maximum) {
+  if (!Number.isSafeInteger(current) || !Number.isSafeInteger(maximum) || maximum <= 0) {
+    return "0%";
+  }
+  return `${Math.max(0, Math.min(1, current / maximum)) * 100}%`;
+}
+
+function normalizeLanguage(value) {
+  return value === "ko" ? "ko" : "en";
+}
+
+function normalizeInteger(value, fallback, minimum = 0, maximum = Number.MAX_SAFE_INTEGER) {
+  return Number.isSafeInteger(value) && value >= minimum && value <= maximum ? value : fallback;
+}
+
+function normalizeFloat(value, fallback, minimum = 0, maximum = 1) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function normalizeOutcomes(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((outcome) => typeof outcome === "string" && TERMINAL_OUTCOMES.has(outcome));
+}
+
+function normalizeRecords(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((record, index) => {
+      if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+      if (!COMMANDS.includes(record.command)) return null;
+      const tick = normalizeInteger(record.tick, index, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+      const sequence = normalizeInteger(record.sequence, index + 1, 1, Number.MAX_SAFE_INTEGER);
+      return makeCommand(record.command, tick, sequence);
+    })
+    .filter(Boolean);
+}
+
+function normalizeEncounterIndex(value) {
+  if (!Number.isSafeInteger(value)) return 0;
+  if (value < 0) return 0;
+  if (value >= CAMPAIGN_SCHEDULES.length) return CAMPAIGN_SCHEDULES.length - 1;
+  return value;
+}
+
 function updateTelemetry() {
   const isPersisted = storage && storage.getItem("abyssal_surge_save") ? "local-storage active" : "verified";
   const logText = `
@@ -301,33 +358,66 @@ function loadGameState() {
   try {
     const data = storage.getItem("abyssal_surge_save");
     if (!data) return false;
+
     const saveState = JSON.parse(data);
-    encounterIndex = saveState.encounterIndex;
-    sequence = saveState.sequence;
-    totalCommandsRun = saveState.totalCommandsRun || 0;
-    outcomes = saveState.outcomes;
-    settlement = saveState.settlement;
-    records = saveState.records;
-    encounter = saveState.encounter;
-    lastMessage = saveState.lastMessage;
-    currentLang = saveState.currentLang || "en";
-    
+    if (!saveState || typeof saveState !== "object") return false;
+
+    encounterIndex = normalizeEncounterIndex(saveState.encounterIndex);
+    totalCommandsRun = normalizeInteger(saveState.totalCommandsRun, 0);
+    outcomes = normalizeOutcomes(saveState.outcomes).slice(0, CAMPAIGN_SCHEDULES.length);
+    records = normalizeRecords(saveState.records);
+    settlement = null;
+
+    const schedule = CAMPAIGN_SCHEDULES[encounterIndex];
+    try {
+      encounter = replayEncounter(schedule, records).state;
+    } catch (err) {
+      console.warn("Failed to replay saved encounter state; using canonical seed state.", err);
+      encounter = initialEncounter(schedule, encounterIndex);
+      records = [];
+      outcomes = [];
+    }
+
+    sequence = records.reduce((maxSequence, record) => Math.max(maxSequence, normalizeInteger(record.sequence, 0, 1)), 0);
+    const savedSequence = normalizeInteger(saveState.sequence, 0, 0);
+    if (savedSequence > sequence) {
+      sequence = savedSequence;
+    } else if (sequence > Number.MAX_SAFE_INTEGER) {
+      sequence = Number.MAX_SAFE_INTEGER;
+    }
+
+    lastMessage = typeof saveState.lastMessage === "string" ? saveState.lastMessage : "Awaiting a semantic command.";
+    currentLang = normalizeLanguage(saveState.currentLang);
+    if (outcomes.length === CAMPAIGN_SCHEDULES.length) {
+      try {
+        settlement = settleCampaign(outcomes);
+      } catch (err) {
+        settlement = null;
+        console.warn("Saved settlement did not validate; cleared settlement state.", err);
+      }
+    } else {
+      settlement = null;
+    }
+
     // Restore volume preferences
-    volumeBgm = typeof saveState.volumeBgm === "number" ? saveState.volumeBgm : 0.5;
-    volumeSfx = typeof saveState.volumeSfx === "number" ? saveState.volumeSfx : 0.8;
-    volumeNarr = typeof saveState.volumeNarr === "number" ? saveState.volumeNarr : 1.0;
+    volumeBgm = normalizeFloat(saveState.volumeBgm, 0.5);
+    volumeSfx = normalizeFloat(saveState.volumeSfx, 0.8);
+    volumeNarr = normalizeFloat(saveState.volumeNarr, 1.0);
     if (dom.bgmVolume) dom.bgmVolume.value = volumeBgm;
     if (dom.sfxVolume) dom.sfxVolume.value = volumeSfx;
     if (dom.narrVolume) dom.narrVolume.value = volumeNarr;
-    
-    showSurface(saveState.surface || "lobby");
+
+    if (encounter.outcome === "ACTIVE") {
+      showSurface("play");
+    } else {
+      showSurface("terminal");
+    }
     return true;
   } catch (err) {
     console.warn("Failed to load game state:", err);
     return false;
   }
 }
-
 function checkSave() {
   if (storage && storage.getItem("abyssal_surge_save")) {
     if (dom.resume) dom.resume.style.display = "inline-block";
@@ -337,8 +427,8 @@ function checkSave() {
 }
 
 function rtsLoop(timestamp) {
+  rAFId = null;
   if (surface !== "play" || encounter.outcome !== "ACTIVE") {
-    rAFId = null;
     return;
   }
   
@@ -639,6 +729,24 @@ function counterCopy(state) {
 
 function commandAvailable(command) {
   if (surface !== "play" || encounter.outcome !== "ACTIVE") return false;
+
+  if (useRealTime) {
+    if (!COMMAND_SET.has(command)) return false;
+
+    // In RTS mode, we intentionally allow actions from fractional focus values
+    // produced by continuous recovery and avoid reducer parity checks that require
+    // turn-based integer ticks.
+    if (command === "STRIKE" || command === "BRACE" || command === "DISRUPT") {
+      if (!hasSufficientFocus()) return false;
+      if (command === "DISRUPT" && encounter.foe_intent !== "SURGE") return false;
+      return true;
+    }
+    if (command === "RECOVER") {
+      return canRecoverFocus();
+    }
+    return false;
+  }
+
   const preview = reduceEncounter(encounter, makeCommand(command, encounter.round, sequence + 1));
   return preview.accepted;
 }
@@ -654,13 +762,13 @@ function terminalCopy(outcome) {
 
 function recordCommand(command) {
   if (!COMMANDS.includes(command)) return;
-  
+
   if (useRealTime) {
     if (encounter.outcome !== "ACTIVE") return;
-    
+
     // Custom RTS logic: check if player has enough Focus
     if (command === "STRIKE") {
-      if (encounter.focus < 1) {
+      if (!hasSufficientFocus()) {
         lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
         play("defeat"); // warning buzz
         render();
@@ -669,7 +777,7 @@ function recordCommand(command) {
       encounter.focus -= 1;
       spawnUnit("STRIKE");
     } else if (command === "BRACE") {
-      if (encounter.focus < 1) {
+      if (!hasSufficientFocus()) {
         lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
         play("defeat");
         render();
@@ -678,7 +786,7 @@ function recordCommand(command) {
       encounter.focus -= 1;
       spawnUnit("BRACE");
     } else if (command === "DISRUPT") {
-      if (encounter.focus < 1) {
+      if (!hasSufficientFocus()) {
         lastMessage = currentLang === "ko" ? "정신력이 부족합니다! (Focus < 1)" : "Insufficient Focus! (Focus < 1)";
         play("defeat");
         render();
@@ -709,7 +817,7 @@ function recordCommand(command) {
         return;
       }
     } else if (command === "RECOVER") {
-      if (encounter.focus >= encounter.max_focus) {
+      if (!canRecoverFocus()) {
         lastMessage = currentLang === "ko" ? "정신력이 이미 가득 찼습니다!" : "Focus is already full!";
         render();
         return;
@@ -718,8 +826,10 @@ function recordCommand(command) {
       recoverTimer = 1.0; // 1 second recovery channel
       play("recover");
       triggerFx("RECOVER");
+    } else {
+      return;
     }
-    
+
     totalCommandsRun++;
     // Log the input with the current elapsed foeCharge/round ticks for deterministic replay!
     const record = makeCommand(command, encounter.round, ++sequence);
@@ -729,11 +839,11 @@ function recordCommand(command) {
     saveGameState();
     return;
   }
-  
+
   // Turn-based fallback
   if (!commandAvailable(command)) return;
   totalCommandsRun++;
-  
+
   // Play SFX & Visual FX
   play(command.toLowerCase());
   triggerFx(command);
@@ -788,15 +898,18 @@ function recordCommand(command) {
   render();
   saveGameState();
 }
+  
 
 function finishEncounter() {
   const replayCheck = validateDeterministicReplay(encounter.schedule, records);
   outcomes.push(encounter.outcome);
+  const resolvedEncounterCount = outcomes.length;
   const award = awardFor(encounter.outcome);
   if (outcomes.length === CAMPAIGN_SCHEDULES.length) settlement = settleCampaign(outcomes);
+  const encounterLabel = `${resolvedEncounterCount} encounter record${resolvedEncounterCount === 1 ? "" : "s"}`;
   dom.terminalSummary.textContent = `${terminalCopy(encounter.outcome)} Award: ${award} fragment${award === 1 ? "" : "s"}. Replay check: ${replayCheck.matches ? "deterministic." : "mismatch."}`;
   dom.settlement.textContent = settlement
-    ? `Three encounter records settled locally: ${settlement.fragments_earned} fragments earned, ${settlement.fragment_wallet} in wallet after settlement, ${settlement.resolve_marks} resolve marks. Nothing persists after a reload.`
+    ? `${encounterLabel} settled locally: ${settlement.fragments_earned} fragments earned, ${settlement.fragment_wallet} in wallet after settlement, ${settlement.resolve_marks} resolve marks. Nothing persists after a reload.`
     : `This is encounter ${outcomes.length} of ${CAMPAIGN_SCHEDULES.length}; the terminal record is ready for the next local encounter.`;
   dom.continue.hidden = Boolean(settlement);
   showSurface("terminal");
@@ -843,25 +956,36 @@ function render() {
     window.surface = surface;
     window.encounter = encounter;
     window.activeUnits = activeUnits;
+    window.rAFId = rAFId;
+    window.lastTickTime = lastTickTime;
+    window.foeCharge = foeCharge;
+    window.useRealTime = useRealTime;
+    window.isRecovering = isRecovering;
+    window.recoverTimer = recoverTimer;
   }
   const titles = STAGE_TITLES_LOCALIZED[currentLang] || STAGE_TITLES_LOCALIZED.en;
   const stageTitle = titles[encounterIndex] || `Encounter ${encounterIndex + 1}`;
+  const maxIntegrity = normalizeInteger(encounter.max_integrity, 6, 0);
+  const maxFocus = normalizeInteger(encounter.max_focus, 3, 0);
+  const maxGuard = 2;
+  const maxPressure = normalizeInteger(encounter.max_pressure, 4, 0);
+  const maxFoeHealth = normalizeInteger(encounter.max_foe_health, 6, 0);
   dom.campaign.textContent = `${encounterIndex + 1} / ${CAMPAIGN_SCHEDULES.length} — ${stageTitle}`;
   dom.ruleVersion.textContent = RULES_VERSION;
   dom.intent.textContent = encounter.foe_intent;
   dom.counter.textContent = counterCopy(encounter);
-  dom.integrity.textContent = `${encounter.integrity} / 6`;
-  dom.focusValue.textContent = `${encounter.focus} / 3`;
-  dom.guard.textContent = `${encounter.guard} / 2`;
-  dom.pressure.textContent = `${encounter.pressure} / 4`;
-  dom.foeHealth.textContent = `${encounter.foe_health} / 6`;
+  dom.integrity.textContent = `${encounter.integrity} / ${maxIntegrity}`;
+  dom.focusValue.textContent = `${encounter.focus} / ${maxFocus}`;
+  dom.guard.textContent = `${encounter.guard} / ${maxGuard}`;
+  dom.pressure.textContent = `${encounter.pressure} / ${maxPressure}`;
+  dom.foeHealth.textContent = `${encounter.foe_health} / ${maxFoeHealth}`;
 
   // Update progress bars (defensive checks to support test environments)
-  if (dom.integrityBar) dom.integrityBar.style.width = `${(encounter.integrity / 6) * 100}%`;
-  if (dom.focusBar) dom.focusBar.style.width = `${(encounter.focus / 3) * 100}%`;
-  if (dom.guardBar) dom.guardBar.style.width = `${(encounter.guard / 2) * 100}%`;
-  if (dom.pressureBar) dom.pressureBar.style.width = `${(encounter.pressure / 4) * 100}%`;
-  if (dom.foeHealthBar) dom.foeHealthBar.style.width = `${(encounter.foe_health / 6) * 100}%`;
+  if (dom.integrityBar) dom.integrityBar.style.width = percentage(encounter.integrity, maxIntegrity);
+  if (dom.focusBar) dom.focusBar.style.width = percentage(encounter.focus, maxFocus);
+  if (dom.guardBar) dom.guardBar.style.width = percentage(encounter.guard, maxGuard);
+  if (dom.pressureBar) dom.pressureBar.style.width = percentage(encounter.pressure, maxPressure);
+  if (dom.foeHealthBar) dom.foeHealthBar.style.width = percentage(encounter.foe_health, maxFoeHealth);
 
   // Update Foe active intent visual alerts
   if (dom.voidAvatar && dom.voidAvatar.classList) {
@@ -877,6 +1001,11 @@ function render() {
       dom.voidAvatar.classList.remove("surge-alert");
       dom.voidAvatar.classList.remove("strike-vibe");
     }
+  }
+  if (typeof window !== "undefined") {
+    window.surface = surface;
+    window.encounter = encounter;
+    window.activeUnits = activeUnits;
   }
 
   // Foe Charge Bar rendering

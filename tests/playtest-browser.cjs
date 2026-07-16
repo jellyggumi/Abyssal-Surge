@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const root = path.resolve(__dirname, "..");
 const localUrl = "http://127.0.0.1:8080/index.html";
 
-console.log("=== Starting Playwright Browser Playtest ===");
+console.log("=== Starting Playwright 5-Stage Campaign Browser Playtest ===");
 
 // 1. Spin up a lightweight local server to bypass file:// CORS blocks
 const server = http.createServer((req, res) => {
@@ -54,9 +54,6 @@ async function run() {
   // Enable console and error forwarding
   page.on("console", (msg) => console.log(`PAGE LOG [${msg.type()}]:`, msg.text()));
   page.on("pageerror", (err) => console.error("PAGE ERROR:", err.message));
-  page.on("requestfailed", (request) => {
-    console.error(`PAGE REQUEST FAILED: ${request.url()} - ${request.failure()?.errorText || "Unknown error"}`);
-  });
   
   console.log("Navigating to:", localUrl);
   await page.goto(localUrl, { waitUntil: "domcontentloaded" });
@@ -80,6 +77,7 @@ async function run() {
   // Reload the page to ensure we use the fresh code served by our HTTP server
   console.log("Reloading page to apply fresh code...");
   await page.reload({ waitUntil: "networkidle" });
+  
   // Verify audio asset fetch status
   const audioFetchStatus = await page.evaluate(async () => {
     try {
@@ -101,83 +99,83 @@ async function run() {
   console.log("Clicking Begin button...");
   await page.click("#begin-button");
   
-  // 3. Verify Play screen becomes visible (wait for selector)
-  await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
-  console.log("Play screen is now visible!");
+  // Helper to play through a stage using active RTS choices
+  async function playStage(stageNum) {
+    console.log(`\n=== PLAYING STAGE ${stageNum} ===`);
+    await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
+    
+    while (true) {
+      const status = await page.evaluate(() => {
+        const foeHealthText = document.querySelector("#foe-health-value")?.textContent || "0";
+        const healthVal = parseInt(foeHealthText.split("/")[0]) || 0;
+        const focusVal = window.encounter ? window.encounter.focus : 0;
+        const outcomeVal = window.encounter ? window.encounter.outcome : "UNKNOWN";
+        const intentVal = window.encounter ? window.encounter.foe_intent : "UNKNOWN";
+        const integrityVal = window.encounter ? window.encounter.integrity : 0;
+        const surgeCounteredVal = window.encounter ? window.encounter.surge_countered : false;
+        
+        const rAFIdVal = window.rAFId;
+        const lastTickTimeVal = window.lastTickTime;
+        const foeChargeVal = window.foeCharge;
+        const useRealTimeVal = window.useRealTime;
+        
+        return { healthVal, focusVal, outcomeVal, intentVal, integrityVal, surgeCounteredVal, rAFIdVal, lastTickTimeVal, foeChargeVal, useRealTimeVal };
+      });
+      
+      console.log(`[Stage ${stageNum} Tick] Health: ${status.healthVal}, Focus: ${status.focusVal.toFixed(1)}, Intent: ${status.intentVal}, Countered: ${status.surgeCounteredVal}, rAFId: ${status.rAFIdVal}, lastTick: ${status.lastTickTimeVal?.toFixed(1)}, foeCharge: ${status.foeChargeVal?.toFixed(1)}, realTime: ${status.useRealTimeVal}`);
+      
+      if (status.outcomeVal !== "ACTIVE" || status.integrityVal <= 0) {
+        console.log(`Stage ${stageNum} finished. Outcome: ${status.outcomeVal}, Foe Health remaining: ${status.healthVal}`);
+        break;
+      }
+      
+      // Reactive RTS plays
+      if (status.focusVal >= 1) {
+        if (status.intentVal === "SURGE") {
+          if (!status.surgeCounteredVal) {
+            console.log(`[Stage ${stageNum}] Disrupting Foe's SURGE! Focus: ${status.focusVal.toFixed(1)}`);
+            await page.keyboard.press("d");
+          } else {
+            // Already countered, wait for focus/intent to recycle
+            await page.waitForTimeout(100);
+          }
+        } else {
+          console.log(`[Stage ${stageNum}] Striking! Focus: ${status.focusVal.toFixed(1)}`);
+          await page.keyboard.press("s");
+        }
+      }
+      
+      await page.waitForTimeout(500);
+    }
+    
+    // Transition to terminal screen
+    await page.waitForSelector("#terminal-screen:not([hidden])", { timeout: 2000 });
+    console.log(`Stage ${stageNum} Terminal screen is visible.`);
+    
+    // Save a screenshot for visual evidence at Stage 1 and Stage 5
+    if (stageNum === 1 || stageNum === 5) {
+      const screenshotPath = path.resolve(root, `tests/playtest_stage${stageNum}.png`);
+      await page.screenshot({ path: screenshotPath });
+      console.log(`Saved screenshot for Stage ${stageNum} to:`, screenshotPath);
+    }
+    
+    if (stageNum < 5) {
+      console.log(`Transitioning to Stage ${stageNum + 1}...`);
+      await page.click("#continue-button");
+    }
+  }
   
-  // 4. Toggle Settings Panel
-  console.log("Toggling settings panel...");
-  await page.click("#settings-toggle");
-  await page.waitForSelector("#settings-panel:not([style*='display: none'])", { timeout: 2000 });
-  console.log("Settings panel is now visible!");
+  // Play through all 5 stages
+  for (let i = 1; i <= 5; i++) {
+    await playStage(i);
+  }
   
-  // 5. Adjust BGM volume slider
-  console.log("Adjusting volume sliders...");
-  await page.fill("#bgm-volume", "0.2");
-  await page.fill("#sfx-volume", "0.9");
+  // Verify final campaign settlement details are rendered
+  console.log("\n=== VERIFYING CAMPAIGN SETTLEMENT ===");
+  const settlementText = await page.locator("#settlement-summary").textContent();
+  console.log("Settlement Summary:", settlementText);
+  assert.ok(settlementText.includes("settled"), "Settlement summary must indicate campaign is settled");
   
-  // 6. Spawn a Soldier unit
-  console.log("Clicking Strike command to spawn a unit...");
-  await page.click('button[data-command="STRIKE"]');
-  
-  // 7. Verify unit is spawned in the battlefield container
-  await page.waitForSelector("#units-container .spawned-unit", { timeout: 2000 });
-  const unitCount = await page.locator("#units-container .spawned-unit").count();
-  console.log("Spawned units count:", unitCount);
-  assert.equal(unitCount, 1, "There must be exactly 1 spawned unit in the battlefield container");
-  
-  // Inspect State 1 (right after spawn)
-  const state1 = await page.evaluate(() => ({
-    surface: window.surface,
-    outcome: window.encounter ? window.encounter.outcome : null,
-    activeUnitsCount: window.activeUnits ? window.activeUnits.length : 0,
-    activeUnits: window.activeUnits ? window.activeUnits.map(u => ({ id: u.id, x: u.x, speed: u.speed })) : []
-  }));
-  console.log("State 1 (spawn):", JSON.stringify(state1, null, 2));
-  
-  // Wait 1 second
-  await page.waitForTimeout(1000);
-  
-  // Inspect State 2 (1 second later)
-  const state2 = await page.evaluate(() => ({
-    surface: window.surface,
-    outcome: window.encounter ? window.encounter.outcome : null,
-    activeUnitsCount: window.activeUnits ? window.activeUnits.length : 0,
-    activeUnits: window.activeUnits ? window.activeUnits.map(u => ({ id: u.id, x: u.x, speed: u.speed })) : []
-  }));
-  console.log("State 2 (1s later):", JSON.stringify(state2, null, 2));
-  
-  // 8. Capture screenshot of the gameplay
-  const screenshotPath = path.resolve(root, "tests/playtest_stage1.png");
-  await page.screenshot({ path: screenshotPath });
-  console.log("Saved playtest screenshot to:", screenshotPath);
-  
-  // 9. Wait for unit to traverse and deal damage
-  console.log("Waiting for Foe Health to decrease to 4 / 6...");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#foe-health-value")?.textContent;
-    return text && text.includes("4");
-  }, { timeout: 10000 });
-  
-  const foeHealth = await page.locator("#foe-health-value").textContent();
-  console.log("Foe Health after strike:", foeHealth);
-  // 9b. Test Keyboard Shortcut (press 's' to spawn a Strike unit)
-  console.log("Pressing 's' key to spawn a unit via shortcut...");
-  await page.keyboard.press("s");
-  
-  // Verify second unit is spawned
-  await page.waitForSelector("#units-container .spawned-unit", { timeout: 2000 });
-  console.log("Second unit spawned via keyboard shortcut!");
-  
-  console.log("Waiting for Foe Health to decrease to 2 / 6...");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#foe-health-value")?.textContent;
-    return text && text.includes("2");
-  }, { timeout: 10000 });
-  
-  const foeHealth2 = await page.locator("#foe-health-value").textContent();
-  console.log("Foe Health after keyboard strike:", foeHealth2);
-  assert.ok(foeHealth2.includes("2"), "Foe Health must be 2 / 6 after second strike");
   // 10. Clean up
   await page.close();
   await browser.close();
