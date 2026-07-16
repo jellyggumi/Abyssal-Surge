@@ -99,10 +99,24 @@ async function run() {
   console.log("Clicking Begin button...");
   await page.click("#begin-button");
   
+  // Cycle 006 cross-stage evidence flags
+  let sawHostileTelegraph = false;
+  let disruptCounterVerified = false;
+
   // Helper to play through a stage using active RTS choices
   async function playStage(stageNum) {
     console.log(`\n=== PLAYING STAGE ${stageNum} ===`);
     await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
+
+    // DET6-TITLE: world-bible encounter naming (Stage 1 only)
+    if (stageNum === 1) {
+      const campaignTitle = await page.locator("#campaign-value").textContent();
+      console.log("[Stage 1] Campaign title:", campaignTitle);
+      assert.ok(
+        campaignTitle.includes("The Bell Beneath Blackwater"),
+        `Encounter 1 must surface the world-bible beat name (got "${campaignTitle}")`
+      );
+    }
     // Verify avatar images loaded successfully
     const avatarsLoaded = await page.evaluate(() => {
       const knightImg = document.querySelector("#knight-avatar img");
@@ -166,16 +180,27 @@ async function run() {
         const intentVal = window.encounter ? window.encounter.foe_intent : "UNKNOWN";
         const integrityVal = window.encounter ? window.encounter.integrity : 0;
         const surgeCounteredVal = window.encounter ? window.encounter.surge_countered : false;
+        const units = window.activeUnits || [];
+        const hostileCount = units.filter((u) => u.hostile).length;
+        const disruptCount = units.filter((u) => u.type === "DISRUPT").length;
         
         const rAFIdVal = window.rAFId;
         const lastTickTimeVal = window.lastTickTime;
         const foeChargeVal = window.foeCharge;
         const useRealTimeVal = window.useRealTime;
         
-        return { healthVal, focusVal, outcomeVal, intentVal, integrityVal, surgeCounteredVal, rAFIdVal, lastTickTimeVal, foeChargeVal, useRealTimeVal };
+        return { healthVal, focusVal, outcomeVal, intentVal, integrityVal, surgeCounteredVal, rAFIdVal, lastTickTimeVal, foeChargeVal, useRealTimeVal, hostileCount, disruptCount };
       });
       
       console.log(`[Stage ${stageNum} Tick] Health: ${status.healthVal}, Focus: ${status.focusVal.toFixed(1)}, Intent: ${status.intentVal}, Countered: ${status.surgeCounteredVal}, rAFId: ${status.rAFIdVal}, lastTick: ${status.lastTickTimeVal?.toFixed(1)}, foeCharge: ${status.foeChargeVal?.toFixed(1)}, realTime: ${status.useRealTimeVal}`);
+
+      // DET6-FOE: hostile telegraph must be visible DURING an active charge cycle
+      if (status.outcomeVal === "ACTIVE" && status.hostileCount > 0) {
+        if (!sawHostileTelegraph) {
+          console.log(`[Stage ${stageNum}] Hostile telegraph observed: ${status.hostileCount} void spawn(s) inbound during charge (foeCharge=${status.foeChargeVal?.toFixed(1)})`);
+        }
+        sawHostileTelegraph = true;
+      }
       
       if (status.outcomeVal !== "ACTIVE" || status.integrityVal <= 0) {
         console.log(`Stage ${stageNum} finished. Outcome: ${status.outcomeVal}, Foe Health remaining: ${status.healthVal}`);
@@ -188,6 +213,25 @@ async function run() {
           if (!status.surgeCounteredVal) {
             console.log(`[Stage ${stageNum}] Disrupting Foe's SURGE! Focus: ${status.focusVal.toFixed(1)}`);
             await page.keyboard.press("d");
+            // DET6-UNIT/FOE: verify counter response once, early in a charge cycle
+            // (avoids racing the next telegraph wave spawned at charge wrap)
+            if (!disruptCounterVerified && typeof status.foeChargeVal === "number" && status.foeChargeVal < 2) {
+              await page.waitForTimeout(400);
+              const counter = await page.evaluate(() => {
+                const units = window.activeUnits || [];
+                return {
+                  countered: window.encounter ? window.encounter.surge_countered : false,
+                  hostiles: units.filter((u) => u.hostile).length,
+                  disruptors: units.filter((u) => u.type === "DISRUPT").length
+                };
+              });
+              console.log(`[Stage ${stageNum}] DISRUPT counter response:`, JSON.stringify(counter));
+              if (counter.countered) {
+                assert.equal(counter.hostiles, 0, "Successful DISRUPT counter must dispel the hostile telegraph wave");
+                assert.ok(counter.disruptors >= 1, "DISRUPT must field an Arcane Disruptor lane unit");
+                disruptCounterVerified = true;
+              }
+            }
           } else {
             // Already countered, wait for focus/intent to recycle
             await page.waitForTimeout(100);
@@ -222,6 +266,11 @@ async function run() {
   for (let i = 1; i <= 5; i++) {
     await playStage(i);
   }
+
+  // Cycle 006 campaign-level evidence
+  assert.equal(sawHostileTelegraph, true, "Hostile void-spawn telegraph must be observed during at least one active charge cycle");
+  assert.equal(disruptCounterVerified, true, "At least one DISRUPT counter must dispel the telegraph wave and field an Arcane Disruptor");
+  console.log("Cycle 006 evidence: hostile telegraph observed and DISRUPT counter dispel verified.");
   
   // Verify final campaign settlement details are rendered
   console.log("\n=== VERIFYING CAMPAIGN SETTLEMENT ===");

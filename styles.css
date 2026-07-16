@@ -370,3 +370,40 @@ button:focus-visible, a:focus-visible {
   filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.6));
 }
 
+/* DET6-UNIT: Arcane Disruptor lane unit (violet) */
+.unit-disruptor {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4), inset 0 0 8px rgba(168, 85, 247, 0.3);
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.6));
+}
+
+/* DET6-FOE: hostile Void Spawn telegraph unit (red-violet) */
+.unit-voidspawn {
+  background: rgba(190, 24, 93, 0.2);
+  border-color: #be185d;
+  box-shadow: 0 0 10px rgba(190, 24, 93, 0.45), inset 0 0 8px rgba(190, 24, 93, 0.3);
+  filter: drop-shadow(0 0 4px rgba(190, 24, 93, 0.7));
+}
+
+/* DET6-FOE (rev): counter landed — telegraph wave dissolves. Element is removed
+   by JS ~300ms after the class lands; the global prefers-reduced-motion rule
+   collapses the animation to its end state instantly. */
+.unit-dispel {
+  animation: unit-dispel-anim 0.3s ease-out forwards;
+}
+@keyframes unit-dispel-anim {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); filter: blur(2px); }
+}
+
+/* DET6-UNIT: RECOVER base heal pulse — transient emerald aura on the knight
+   avatar (~800ms, class removed by JS timeout; reduced-motion collapses it). */
+.recover-pulse {
+  animation: recover-pulse-anim 0.8s ease-out;
+}
+@keyframes recover-pulse-anim {
+  0% { filter: brightness(1) drop-shadow(0 0 0 rgba(16, 185, 129, 0)); }
+  35% { filter: brightness(1.5) drop-shadow(0 0 22px rgba(16, 185, 129, 0.9)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0 rgba(16, 185, 129, 0)); }
+}

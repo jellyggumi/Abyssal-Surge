@@ -69,6 +69,8 @@ const dom = {
   monitorActiveCount: document.querySelector("#monitor-active-count"),
   monitorPlaceholder: document.querySelector("#monitor-placeholder"),
   monitorListContainer: document.querySelector("#monitor-list-container"),
+  monitorHostileLabel: document.querySelector("#monitor-hostile-label"),
+  monitorHostileCount: document.querySelector("#monitor-hostile-count"),
 };
 
 let surface = "lobby";
@@ -192,6 +194,13 @@ const DICTIONARY = {
     fragmentSingular: "fragment",
     fragmentPlural: "fragments",
     laneClickHint: "Click lane: STRIKE at position",
+    unitStrike: "Knight Vanguard",
+    unitBrace: "Iron Bulwark",
+    unitDisrupt: "Arcane Disruptor",
+    unitVoidspawn: "Void Spawn",
+    hostileLabel: "Hostile: ",
+    unitTraversing: "TRAVERSING",
+    unitHostileAction: "INBOUND",
   },
   ko: {
     lobbyTitle: "1단계 커맨드 인카운터",
@@ -237,6 +246,13 @@ const DICTIONARY = {
     fragmentSingular: "파편",
     fragmentPlural: "파편",
     laneClickHint: "전장 클릭: 해당 위치에서 공격 (STRIKE)",
+    unitStrike: "성기사 전위병",
+    unitBrace: "강철 방벽병",
+    unitDisrupt: "비전 교란자",
+    unitVoidspawn: "심연 스폰",
+    hostileLabel: "적대 신호: ",
+    unitTraversing: "진격중",
+    unitHostileAction: "접근중",
   },
 };
 const COMMAND_LABELS = {
@@ -726,6 +742,10 @@ function rtsLoop(timestamp) {
     // Advance Foe round / intent schedule
     encounter.round = (encounter.round + 1) % encounter.schedule.length;
     encounter.foe_intent = encounter.schedule[encounter.round];
+
+    // DET6-FOE (rev): the NEXT charge cycle begins now — telegraph it with a
+    // fresh hostile wave. spawnHostileWave clears any edge survivors first.
+    spawnHostileWave();
   }
 
   // 2. Player Focus regeneration
@@ -741,10 +761,26 @@ function rtsLoop(timestamp) {
   encounter.focus = Math.min(encounter.max_focus, encounter.focus + regenRate * dt);
 
   // 3. Move and Update Deployed Units
+  // Friendly units (direction +1) march right and resolve at the foe base;
+  // hostile units (direction -1) march left and despawn at the player edge.
+  // Hostile arrival is purely visual — no encounter state is touched.
   const nextUnits = [];
   for (const unit of activeUnits) {
-    unit.x += unit.speed * dt;
-    if (unit.x >= 100) {
+    const direction = unit.direction === -1 ? -1 : 1;
+    unit.x += unit.speed * dt * direction;
+    if (direction === -1) {
+      if (unit.x <= 0) {
+        // Hostile reached the player edge: remove the element, drop the unit.
+        if (unit.element && unit.element.parentNode) {
+          unit.element.parentNode.removeChild(unit.element);
+        }
+      } else {
+        if (unit.element) {
+          unit.element.style.left = `${unit.x}%`;
+        }
+        nextUnits.push(unit);
+      }
+    } else if (unit.x >= 100) {
       // Unit reached Foe base! Strike!
       if (unit.type === "STRIKE") {
         encounter.foe_health = Math.max(0, encounter.foe_health - 2);
@@ -762,12 +798,12 @@ function rtsLoop(timestamp) {
         encounter.guard = Math.min(2, encounter.guard + 2);
         play("brace");
       }
-      
+
       // Remove element from DOM
       if (unit.element && unit.element.parentNode) {
         unit.element.parentNode.removeChild(unit.element);
       }
-      
+
       if (encounter.foe_health <= 0) {
         encounter.outcome = "VICTORY";
         finishEncounter();
@@ -799,32 +835,79 @@ function rtsLoop(timestamp) {
 const UNIT_SPRITE_SOURCES = {
   STRIKE: "assets/images/unit_strike.png",
   BRACE: "assets/images/unit_brace.png",
+  DISRUPT: "assets/images/unit_disrupt.png",
+  VOIDSPAWN: "assets/images/unit_voidspawn.png",
 };
 
 const UNIT_SVG_FALLBACKS = {
   STRIKE: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #ef4444; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`,
   BRACE: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #3b82f6; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`,
+  DISRUPT: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #a855f7; filter: drop-shadow(0 0 2px rgba(168, 85, 247, 0.8));"><path d="M12 2l1.8 4.6 4.9.4-3.7 3.2 1.1 4.8L12 12.4 7.9 15l1.1-4.8-3.7-3.2 4.9-.4L12 2zm0 14a3 3 0 0 1 3 3c0 1.7-1.3 3-3 3s-3-1.3-3-3a3 3 0 0 1 3-3z" /></svg>`,
+  VOIDSPAWN: `<svg viewBox="0 0 24 24" width="22" height="22" style="fill: #7c3aed; filter: drop-shadow(0 0 2px rgba(124, 58, 237, 0.8));"><path d="M12 2c4.4 0 8 3.1 8 7 0 2.2-1.2 4-2.6 5.4.9 1.6 2.2 2.6 2.2 2.6s-2.1.4-4-.8c-.5 1.7.4 3.8.4 3.8s-2.4-.7-3.4-2.8c-.2 0-.4 0-.6 0s-.4 0-.6 0c-1 2.1-3.4 2.8-3.4 2.8s.9-2.1.4-3.8c-1.9 1.2-4 .8-4 .8s1.3-1 2.2-2.6C4.2 13 4 11.2 4 9c0-3.9 3.6-7 8-7zm-3 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" /></svg>`,
 };
 
-function spawnUnit(type) {
-  // Consume the one-shot click origin even if rendering is unavailable,
-  // so a stale value never bleeds into a later spawn.
-  const originPct = Number.isFinite(pendingSpawnOriginPct)
-    ? Math.min(20, Math.max(0, pendingSpawnOriginPct))
-    : 0;
-  pendingSpawnOriginPct = null;
+// DET6-UNIT/FOE: presentation-only per-type tuning. Hostile spawns visualize
+// the deterministic foe-charge telegraph — they never mutate encounter state.
+const UNIT_SPEED_MULTIPLIERS = {
+  DISRUPT: 1.15,
+};
+
+const UNIT_LANE_CLASSES = {
+  STRIKE: "unit-soldier",
+  BRACE: "unit-shield",
+  DISRUPT: "unit-disruptor",
+  VOIDSPAWN: "unit-voidspawn",
+};
+
+const UNIT_SPRITE_FILTERS = {
+  STRIKE: "rgba(239, 68, 68, 0.8)",
+  BRACE: "rgba(59, 130, 246, 0.8)",
+  DISRUPT: "rgba(168, 85, 247, 0.8)",
+  VOIDSPAWN: "rgba(190, 24, 93, 0.8)",
+};
+
+// DET6-UNIT: tactical-monitor card theming per unit kind (spawn-time only —
+// the per-frame in-place update path never re-reads these).
+const UNIT_MONITOR_THEMES = {
+  STRIKE: { color: "#ef4444", border: "rgba(239, 68, 68, 0.3)", inset: "rgba(239, 68, 68, 0.05)", glow: "rgba(239,68,68,0.4)" },
+  BRACE: { color: "#3b82f6", border: "rgba(59, 130, 246, 0.3)", inset: "rgba(59, 130, 246, 0.05)", glow: "rgba(59,130,246,0.4)" },
+  DISRUPT: { color: "#a855f7", border: "rgba(168, 85, 247, 0.3)", inset: "rgba(168, 85, 247, 0.05)", glow: "rgba(168,85,247,0.4)" },
+  VOIDSPAWN: { color: "#be185d", border: "rgba(190, 24, 93, 0.35)", inset: "rgba(190, 24, 93, 0.06)", glow: "rgba(190,24,93,0.45)" },
+};
+
+const UNIT_MONITOR_NAME_KEYS = {
+  STRIKE: "unitStrike",
+  BRACE: "unitBrace",
+  DISRUPT: "unitDisrupt",
+  VOIDSPAWN: "unitVoidspawn",
+};
+
+function spawnUnit(type, { hostile = false, startX = null, speed = null } = {}) {
+  let originPct;
+  if (hostile) {
+    // Hostile spawns enter at the lane's right edge (or a caller-provided
+    // stagger offset) and never consume the one-shot click origin.
+    originPct = Number.isFinite(startX) ? Math.min(100, Math.max(0, startX)) : 100;
+  } else {
+    // Consume the one-shot click origin even if rendering is unavailable,
+    // so a stale value never bleeds into a later spawn.
+    originPct = Number.isFinite(pendingSpawnOriginPct)
+      ? Math.min(20, Math.max(0, pendingSpawnOriginPct))
+      : 0;
+    pendingSpawnOriginPct = null;
+  }
   if (!dom.unitsContainer) return;
   const unitId = ++nextUnitId;
   const element = document.createElement("div");
-  element.className = `spawned-unit ${type === "STRIKE" ? "unit-soldier" : "unit-shield"}`;
+  element.className = `spawned-unit ${UNIT_LANE_CLASSES[type] || "unit-soldier"}`;
   element.style.left = `${originPct}%`;
 
   const sprite = document.createElement("img");
   sprite.src = UNIT_SPRITE_SOURCES[type] || UNIT_SPRITE_SOURCES.STRIKE;
   sprite.alt = "";
-  sprite.style.cssText = type === "STRIKE"
-    ? "width: 24px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.8));"
-    : "width: 24px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.8));";
+  // object-fit: contain keeps non-portrait sheets (voidspawn is 256x256 square)
+  // undistorted inside the fixed lane footprint.
+  sprite.style.cssText = `width: 24px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 2px ${UNIT_SPRITE_FILTERS[type] || UNIT_SPRITE_FILTERS.STRIKE});`;
   sprite.onerror = () => {
     // Sprite missing or failed to decode: fall back to the inline SVG silhouette.
     element.innerHTML = UNIT_SVG_FALLBACKS[type] || UNIT_SVG_FALLBACKS.STRIKE;
@@ -836,24 +919,65 @@ function spawnUnit(type) {
     id: unitId,
     type: type,
     x: originPct,
-    speed: stageRtPreset().unitSpeed,
+    speed: Number.isFinite(speed) ? speed : stageRtPreset().unitSpeed * (UNIT_SPEED_MULTIPLIERS[type] || 1),
+    direction: hostile ? -1 : 1,
+    hostile: hostile,
     element: element
   });
 }
+
+// DET6-FOE (rev): remove every live hostile from the lane. With { dispel: true }
+// the element plays a brief scale/fade-out (`unit-dispel`, ~300ms, reduced-motion
+// aware via the global media query) before removal; otherwise removal is instant.
+// Purely cosmetic — activeUnits bookkeeping only, no encounter state touched.
+function removeHostileUnits({ dispel = false } = {}) {
+  const survivors = [];
+  for (const unit of activeUnits) {
+    if (!unit.hostile) {
+      survivors.push(unit);
+      continue;
+    }
+    const element = unit.element;
+    if (!element) continue;
+    if (dispel && element.classList) {
+      element.classList.add("unit-dispel");
+      setTimeout(() => {
+        if (element.parentNode) element.parentNode.removeChild(element);
+      }, 300);
+    } else if (element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+  }
+  activeUnits = survivors;
+}
+
+// DET6-FOE (rev): a foe charge cycle just began — telegraph it. The wave marches
+// from x=100 toward the player at 100 / foeCooldown %/s so arrival coincides with
+// the attack firing. Edge survivors of the previous cycle are cleared first.
+function spawnHostileWave() {
+  if (!dom.unitsContainer) return;
+  removeHostileUnits();
+  const preset = stageRtPreset();
+  const telegraphSpeed = 100 / preset.foeCooldown;
+  const hostileCount = encounterIndex <= 1 ? 1 : encounterIndex <= 3 ? 2 : 3;
+  for (let i = 0; i < hostileCount; i += 1) {
+    spawnUnit("VOIDSPAWN", { hostile: true, startX: 100 - i * 3, speed: telegraphSpeed });
+  }
+}
 const STAGE_TITLES_LOCALIZED = {
   en: [
-    "Stage 1: Immediate Pressure",
-    "Stage 2: Continuing Obligation",
-    "Stage 3: Boundless Consequence",
-    "Stage 4: Competing Responsibility",
-    "Stage 5: Accountable Stewardship"
+    "The Bell Beneath Blackwater",
+    "The Quiet Standard",
+    "The Shore That Remembers",
+    "Names Under the Foam",
+    "The First Surge"
   ],
   ko: [
-    "1단계: 당면한 압박",
-    "2단계: 지속되는 의무",
-    "3단계: 무한한 여파",
-    "4단계: 상충하는 책임",
-    "5단계: 책임 있는 청지기"
+    "블랙워터 아래의 종",
+    "침묵의 군기",
+    "기억하는 해안",
+    "물거품 속의 이름들",
+    "첫 번째 서지"
   ]
 };
 
@@ -907,6 +1031,9 @@ function translateUI() {
   }
   if (dom.monitorActiveLabel) {
     dom.monitorActiveLabel.textContent = `${dict.activeSignalsLabel} `;
+  }
+  if (dom.monitorHostileLabel) {
+    dom.monitorHostileLabel.textContent = dict.hostileLabel;
   }
   if (dom.monitorPlaceholder) {
     dom.monitorPlaceholder.textContent = dict.noSignals;
@@ -991,7 +1118,13 @@ function recordCommand(command) {
       }
       encounter.focus -= 1;
       encounter.foe_health = Math.max(0, encounter.foe_health - 1);
+      // DET6-FOE (rev): the counter landed (surge_countered false→true) —
+      // dispel the live telegraph wave so the response reads on the lane.
+      if (!encounter.surge_countered) {
+        removeHostileUnits({ dispel: true });
+      }
       encounter.surge_countered = true;
+      spawnUnit("DISRUPT");
       play("disrupt");
       triggerFx("DISRUPT");
       if (dom.voidAvatar && dom.voidAvatar.classList) {
@@ -1017,6 +1150,15 @@ function recordCommand(command) {
       recoverTimer = 1.0; // 1 second recovery channel
       play("recover");
       triggerFx("RECOVER");
+      // DET6-UNIT: RECOVER has no lane unit — pulse the knight avatar instead.
+      if (dom.knightAvatar && dom.knightAvatar.classList) {
+        dom.knightAvatar.classList.add("recover-pulse");
+        setTimeout(() => {
+          if (dom.knightAvatar && dom.knightAvatar.classList) {
+            dom.knightAvatar.classList.remove("recover-pulse");
+          }
+        }, 800);
+      }
     } else {
       return;
     }
@@ -1098,6 +1240,9 @@ function recordCommand(command) {
 
 function finishEncounter() {
   const replayCheck = validateDeterministicReplay(encounter.schedule, records);
+  // DET6-FOE (rev): encounter is terminal — dispel any live telegraph wave so
+  // hostiles never linger over the terminal surface.
+  removeHostileUnits({ dispel: true });
   const dict = dictionaryFor();
   outcomes.push(encounter.outcome);
   const resolvedEncounterCount = outcomes.length;
@@ -1203,11 +1348,15 @@ function render() {
   }
   // Update RTS Monitor Panel
   const monitorActiveCount = document.querySelector("#monitor-active-count");
+  const monitorHostileCount = document.querySelector("#monitor-hostile-count");
   const monitorListContainer = document.querySelector("#monitor-list-container");
   const monitorPlaceholder = document.querySelector("#monitor-placeholder");
 
   if (monitorActiveCount && monitorListContainer) {
-    monitorActiveCount.textContent = activeUnits.length;
+    // DET6-FOE: hostile signals get their own tally; active signals stay friendly-only.
+    const hostileTotal = activeUnits.reduce((count, unit) => count + (unit.hostile ? 1 : 0), 0);
+    monitorActiveCount.textContent = activeUnits.length - hostileTotal;
+    if (monitorHostileCount) monitorHostileCount.textContent = hostileTotal;
     
     // 1. Remove obsolete monitor items whose units have despawned
     const activeIds = new Set(activeUnits.map(u => u.id));
@@ -1224,18 +1373,21 @@ function render() {
     } else {
       if (monitorPlaceholder) monitorPlaceholder.style.display = "none";
       
-      const dict = dictionaryFor();
-      const currentLang = dict.lang || "en";
+      const monitorDict = dictionaryFor();
       
       // 2. Add new items or update existing ones in place
       for (const unit of activeUnits) {
         let item = monitorListContainer.querySelector(`.monitor-item[data-unit-id="${unit.id}"]`);
-        const eta = ((100 - unit.x) / unit.speed).toFixed(1);
+        // DET6-FOE: hostiles march right-to-left, so their ETA is the distance
+        // to the player edge (x / speed); friendlies keep (100 - x) / speed.
+        const eta = ((unit.direction === -1 ? unit.x : 100 - unit.x) / unit.speed).toFixed(1);
         
         if (!item) {
           // SPAWN: Create DOM node once
+          const hostile = unit.hostile === true;
+          const theme = UNIT_MONITOR_THEMES[unit.type] || UNIT_MONITOR_THEMES.STRIKE;
           item = document.createElement("div");
-          item.className = "monitor-item";
+          item.className = hostile ? "monitor-item monitor-item-hostile" : "monitor-item";
           item.dataset.unitId = unit.id;
           
           item.style.display = "flex";
@@ -1244,32 +1396,35 @@ function render() {
           item.style.fontSize = "0.85rem";
           item.style.padding = "0.4rem 0.8rem";
           item.style.background = "rgba(11, 13, 20, 0.7)";
-          item.style.border = `1px solid ${unit.type === "STRIKE" ? "rgba(239, 68, 68, 0.3)" : "rgba(59, 130, 246, 0.3)"}`;
+          item.style.border = `1px solid ${theme.border}`;
+          if (hostile) {
+            // Distinct hostile row treatment: red left border.
+            item.style.borderLeft = "3px solid #ef4444";
+          }
           item.style.borderRadius = "0.4rem";
           item.style.gap = "0.8rem";
-          item.style.boxShadow = `0 2px 6px rgba(0,0,0,0.5), inset 0 0 8px ${unit.type === "STRIKE" ? "rgba(239, 68, 68, 0.05)" : "rgba(59, 130, 246, 0.05)"}`;
+          item.style.boxShadow = `0 2px 6px rgba(0,0,0,0.5), inset 0 0 8px ${theme.inset}`;
 
-          const badgeColor = unit.type === "STRIKE" ? "color: #ef4444;" : "color: #3b82f6;";
-          const name = unit.type === "STRIKE" ? (currentLang === "ko" ? "성기사 전위병" : "Knight Vanguard") : (currentLang === "ko" ? "강철 방벽병" : "Iron Bulwark");
-          const actionLabel = currentLang === "ko" ? "진격중" : "TRAVERSING";
+          const name = monitorDict[UNIT_MONITOR_NAME_KEYS[unit.type]] || unit.type;
+          const actionLabel = hostile ? monitorDict.unitHostileAction : monitorDict.unitTraversing;
+          const actionColor = hostile ? "#ef4444" : "#10b981";
+          const actionBg = hostile ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)";
+          const actionBorder = hostile ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)";
 
           item.innerHTML = `
             <!-- Character Card Portrait: Silhouette -->
-            <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid ${unit.type === "STRIKE" ? "#ef4444" : "#3b82f6"}; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px ${unit.type === "STRIKE" ? "rgba(239,68,68,0.4)" : "rgba(59,130,246,0.4)"}; flex-shrink: 0;">
-              ${unit.type === "STRIKE" 
-                ? `<svg viewBox="0 0 24 24" width="20" height="20" style="fill: #ef4444;"><path d="M19 3a1 1 0 0 0-1.4 0L11 9.6 9.6 11l-4.2-4.2-1.4 1.4 4.2 4.2-2.1 2.1a1.5 1.5 0 0 0 0 2.1l1.4 1.4L2 21.5l1.4 1.4 3.5-3.5 1.4 1.4a1.5 1.5 0 0 0 2.1 0l2.1-2.1 4.2 4.2 1.4-1.4-4.2-4.2 1.4-1.4 6.6-6.6a1 1 0 0 0 0-1.4L19 3z" /></svg>`
-                : `<svg viewBox="0 0 24 24" width="20" height="20" style="fill: #3b82f6;"><path d="M12 2L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-3z" /></svg>`
-              }
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(0,0,0,0.4); border: 2px solid ${theme.color}; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px ${theme.glow}; flex-shrink: 0;">
+              ${UNIT_SVG_FALLBACKS[unit.type] || UNIT_SVG_FALLBACKS.STRIKE}
             </div>
             
             <!-- Character Card Center: Identity and State -->
             <div style="flex: 1; display: flex; flex-direction: column; gap: 0.2rem;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="${badgeColor} font-weight: bold; font-size: 0.9rem;">${name}</span>
-                <span style="font-size: 0.7rem; color: #10b981; background: rgba(16,185,129,0.1); padding: 0.05rem 0.35rem; border-radius: 0.2rem; border: 1px solid rgba(16,185,129,0.2); font-weight: bold; letter-spacing: 0.05em;">${actionLabel}</span>
+                <span style="color: ${theme.color}; font-weight: bold; font-size: 0.9rem;">${name}</span>
+                <span style="font-size: 0.7rem; color: ${actionColor}; background: ${actionBg}; padding: 0.05rem 0.35rem; border-radius: 0.2rem; border: 1px solid ${actionBorder}; font-weight: bold; letter-spacing: 0.05em;">${actionLabel}</span>
               </div>
               <div style="position: relative; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-top: 0.1rem;">
-                <div class="monitor-progress-fill" style="position: absolute; left: 0; top: 0; bottom: 0; width: ${unit.x}%; background: ${unit.type === "STRIKE" ? "#ef4444" : "#3b82f6"};"></div>
+                <div class="monitor-progress-fill" style="position: absolute; left: 0; top: 0; bottom: 0; width: ${unit.x}%; background: ${theme.color};"></div>
               </div>
             </div>
             
@@ -1365,6 +1520,10 @@ function showSurface(next) {
     if (useRealTime) {
       lastTickTime = 0;
       foeCharge = 0;
+      // DET6-FOE (rev): the first charge cycle starts now — telegraph it.
+      if (encounter.outcome === "ACTIVE") {
+        spawnHostileWave();
+      }
       if (!rAFId) {
         rAFId = requestAnimationFrame(rtsLoop);
       }
