@@ -107,13 +107,15 @@ let fadeInterval = null;
 // RTS Engine Variables
 const useRealTime = typeof window !== "undefined" && typeof window.requestAnimationFrame === "function";
 const COMMAND_SET = new Set(COMMANDS);
+const RECOVER_CHANNEL_SECONDS = 1;
+let isRecovering = false;
+let recoverTimer = 0;
 let activeUnits = [];
 let foeCharge = 0;
 let lastTickTime = 0;
 let rAFId = null;
 let nextUnitId = 0;
 let lastSecondSave = 0;
-
 
 // DET-STAGE: per-stage real-time presets (presentation-layer only; semantic core untouched).
 // Indexed by encounterIndex, clamped to array bounds.
@@ -157,7 +159,10 @@ function resetRealtimeState({ clearUnits = true } = {}) {
   lastTickTime = 0;
   nextUnitId = 0;
   lastSecondSave = 0;
+  isRecovering = false;
+  recoverTimer = 0;
 }
+ 
 
 
 const DICTIONARY = {
@@ -1305,6 +1310,10 @@ function recordCommand(command) {
   stageJournals[encounterIndex].push(candidate);
   encounter = result.state;
   totalCommandsRun += 1;
+  if (command === "RECOVER") {
+    isRecovering = true;
+    recoverTimer = RECOVER_CHANNEL_SECONDS;
+  }
 
   const entry = encounter.trace.at(-1);
   presentAcceptedCommand(command, entry);

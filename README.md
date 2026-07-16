@@ -10,6 +10,7 @@
 - Stage 5의 `DISRUPT`는 SURGE 회차에서 누적 비용(1→2→3…)으로 계산됩니다. (`game-core.js`)
 - `game-core.js`는 스테이지/스케줄 바인딩 정합성 및 포렌식 계열 상태 위조(`forged state`, `journal`, `replay`) 방어를 강화했습니다.
 - `app.js`는 입력/표시/재개 시나리오에서 허용/거부 상태의 정합적 동기화를 개선해, 거부된 제어가 canonical 상태를 변경하지 않도록 정렬했습니다.
+- `app.js`는 `RECOVER` 커맨드에 대해 1초 회복 채널을 재도입해, 활성 1.5 Focus/s 회복률 창이 텔레그래프/유닛 업데이트와 동기화되며 상태 오류 없이 동작합니다.
 - 정합 검증:
   - `node --check app.js`
   - `node --check game-core.js`
@@ -33,6 +34,19 @@
 - `STRIKE / BRACE / DISRUPT / RECOVER` 명령군
 - 스테이지별 난이도/리듬/체감 속도 차등(시뮬레이션/시각화 레이어 분리)
 - 오프라인 동작을 위한 PWA(`sw.js`, `manifest.json`) + Android 포팅 전단계 준비(`apk/`)
+
+### 전투·조작 동작(현재 적용)
+
+- 조작: 키보드 `[S]=STRIKE`, `[B]=BRACE`, `[D]=DISRUPT`, `[R]=RECOVER` / 화면 버튼 동기화
+- 전투 흐름: `encounter` 단위로 `STRIKE/BRACE/DISRUPT/RECOVER` 입력이 1초 주기(프레임 루프)와 함께 누적되고, 수치 변화는 모두 `game-core.js`의 공개 규칙 결과를 기준으로 동기화됨
+- `RECOVER`는 즉시 `focus +1` 비용 0으로 시작해, **실시간 1초 회복 채널(1.5 Focus/s)** 동안 가시연출과 유닛 이동을 계속하는 동작 구간으로 동작해도 게임 규칙상 상태는 동일 판정 원칙을 유지
+- 회복/차단/공격은 판정이 `ACCEPTED`일 때만 영속 상태에 기록되고, `REJECTED` 입력은 HUD/메시지 전용으로 처리 후 즉시 discard
+
+### 의도한 게임 플레이 톤
+
+- 매 라운드마다 의도된 위협(STRIKE/SURGE) 패턴에 맞춰 `focus`, `guard`, `pressure`를 운영하는 소규모 전술 전투
+- 5개 스테이지를 캠페인 단위로 연쇄하며, 터치/터치패드 기반 웹/모바일 동작을 우선 타깃으로 튜닝
+
 
 ---
 
