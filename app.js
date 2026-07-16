@@ -653,12 +653,6 @@ function initReactBitsEffects() {
   }
 }
 
-≔493ep..495ac
-  wireControls();
-  initReactBitsEffects();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);
-}
-
 async function initialize() {
   document.documentElement.dataset.rulesVersion = RULES_VERSION;
   document.documentElement.dataset.buildTag = BUILD_TAG;
@@ -676,6 +670,7 @@ async function initialize() {
     setSaveStatus(storage.mode === "indexeddb" ? "No local campaign yet. IndexedDB is ready." : "IndexedDB is unavailable; this session will use the safe local fallback.");
   }
   wireControls();
+  initReactBitsEffects();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);
 }
 
