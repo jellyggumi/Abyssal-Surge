@@ -62,6 +62,12 @@ python3 -m http.server 8000
 # http://localhost:8000
 ```
 
+## GitHub Pages 배포
+
+`main`에 푸시하면 [Deploy static content to Pages](.github/workflows/static.yml) 워크플로가 실행됩니다. 워크플로가 성공적으로 완료되면 https://jellyggumi.github.io/Abyssal-Surge/ 가 갱신됩니다.
+
+배포 아티팩트는 커밋된 런타임 파일 allowlist에서만 생성됩니다. 로컬 작업 트리의 미추적 파일이나 allowlist 밖 파일은 GitHub Pages에 포함되지 않습니다. 배포 상태는 상단 배지 또는 `gh run list --workflow static.yml --limit 1`로 확인합니다.
+
 ## 검증 상태와 패키징 범위
 
 G1–G8은 개별 증거가 있는 경우에만 해당 원장에서 상태를 확인할 수 있습니다. 이 README는 어떤 게이트의 통과를 주장하지 않습니다.
