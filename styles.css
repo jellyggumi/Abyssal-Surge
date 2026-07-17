@@ -17,7 +17,8 @@
 html { min-height: 100%; background: var(--bg); }
 body {
   min-width: 20rem;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   margin: 0;
   color: var(--ink);
   background:
@@ -25,6 +26,9 @@ body {
     radial-gradient(circle at 88% 5%, rgb(111 41 105 / 30%), transparent 31rem),
     var(--bg);
   line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 #particles-canvas {
@@ -166,7 +170,13 @@ h3 { margin-bottom: .35rem; font-size: 1.12rem; }
 .skip-link { position: fixed; z-index: 10; left: 1rem; top: .75rem; transform: translateY(-180%); padding: .65rem .9rem; border-radius: .5rem; color: #111; background: var(--focus); }
 .skip-link:focus { transform: translateY(0); }
 .site-header, main { width: min(72rem, calc(100% - 1.5rem)); margin-inline: auto; }
-main { min-height: 0; padding-bottom: 1.5rem; }
+main {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 1.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .site-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; padding: 0.75rem 0 0.5rem; border-bottom: 1px solid rgb(185 195 212 / 25%); flex-shrink: 0; }
 .eyebrow { margin-bottom: .4rem; color: var(--cinder); font-size: .76rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .build-label, .muted, .hint { color: var(--muted); }
@@ -312,15 +322,15 @@ main { min-height: 0; padding-bottom: 1.5rem; }
 #campaign-screen {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   padding: .35rem 0 .75rem;
-  overflow: clip;
+  overflow: visible;
 }
 .sub-view {
   flex: 1;
   min-height: 0;
-  overflow: clip;
+  overflow: visible;
 }
 .campaign-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: .4rem 0; flex-shrink: 0; }
 .campaign-heading h2 { margin-bottom: .1rem; font-size: clamp(1.2rem, 4vw, 1.8rem); }
@@ -867,7 +877,10 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 }
 
 .battle-pointer-controls {
-  position: static;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .battle-pointer-controls[hidden] {
@@ -889,6 +902,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   pointer-events: auto;
   transform: translate(-50%, -50%);
 }
+.battle-pointer-target:active:not(:disabled) { transform: translate(-50%, -50%) translateY(1px); }
 
 .battle-pointer-target[data-battle-target="capture"] {
   border-color: color-mix(in srgb, var(--battle-accent) 65%, var(--line));

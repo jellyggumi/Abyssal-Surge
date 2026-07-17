@@ -1118,7 +1118,16 @@ function wireControls() {
   });
   elements.retryFromResult.addEventListener("click", handleRetry);
   elements.commandButtons.forEach((button) => button.addEventListener("click", () => handleAction(button.dataset.action)));
-  elements.battleTargetButtons.forEach((button) => button.addEventListener("click", () => handleAction(button.dataset.battleTarget)));
+  elements.battleTargetButtons.forEach((button) => {
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || button.disabled) return;
+      event.preventDefault();
+      void handleAction(button.dataset.battleTarget);
+    });
+    button.addEventListener("click", (event) => {
+      if (event.detail === 0) void handleAction(button.dataset.battleTarget);
+    });
+  });
   elements.exportSave.addEventListener("click", exportSave);
   elements.importSave.addEventListener("change", () => importSave(elements.importSave.files?.[0]));
   elements.ambience.addEventListener("click", toggleAmbience);

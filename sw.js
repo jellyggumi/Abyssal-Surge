@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   "./battle-visualizer.js",
   "./battle-presentation.js",
   "./iso-math.js",
+  "./tilemap-renderer.js",
   "./campaign-state.js",
   "./i18n.js",
   "./liquid-ether.js",
@@ -80,7 +81,7 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-presentation.js", "/iso-math.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 self.addEventListener("install", (event) => {

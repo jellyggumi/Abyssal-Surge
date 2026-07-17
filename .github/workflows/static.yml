@@ -30,7 +30,7 @@ jobs:
       PAGES_ARTIFACT_DIR: .pages-artifact
       PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
       PAGES_RUNTIME_PATHS: >-
-        index.html app.js battle-visualizer.js battle-presentation.js iso-math.js
+        index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js
         campaign-state.js campaign-sync.js i18n.js liquid-ether.js
         vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico
         assets/audio assets/icons assets/images
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
+          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
@@ -67,6 +67,7 @@ jobs:
           node --check battle-visualizer.js
           node --check battle-presentation.js
           node --check iso-math.js
+          node --check tilemap-renderer.js
           node --check campaign-state.js
           node --check campaign-sync.js
           node --check i18n.js
@@ -84,7 +85,7 @@ jobs:
           grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
 
           # reject literal edit-tool markers that previously shipped a broken bundle
-          if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js campaign-state.js i18n.js liquid-ether.js styles.css sw.js; then
+          if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; then
             echo "stray edit markers found in shippable files" >&2
             exit 1
           fi

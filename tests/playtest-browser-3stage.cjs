@@ -207,30 +207,22 @@ async function clickEnabledAction(page, selector) {
       continue;
     }
     if (selector.includes("[data-battle-target")) {
+      await action.scrollIntoViewIfNeeded();
       const targetPoint = await action.evaluate((target) => {
         const rect = target.getBoundingClientRect();
         const x = rect.left + rect.width / 2;
         const y = rect.top + rect.height / 2;
         const style = getComputedStyle(target);
         const centerElement = document.elementFromPoint(x, y);
-        const canvas = document.querySelector("#battle-canvas-3d");
-        const canvasRect = canvas?.getBoundingClientRect();
         return {
           visible: !target.hidden && rect.width > 0 && rect.height > 0 && style.visibility !== "hidden",
           x,
           y,
-          targetRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-          centerElementId: centerElement?.id || null,
-          centerElements: document.elementsFromPoint(x, y).map((element) => `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}`),
-          canvasRect: canvasRect ? { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height } : null,
-          scrollTop: Object.fromEntries(
-            ["#view-battle", "#battle-field", "#command-panel"].map((target) => [target, document.querySelector(target)?.scrollTop ?? null])
-          ),
-          receivesCenterClick: centerElement === target
+          receivesCenterClick: target.contains(centerElement)
         };
       });
       assert.equal(targetPoint.visible, true, `${selector} must remain visibly targetable for its physical mouse click.`);
-      assert.equal(targetPoint.receivesCenterClick, true, `${selector} must own its center hit-test point before the physical mouse click. Target-center diagnostic: ${JSON.stringify({ targetRect: targetPoint.targetRect, centerElementId: targetPoint.centerElementId, centerElements: targetPoint.centerElements, canvasRect: targetPoint.canvasRect, scrollTop: targetPoint.scrollTop })}`);
+      assert.equal(targetPoint.receivesCenterClick, true, `${selector} must own its center hit-test point before the physical mouse click.`);
       await page.mouse.click(targetPoint.x, targetPoint.y);
     } else {
       try {
@@ -514,6 +506,102 @@ async function verifyReducedMotionBattlePresentation(browser, baseUrl) {
   }
 }
 
+async function verifyShortViewportBattleTargetReachability(browser, baseUrl) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  try {
+    const page = await context.newPage();
+    const clientErrors = collectClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.querySelector("#save-status")?.textContent !== "Preparing local save…");
+    await page.locator("#start-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await enterBattle(page, 1, "Cinder Span");
+    await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract"]);
+    await page.setViewportSize({ width: 1280, height: 280 });
+
+    const main = page.locator("main");
+    const target = await assertBattleTargetEnabled(
+      page,
+      "materialize",
+      true,
+      "Stage 1 Materialize mouse target must unlock before short-viewport reachability is tested."
+    );
+    const mainBox = await main.boundingBox();
+    assert.ok(mainBox, "The gameplay main container must have a visible box for user-like wheel scrolling.");
+
+    await page.mouse.move(mainBox.x + mainBox.width / 2, mainBox.y + mainBox.height / 2);
+    await page.mouse.wheel(0, -10_000);
+    await page.waitForFunction(() => document.querySelector("main")?.scrollTop === 0);
+    const scrollRange = await main.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop
+    }));
+    assert.ok(
+      scrollRange.scrollHeight > scrollRange.clientHeight,
+      `Short viewport gameplay must keep main vertically user-scrollable; observed scrollHeight=${scrollRange.scrollHeight}, clientHeight=${scrollRange.clientHeight}.`
+    );
+
+    const readTargetPoint = () => target.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const style = getComputedStyle(element);
+      return {
+        visible: !element.hidden
+          && rect.width > 0
+          && rect.height > 0
+          && style.visibility !== "hidden"
+          && x >= 0
+          && x < window.innerWidth
+          && y >= 0
+          && y < window.innerHeight,
+        x,
+        y,
+        receivesCenterClick: element.contains(document.elementFromPoint(x, y))
+      };
+    });
+    let targetPoint = await readTargetPoint();
+    assert.equal(
+      targetPoint.visible,
+      false,
+      "At the top of a short gameplay viewport, the Materialize target must require scrolling instead of being clipped by main."
+    );
+
+    for (let attempt = 0; attempt < 12 && (!targetPoint.visible || !targetPoint.receivesCenterClick); attempt += 1) {
+      const beforeScrollTop = await main.evaluate((element) => element.scrollTop);
+      await page.mouse.wheel(0, 120);
+      await page.waitForFunction(
+        (previousScrollTop) => document.querySelector("main")?.scrollTop > previousScrollTop,
+        beforeScrollTop,
+        { timeout: 1_000 }
+      );
+      targetPoint = await readTargetPoint();
+    }
+
+    assert.equal(targetPoint.visible, true, "User-like wheel scrolling of main must reveal the Stage 1 Materialize target.");
+    assert.equal(
+      targetPoint.receivesCenterClick,
+      true,
+      "The revealed Stage 1 Materialize target must own its center hit-test point before the physical mouse click."
+    );
+    const legionBeforeMaterialize = await text(page.locator("#legion-value"));
+    await page.mouse.click(targetPoint.x, targetPoint.y);
+    await page.waitForFunction(
+      (previousLegion) => document.querySelector("#legion-value")?.textContent?.trim() !== previousLegion,
+      legionBeforeMaterialize
+    );
+    assert.equal(
+      await text(page.locator("#legion-value")),
+      "2 / 10",
+      "A physical click on the wheel-revealed Stage 1 Materialize target must raise the public legion count."
+    );
+    assertNoClientErrors(clientErrors, "Short-viewport battle target reachability");
+  } finally {
+    await context.close();
+  }
+}
+
 async function assertPreparationIntegrity(page, number, entryIntegrity) {
   const actualIntegrity = Number.parseInt(await text(page.locator("#integrity-value")), 10);
   const entryIntegrityValue = Number.parseInt(entryIntegrity, 10);
@@ -620,7 +708,7 @@ async function runStageThree(page) {
   await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract", "#action-materialize", "#action-materialize", "#action-capture", "#action-possess", "#action-domain"]);
   await assertPreparationIntegrity(page, 3, entryIntegrity);
   assert.equal(await text(page.locator("#legion-value")), "8 / 10", "Two materializations must grow the Veil Vanguard from four to eight shades.");
-  await runActions(page, ["#action-assault", "#action-assault", "#action-assault"]);
+  await runActions(page, ["#action-assault", "#action-assault"]);
   await page.locator("#reward-panel").waitFor({ state: "visible" });
   const rewards = page.locator("#reward-options .reward-option");
   assert.deepEqual(
@@ -710,6 +798,7 @@ async function run() {
     browser = await playwright.chromium.launch({ headless: true });
     await verifyRendererIndependentBattleBreach(browser, hosting.baseUrl);
     await verifyReducedMotionBattlePresentation(browser, hosting.baseUrl);
+    await verifyShortViewportBattleTargetReachability(browser, hosting.baseUrl);
 
     context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     page = await context.newPage();

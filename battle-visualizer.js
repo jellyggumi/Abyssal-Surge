@@ -18,6 +18,10 @@ import {
   worldToScreen, pickTile, depthKey, findPath, steer,
   rectContains, directionIndex, mulberry32
 } from "./iso-math.js";
+import {
+  TILEMAP_RENDER_MODE, buildIndividualDrawQueue, chunkForTile,
+  selectTilemapRenderMode, visibleIndividualItems,
+} from "./tilemap-renderer.js";
 import { DEFAULT_BATTLE_PRESENTATION } from "./battle-presentation.js";
 
 const GRID_W = 16;
@@ -141,7 +145,10 @@ export class BattleVisualizer {
     this.rng = mulberry32(0x5eed + this.stageNumber * 977);
 
     this.view = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 };
-    this.staticLayer = null;  // offscreen canvas: terrain + walls, pre-sorted once
+    this.terrainMode = TILEMAP_RENDER_MODE.CHUNK;
+    this.staticChunks = new Map();
+    this.terrainTiles = [];
+    this.occluderTiles = [];
     this.spriteCache = new Map();
     this.bossImage = null;
 
@@ -264,28 +271,86 @@ export class BattleVisualizer {
     this.onTacticalLayout?.(this.getTacticalTargetAnchors());
   }
 
-  // --- static layer (split sorting queue: cached once) -------------------
+  // --- terrain cache and shared draw ordering ------------------------------
 
   buildStaticLayer() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.staticLayer = document.createElement("canvas");
-    this.staticLayer.width = this.canvas.width;
-    this.staticLayer.height = this.canvas.height;
-    const ctx = this.staticLayer.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.terrainMode = selectTilemapRenderMode({
+      width: GRID_W,
+      height: GRID_H,
+      backingPixels: this.canvas.width * this.canvas.height,
+    });
+    this.staticChunks.clear();
+    this.terrainTiles = [];
+    this.occluderTiles = [];
 
-    ctx.fillStyle = this.presentation.palette.background;
-    ctx.fillRect(0, 0, this.view.width, this.view.height);
-
-    // Draw tiles back-to-front (x+y ascending — painter order is inherent).
-    const tiles = [];
+    const floorChunks = new Map();
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        tiles.push({ x, y, z: this.height[y][x] });
+        const z = this.height[y][x];
+        const tile = {
+          id: `terrain-${x}-${y}`,
+          x,
+          y,
+          z,
+          layer: z > 0 ? "prop" : "ground",
+          kind: z > 0 ? "occluder" : "floor",
+        };
+        this.terrainTiles.push(tile);
+        if (z > 0) {
+          // Raised collision/occlusion geometry must share the per-item painter
+          // queue with units; never flatten it into a floor chunk.
+          this.occluderTiles.push(tile);
+          continue;
+        }
+        const chunk = chunkForTile(x, y);
+        const tiles = floorChunks.get(chunk.id) ?? [];
+        tiles.push(tile);
+        floorChunks.set(chunk.id, tiles);
       }
     }
-    tiles.sort((a, b) => depthKey(a.x, a.y, Math.max(a.z, 0), LAYER.ground) - depthKey(b.x, b.y, Math.max(b.z, 0), LAYER.ground));
-    for (const t of tiles) this.drawTile(ctx, t.x, t.y, t.z);
+
+    if (this.terrainMode === TILEMAP_RENDER_MODE.INDIVIDUAL) return;
+    for (const [id, tiles] of floorChunks) {
+      this.staticChunks.set(id, this.buildTerrainChunk(id, tiles, dpr));
+    }
+  }
+
+  buildTerrainChunk(id, tiles, dpr) {
+    const s = this.view.scale;
+    const hw = (TILE_W / 2) * s;
+    const hh = (TILE_H / 2) * s;
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+
+    for (const tile of tiles) {
+      const z = Math.max(tile.z, 0);
+      const center = this.project(tile.x + 0.5, tile.y + 0.5, z);
+      left = Math.min(left, center.x - hw);
+      right = Math.max(right, center.x + hw);
+      top = Math.min(top, center.y - hh);
+      bottom = Math.max(bottom, center.y + hh + z * ELEV_H * s);
+    }
+
+    left = Math.floor(left) - 1;
+    top = Math.floor(top) - 1;
+    right = Math.ceil(right) + 1;
+    bottom = Math.ceil(bottom) + 1;
+    const width = Math.max(1, right - left);
+    const height = Math.max(1, bottom - top);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(width * dpr);
+    canvas.height = Math.ceil(height * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+    const orderedTiles = [...tiles].sort(
+      (a, b) => depthKey(a.x, a.y, Math.max(a.z, 0), LAYER.ground)
+        - depthKey(b.x, b.y, Math.max(b.z, 0), LAYER.ground),
+    );
+    for (const tile of orderedTiles) this.drawTile(ctx, tile.x, tile.y, tile.z);
+    return { id, canvas, bounds: { left, top, right, bottom }, width, height };
   }
 
   drawTile(ctx, x, y, z) {
@@ -621,6 +686,7 @@ export class BattleVisualizer {
       const fy = 1.5 + this.rng() * 4.5;
       this.particles.push({
         x: fx, y: fy, z: 0.2,
+        sortRoot: { x: 6, y: 3.5, z: 0 },
         vx: -3.2 - this.rng() * 1.6, vy: (this.rng() - 0.5) * 0.6, vz: 0.6 + this.rng(),
         color: this.palette.ally, life: 1.1, decay: 0.9
       });
@@ -678,6 +744,7 @@ export class BattleVisualizer {
       const speed = 0.5 + this.rng() * 1.8;
       this.particles.push({
         x: fx, y: fy, z: 0.15,
+        sortRoot: { x: fx, y: fy, z: 0 },
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         vz: 1.2 + this.rng() * 2,
@@ -836,29 +903,23 @@ export class BattleVisualizer {
     const ctx = this.ctx;
     if (!ctx) return;
     ctx.clearRect(0, 0, this.view.width, this.view.height);
-    if (this.staticLayer) ctx.drawImage(this.staticLayer, 0, 0, this.view.width, this.view.height);
+    ctx.fillStyle = this.palette.background;
+    ctx.fillRect(0, 0, this.view.width, this.view.height);
 
-    // Dynamic painter queue: nodes/portals/boss/units/particles sorted by floor depth.
-    const queue = [];
-    queue.push({ key: depthKey(ALLY_SPAWN.x, ALLY_SPAWN.y, 0, LAYER.prop), draw: () => this.drawPortal(ALLY_SPAWN.x, ALLY_SPAWN.y, this.palette.ally) });
-    queue.push({ key: depthKey(BOSS_TILE.x, BOSS_TILE.y, 0, LAYER.prop), draw: () => this.drawPortal(BOSS_TILE.x, BOSS_TILE.y, this.palette.enemy) });
-    for (let index = 1; index <= this.nodeGoal; index++) {
-      const node = this.nodePosition(index);
-      const captured = index <= this.nodes.length;
-      queue.push({ key: depthKey(node.x, node.y, 0, LAYER.prop), draw: () => this.drawNode(node, captured) });
+    // Chunk Mode owns only opaque, non-occluding floor. The chunk's bounds are
+    // culled before its bitmap blit; barriers remain below in the shared queue.
+    if (this.terrainMode === TILEMAP_RENDER_MODE.CHUNK) {
+      const viewport = { left: 0, top: 0, right: this.view.width, bottom: this.view.height };
+      for (const chunk of visibleIndividualItems([...this.staticChunks.values()], viewport)) {
+        ctx.drawImage(chunk.canvas, chunk.bounds.left, chunk.bounds.top, chunk.width, chunk.height);
+      }
     }
-    queue.push({ key: depthKey(BOSS_TILE.x + 0.4, BOSS_TILE.y + 0.4, 0, LAYER.unit), draw: () => this.drawBoss() });
-    for (const ally of this.allies) {
-      queue.push({ key: depthKey(ally.x, ally.y, this.elevationAt(ally.x, ally.y), LAYER.unit), draw: () => this.drawUnit(ally, ally.isPossessed ? "possessed" : "ally") });
-    }
-    for (const enemy of this.enemies) {
-      queue.push({ key: depthKey(enemy.x, enemy.y, this.elevationAt(enemy.x, enemy.y), LAYER.unit), draw: () => this.drawUnit(enemy, "enemy") });
-    }
-    for (const p of this.particles) {
-      queue.push({ key: depthKey(p.x, p.y, 0, LAYER.fx), draw: () => this.drawParticle(p) });
-    }
-    queue.sort((a, b) => a.key - b.key);
-    for (const item of queue) item.draw();
+
+    const terrain = this.terrainMode === TILEMAP_RENDER_MODE.INDIVIDUAL
+      ? this.terrainTiles
+      : this.occluderTiles;
+    const queue = buildIndividualDrawQueue(terrain, this.buildDynamicDrawRecords());
+    for (const item of queue) this.drawQueuedItem(item);
 
     if (this.domainLife > 0) this.drawDomain();
     if (this.orderFlag) this.drawOrderFlag();
@@ -876,6 +937,66 @@ export class BattleVisualizer {
       ctx2.fillStyle = g;
       ctx2.fillRect(0, 0, this.view.width, this.view.height);
     }
+  }
+
+  buildDynamicDrawRecords() {
+    const records = [
+      {
+        id: "ally-portal", x: ALLY_SPAWN.x, y: ALLY_SPAWN.y, z: 0,
+        layer: "prop", render: "portal", color: this.palette.ally,
+      },
+      {
+        id: "boss-portal", x: BOSS_TILE.x, y: BOSS_TILE.y, z: 0,
+        layer: "prop", render: "portal", color: this.palette.enemy,
+      },
+      {
+        id: "boss", x: BOSS_TILE.x + 0.4, y: BOSS_TILE.y + 0.4, z: 0,
+        layer: "actor", render: "boss",
+      },
+    ];
+    for (let index = 1; index <= this.nodeGoal; index++) {
+      const node = this.nodePosition(index);
+      records.push({
+        id: `node-${index}`, x: node.x, y: node.y, z: 0, layer: "prop",
+        render: "node", node, captured: index <= this.nodes.length,
+      });
+    }
+    for (let index = 0; index < this.allies.length; index++) {
+      const unit = this.allies[index];
+      records.push({
+        id: `ally-${index}`, x: unit.x, y: unit.y, z: this.elevationAt(unit.x, unit.y),
+        layer: "actor", render: "unit", unit,
+        kind: unit.isPossessed ? "possessed" : "ally",
+      });
+    }
+    for (let index = 0; index < this.enemies.length; index++) {
+      const unit = this.enemies[index];
+      records.push({
+        id: `enemy-${index}`, x: unit.x, y: unit.y, z: this.elevationAt(unit.x, unit.y),
+        layer: "actor", render: "unit", unit, kind: "enemy",
+      });
+    }
+    for (let index = 0; index < this.particles.length; index++) {
+      const particle = this.particles[index];
+      records.push({
+        id: `particle-${index}`, x: particle.x, y: particle.y, z: 0,
+        sortRoot: particle.sortRoot, layer: "fx", blend: "additive",
+        render: "particle", particle,
+      });
+    }
+    return records;
+  }
+
+  drawQueuedItem(item) {
+    if (item.source === "tile") {
+      this.drawTile(this.ctx, item.x, item.y, item.z);
+      return;
+    }
+    if (item.render === "portal") this.drawPortal(item.x, item.y, item.color);
+    else if (item.render === "node") this.drawNode(item.node, item.captured);
+    else if (item.render === "boss") this.drawBoss();
+    else if (item.render === "unit") this.drawUnit(item.unit, item.kind);
+    else if (item.render === "particle") this.drawParticle(item.particle, item.blend);
   }
 
   drawHud() {
@@ -1016,14 +1137,16 @@ export class BattleVisualizer {
     ctx.stroke();
   }
 
-  drawParticle(p) {
+  drawParticle(p, blend) {
     const ctx = this.ctx;
     const pos = this.project(p.x, p.y, 0);
     const s = this.view.scale;
+    ctx.save();
+    ctx.globalCompositeOperation = blend === "additive" ? "lighter" : "source-over";
     ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
     ctx.fillStyle = p.color;
     ctx.fillRect(pos.x - 2 * s, pos.y - p.z * ELEV_H * s - 2 * s, 4 * s, 4 * s);
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   drawDomain() {
@@ -1123,7 +1246,9 @@ export class BattleVisualizer {
     this.nodes = [];
     this.selection.clear();
     this.spriteCache.clear();
-    this.staticLayer = null;
+    this.staticChunks.clear();
+    this.terrainTiles = [];
+    this.occluderTiles = [];
     this.bossImage = null;
     this.pointerHandlers = null;
     this.resizeHandler = null;
