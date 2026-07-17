@@ -1,0 +1,7 @@
+# Isolated server/CI-only reflection runtime. Do not install into the browser project.
+pydantic==2.13.4
+pydantic-ai-slim==2.11.0
+
+# Install exactly one selected provider extra separately, for example:
+# python -m pip install 'pydantic-ai-slim[openai]==2.11.0'
+# Keep the resolved lockfile with the non-public reflection artifact.

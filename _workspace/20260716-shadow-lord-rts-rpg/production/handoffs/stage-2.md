@@ -17,7 +17,7 @@ Enter only after Stage 1 evidence is attached and director reviews G1/G6-draft/G
 
 ## Veil Citadel continuation
 
-Carry `stage1_reward_id`; unlock possession; require simultaneous hold of two original ward nodes; defeat the Citadel Tactician; offer exactly two new exclusive rewards, persist one as `stage2_reward_id`.
+Carry `stage1_reward_id`; unlock possession; require simultaneous hold of two original signal nodes; defeat the Veil Tactician; offer exactly three exclusive rewards and persist one as `stage2_reward_id`.
 
 ## Exit
 

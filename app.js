@@ -15,6 +15,7 @@ import {
 } from "./campaign-state.js";
 import { BattleVisualizer } from "./battle-visualizer.js";
 import { getBattlePresentation } from "./battle-presentation.js";
+import { CampaignMirror } from "./campaign-sync.js";
 
 const BUILD_TAG = "abyssal-surge-static-v1";
 const DB_NAME = "abyssal-surge-campaign";
@@ -67,8 +68,8 @@ const CUE_BY_EFFECT = Object.freeze({
 });
 const NARRATION = Object.freeze({
   intro: Object.freeze({
-    audio: null,
-    lines: Object.freeze(["심연의 문이 열렸다.", "황혼의 감시자여, 군단을 결속하라."]),
+    audio: "assets/audio/narr-intro.mp3",
+    lines: Object.freeze(["심연의 문이 열렸다.", "그림자 군주여, 일어나라."]),
     msPerChar: 45,
     holdMs: 1400
   }),
@@ -91,14 +92,14 @@ const NARRATION = Object.freeze({
     holdMs: 2000
   }),
   victory: Object.freeze({
-    audio: null,
-    lines: Object.freeze(["침묵한 문 앞에서,", "심연의 군단이 새 질서를 세운다."]),
+    audio: "assets/audio/narr-victory.mp3",
+    lines: Object.freeze(["침묵한 문 앞에서,", "그림자 군단이 왕좌에 오른다."]),
     msPerChar: 45,
     holdMs: 1400
   }),
   defeat: Object.freeze({
-    audio: null,
-    lines: Object.freeze(["군단의 닻이 끊어졌다.", "다시 결속하라."]),
+    audio: "assets/audio/narr-defeat.mp3",
+    lines: Object.freeze(["군단의 닻이 끊어졌다.", "다시, 일어나라."]),
     msPerChar: 45,
     holdMs: 1400
   })
@@ -107,6 +108,11 @@ const BOSS_BY_STAGE = Object.freeze({
   "cinder-span": "assets/images/ui/boss-cinder-warden.png",
   "veil-citadel": "assets/images/ui/boss-veil-tactician.png",
   "echo-throne": "assets/images/ui/boss-gate-sovereign.png"
+});
+const NARRATOR_ATLAS_BY_STAGE = Object.freeze({
+  "cinder-span": "assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png",
+  "veil-citadel": "assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png",
+  "echo-throne": "assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png"
 });
 const VIDEO_BY_STAGE = Object.freeze({
   "cinder-span": "assets/video/cinder-span.mp4",
@@ -276,12 +282,14 @@ const elements = Object.freeze({
   complete: document.querySelector("#campaign-complete"),
   completionSummary: document.querySelector("#completion-summary"),
   saveStatus: document.querySelector("#save-status"),
+  mirrorStatus: document.querySelector("#campaign-mirror-status"),
   exportSave: document.querySelector("#export-save"),
   importSave: document.querySelector("#import-save"),
   effect: document.querySelector("#visual-effect"),
   ambience: document.querySelector("#toggle-stage-ambience"),
   transition: document.querySelector("#stage-transition"),
   video: document.querySelector("#stage-transition-video"),
+  narratorAtlas: document.querySelector("#narrator-atlas"),
   cinematic: document.querySelector("#campaign-cinematic"),
   cinematicButton: document.querySelector("#play-cinematic"),
   cinematicStatus: document.querySelector("#cinematic-status"),
@@ -316,6 +324,8 @@ let battleVisualFallback = false;
 let waveIndex = 0;
 const cooldowns = new Map();
 let pendingNextScenario = false;
+let campaignMirror = null;
+let mirrorStatusText = "";
 
 function currentStage() {
   return STAGES[campaign.stageIndex];
@@ -323,6 +333,12 @@ function currentStage() {
 
 function setSaveStatus(message) {
   elements.saveStatus.textContent = message;
+}
+
+function setMirrorStatus(message) {
+  if (mirrorStatusText === message) return;
+  mirrorStatusText = message;
+  elements.mirrorStatus.textContent = message;
 }
 
 function renderChecklist() {
@@ -367,6 +383,11 @@ function renderStageMedia(stage) {
   if (elements.video.dataset.stage === stage.id) return;
 
   elements.video.dataset.stage = stage.id;
+  const atlasSource = NARRATOR_ATLAS_BY_STAGE[stage.id];
+  if (elements.narratorAtlas.dataset.stage !== stage.id) {
+    elements.narratorAtlas.dataset.stage = stage.id;
+    elements.narratorAtlas.style.setProperty("--narrator-atlas-image", `url("${atlasSource}")`);
+  }
   elements.transition.style.removeProperty("background-image");
   if (imageSource) {
     const image = new Image();
@@ -768,14 +789,6 @@ function playNarration(key) {
   const run = ++narrationRun;
   elements.narrationSr.textContent = entry.lines.join(" ");
   void typeNarration(entry, run);
-  if (!entry.audio) {
-    if (narrationPlayer) {
-      narrationPlayer.pause();
-      narrationPlayer.removeAttribute("src");
-      narrationPlayer.load();
-    }
-    return;
-  }
   if (!narrationPlayer) {
     narrationPlayer = new Audio();
     narrationPlayer.preload = "none";
@@ -830,8 +843,30 @@ function flashEffect(effect) {
 
 async function persistCampaign(context = "Campaign saved") {
   if (!campaign) return;
-  const savedTo = await storage.save(createSaveEnvelope(campaign));
+  const envelope = createSaveEnvelope(campaign);
+  const savedTo = await storage.save(envelope);
+  campaignMirror?.publish(envelope);
   setSaveStatus(`${context} in ${savedTo}.`);
+}
+
+async function applyMirroredCampaign(envelope) {
+  try {
+    const mirroredCampaign = restoreSaveEnvelope(envelope);
+    storedCampaign = mirroredCampaign;
+    elements.resume.hidden = false;
+    await storage.save(envelope);
+    if (campaign) {
+      stopBattle();
+      campaign = mirroredCampaign;
+      pendingNextScenario = false;
+      narratedStageId = null;
+      narratedOutcome = null;
+      showView(["reward", "defeat", "campaign-complete"].includes(campaign.status) ? "result" : "scenario");
+    }
+    setSaveStatus("다른 탭의 로컬 캠페인을 반영했습니다.");
+  } catch {
+    // The mirror validates structure; replay validation keeps incompatible saves local.
+  }
 }
 
 function triggerBattleVisual(action) {
@@ -890,8 +925,8 @@ async function handleAction(action) {
   triggerBattleVisual(action);
   flashEffect(result.effect);
   playCue(result.effect);
-  await persistCampaign("Campaign saved");
   render();
+  await persistCampaign("Campaign saved");
   if (campaign.status === "reward") {
     showView("result");
     elements.rewardOptions.querySelector("button")?.focus();
@@ -1377,6 +1412,14 @@ async function initialize() {
   } else {
     setSaveStatus(storage.mode === "indexeddb" ? "No local campaign yet. IndexedDB is ready." : "IndexedDB is unavailable; this session will use the safe local fallback.");
   }
+  campaignMirror = new CampaignMirror({ onState: applyMirroredCampaign });
+  const mirrorAvailability = campaignMirror.start(storedCampaign ? createSaveEnvelope(storedCampaign) : null);
+  setMirrorStatus(
+    mirrorAvailability.available
+      ? "다른 탭과 이 브라우저에서만 로컬 동기화 중입니다. 인터넷 멀티플레이는 아닙니다."
+      : "탭 간 로컬 동기화를 사용할 수 없습니다. 이 기기 저장은 계속됩니다."
+  );
+  window.addEventListener("pagehide", () => campaignMirror?.close(), { once: true });
   wireControls();
   particleBackground = initReactBitsEffects();
   syncBackgroundEffects();

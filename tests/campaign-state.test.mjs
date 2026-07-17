@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   BALANCE,
+  CONTENT_TRACE,
   RULES_VERSION,
   SAVE_SCHEMA,
   SAVE_SCHEMA_VERSION,
@@ -55,11 +56,11 @@ function start() {
   return accept(startCampaign(createCampaign()), "Campaign should start from briefing");
 }
 
-// Balance-v2 reference lines (counterBase [1,2,8], rewardRestore 1).
+// Balance-v3 reference lines preserve legal stage gates while exercising reward effects.
 const ECONOMY_L4 = ["hunt", "hunt", "extract", "materialize", "materialize"];
 const S1_OPTIMAL = [...ECONOMY_L4, "capture", "assault", "assault", "assault"];
 const S2_LENS = [...ECONOMY_L4, "capture", "capture", "possess", "assault", "assault"];
-const S3_VANGUARD_LENS = ["capture", "domain", "possess", "assault", "assault", "assault"];
+const S3_VANGUARD_LENS = ["capture", "domain", "possess", "assault", "assault"];
 
 function finishCampaign() {
   let state = start();
@@ -85,13 +86,13 @@ test("campaign benefits expose selectable reward stats and cap cooldown reductio
 
   assert.deepEqual(
     Object.keys(benefits).sort(),
-    ["activeItemNames", "autoExtract", "cooldownReduction", "extraAssaultDamage", "initialAegis", "maxIntegrity", "summonBonus"],
+    ["activeItemNames", "anchorRestore", "autoExtract", "cooldownReduction", "counterReduction", "extraAssaultDamage", "initialAegis", "lensDamage", "maxIntegrity", "summonBonus", "vanguardLegion"],
   );
   assert.equal(benefits.maxIntegrity, BALANCE.maxIntegrity);
   assert.equal(benefits.cooldownReduction, 0.2);
   assert.equal(benefits.extraAssaultDamage, 0);
   assert.equal(benefits.summonBonus, 1);
-  assert.equal(benefits.autoExtract, false);
+  assert.equal(benefits.autoExtract, true);
   assert.equal(benefits.initialAegis, 1);
   assert.ok(benefits.activeItemNames.includes("Stillwater Hourglass"));
   assert.ok(benefits.activeItemNames.includes("Abyssal Banner"));
@@ -134,7 +135,7 @@ test("battle breaches consume aegis, defeat at zero integrity, and replay from s
   assert.deepEqual(restoreSaveEnvelope(JSON.parse(JSON.stringify(envelope))), state);
 });
 
-test("public campaign API completes the deterministic three-stage Shadow Lord path", () => {
+test("public campaign API completes the deterministic three-stage Abyssal Command path", () => {
   const completed = finishCampaign();
 
   assert.equal(completed.status, "campaign-complete");
@@ -150,7 +151,7 @@ test("public campaign API completes the deterministic three-stage Shadow Lord pa
     "reward",
     ...Array(10).fill("action"),
     "reward",
-    ...Array(6).fill("action"),
+    ...Array(5).fill("action"),
     "reward",
   ]);
 });
@@ -181,7 +182,7 @@ test("integrity persists across stages instead of resetting to 10", () => {
   assert.equal(state.stage.entryIntegrity, 5, "the stage entry snapshot must record the carried value");
 });
 
-test("Stage 3 possession turns possess into a real damage choice", () => {
+test("Rift Lens adds four damage to possessed Stage 3 assaults", () => {
   let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "rift-lens"));
   state = accept(chooseReward(commands(state, S2_LENS), "anchor-shard"));
   state = commands(state, [...ECONOMY_L4, "capture"]);
@@ -190,7 +191,7 @@ test("Stage 3 possession turns possess into a real damage choice", () => {
   assert.equal(unpossessed.stage.bossHealth, 13, "unpossessed Stage 3 assault deals base 4");
 
   const possessed = command(command(state, "possess"), "assault");
-  assert.equal(possessed.stage.bossHealth, 11, "possessed assault with Rift Lens deals 4 + 1 + 1 = 6");
+  assert.equal(possessed.stage.bossHealth, 8, "possessed Rift Lens assault deals base 4 + possession 1 + Lens 4");
 });
 
 test("Lord's Domain restores 4 integrity and its aegis negates the next two counterblows", () => {
@@ -210,11 +211,8 @@ test("Lord's Domain restores 4 integrity and its aegis negates the next two coun
   assert.equal(state.stage.integrity, 10, "first counterblow breaks on the aegis");
   assert.equal(state.stage.aegis, 1);
   state = command(state, "assault");
-  assert.equal(state.stage.integrity, 10, "second counterblow breaks on the aegis");
-  assert.equal(state.stage.aegis, 0);
-  state = command(state, "assault");
-  assert.equal(state.stage.bossHealth, 0, "third strike fells the Gate Sovereign");
-  assert.equal(state.stage.integrity, 2, "the exposed killing blow still costs the full counter (8)");
+  assert.equal(state.stage.bossHealth, 0, "the second possessed Rift Lens strike fells the Gate Sovereign");
+  assert.equal(state.stage.integrity, 10, "the two Domain aegis absorb both winning counterblows");
   assert.equal(state.status, "reward");
 });
 
@@ -272,6 +270,56 @@ test("the soul economy loop is repeatable and bounded by legion capacity", () =>
   rejectWithoutMutation(state, (current) => applyAction(current, "materialize"), "a full legion cannot materialize");
 });
 
+test("Ember Cohort makes the first legal Stage 2 materialize raise four shades without expanding capacity", () => {
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "ember-cohort"));
+  state = commands(state, ["hunt", "hunt", "extract", "materialize"]);
+
+  assert.equal(state.stage.legion, 4, "Cohort raises base 2 + 2 shades on the first Stage 2 materialize");
+  assert.equal(state.stage.capacity, 10, "Cohort must not change the stage's legal legion capacity");
+});
+
+test("Ember Cohort and Abyssal Banner make the first legal Stage 3 materialize raise five shades", () => {
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "ember-cohort"));
+  state = commands(state, [...ECONOMY_L4, "capture", "capture", "possess", "assault", "assault", "assault"]);
+  state = accept(chooseReward(state, "abyssal-banner"));
+  state = commands(state, ["hunt", "hunt", "extract", "materialize"]);
+
+  assert.equal(state.stageIndex, 2);
+  assert.equal(state.stage.legion, 5, "Cohort 2 + Banner 1 stack with the base two-shade materialize");
+  assert.equal(state.stage.capacity, 10, "stacked summon boons still respect the fixed capacity");
+});
+
+test("Stillwater Hourglass publicly grants 20% cooldown reduction and extracts on the second Hunt", () => {
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "stillwater-hourglass"));
+  assert.equal(getCampaignBenefits(state).cooldownReduction, 0.2, "Hourglass publicly reports its 20% cooldown benefit");
+
+  state = commands(state, ["hunt", "hunt"]);
+  assert.equal(state.stage.extracted, true, "the second Hunt must automatically extract the available soul cache");
+  assert.equal(state.stage.hunted, 0, "automatic extraction consumes both mapped spoor");
+  assert.equal(state.stage.souls, 4, "automatic extraction yields the standard four souls");
+});
+
+test("Bulwark Brand reduces a thin Stage 2 counterblow by two but never below one integrity", () => {
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "shadebreaker-brand"));
+  state = commands(state, ["hunt", "hunt", "extract", "materialize", "capture", "capture", "possess"]);
+  const integrityBeforeAssault = state.stage.integrity;
+  state = command(state, "assault");
+
+  assert.equal(state.stage.integrity, integrityBeforeAssault - 1, "Brand floors its reduced three-damage thin counterblow at one");
+});
+
+test("Abyssal Banner plus Lord's Domain gives three aegis and Rift Lens ends Stage 3 in two possessed strikes", () => {
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "rift-lens"));
+  state = accept(chooseReward(commands(state, S2_LENS), "abyssal-banner"));
+  state = commands(state, ["hunt", "hunt", "extract", "materialize", "capture", "domain", "possess"]);
+
+  assert.equal(state.stage.aegis, 3, "Banner entry aegis and Domain's two aegis stack to three");
+  state = commands(state, ["assault", "assault"]);
+  assert.equal(state.status, "reward", "two possessed Lens assaults after Domain must win Stage 3");
+  assert.equal(state.stage.bossHealth, 0);
+  assert.equal(state.stage.aegis, 1, "two winning assaults consume two of the three aegis");
+});
+
 test("premature public commands reject without mutating campaign state", () => {
   let state = start();
   rejectWithoutMutation(state, (current) => startCampaign(current), "an active campaign cannot be started again");
@@ -282,7 +330,7 @@ test("premature public commands reject without mutating campaign state", () => {
 
   state = accept(chooseReward(commands(state, S1_OPTIMAL), "ember-cohort"));
   assert.equal(state.stageIndex, 1);
-  assert.equal(state.stage.capacity, 22, "the earned Stage 1 boon must carry into Stage 2");
+  assert.equal(state.stage.capacity, 10, "Ember Cohort increases materialized shades without changing legal legion capacity");
   for (const action of COMMANDS.filter((action) => action !== "hunt")) {
     rejectWithoutMutation(state, (current) => applyAction(current, action), `Stage 2 ${action} must be premature`);
   }
@@ -293,11 +341,11 @@ test("premature public commands reject without mutating campaign state", () => {
   for (let strike = 0; strike < 3; strike += 1) state = command(state, "assault");
   state = accept(chooseReward(state, "anchor-shard"));
   assert.equal(state.stageIndex, 2);
-  assert.equal(state.stage.capacity, 22, "Stage 3 keeps the Ember Cohort capacity boon");
+  assert.equal(state.stage.capacity, 10, "Stage 3 retains its fixed capacity after Cohort");
 
   rejectWithoutMutation(state, (current) => applyAction(current, "domain"), "Stage 3 domain must require the throne node");
   state = commands(state, [...ECONOMY_L4, "capture"]);
-  accept(applyAction(state, "assault"), "Stage 3 assault must NOT be gated on the Domain (v2)");
+  accept(applyAction(state, "assault"), "Stage 3 assault must remain available once its node gate is met");
   state = command(state, "domain");
   rejectWithoutMutation(state, (current) => applyAction(current, "domain"), "Stage 3 domain must be one-use");
 });
@@ -319,7 +367,7 @@ test("reward choice is exclusive and retry resets the stage while retaining earn
   assert.equal(retried.stageIndex, 1);
   assert.equal(retried.status, "active");
   assert.equal(retried.stage.hunted, 0, "retry must reset current stage progress");
-  assert.equal(retried.stage.capacity, 22, "retry must preserve the earned Ember Cohort boon");
+  assert.equal(retried.stage.capacity, 10, "retry preserves Cohort while capacity remains fixed");
   assert.deepEqual(retried.rewards.map(({ rewardId }) => rewardId), ["ember-cohort"]);
 
   rejectWithoutMutation(createCampaign(), (current) => retryStage(current), "briefing cannot retry");
@@ -347,22 +395,26 @@ test("public retries keep a started stage save compact and playable", () => {
   accept(applyAction(restored, "hunt"), "the restored compact save must remain playable");
 });
 
-test("versioned save envelopes restore deterministically and reject tampering", () => {
+test("versioned v3 save envelopes replay deterministically and reject tampering", () => {
   const original = finishCampaign();
   const envelope = createSaveEnvelope(original);
 
   assert.deepEqual(envelope, {
     schema: SAVE_SCHEMA,
     schemaVersion: 2,
-    rulesVersion: "abyssal-surge-rules-v2",
+    rulesVersion: "abyssal-surge-rules-v3",
     trace: original.trace,
   });
   assert.equal(SAVE_SCHEMA_VERSION, 2);
-  assert.equal(RULES_VERSION, "abyssal-surge-rules-v2");
-  assert.deepEqual(restoreSaveEnvelope(JSON.parse(JSON.stringify(envelope))), original);
+  assert.equal(RULES_VERSION, "abyssal-surge-rules-v3");
+  assert.deepEqual(
+    restoreSaveEnvelope(JSON.parse(JSON.stringify(envelope))),
+    original,
+    "a v3 envelope must deterministically replay every legal reward route",
+  );
 
   const wrongSchema = { ...envelope, schema: "forged-schema" };
-  assert.throws(() => restoreSaveEnvelope(wrongSchema), /not an Abyssal Surge save/);
+  assert.throws(() => restoreSaveEnvelope(wrongSchema), /not an Abyssal Command save/);
 
   const wrongRules = { ...envelope, rulesVersion: "forged-rules" };
   assert.throws(() => restoreSaveEnvelope(wrongRules), /incompatible campaign rules/);
@@ -388,7 +440,7 @@ test("versioned save envelopes restore deterministically and reject tampering", 
   assert.throws(() => restoreSaveEnvelope(unsupportedEvent), /unsupported event/);
 });
 
-test("v1 save envelopes are rejected with a clear migration message", () => {
+test("pre-v3 save envelopes are explicitly rejected", () => {
   const v1Envelope = {
     schema: SAVE_SCHEMA,
     schemaVersion: 1,
@@ -397,18 +449,117 @@ test("v1 save envelopes are rejected with a clear migration message", () => {
   };
   assert.throws(
     () => restoreSaveEnvelope(v1Envelope),
-    /v1 balance rules and cannot continue in v2/,
+    /v1 balance rules and cannot continue in v3/,
     "a v1 envelope must fail with the migration explanation, not a generic schema error",
+  );
+
+  const v2Envelope = {
+    schema: SAVE_SCHEMA,
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    rulesVersion: "abyssal-surge-rules-v2",
+    trace: [{ kind: "start" }, { kind: "action", action: "hunt" }],
+  };
+  assert.throws(
+    () => restoreSaveEnvelope(v2Envelope),
+    /incompatible campaign rules/,
+    "a v2 envelope must reject rather than replaying under the rebalanced v3 rules",
   );
 });
 
-test("BALANCE publishes the tuned v2 knobs the simulator measured", () => {
+test("content trace inventory covers every stage, boss, and offered reward", () => {
+  const traceIds = [];
+  const traceIdPattern = /^AS-WV-\d{3}$/;
+
+  const requireTrace = (traceId, expected) => {
+    assert.match(traceId, traceIdPattern, "content trace IDs must use the AS-WV-### inventory form");
+    traceIds.push(traceId);
+    assert.deepEqual(CONTENT_TRACE[traceId], expected, `content trace ${traceId} must describe its referenced campaign content`);
+  };
+
+  for (const stage of STAGES) {
+    assert.deepEqual(Object.keys(stage.trace.stage).sort(), ["description", "name", "region"]);
+    assert.deepEqual(Object.keys(stage.trace.boss).sort(), ["description", "name"]);
+    assert.deepEqual(
+      Object.keys(stage.trace.rewards).sort(),
+      stage.rewards.map((reward) => reward.id).sort(),
+      `${stage.id} must trace every offered reward`,
+    );
+
+    for (const [field, value] of Object.entries({
+      name: stage.title,
+      region: stage.region,
+      description: stage.objective,
+    })) {
+      requireTrace(stage.trace.stage[field], {
+        stageId: stage.id,
+        entity: "stage",
+        field,
+        value,
+      });
+    }
+
+    requireTrace(stage.trace.boss.name, {
+      stageId: stage.id,
+      entity: "boss",
+      field: "name",
+      value: stage.bossName,
+    });
+    const bossDescription = CONTENT_TRACE[stage.trace.boss.description];
+    assert.match(stage.trace.boss.description, traceIdPattern, "boss descriptions must have an AS-WV trace ID");
+    traceIds.push(stage.trace.boss.description);
+    assert.deepEqual(
+      {
+        stageId: bossDescription?.stageId,
+        entity: bossDescription?.entity,
+        field: bossDescription?.field,
+      },
+      {
+        stageId: stage.id,
+        entity: "boss",
+        field: "description",
+      },
+      `${stage.id} boss description must be traceable`,
+    );
+    assert.equal(typeof bossDescription?.value, "string");
+    assert.notEqual(bossDescription.value.trim(), "");
+
+    for (const reward of stage.rewards) {
+      const rewardTrace = stage.trace.rewards[reward.id];
+      assert.deepEqual(Object.keys(rewardTrace).sort(), ["description", "name"]);
+      for (const [field, value] of Object.entries({
+        name: reward.name,
+        description: reward.description,
+      })) {
+        requireTrace(rewardTrace[field], {
+          stageId: stage.id,
+          entity: "reward",
+          rewardId: reward.id,
+          field,
+          value,
+        });
+      }
+    }
+  }
+
+  assert.equal(new Set(traceIds).size, traceIds.length, "each campaign content field must have its own trace ID");
+  assert.deepEqual(
+    Object.keys(CONTENT_TRACE).sort(),
+    [...traceIds].sort(),
+    "the public content inventory must have no orphaned or unreachable trace entries",
+  );
+});
+
+test("BALANCE publishes the tuned v3 reward knobs the simulator measured", () => {
   assert.deepEqual([...BALANCE.counterBase], [1, 2, 8]);
   assert.equal(BALANCE.shieldDivisor, 4);
   assert.equal(BALANCE.thinPenalty, 1);
   assert.equal(BALANCE.rewardRestore, 1);
   assert.equal(BALANCE.domainRestore, 4);
   assert.equal(BALANCE.domainAegis, 2);
-  assert.equal(BALANCE.vanguardLegion, 4);
-  assert.equal(BALANCE.anchorRestore, 2);
+  assert.equal(BALANCE.cohortSummonBonus, 2);
+  assert.equal(BALANCE.lensDamage, 4);
+  assert.equal(BALANCE.hourglassCooldownReduction, 0.2);
+  assert.equal(BALANCE.bannerSummonBonus, 1);
+  assert.equal(BALANCE.bannerInitialAegis, 1);
+  assert.equal(BALANCE.brandCounterReduction, 2);
 });

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "ui-integration",
+  "completed_at": "2026-07-17T02:05:00+09:00",
+  "went_well": [
+    "The six audio-backed narration IDs were dry-run individually, each emitting its exact locked Korean text and planned WAV output without credentials or network access.",
+    "The runtime source containing the narration timing and lazy Canvas battle-background changes passed JavaScript syntax checking."
+  ],
+  "went_wrong": [
+    "The narrow verification used dry-runs and syntax checking; it did not render the Canvas battle background or generate/deploy audio."
+  ],
+  "metrics": [
+    {
+      "name": "narration_dry_runs",
+      "value": 6,
+      "unit": "scenes",
+      "method": "Six individual commands: python3 scripts/generate_game_audio.py gemini-narration --narration-id <intro|cinder-span|veil-citadel|echo-throne|victory|defeat> --output /tmp/narr-<id>.wav --dry-run; each exited 0 and emitted the matching locked text, WAV path, and format."
+    },
+    {
+      "name": "runtime_syntax_checks",
+      "value": 1,
+      "unit": "file",
+      "method": "node --check app.js — exit 0 with no output."
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Before the next UI integration release, capture a browser evidence packet that observes all six narration scenes and verifies the lazy battle background starts only in battle without competing with the Canvas loop.",
+      "owner": "game-qa",
+      "apply_in_phase": "live-playtest",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "app.js",
+    "scripts/generate_game_audio.py"
+  ]
+}

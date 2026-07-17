@@ -1,6 +1,6 @@
-# Abyssal Command - 2.5D Battle & SPA Screen Flow Design Spec
+# Abyssal Surge — 2.5D Battle & SPA Screen Flow Design Spec
 
-This document details the screen layouts, transitions, core combat loop, and reward systems for the redesigned Abyssal Command RTS-RPG campaign.
+This document details the screen layouts, transitions, core combat loop, and reward systems for the original Abyssal Surge RTS-RPG campaign.
 
 ---
 
@@ -35,10 +35,10 @@ graph TD
    - Button: `Enter Combat (전투 진입)` -> transitions to Battle Screen.
 
 4. **Battle View (`#view-battle`)**:
-   - Top area: A WebGL/Three.js 2.5D Canvas showing a Bird's-eye view of the dungeon.
-     - Left: Ally base camp (Dusk Portal, active summons represented as glowing purple/cyan spheres/particles).
-     - Right: Boss base camp (Dread Portal, Boss represented as a large crimson glowing pyramid/cube, and spawned waves of minions).
-     - Automated clash: Spawned minions and ally shades move towards each other, collide, and display combat visual effects (impact particles, neon flashes).
+   - Top area: A Canvas 2D dimetric (2:1) battlefield showing the dungeon.
+     - Left: Ally base camp (Dusk Portal, active summons represented as glowing purple/cyan particles).
+     - Right: Boss base camp (Dread Portal, boss presence, and spawned waves of minions).
+     - Automated clash: Spawned minions and ally shades move toward each other, collide, and display combat visual effects such as impact particles and neon flashes.
    - Middle area: Health bars & Status indicators.
      - Ally Integrity (10 base).
      - Boss Ward HP (e.g. 8 / 10 / 17).
@@ -85,12 +85,14 @@ The campaign state persists reward-driven benefits:
 
 ---
 
-## 3. 2.5D WebGL/Three.js Combat Visualization
-To maximize the "game fun" factor, the top section of the battle screen features a Three.js canvas:
-- **Camera**: Bird's-eye perspective (tilted downward at 45 degrees, looking over a long grid platform).
-- **Environment**: Dark futuristic/dread grid floor with glowing neon blue side walls.
+## 3. Canvas 2D Dimetric (2:1) Combat Visualization
+The top section of the battle screen uses a Canvas 2D dimetric (2:1) battlefield rather than a WebGL or Three.js scene:
+- **Battlefield**: A dark, futuristic grid presentation with the Ally camp on the left and the Boss camp on the right.
+- **Stage briefing**: The battle presentation supplies per-stage operation, doctrine, and force labels and the corresponding palette.
 - **VFX**:
   - Spawn particles: Rising smoke/sparks when shades are materialized.
   - Conflict impact: Sparks when units collide and fight.
   - Boss shield: Glowing red forcefield that fades when nodes are captured.
   - Lord's Domain: A large dome shield covering the Ally camp when activated.
+- **Canvas initialization fallback**: If Canvas initialization fails, the app displays a static tactical briefing while the command pad and logical timed-wave rules remain active.
+- **Reduced motion**: The Canvas updates as static, event-driven state changes rather than through continuous animation.

@@ -1,0 +1,32 @@
+field_categories:
+  - name: evidence
+    fields:
+      - name: finding
+        description: Source-grounded design or technical finding.
+        detail_level: detailed
+      - name: source_url
+        description: Primary or authoritative source URL.
+        detail_level: detailed
+      - name: confidence
+        description: Confidence and source limitations.
+        detail_level: brief
+  - name: applicability
+    fields:
+      - name: prototype_gap
+        description: Observed mismatch or risk in the current implementation.
+        detail_level: detailed
+      - name: smallest_improvement
+        description: Lowest-complexity change that addresses the gap.
+        detail_level: detailed
+      - name: acceptance_metric
+        description: Observable playtest, runtime, or accessibility measure.
+        detail_level: moderate
+  - name: prioritization
+    fields:
+      - name: player_impact
+        description: Expected impact on tactical depth, readability, or retention.
+        detail_level: moderate
+      - name: cost_risk
+        description: Delivery complexity and regression risk.
+        detail_level: moderate
+uncertain: []

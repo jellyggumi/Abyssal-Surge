@@ -1,5 +1,5 @@
 // Vanilla-JS port of the React Bits "LiquidEther" component (WebGL fluid-simulation
-// background) for Abyssal Command. The original component is authored for React
+// background for Abyssal Command. The original component is authored for React
 // (useEffect/useRef); this module keeps the same simulation internals but exposes a
 // plain factory function so it can be mounted directly into a DOM container without a
 // framework. See vendor/three.module.min.js for the bundled three.js dependency.
@@ -718,8 +718,9 @@ export function createLiquidEther(container, options = {}) {
   const paletteTex = makePaletteTexture(config.colors);
   const bgVec4 = new THREE.Vector4(0, 0, 0, 0);
 
-  container.style.position = container.style.position || "relative";
-  container.style.overflow = container.style.overflow || "hidden";
+  const containerStyle = window.getComputedStyle(container);
+  if (containerStyle.position === "static") container.style.position = "relative";
+  if (containerStyle.overflow === "visible") container.style.overflow = "hidden";
 
   const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });

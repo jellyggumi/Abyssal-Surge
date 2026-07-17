@@ -1,43 +1,49 @@
 # Stat and Item Reward System Schema
 
-The campaign offers one exclusive reward after each victory. Reward effects are calculated from the immutable campaign reward trace, so a saved campaign reproduces the same stats after import.
+The campaign offers one exclusive reward after each victory. Effects derive solely from the immutable reward trace, so a version-compatible saved campaign reproduces the same build after import. Rules v3 deliberately rejects v2 traces instead of replaying them under rebalance values.
 
 ---
 
 ## 1. Implemented reward catalog
 
+Every nonterminal reward establishes a bounded build direction. Rewards improve readiness, tempo, damage, or counter tolerance; none removes the Hunt → Extract → Materialize → Capture → Possess/Domain/Assault stage gates.
+
 ### Stage 1 — Cinder Span
 
-| Reward ID | Type | Effect |
-|---|---|---|
-| `ember-cohort` | Stat | Adds 12 legion capacity for the remaining campaign. |
-| `rift-lens` | Item | Adds 1 damage to a possessed Assault from Veil Citadel onward. |
-| `stillwater-hourglass` | Item | Reduces every control-pad cooldown by 20%. |
-| `shadebreaker-brand` | Stat | Adds 1 damage to every Assault. |
+| Reward ID | Build | Effect in later stages | Trade-off |
+|---|---|---|---|
+| `ember-cohort` | Legion | Every Materialize raises 2 additional shades; base 2 becomes 4. | Reaches the L4/L5 body thresholds quickly; no damage, recovery, or timer benefit. |
+| `rift-lens` | Burst | A possessed Assault gains +4 damage from Veil Citadel onward. | Fastest boss finish; requires an owned node and Possess. |
+| `stillwater-hourglass` | Tempo | Every command cooldown is 20% shorter; the second Hunt automatically extracts 4 souls. | Saves a semantic action per soul cache but grants no direct damage or integrity. |
+| `shadebreaker-brand` | Bulwark | Every boss counterblow loses 2 damage, floored at 1. | Protects exposed Assaults but does not shorten the fight. |
 
 ### Stage 2 — Veil Citadel
 
-| Reward ID | Type | Effect |
-|---|---|---|
-| `veil-vanguard` | Item | Starts Echo Throne with four shades already raised. |
-| `anchor-shard` | Item | Restores 2 integrity when entering Echo Throne. |
-| `abyssal-banner` | Item | Starts each later stage with one aegis charge and adds one shade to every Materialize. |
+| Reward ID | Build | Effect in Echo Throne | Trade-off |
+|---|---|---|---|
+| `veil-vanguard` | Setup skip | Starts with four shades. | Skips the opening soul cycle, but L4 remains thin in Stage 3. |
+| `anchor-shard` | Recovery | Restores 2 additional integrity on Stage 3 entry. | A failure buffer only; does not speed the boss kill. |
+| `abyssal-banner` | Legion / aegis | Starts with 1 aegis and adds 1 shade to every Materialize; Domain adds its 2 aegis instead of replacing the entry charge. | Rewards a prepared army; it cannot skip the normal command gates. |
 
 ### Stage 3 — Echo Throne
 
-`throne-echo` and `dawnless-crown` are terminal archive rewards. They close the campaign and do not need to affect a later combat stage.
+`throne-echo` and `dawnless-crown` are terminal archive rewards. They close the campaign and do not alter a later combat stage.
 
 ---
 
 ## 2. Runtime stat contract
 
-`getCampaignBenefits(state)` returns a pure immutable summary used by the boss-spec screen and the battle control pad:
+`getCampaignBenefits(state)` returns a pure immutable summary used by the boss-spec screen, battle control pad, and renderer:
 
 ```js
 {
   maxIntegrity: 10,
   cooldownReduction: 0, // clamped to 0–0.5
+  lensDamage: 0,
+  vanguardLegion: 0,
+  anchorRestore: 0,
   extraAssaultDamage: 0,
+  counterReduction: 0,
   summonBonus: 0,
   autoExtract: false,
   initialAegis: 0,
@@ -45,16 +51,27 @@ The campaign offers one exclusive reward after each victory. Reward effects are 
 }
 ```
 
-Legacy capacity, lens, vanguard, and anchor effects remain in the state engine. `cooldownReduction` is applied only to the active control pad; it never changes the deterministic action rules.
+The effect is derived, not copied into a save field. Save replay therefore recomputes it from fixed reward IDs; a rules-version mismatch is rejected before replay.
 
-## 3. Cooldown formula
+## 3. Combat and cooldown formulas
 
-Each accepted action starts its own real-time timer. The UI applies the campaign benefit without changing the action’s underlying state transition:
+Each accepted action starts its own real-time timer:
 
 $$\text{Cooldown}_{\text{active}} = \text{Cooldown}_{\text{base}} \times (1 - \text{cooldownReduction})$$
 
-For example, Hunt has a base cooldown of 4.0 seconds. With the Stillwater Hourglass, it becomes $4.0 \times (1 - 0.20) = 3.2$ seconds.
+For example, Hunt has a base cooldown of 4.0 seconds. With the Stillwater Hourglass, it becomes $4.0 \times (1 - 0.20) = 3.2$ seconds. Its second Hunt also uses the ordinary extraction payload immediately: `hunted` resets to 0 and `souls` gains 4.
 
-## 4. Wave-pressure interaction
+Boss counterblow after legion shielding and the thin-legion penalty is:
 
-Enemy wave breaches call `applyBattleBreach(state)`. An available aegis absorbs the breach; otherwise integrity loses one point. At zero integrity the current stage moves to `defeat`, and the state transition is recorded in the save trace as `battle-breach`.
+$$\text{Counter} = \max(1,\max(1,\text{base}-\lfloor\text{legion}/4\rfloor)+\text{thinPenalty}-\text{counterReduction})$$
+
+An aegis negates a full counterblow. Lord's Domain restores 4 integrity and adds two aegis charges exactly once; Abyssal Banner retains its entry charge, producing three charges total.
+
+## 4. Balance invariants
+
+- One reward is selected after each victory; all alternatives are discarded for that campaign.
+- Cooldown reduction is capped at 50%.
+- Counter reduction cannot lower damage below 1.
+- Legion capacity remains 10; Cohort/Banner change summon output, not slot limits.
+- Stage 3's L5 threshold remains meaningful: Vanguard begins at L4, while Cohort + Banner reaches L5 after one Materialize.
+- `applyBattleBreach(state)` consumes aegis before integrity. At zero integrity the stage becomes `defeat`, and the breach is retained in the save trace.

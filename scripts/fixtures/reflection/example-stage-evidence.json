@@ -1,0 +1,20 @@
+{
+  "schema": "abyssal-surge.reflection-evidence",
+  "schema_version": "1.0",
+  "record_id": "2d4c6610-2c7a-4a01-b076-d21f4023b196",
+  "phase": "implementation",
+  "source_revision": "0123456789abcdef",
+  "scope": "Local schema-path fixture for the read-only stage reflection runtime.",
+  "evidence": [
+    {
+      "evidence_id": "EV-REFLECT-001",
+      "kind": "command",
+      "subject": "Reflection runtime source is present for local validation.",
+      "location": "scripts/run_stage_reflection.py",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The local fixture validates a typed evidence/result pair without a model provider.",
+      "command": "python scripts/run_stage_reflection.py validate --help",
+      "exit_code": 0
+    }
+  ]
+}

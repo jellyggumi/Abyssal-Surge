@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
+          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
@@ -62,6 +62,7 @@ jobs:
           node --check iso-math.js
           node --check game-core.js
           node --check campaign-state.js
+          node --check campaign-sync.js
           node --check i18n.js
           node --check liquid-ether.js
           node --check vendor/three.module.min.js
@@ -72,6 +73,7 @@ jobs:
           grep -Fq 'from "./campaign-state.js";' app.js
           grep -Fq 'from "./battle-visualizer.js";' app.js
           grep -Fq 'from "./battle-presentation.js";' app.js
+          grep -Fq 'from "./campaign-sync.js";' app.js
           # liquid-ether may be statically or dynamically imported (lazy load)
           grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
 
@@ -86,8 +88,8 @@ jobs:
           set -euo pipefail
           rm -rf "$PAGES_ARTIFACT_DIR"
           mkdir -p "$PAGES_ARTIFACT_DIR"
-          git archive --format=tar "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | tar -x -C "$PAGES_ARTIFACT_DIR"
-          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | sort)"
+          git archive --format=tar "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | tar -x -C "$PAGES_ARTIFACT_DIR"
+          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | sort)"
 
           actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^${PAGES_ARTIFACT_DIR}/##" | sort)"
           test "$actual" = "$expected"

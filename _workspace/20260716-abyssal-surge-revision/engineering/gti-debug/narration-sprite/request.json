@@ -1,0 +1,53 @@
+{
+  "url": "https://chatgpt.com/backend-api/codex/responses",
+  "headers": {
+    "Authorization": "Bearer [REDACTED]",
+    "ChatGPT-Account-ID": "[REDACTED_ACCOUNT_ID]",
+    "Content-Type": "application/json",
+    "Accept": "text/event-stream",
+    "originator": "codex_cli_rs",
+    "session_id": "[REDACTED_SESSION_ID]"
+  },
+  "body": {
+    "model": "gpt-5.4",
+    "instructions": "",
+    "input": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Original Abyssal Surge dark-fantasy RTS-RPG concept-art animation source. Create one square 4 by 4 contact sheet: exactly sixteen sequential full-body frames of the same Dusk Warden commander for a one-second 16-fps idle narration loop. Frames read left-to-right, top-to-bottom: calm cloak settle, a small abyss-teal ward glyph gently travels once around the gauntlet, brief teal pulse, then returns cleanly to the first pose. Non-pixel painterly production illustration, rain-dark obsidian armor and drowned iron, hard silhouette clarity, controlled film grain, anatomically coherent. Each frame has one centered character at the same scale with no frame borders, no shadows crossing cell boundaries, no text, no logo, no watermark, no UI, no duplicate figures, no extra limbs, no malformed hands, not anime, not cartoon, not chibi, not pixel art, not retro 16-bit. Use a uniform pure #FF00FF magenta background for deterministic chroma-key transparency; avoid magenta, fuchsia, pink, and purple on the character, armor, cloak, glyph, or effects."
+          },
+          {
+            "type": "input_image",
+            "image_url": "[REDACTED_IMAGE_DATA]"
+          },
+          {
+            "type": "input_image",
+            "image_url": "[REDACTED_IMAGE_DATA]"
+          }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "type": "image_generation",
+        "output_format": "png",
+        "size": "2048x2048"
+      }
+    ],
+    "tool_choice": "auto",
+    "parallel_tool_calls": false,
+    "reasoning": null,
+    "store": false,
+    "stream": true,
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "client_metadata": {
+      "x-codex-installation-id": "[REDACTED_INSTALLATION_ID]"
+    }
+  }
+}

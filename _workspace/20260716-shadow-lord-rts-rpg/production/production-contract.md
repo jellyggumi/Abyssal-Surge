@@ -1,9 +1,9 @@
 # Abyssal Surge production contract — cycle 1
 
 - **Run:** `20260716-shadow-lord-rts-rpg`
-- **Status:** Stage 1 specification packet; all measured gate verdicts are `NOT-RUN` unless a dated evidence path says otherwise.
-- **Audience/action:** production director coordinates an original-only, static-hosted three-stage campaign without treating design targets as completed implementation.
-- **Next public beat:** offline Cinder Span vertical-slice playtest.
+- **Status:** three-stage deterministic implementation is present; a gate remains `NOT-RUN` unless a dated evidence path proves its threshold.
+- **Audience/action:** production director coordinates an original-only, static-hosted three-stage campaign; implementation presence does not convert a design target into a completed gate.
+- **Next public beat:** offline Cinder Span vertical-slice playtest with a captured browser evidence packet.
 
 ## Source hierarchy and evidence labels
 
@@ -20,9 +20,9 @@ Abyssal Surge is original-only. Every player-visible string, effect, scenario, a
 
 | Stage | Required chain | Carry | Completion reward |
 |---|---|---|---|
-| 1 Cinder Span | hunt → extract → materialize legion → capture tech node → break Rift Guardian | new campaign | Cinder March **or** Relay Ward |
-| 2 Veil Citadel | carry reward → unlock possession → hold two nodes → tactical boss | Stage 1 reward | Stage 2 pair, exactly one |
-| 3 Echo Throne | carry reward → bounded Lord’s Domain → defeat Gate Sovereign | Stage 2 reward | campaign completion |
+| 1 Cinder Span | hunt → extract → materialize legion → capture forge node → break Cinder Warden | new campaign | select exactly one of Ember Cohort, Rift Lens, Stillwater Hourglass, or Shadebreaker Brand |
+| 2 Veil Citadel | carry Stage 1 reward → unlock possession → hold two signal nodes → defeat Veil Tactician | Stage 1 reward | select exactly one of Veil Vanguard, Anchor Shard, or Abyssal Banner |
+| 3 Echo Throne | carry the Stage 1 and Stage 2 rewards → bounded Lord’s Domain → defeat Gate Sovereign | Stage 2 reward | select exactly one campaign-archive conclusion |
 
 ## Gate ledger
 
@@ -44,6 +44,13 @@ Abyssal Surge is original-only. Every player-visible string, effect, scenario, a
 - **Co-op later:** invite-only two-player authoritative external room after deterministic reconnect/desync/hibernation tests. No client-submitted result is authoritative.
 - **APK later:** packaging is out of this cycle and has no pass claim.
 
+## Service and production-media decisions
+
+- [Staged multiplayer/database and media-production boundary](multiplayer-database-decision.md) is the accepted decision record: P0 stays local deterministic/export-import; any P1 Supabase profile service or P2 authoritative invite-only co-op service must meet its release gates.
+- Blender MCP probes timed out and headless Blender is unavailable (`blender --version` is absent). This cycle claims no mesh, rigging, animation, or other Blender-produced result.
+- The linked record's visual/audio policy is prospective only: new non-sprite stills use GodTiboImagen; future concept-style sprites follow PerfectPixel methodology at 16 fps; audio remains separately generated and source-approved; video migration waits for source-approved renders. Existing resources are not asserted to meet that policy.
+
+
 ## Stage exits
 
 - **Stage 1 exit:** G1, G7, and G6 draft must have evidence paths and director review; open S1 or a missing measured requirement blocks exit. See [Stage 1 reviews](gate-reviews/stage-1-g1.md).
@@ -58,4 +65,5 @@ Abyssal Surge is original-only. Every player-visible string, effect, scenario, a
 - **QA:** [benchmarks](../qa/benchmark-notes.md), [test plan](../qa/test-plan.md), [defects](../qa/defect-register.md), [measurements](../qa/gate-measurements.md)
 - **Engineering/Ops:** [resource manifest](../engineering/resource-manifest.md), [architecture](../engineering/architecture-contract.md), [telemetry](../ops/telemetry-contract.md)
 - **Production:** [task manifest](task-manifest.md), [decision log](decision-log.md), [Stage 2 handoff](handoffs/stage-2.md), [Stage 3 handoff](handoffs/stage-3.md), [gate reviews](gate-reviews/stage-1-g1.md)
+- **Production decisions:** [staged multiplayer/database and media policy](multiplayer-database-decision.md)
 - **Reflection:** [typed schema](../retrospectives/cycle_retrospective.py), [Pydantic v2 dependency](../retrospectives/requirements.txt), [minimal valid example](../retrospectives/minimal-valid-retrospective.json), [retrospective template](../retrospectives/cycle-1-retrospective.md)

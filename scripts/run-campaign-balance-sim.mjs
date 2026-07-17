@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Campaign balance simulator + exploit fuzzer for Abyssal Surge (balance v2).
+// Campaign balance simulator + exploit fuzzer for Abyssal Surge rules v3.
 // Node 22, zero dependencies. Reads the deterministic rules engine and measures
 // G2 (balance), G3 (archetype diversity), G7 (loop) inputs plus exploit probes.
 // Usage: node scripts/run-campaign-balance-sim.mjs   (prints one JSON summary)
@@ -16,7 +16,8 @@ import {
   getStageChecklist,
   getAvailableActions,
   createSaveEnvelope,
-  restoreSaveEnvelope
+  restoreSaveEnvelope,
+  getCampaignBenefits,
 } from "../campaign-state.js";
 
 const ACTIONS = ["hunt", "extract", "materialize", "capture", "possess", "domain", "assault"];
@@ -43,19 +44,36 @@ function mulberry32(seed) {
 }
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 
-// --- shared helpers over BALANCE (mirror engine math for policy targeting) ---
-function counterAt(stageNumber, legion) {
+// --- shared helpers over public reward benefits and engine combat math ---
+function counterAt(stageNumber, legion, counterReduction = 0) {
   const shield = Math.floor(legion / BALANCE.shieldDivisor);
   const base = BALANCE.counterBase[stageNumber - 1];
   const thin = legion < BALANCE.thinMargin + stageNumber ? BALANCE.thinPenalty : 0;
-  return Math.max(1, base - shield) + thin;
+  const rawCounter = Math.max(1, base - shield) + thin;
+  return Math.max(1, rawCounter - counterReduction);
 }
-// smallest even legion tier (materialize summons 2) within cap whose counter is 1
-function counterOneTarget(stageNumber, capacity, startLegion) {
-  for (let legion = Math.max(2, startLegion); legion <= capacity; legion += BALANCE.materializeSummon) {
-    if (counterAt(stageNumber, legion) === 1) return legion;
+function materializedLegion(state, legion) {
+  const benefits = getCampaignBenefits(state);
+  return Math.min(
+    state.stage.capacity,
+    legion + BALANCE.materializeSummon + benefits.summonBonus
+  );
+}
+function reachableLegionTiers(state) {
+  const tiers = [state.stage.legion];
+  while (tiers.at(-1) < state.stage.capacity) {
+    const next = materializedLegion(state, tiers.at(-1));
+    if (next === tiers.at(-1)) break;
+    tiers.push(next);
   }
-  return null;
+  return tiers;
+}
+function counterOneTarget(state) {
+  const benefits = getCampaignBenefits(state);
+  const stageNumber = STAGES[state.stageIndex].number;
+  return reachableLegionTiers(state).find(
+    (legion) => counterAt(stageNumber, legion, benefits.counterReduction) === 1
+  ) ?? null;
 }
 function wantsEconomy(state, targetLegion) {
   const s = state.stage;
@@ -94,42 +112,38 @@ const policies = {
     for (const action of order) if (avail.includes(action)) return action;
     return avail[0];
   },
-  // (b) economy first: build to the counter-1 fortress tier before fighting;
-  // when no reachable tier hits counter 1, wall up to full capacity instead.
+  // (b) economy first: build to the first reachable counter-1 legion tier;
+  // when no tier reaches it, build to capacity.
   "greedy-economy"(state) {
-    const stage = STAGES[state.stageIndex];
-    const s = state.stage;
-    const target = counterOneTarget(stage.number, s.capacity, s.legion) ?? s.capacity;
+    const target = counterOneTarget(state) ?? state.stage.capacity;
     return wantsEconomy(state, target) ?? checklistNext(state);
   },
-  // (c) adaptive optimal: in S1/S2 build the cheapest legion tier that keeps
-  // the counter at 1; in Echo Throne prefer domain + possess and build only
-  // enough legion that the non-killing exposed counterblows cannot reach 0
-  // integrity (the killing blow lands before its counter matters).
+  // (c) adaptive optimal: in S1/S2 build to the first reachable counter-1
+  // tier. In Echo Throne, account for every carried combat boon before adding
+  // legion: possession and Rift Lens damage, Banner/Domain aegis, Bulwark
+  // counter reduction, and the actual reward-adjusted materialize increment.
   optimal(state) {
     const stage = STAGES[state.stageIndex];
     const s = state.stage;
+    const benefits = getCampaignBenefits(state);
     let target;
     if (stage.number < 3) {
-      target = counterOneTarget(stage.number, s.capacity, s.legion) ?? 2;
+      target = counterOneTarget(state) ?? s.capacity;
     } else {
-      const lens = state.rewards.some((r) => r.rewardId === "rift-lens") ? BALANCE.lensDamage : 0;
-      const damage = BALANCE.assaultBase[2] + BALANCE.possessDamage + lens;
+      const damage = BALANCE.assaultBase[stage.number - 1] + BALANCE.possessDamage + benefits.lensDamage;
       const assaults = Math.ceil(s.bossHealth / damage);
-      const aegis = s.domainUses === 0 ? BALANCE.domainAegis : s.aegis;
-      const nonKillingExposed = Math.max(0, assaults - aegis - 1);
+      const availableAegis = s.aegis + (s.domainUses === 0 ? BALANCE.domainAegis : 0);
+      const nonKillingExposed = Math.max(0, assaults - availableAegis - 1);
       const postDomainIntegrity = s.domainUses === 0
-        ? Math.min(BALANCE.maxIntegrity, s.integrity + BALANCE.domainRestore)
+        ? Math.min(benefits.maxIntegrity, s.integrity + BALANCE.domainRestore)
         : s.integrity;
-      target = 2;
-      if (nonKillingExposed > 0) {
-        let best = 2;
-        for (let legion = 2; legion <= s.capacity; legion += BALANCE.materializeSummon) {
-          best = legion;
-          if (postDomainIntegrity - nonKillingExposed * counterAt(3, legion) > 0) break;
-        }
-        target = best;
-      }
+      target = reachableLegionTiers(state).find(
+        (legion) => postDomainIntegrity - nonKillingExposed * counterAt(
+          stage.number,
+          legion,
+          benefits.counterReduction
+        ) > 0
+      ) ?? s.capacity;
     }
     const eco = wantsEconomy(state, target);
     if (eco) return eco;
@@ -171,12 +185,13 @@ const policies = {
   }
 };
 
-// reward preference per archetype (stage3 reward is terminal-cosmetic)
+// Reward plans deliberately cover every non-terminal v3 doctrine; Stage 3's
+// terminal archive choice has no combat effect.
 const rewardPrefs = {
   rusher: { "cinder-span": "rift-lens", "veil-citadel": "veil-vanguard", "echo-throne": "throne-echo" },
-  "greedy-economy": { "cinder-span": "ember-cohort", "veil-citadel": "anchor-shard", "echo-throne": "dawnless-crown" },
-  optimal: { "cinder-span": "rift-lens", "veil-citadel": "veil-vanguard", "echo-throne": "throne-echo" },
-  comeback: { "cinder-span": "rift-lens", "veil-citadel": "anchor-shard", "echo-throne": "throne-echo" }
+  "greedy-economy": { "cinder-span": "ember-cohort", "veil-citadel": "abyssal-banner", "echo-throne": "dawnless-crown" },
+  optimal: { "cinder-span": "stillwater-hourglass", "veil-citadel": "abyssal-banner", "echo-throne": "throne-echo" },
+  comeback: { "cinder-span": "shadebreaker-brand", "veil-citadel": "anchor-shard", "echo-throne": "throne-echo" }
 };
 
 // A campaign is WON only if it completes without a single defeat.
@@ -226,7 +241,8 @@ function runCampaign(name, rng, rewardPlan) {
     rewardsTaken,
     sequenceSignature: perStage.map((s) => s.sequence.join(">")).join(" | "),
     integrityTrail: perStage.map((s) => s.integrityEnd),
-    probe
+    probe,
+    benefits: getCampaignBenefits(state),
   };
 }
 
@@ -278,15 +294,25 @@ function measureArchetypes() {
   return out;
 }
 
-// --- reward combo trajectories (4 combos, adaptive optimal policy) ---
+// --- every legal Stage 1 × Stage 2 reward trajectory under the adaptive policy ---
 function measureCombos() {
+  const [stage1, stage2, terminalStage] = STAGES;
+  const terminalRewardId = terminalStage.rewards[0].id;
   const combos = [];
-  for (const s1 of ["ember-cohort", "rift-lens"]) {
-    for (const s2 of ["veil-vanguard", "anchor-shard"]) {
-      const plan = { "cinder-span": s1, "veil-citadel": s2, "echo-throne": "throne-echo" };
+  for (const stage1Reward of stage1.rewards) {
+    for (const stage2Reward of stage2.rewards) {
+      const plan = {
+        [stage1.id]: stage1Reward.id,
+        [stage2.id]: stage2Reward.id,
+        [terminalStage.id]: terminalRewardId
+      };
       const run = runCampaign("optimal", mulberry32(7), plan);
+      const carriedBenefits = run.benefits;
       combos.push({
-        combo: `${s1} + ${s2}`,
+        stage1RewardId: stage1Reward.id,
+        stage2RewardId: stage2Reward.id,
+        combo: `${stage1Reward.id} + ${stage2Reward.id}`,
+        carriedBenefits,
         win: run.win,
         totalActions: run.totalActions,
         perStageActions: run.perStage.map((s) => s.actions),
@@ -295,13 +321,21 @@ function measureCombos() {
       });
     }
   }
-  const evs = combos.map((c) => c.evPerAction).sort((a, b) => a - b);
-  const median = (evs[1] + evs[2]) / 2;
-  const outcomeKeys = new Set(combos.map((c) => `${c.totalActions}:${c.integrityEndPerStage.join(",")}`));
+  const evs = combos.map((combo) => combo.evPerAction).sort((a, b) => a - b);
+  const middle = Math.floor(evs.length / 2);
+  const medianEv = evs.length % 2 === 0
+    ? (evs[middle - 1] + evs[middle]) / 2
+    : evs[middle];
+  const outcomeKeys = new Set(combos.map((combo) => `${combo.totalActions}:${combo.integrityEndPerStage.join(",")}`));
   return {
+    stage1RewardIds: stage1.rewards.map((reward) => reward.id),
+    stage2RewardIds: stage2.rewards.map((reward) => reward.id),
+    expectedPairCount: stage1.rewards.length * stage2.rewards.length,
+    measuredPairCount: combos.length,
+    completeCoverage: combos.length === stage1.rewards.length * stage2.rewards.length,
     combos,
-    medianEv: median,
-    maxEvRatio: median > 0 ? Math.max(...evs) / median : null,
+    medianEv,
+    maxEvRatio: medianEv > 0 ? Math.max(...evs) / medianEv : null,
     distinctOutcomes: outcomeKeys.size,
     identicalOutcomes: outcomeKeys.size === 1
   };
@@ -328,7 +362,7 @@ function contractProbes() {
   const s1 = [...thinLine, "capture", "assault", "assault", "assault"];
   const s2 = [...thinLine, "capture", "capture", "possess", "assault", "assault"];
   const rusherS3 = [...thinLine, "capture", "assault"];
-  const comebackS3 = [...thinLine, "capture", "domain", "possess", "assault", "assault", "assault"];
+  const comebackS3 = [...thinLine, "capture", "domain", "possess", "assault", "assault"];
   const rewards = ["rift-lens", "anchor-shard", "throne-echo"];
   const rusherDefeat = play([s1, s2, rusherS3], rewards);
   const comebackWin = play([s1, s2, comebackS3], rewards);
@@ -354,6 +388,8 @@ function stageInvariantErrors(state) {
   const errs = [];
   const stage = STAGES[state.stageIndex];
   const s = state.stage;
+  const benefits = getCampaignBenefits(state);
+  const maximumAegis = benefits.initialAegis + (s.domainUses * BALANCE.domainAegis);
   if (!(s.integrity >= 0 && s.integrity <= BALANCE.maxIntegrity)) errs.push(`integrity out of [0,${BALANCE.maxIntegrity}]: ${s.integrity}`);
   if (!(s.entryIntegrity >= 0 && s.entryIntegrity <= BALANCE.maxIntegrity)) errs.push(`entryIntegrity out of range: ${s.entryIntegrity}`);
   if (!(s.souls >= 0)) errs.push(`souls negative: ${s.souls}`);
@@ -361,7 +397,7 @@ function stageInvariantErrors(state) {
   if (!(s.capacity >= 10 && s.capacity <= 100)) errs.push(`capacity out of [10,100]: ${s.capacity}`);
   if (!(s.bossHealth >= 0 && s.bossHealth <= stage.bossHealth)) errs.push(`bossHealth out of bounds: ${s.bossHealth}`);
   if (!(s.hunted >= 0 && s.hunted <= 2)) errs.push(`hunted out of [0,2]: ${s.hunted}`);
-  if (!(s.aegis >= 0 && s.aegis <= BALANCE.domainAegis)) errs.push(`aegis out of [0,${BALANCE.domainAegis}]: ${s.aegis}`);
+  if (!(s.aegis >= 0 && s.aegis <= maximumAegis)) errs.push(`aegis out of [0,${maximumAegis}]: ${s.aegis}`);
   if (!(s.nodes >= 0 && s.nodes <= stage.nodeGoal)) errs.push(`nodes exceed goal: ${s.nodes}/${stage.nodeGoal}`);
   if (s.integrity === 0 && state.status === "active") errs.push("integrity 0 while status active (integrity-0 bypass)");
   const stageIds = state.rewards.map((r) => r.stageId);
@@ -516,70 +552,68 @@ function branchCensus() {
   return rows;
 }
 
-// --- determinism check: identical seeds twice must give identical output ---
+// --- determinism check: every generated summary component runs twice ---
+function measureSummaryComponents() {
+  const archetypes = measureArchetypes();
+  const rewardCombos = measureCombos();
+  const probes = contractProbes();
+  const fuzzReport = fuzz();
+  const branches = branchCensus();
+  const deterministicSignatures = new Set(
+    ["rusher", "greedy-economy", "optimal", "comeback"].map((name) => archetypes[name].sequenceSignature)
+  );
+  const outcomeVariety = new Set(
+    ["rusher", "greedy-economy", "optimal", "comeback"].map((name) => {
+      const archetype = archetypes[name];
+      return `${archetype.winRatePct}:${archetype.totalActions}:${archetype.perStage.map((stage) => stage.integrityEnd).join(",")}`;
+    })
+  );
+  return {
+    archetypes,
+    rewardCombos,
+    contractProbes: probes,
+    fuzz: {
+      ...fuzzReport,
+      findings: fuzzReport.findings.slice(0, 20),
+      findingsTotal: fuzzReport.findings.length
+    },
+    diversity: {
+      branchCensus: branches,
+      uniqueDeterministicSequences: deterministicSignatures.size,
+      distinctDeterministicOutcomes: outcomeVariety.size
+    },
+    g7Proxy: {
+      assumption: `seconds-per-action band ${SEC_PER_ACTION_MIN}-${SEC_PER_ACTION_MAX}s (75s stage-1 target / 8 actions = 9.4s/action)`,
+      perStage: STAGES.map((stage, index) => {
+        const actions = archetypes.optimal.perStage[index].actions;
+        return {
+          stage: stage.id,
+          actionsPerLoop: actions,
+          derivedLoopSecondsMin: actions * SEC_PER_ACTION_MIN,
+          derivedLoopSecondsMax: actions * SEC_PER_ACTION_MAX,
+          band: "30-180",
+          rewardEventsPerLoop: 1
+        };
+      }),
+      repeatRateProxy: "NOT-RUN (requires live playtest sessions, not simulatable)"
+    }
+  };
+}
 function determinismCheck() {
-  const snap = () => JSON.stringify({
-    a: measureArchetypes(),
-    c: measureCombos()
-  });
-  return snap() === snap();
+  const snapshot = () => JSON.stringify(measureSummaryComponents());
+  return snapshot() === snapshot();
 }
 
 // --- assemble ---
-const startedAt = new Date().toISOString();
-const archetypes = measureArchetypes();
-const combos = measureCombos();
-const probes = contractProbes();
-const fuzzReport = fuzz();
-const branches = branchCensus();
+const components = measureSummaryComponents();
 const deterministic = determinismCheck();
-
-const deterministicSignatures = new Set(
-  ["rusher", "greedy-economy", "optimal", "comeback"].map((n) => archetypes[n].sequenceSignature)
-);
-const outcomeVariety = new Set(
-  ["rusher", "greedy-economy", "optimal", "comeback"].map((n) => {
-    const a = archetypes[n];
-    return `${a.winRatePct}:${a.totalActions}:${a.perStage.map((s) => s.integrityEnd).join(",")}`;
-  })
-);
-
 const summary = {
   simulator: "run-campaign-balance-sim.mjs",
   rulesVersion: RULES_VERSION,
   balance: BALANCE,
-  startedAt,
-  finishedAt: new Date().toISOString(),
   winDefinition: "campaign-complete with zero defeats; first defeat ends the measured run",
-  archetypes,
-  comboEv: combos,
-  contractProbes: probes,
-  fuzz: {
-    ...fuzzReport,
-    findings: fuzzReport.findings.slice(0, 20),
-    findingsTotal: fuzzReport.findings.length
-  },
-  diversity: {
-    branchCensus: branches,
-    uniqueDeterministicSequences: deterministicSignatures.size,
-    distinctDeterministicOutcomes: outcomeVariety.size
-  },
-  determinismDoubleRunIdentical: deterministic,
-  g7Proxy: {
-    assumption: `seconds-per-action band ${SEC_PER_ACTION_MIN}-${SEC_PER_ACTION_MAX}s (75s stage-1 target / 8 actions = 9.4s/action)`,
-    perStage: STAGES.map((stage, i) => {
-      const actions = archetypes.optimal.perStage[i].actions;
-      return {
-        stage: stage.id,
-        actionsPerLoop: actions,
-        derivedLoopSecondsMin: actions * SEC_PER_ACTION_MIN,
-        derivedLoopSecondsMax: actions * SEC_PER_ACTION_MAX,
-        band: "30-180",
-        rewardEventsPerLoop: 1
-      };
-    }),
-    repeatRateProxy: "NOT-RUN (requires live playtest sessions, not simulatable)"
-  }
+  ...components,
+  determinismDoubleRunIdentical: deterministic
 };
 
 process.stdout.write(JSON.stringify(summary, null, 2) + "\n");

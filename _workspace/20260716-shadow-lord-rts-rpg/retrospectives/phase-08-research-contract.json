@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "run_id": "20260716-shadow-lord-rts-rpg",
+  "phase": "research",
+  "completed_at": "2026-07-16T23:59:00+09:00",
+  "went_well": [
+    "The static-client authority boundary is recorded as P0 local deterministic/export-import, P1 RLS-protected profiles after demand, and P2 authoritative invite-only rooms.",
+    "The decision record preserves the measured local replay evidence and separates it from unsupported anti-cheat claims."
+  ],
+  "went_wrong": [
+    "Blender MCP and headless Blender were unavailable, so no mesh or rigging evidence can be carried into production claims.",
+    "Existing resources have incomplete method history and cannot be retroactively certified against the new visual/audio policy."
+  ],
+  "metrics": [
+    {
+      "name": "accepted_service_phases",
+      "value": 3,
+      "unit": "phases",
+      "method": "P0/P1/P2 decision table in production/multiplayer-database-decision.md"
+    },
+    {
+      "name": "official_source_links",
+      "value": 3,
+      "unit": "links",
+      "method": "Supabase, Cloudflare Durable Objects, and MDN links in the decision record Sources section"
+    }
+  ],
+  "improvement_actions": [
+    {
+      "action": "Before the next sprite batch, record a source-approved PerfectPixel 16 fps production sheet with method version, frame count, approval, and output paths.",
+      "owner": "game-asset-producer",
+      "apply_in_phase": "asset-production",
+      "applied": false
+    }
+  ],
+  "evidence_paths": [
+    "_workspace/20260716-shadow-lord-rts-rpg/production/multiplayer-database-decision.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md",
+    "_workspace/20260716-shadow-lord-rts-rpg/engineering/tech-verification/db-multiplayer.md"
+  ]
+}

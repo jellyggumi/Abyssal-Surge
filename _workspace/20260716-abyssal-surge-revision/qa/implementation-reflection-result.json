@@ -1,0 +1,76 @@
+{
+  "schema": "abyssal-surge.reflection",
+  "schema_version": "1.0",
+  "record_id": "da4f9e5e-5e89-4d70-aafc-0af2bbd8cc59",
+  "phase": "implementation",
+  "status": "corrective_action_required",
+  "created_at": "2026-07-16T00:00:00Z",
+  "source_revision": "e4f274a324f5",
+  "scope": "Implementation reflection for local campaign mirror, 16-fps narration atlases, safe audio import, and FFmpeg video validation before branded Pages deployment.",
+  "evidence": [
+    {
+      "evidence_id": "EV-IMPLEMENTATION-TESTS",
+      "kind": "command",
+      "subject": "Focused local regression coverage for campaign state, cross-tab mirror behavior, and narration atlas runtime contracts.",
+      "location": "tests/campaign-sync.test.mjs",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The focused campaign-mirror and narration-atlas test files passed 5 of 5 tests; the deterministic campaign-state test passed 22 of 22 tests.",
+      "command": "node --test tests/campaign-sync.test.mjs tests/narration-atlases.test.mjs && node --test tests/campaign-state.test.mjs",
+      "exit_code": 0
+    },
+    {
+      "evidence_id": "EV-IMPLEMENTATION-BROWSER",
+      "kind": "browser",
+      "subject": "Playwriter browser playtest rendered the branded Cinder Span scenario, decorative concept-art atlas, Korean narration, and local-only synchronization status.",
+      "location": "tmp/playwriter-screenshot-1784244037450-r1n7.png",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The local 127.0.0.1 game rendered Abyssal Surge with stage art and a Cinder Warden concept-art narrator sprite; a separate current tab resumed with the status '다른 탭의 로컬 캠페인을 반영했습니다.' after cross-tab synchronization.",
+      "command": "Playwriter observe -> start -> boss -> battle -> hunt -> retry -> mirror-resume playtest",
+      "exit_code": 0
+    },
+    {
+      "evidence_id": "EV-IMPLEMENTATION-VIDEO",
+      "kind": "command",
+      "subject": "All shipped stage videos satisfy the local web-video validation gate.",
+      "location": "scripts/compress_stage_video.py",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "Cinder Span, Veil Citadel, and Echo Throne are H.264/yuv420p, 960x540, 24fps, five-second, faststart, and decode-valid. A Cinder opt-in CRF24 candidate preserved SSIM 0.997974 while saving 2,553 bytes; production video remained unchanged pending visual approval.",
+      "command": "python3 scripts/compress_stage_video.py validate --input assets/video/{cinder-span,veil-citadel,echo-throne}.mp4",
+      "exit_code": 0
+    },
+    {
+      "evidence_id": "EV-IMPLEMENTATION-RELEASE",
+      "kind": "source",
+      "subject": "The product identity is rebranded in the static client, but the requested public Pages identity is not yet verified as deployed.",
+      "location": "_workspace/20260716-abyssal-surge-revision/production/decision-log.md",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The decision record identifies repository/Pages rename and deployment as an external release action; no deployed branded URL evidence exists yet.",
+      "command": null,
+      "exit_code": null
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "F-IMPLEMENTATION-RELEASE",
+      "statement": "Local implementation and browser evidence exist, but the requested Abyssal-Surge Pages URL has not been verified after repository identity cutover and deployment.",
+      "truth": "verified",
+      "evidence_ids": ["EV-IMPLEMENTATION-RELEASE"],
+      "severity": "major"
+    }
+  ],
+  "corrective_actions": [
+    {
+      "action_id": "CA-IMPLEMENTATION-RELEASE",
+      "owner_role": "operator",
+      "action": "Rename the repository and Pages identity to Abyssal-Surge, publish the verified static artifact, then capture the branded public URL through Playwriter.",
+      "acceptance": "https://jellyggumi.github.io/Abyssal-Surge/ serves the Abyssal Surge title and the new assets without console errors.",
+      "status": "in_progress",
+      "evidence_ids": ["EV-IMPLEMENTATION-RELEASE"]
+    }
+  ],
+  "next_stage_decision": {
+    "decision": "correct_before_next_stage",
+    "rationale": "The production artifacts are locally validated; deployment identity and public browser proof remain a release-blocking corrective action.",
+    "evidence_ids": ["EV-IMPLEMENTATION-TESTS", "EV-IMPLEMENTATION-BROWSER", "EV-IMPLEMENTATION-RELEASE"]
+  }
+}

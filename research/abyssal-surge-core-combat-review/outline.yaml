@@ -1,0 +1,14 @@
+topic: Abyssal Surge core combat, wave strategy, and battle presentation review
+scope: current static Three.js web prototype
+research_window: 2023-01-01 to 2026-07-16
+items:
+  - current-core-loop
+  - cooldown-and-reward-economy
+  - wave-pressure-and-boss-pacing
+  - combat-readability-and-telegraphing
+  - 2.5d-birds-eye-presentation
+  - webgl-performance-and-accessibility
+execution:
+  batch_size: 3
+  items_per_agent: 2
+  output_dir: ./results

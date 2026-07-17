@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "inventory_note": "Inventory of all currently supplied Shadow Lord media assets. Provenance is stated only where observed or supplied; pre-existing transition renderer details remain unrecorded.",
+  "inventory_note": "Inventory of all currently supplied Abyssal Surge media assets. Provenance is stated only where observed or supplied; pre-existing transition renderer details remain unrecorded.",
   "assets": [
     {
       "filename": "assets/audio/ambient.mp3",
@@ -9,7 +9,7 @@
       "generated_by": "ElevenLabs sound-generation",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord ambient sound asset; prompt text is not stored in this manifest.",
+      "derivation": "Original Abyssal Surge ambient sound asset; prompt text is not stored in this manifest.",
       "sha256": "564d3b64c89814ffdf7ff6437a2d4f3cee5eb9749f84ec9ef3d5ae98b32fa133"
     },
     {
@@ -19,7 +19,7 @@
       "generated_by": "ElevenLabs sound-generation via scripts/generate_game_audio.py (prompt_id=bgm)",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Abyssal Command lobby theme: dark orchestral drone with restrained choir swell, generated for a seamless 22s loop.",
+      "derivation": "Original Abyssal Surge lobby theme: dark orchestral drone with restrained choir swell, generated for a seamless 22s loop.",
       "sha256": "c3bdf821e944ede78f66cb5dd3833b85e27fbe7d727861b16e0ef039d6587398"
     },
     {
@@ -29,7 +29,7 @@
       "generated_by": "ElevenLabs sound-generation",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "derivation": "Original Abyssal Surge sound-effect asset; prompt text is not stored in this manifest.",
       "sha256": "b566669782fd70deaadc73215a5599a40169b6c099a043857abb19f5891635cc"
     },
     {
@@ -39,7 +39,7 @@
       "generated_by": "ElevenLabs sound-generation",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord sound-effect asset; prompt text is not stored in this manifest.",
+      "derivation": "Original Abyssal Surge sound-effect asset; prompt text is not stored in this manifest.",
       "sha256": "215ad0b37fd1f24a3911298497e96a98ad02df3ec7e85abe1f3bfa87ce9ddd4d"
     },
     {
@@ -77,7 +77,7 @@
       "generated_by": "gti via private-codex",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "derivation": "Original Abyssal Surge key art; no reference input is recorded.",
       "sha256": "f6355a83db9568f22c0a32e5cf537377813c4e3af4a22bd5c8e9442f70fa9c36"
     },
     {
@@ -97,7 +97,7 @@
       "generated_by": "gti via private-codex",
       "source_key_art": [],
       "source_assets": [],
-      "derivation": "Original Shadow Lord key art; no reference input is recorded.",
+      "derivation": "Original Abyssal Surge key art; no reference input is recorded.",
       "sha256": "98444b35745b5ab8ba40607047299fba87dfad5693a1bfed0c1e1cfbe7fea854"
     },
     {
@@ -326,7 +326,7 @@
         "design/assets/cinematic/scene_01_scene_script.csv"
       ],
       "derivation": "Scene 00→01 bridge subtitles for hard-sub workflow.",
-      "sha256": "6a0fbe665b4f5a3e53c9455130e4989aee0042829d196b9323cf2edba9764dc2"
+      "sha256": "e89cb0815c357eacaecaa8217971b3b93f0c730284eadf4e8135bc33f3ee982d"
     },
     {
       "filename": "assets/video/scene_01_shot_possession_hint_v01.mp4",
@@ -420,7 +420,7 @@
       "sha256": "e0fa235af2a86e094e8247e063bf41073215b749c0fa731145cd88e167d99fc0"
     },
     {
-      "filename": "assets/video/scene_02_to_03_arise_push_v01.mp4",
+      "filename": "assets/video/scene_02_to_03_bind_push_v01.mp4",
       "media_type": "video/mp4",
       "bytes": 1933135,
       "generated_by": "ffmpeg (auto-sync)",
@@ -787,21 +787,21 @@
     {
       "filename": "assets/video/scene_00_to_07_concat_v100.txt",
       "media_type": "text/plain",
-      "bytes": 366,
+      "bytes": 365,
       "generated_by": "ffmpeg concat manifest",
       "source_key_art": [],
       "source_assets": [
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
         "assets/video/scene_06_to_07_return_persistence_v01.mp4"
       ],
       "derivation": "FFmpeg concat input manifest for scene 00→07 approval package.",
-      "sha256": "54cab417ba00c29f16d5eb4addf880a4c6498b573777935c0f933d91354f8ed0"
+      "sha256": "5965521ddd13ca8a8a4b55eba6097cca019a6d464f746f9523c85a23dc4e47e5"
     },
     {
       "filename": "assets/video/scene_00_to_07_cinematic_v100.mp4",
@@ -813,7 +813,7 @@
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
@@ -825,21 +825,21 @@
     {
       "filename": "assets/video/scene_00_to_07_concat_v101.txt",
       "media_type": "text/plain",
-      "bytes": 366,
+      "bytes": 365,
       "generated_by": "ffmpeg concat manifest",
       "source_key_art": [],
       "source_assets": [
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
         "assets/video/scene_06_to_07_return_persistence_v01.mp4"
       ],
       "derivation": "FFmpeg concat input manifest for scene 00→07 polish draft.",
-      "sha256": "54cab417ba00c29f16d5eb4addf880a4c6498b573777935c0f933d91354f8ed0"
+      "sha256": "5965521ddd13ca8a8a4b55eba6097cca019a6d464f746f9523c85a23dc4e47e5"
     },
     {
       "filename": "assets/video/scene_00_to_07_cinematic_v101.mp4",
@@ -851,7 +851,7 @@
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
@@ -863,21 +863,21 @@
     {
       "filename": "assets/video/scene_00_to_07_concat_v102.txt",
       "media_type": "text/plain",
-      "bytes": 366,
+      "bytes": 365,
       "generated_by": "ffmpeg concat manifest",
       "source_key_art": [],
       "source_assets": [
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
         "assets/video/scene_06_to_07_return_persistence_v01.mp4"
       ],
       "derivation": "FFmpeg concat input manifest for scene 00→07 v102 package.",
-      "sha256": "54cab417ba00c29f16d5eb4addf880a4c6498b573777935c0f933d91354f8ed0"
+      "sha256": "5965521ddd13ca8a8a4b55eba6097cca019a6d464f746f9523c85a23dc4e47e5"
     },
     {
       "filename": "assets/video/scene_00_to_07_cinematic_v102.mp4",
@@ -902,7 +902,7 @@
       "source_key_art": [],
       "source_assets": [],
       "derivation": "Shot subtitles for v102 package scene00→07 with narrative and state cue copy.",
-      "sha256": "8a7fc35f36b71d5fd1f1c55897e30e4cf7612ea4c6213732288b517e809b9106"
+      "sha256": "bd9c4e83a5220b4dc67003c99b4427093d7a6309cfa6953076fc0109a27ac138"
     },
     {
       "filename": "assets/video/scene_00_to_07_state_log_v102.jsonl",
@@ -925,9 +925,9 @@
       "sha256": "d2bfb0a17e36c952f232711ca4f2f3ec6f1a3e0e7577201a2486f9da2e1cae02"
     },
     {
-      "filename": "assets/video/shadow-lord-cinematic.mp4",
+      "filename": "assets/video/abyssal-surge-cinematic.mp4",
       "media_type": "video/mp4",
-      "bytes": 705287,
+      "bytes": 2363629,
       "generated_by": "ffmpeg",
       "source_key_art": [
         "assets/images/cinder-span.png",
@@ -940,8 +940,8 @@
         "assets/images/echo-throne.png",
         "assets/audio/ambient.mp3"
       ],
-      "derivation": "13-second xfade and zoompan montage of all three key-art images with an AAC soundtrack transcoded from ambient.mp3.",
-      "sha256": "291d60cb7199b6923f24a20032d45ee1bb81d1b865b973eee74d41388713b118"
+      "derivation": "Subtitle-free locally rendered montage of cinder-span.png, veil-citadel.png, and echo-throne.png with restrained pan/crossfade motion and an AAC soundtrack transcoded from included local ambient.mp3.",
+      "sha256": "579390bdedf030b08b4d9e5a6d28aa84cfdb7439327425ec47d3d0a2c4701b51"
     },
     {
       "filename": "assets/video/veil-citadel.mp4",
@@ -1390,21 +1390,21 @@
     {
       "filename": "assets/video/scene_00_to_07_concat_v103.txt",
       "media_type": "text/plain",
-      "bytes": 366,
+      "bytes": 365,
       "generated_by": "ffmpeg concat manifest",
       "source_key_art": [],
       "source_assets": [
         "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
         "assets/video/scene_01_shot_possession_hint_v01.mp4",
         "assets/video/scene_02_node_contest_v01.mp4",
-        "assets/video/scene_02_to_03_arise_push_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
         "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
         "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
         "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
         "assets/video/scene_06_to_07_return_persistence_v01.mp4"
       ],
       "derivation": "FFmpeg concat input manifest for scene 00→07 v103 package.",
-      "sha256": "54cab417ba00c29f16d5eb4addf880a4c6498b573777935c0f933d91354f8ed0"
+      "sha256": "5965521ddd13ca8a8a4b55eba6097cca019a6d464f746f9523c85a23dc4e47e5"
     },
     {
       "filename": "assets/video/scene_00_to_07_shot_subtitles_v103.srt",
@@ -1414,7 +1414,7 @@
       "source_key_art": [],
       "source_assets": [],
       "derivation": "Shot subtitles for v103 package scene00→07 with expanded fail-loop copy.",
-      "sha256": "24d410cacb03e9389f47de76b65e46bfcb73f0de595cd116f54be37229d696d9"
+      "sha256": "e212624568d193bdd9739686ab744dbcc975b0a504e7037016c4679c936f5743"
     },
     {
       "filename": "assets/video/scene_00_to_07_state_log_v103.jsonl",
@@ -1454,17 +1454,21 @@
     {
       "filename": "assets/video/scene_00_to_07_concat_v104.txt",
       "media_type": "text/plain",
-      "bytes": 366,
+      "bytes": 365,
       "generated_by": "ffmpeg concat manifest",
       "source_key_art": [],
       "source_assets": [
-        "assets/video/scene_00_to_07_cinematic_v103.txt",
-        "assets/video/scene_00_to_07_shot_subtitles_v104.srt",
-        "assets/video/scene_00_to_07_ui_labels_v104.csv",
-        "assets/video/scene_00_to_07_state_log_v104.jsonl"
+        "assets/video/scene_00_to_01_opening_encounter_cinematic_v01.mp4",
+        "assets/video/scene_01_shot_possession_hint_v01.mp4",
+        "assets/video/scene_02_node_contest_v01.mp4",
+        "assets/video/scene_02_to_03_bind_push_v01.mp4",
+        "assets/video/scene_03_to_04_engagement_shift_v01.mp4",
+        "assets/video/scene_04_to_05_dominance_fall_v01.mp4",
+        "assets/video/scene_05_to_06_storm_to_apex_v01.mp4",
+        "assets/video/scene_06_to_07_return_persistence_v01.mp4"
       ],
       "derivation": "FFmpeg concat input manifest for scene 00→07 v104 package.",
-      "sha256": "54cab417ba00c29f16d5eb4addf880a4c6498b573777935c0f933d91354f8ed0"
+      "sha256": "5965521ddd13ca8a8a4b55eba6097cca019a6d464f746f9523c85a23dc4e47e5"
     },
     {
       "filename": "assets/video/scene_00_to_07_shot_subtitles_v104.srt",
@@ -1474,19 +1478,19 @@
       "source_key_art": [],
       "source_assets": [],
       "derivation": "Shot subtitles for v104 package scene00→07 with calibrated S5_DESPAIR/FAIL_PIVOT boundaries.",
-      "sha256": "f07662ae1110e8f160a4fc4659300d386a2707304209877baa71d7773f4a7c24"
+      "sha256": "4d0ad115d4d77325a70be32becb386c0a91596702f3008973c9a8727342d5771"
     },
     {
       "filename": "assets/video/scene_00_to_07_shot_subtitles_v104_en.srt",
       "media_type": "text/plain",
-      "bytes": 1658,
+      "bytes": 1668,
       "generated_by": "subtitle generation utility (v104 English localization)",
       "source_key_art": [],
       "source_assets": [
         "assets/video/scene_00_to_07_shot_subtitles_v104.srt"
       ],
       "derivation": "English localization of v104 scene00→07 shot subtitles.",
-      "sha256": "8ce46c0c95844e4ca8f1ad1389e447d7de8dae96579d02550ef24cdf5913bad6"
+      "sha256": "87ab7e340713f429b5f8b129c0d034e8a7e85b6063c93973cf94a1f489ccbf87"
     },
     {
       "filename": "assets/video/scene_00_to_07_state_log_v104.jsonl",
@@ -1536,7 +1540,389 @@
       ],
       "derivation": "Full scene00→07 cinematic package v104 with fail-loop precision pass and bilingual timing package update.",
       "sha256": "1b94c6f70a7816206fdae69b9ab853cd7f7a61922961f59c22da2a18cd6d8c30"
+    },
+    {
+      "filename": "assets/audio/assault.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 20106,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A assault sound-effect asset; the observed audio manifest records its source prompt.",
+      "sha256": "6020bc511a3b1adebefe8a002979126341340d0bcd0b849d2ecf1667575b4b70"
+    },
+    {
+      "filename": "assets/audio/capture.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 20105,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A capture sound-effect asset; the observed audio manifest records its source prompt and +16 dB ffmpeg normalization.",
+      "sha256": "60501a202ef6a7a60d3d9c1d48030f3a8f236851c3522d721649d8aa28f3c124"
+    },
+    {
+      "filename": "assets/audio/hunt.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 17179,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A hunt sound-effect asset; the observed audio manifest records its source prompt and +14 dB ffmpeg normalization.",
+      "sha256": "65510251bd69fbae11e67984a6902bf529353e9828c090ca94435aba182144a1"
+    },
+    {
+      "filename": "assets/audio/materialize.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 21359,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A materialize sound-effect asset; the observed audio manifest records its source prompt.",
+      "sha256": "9135fefc73fd8240e51a892619341cea80c58be653e0f5ca5bdf65123f8067d2"
+    },
+    {
+      "filename": "assets/audio/possess.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 23031,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A possess sound-effect asset; the observed audio manifest records its source prompt.",
+      "sha256": "7b773e280790c559d98bc1eabb0f798c5eac94a9b2031de165d96fe982688912"
+    },
+    {
+      "filename": "assets/audio/reward.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 24703,
+      "generated_by": "ElevenLabs sound-generation via tmp/generate-audio.mjs (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original Abyssal Surge Wave A reward sound-effect asset; the observed audio manifest records its source prompt.",
+      "sha256": "50cd7b21240cbdc29488604efd00b41f11bc06a4cedfae3d9fe3e480dd3c95fb"
+    },
+    {
+      "filename": "assets/audio/narr-defeat.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 46438,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean defeat narration through the Daniel ElevenLabs path from canonical source text: \"군단의 닻이 끊어졌다. 다시, 일어나라.\"",
+      "sha256": "8a82223bd74459caa82cd614b9b1578af6531465d1a48f9b523a918cc22c6b69"
+    },
+    {
+      "filename": "assets/audio/narr-intro.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 42049,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean intro narration through the Daniel ElevenLabs path from canonical source text: \"심연의 문이 열렸다. 그림자 군주여, 일어나라.\"",
+      "sha256": "c611024ec4cc52b3a7d9f2840d1c98df2cb1b5d08d0e13ee9421c6371acc6ba2"
+    },
+    {
+      "filename": "assets/audio/narr-stage1.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 68694,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean Cinder Span narration through the Daniel ElevenLabs path from canonical source text: \"잿빛 교량, 신더 스팬. 재의 메아리를 사냥하고 영혼을 거두어라.\"",
+      "sha256": "0f07af7f0ea69799093fdfc5cd8bc956289d396cc7cb47e8d42a6c9f8609ef06"
+    },
+    {
+      "filename": "assets/audio/narr-stage2.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 94399,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean Veil Citadel narration through the Daniel ElevenLabs path from canonical source text: \"장막 성채, 베일 시타델. 빙의의 힘이 깨어난다. 두 거점을 동시에 장악하라.\"",
+      "sha256": "025765e41106e050a5591bdfbd24e301a9d883cb0cbbbcc16f0f86af551acbd2"
+    },
+    {
+      "filename": "assets/audio/narr-stage3.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 61485,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean Echo Throne narration through the Daniel ElevenLabs path from canonical source text: \"메아리 왕좌. 군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라.\"",
+      "sha256": "83a624d2d13b928dab5d9fe08854e5ff6cfde8f065e096b5cefe450a2f984721"
+    },
+    {
+      "filename": "assets/audio/narr-victory.mp3",
+      "media_type": "audio/mpeg",
+      "bytes": 48632,
+      "generated_by": "ElevenLabs text-to-speech via node tmp/generate-audio.mjs --force --only tts (eleven_multilingual_v2, Daniel)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Regenerated Abyssal Surge Korean victory narration through the Daniel ElevenLabs path from canonical source text: \"침묵한 문 앞에서, 그림자 군단이 왕좌에 오른다.\"",
+      "sha256": "83d9a32f6eba247f51d630422e9786ead971e02c8c8355fdb4d91cd1e85d10bb"
+    },
+    {
+      "filename": "assets/images/storyboard/scene_00_opening_gate_v01.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 67350,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project storyboard asset; generator and source prompt record are not available.",
+      "sha256": "24875b07aea48514d90a650e0ca7dc4c9a49f183c45267339a64106332742bda"
+    },
+    {
+      "filename": "assets/images/storyboard/scene_01_soul_pool_v01.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 234349,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project storyboard asset; generator and source prompt record are not available.",
+      "sha256": "76a6e5ac022847f38c7ddd5ad5c81495e4c5c416032404eaf2faceac21affe08"
+    },
+    {
+      "filename": "assets/images/storyboard/scene_03_possession_action_v01.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 91771,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project storyboard asset; generator and source prompt record are not available.",
+      "sha256": "b9b84a9a503f3771b6290a6f2777ddc70eb55c62a01bb9ad5c881836b7a440e0"
+    },
+    {
+      "filename": "assets/images/storyboard/scene_04_domain_shift_v01.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 115749,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project storyboard asset; generator and source prompt record are not available.",
+      "sha256": "50cef88b96eb1caa9177e78d05f6f799fcd6bd35259e930dabbd543c1e4e938d"
+    },
+    {
+      "filename": "assets/images/storyboard/scene_07_return_ui_v01.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 92101,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project storyboard asset; generator and source prompt record are not available.",
+      "sha256": "bf5a82069c76db5bceae396b562d3301c9853b9dece58756cf3ea81e1919501f"
+    },
+    {
+      "filename": "assets/images/ui/action-assault.png",
+      "media_type": "image/png",
+      "bytes": 76193,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for assault; observed source prompt summary: shadow blade strike. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "4741253ec7138733a9ee92a359606042f8196c2c875902cec46ee6b762dc114e"
+    },
+    {
+      "filename": "assets/images/ui/action-capture.png",
+      "media_type": "image/png",
+      "bytes": 54804,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for capture; observed source prompt summary: dark banner on ley-node. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "bd3679dbc701fb482e45057321bd7c12d856bc11adad1091b64a3f5e2aeed415"
+    },
+    {
+      "filename": "assets/images/ui/action-domain.png",
+      "media_type": "image/png",
+      "bytes": 68525,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for domain; observed source prompt summary: monarch aura dome. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "f5cd36e6e145559a993fc2ec6f155480b5c098f7f120c4f9409663e6110043ac"
+    },
+    {
+      "filename": "assets/images/ui/action-extract.png",
+      "media_type": "image/png",
+      "bytes": 54071,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for extract; observed source prompt summary: soul wisp torn from rift. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "813f535241a9840b7674a20c1c428644e938644176baeb2ed8e37f40b21f5b3b"
+    },
+    {
+      "filename": "assets/images/ui/action-hunt.png",
+      "media_type": "image/png",
+      "bytes": 56782,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for hunt; observed source prompt summary: void sonar eye. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "dedf12660aef92995c2a28cde52e20e7574f0f4fc84d24b3f17adc2595ff6fbd"
+    },
+    {
+      "filename": "assets/images/ui/action-materialize.png",
+      "media_type": "image/png",
+      "bytes": 48078,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for materialize; observed source prompt summary: shadow soldier coalescing. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "a5b4350f1b78a73fc78f3208d50a73ed0a42d4ecd3ab85d9f941022d99a3ab80"
+    },
+    {
+      "filename": "assets/images/ui/action-possess.png",
+      "media_type": "image/png",
+      "bytes": 54614,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project action icon for possess; observed source prompt summary: ethereal hand gripping sentinel. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "797b7d5ddecad117bb61f7074839280f6fea2537b448501cdf1fea65e2722d0b"
+    },
+    {
+      "filename": "assets/images/ui/boss-cinder-warden.png",
+      "media_type": "image/png",
+      "bytes": 57334,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project boss portrait for Cinder Warden; observed source prompt summary: ember-armored ash knight. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "091d94bcfc9204a648b9159338f48bd4b6fe92d27fd0c5796a777f6344c9f8ea"
+    },
+    {
+      "filename": "assets/images/ui/boss-gate-sovereign.png",
+      "media_type": "image/png",
+      "bytes": 55727,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project boss portrait for Gate Sovereign; observed source prompt summary: gate-arch crowned giant lord. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "1688fd74e982a63c442eb13f749db5980e855bc12fa433e4962ff4a90694f224"
+    },
+    {
+      "filename": "assets/images/ui/boss-veil-tactician.png",
+      "media_type": "image/png",
+      "bytes": 39073,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project boss portrait for Veil Tactician; observed source prompt summary: listening-stone-faced hooded tactician. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "2495adf9ff59fcfca0d41087b4a85d84906f50b265edfb45853545b80e4d793c"
+    },
+    {
+      "filename": "assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png",
+      "media_type": "image/png",
+      "bytes": 1520193,
+      "generated_by": "scripts/build_narration_sprites.py using local ImageMagick; no GTI invocation",
+      "source_key_art": [
+        "assets/images/ui/boss-cinder-warden.png"
+      ],
+      "source_assets": [
+        "assets/images/ui/boss-cinder-warden.png"
+      ],
+      "derivation": "Deterministic local 4x4 narrator atlas with sixteen ordered 256px frames for a 16 fps idle loop. Derived only from the manifest-proven GTI Cinder Warden portrait; no fresh GTI output was requested or used.",
+      "sha256": "3fa877f678eb30f71baa14018c54d60f8db4388c9611f519a820790a7e0d77a0"
+    },
+    {
+      "filename": "assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png",
+      "media_type": "image/png",
+      "bytes": 1268792,
+      "generated_by": "scripts/build_narration_sprites.py using local ImageMagick; no GTI invocation",
+      "source_key_art": [
+        "assets/images/ui/boss-gate-sovereign.png"
+      ],
+      "source_assets": [
+        "assets/images/ui/boss-gate-sovereign.png"
+      ],
+      "derivation": "Deterministic local 4x4 narrator atlas with sixteen ordered 256px frames for a 16 fps idle loop. Derived only from the manifest-proven GTI Gate Sovereign portrait; no fresh GTI output was requested or used.",
+      "sha256": "0a5db5e9da18dd5c2a886093d4186cbe0db6a777b9b1615ef68825cd9fbfe63c"
+    },
+    {
+      "filename": "assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png",
+      "media_type": "image/png",
+      "bytes": 1304882,
+      "generated_by": "scripts/build_narration_sprites.py using local ImageMagick; no GTI invocation",
+      "source_key_art": [
+        "assets/images/ui/boss-veil-tactician.png"
+      ],
+      "source_assets": [
+        "assets/images/ui/boss-veil-tactician.png"
+      ],
+      "derivation": "Deterministic local 4x4 narrator atlas with sixteen ordered 256px frames for a 16 fps idle loop. Derived only from the manifest-proven GTI Veil Tactician portrait; no fresh GTI output was requested or used.",
+      "sha256": "d317e576f5aa7397b9b383e34f39012d0b8916510098c1f70c327d70760f66be"
+    },
+    {
+      "filename": "assets/images/ui/emblem-gate-sovereign.jpg",
+      "media_type": "image/jpeg",
+      "bytes": 15610,
+      "generated_by": "unknown (record not available)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Existing supplied original project completion-emblem asset; generator and source prompt record are not available.",
+      "sha256": "1234aa7191d92b0f39d2c9060c56a178a0263bb7fbf4e753c0397d53047539f5"
+    },
+    {
+      "filename": "assets/images/ui/reward-anchor-shard.png",
+      "media_type": "image/png",
+      "bytes": 69272,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Anchor Shard; observed source prompt summary: anchor-shaped obsidian shard. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "5cae8744eed101c924619622e08efe51334c85f9b9997aa0150db8195c6000f7"
+    },
+    {
+      "filename": "assets/images/ui/reward-dawnless-crown.png",
+      "media_type": "image/png",
+      "bytes": 54782,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Dawnless Crown; observed source prompt summary: gate-forged crown. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "c79559bcfcd9f718ed6453afeaaa5a60b11b2fbe7479b65b69dfc545089dda3a"
+    },
+    {
+      "filename": "assets/images/ui/reward-ember-cohort.png",
+      "media_type": "image/png",
+      "bytes": 57309,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Ember Cohort; observed source prompt summary: ember soldiers in formation. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "93c547b982d35349be97da009a633fc83a2c3bb6c369a10401369d938c67a886"
+    },
+    {
+      "filename": "assets/images/ui/reward-rift-lens.png",
+      "media_type": "image/png",
+      "bytes": 52073,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Rift Lens; observed source prompt summary: rift-energy focusing lens. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "421aa1f61e20b3833bbc5a8c608d44433dde1029a96e0d4ee2f4ba2a0788550d"
+    },
+    {
+      "filename": "assets/images/ui/reward-throne-echo.png",
+      "media_type": "image/png",
+      "bytes": 74171,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Throne Echo; observed source prompt summary: memory-ring resonant throne echo. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "9eb7dec7196b5ea23d100e007e266a3db5311ed345ca8e2731841b728c2197ff"
+    },
+    {
+      "filename": "assets/images/ui/reward-veil-vanguard.png",
+      "media_type": "image/png",
+      "bytes": 68341,
+      "generated_by": "gti --provider codex-cli (observed Wave A record)",
+      "source_key_art": [],
+      "source_assets": [],
+      "derivation": "Original project reward image for Veil Vanguard; observed source prompt summary: vanguard elite shades. Postprocessed with sips, background repair, degreening, and Pillow palette compression.",
+      "sha256": "709eb02e7d3c3fdb7262d75eeda640cf8f2c19f51b23ab051ff031732d4ba304"
     }
   ],
-  "updated_at": "2026-07-16T16:26:18Z"
+  "updated_at": "2026-07-16T23:05:47Z"
 }

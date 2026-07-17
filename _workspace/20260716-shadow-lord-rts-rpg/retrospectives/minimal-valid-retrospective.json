@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "run_id": "20260716-shadow-lord-rts-rpg",
   "cycle_number": 1,
-  "source_design": "docs/shadow-lord-rts-rpg-hybrid-design.md",
+  "source_design": "production/production-contract.md",
   "public_beat": "Cinder Span offline vertical-slice playtest",
   "stages": [
     {"stage": "stage-1", "entry_gate": "pass", "exit_gate": "fix", "outcome": "Documentation packet established without claiming runtime evidence.", "evidence_paths": ["_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"], "risks": ["Runtime evidence is not attached."]},
@@ -21,7 +21,7 @@
   ],
   "open_s1_defect_ids": [],
   "unresolved_risks": [{"id": "R-001", "stage": "cross-cycle", "severity": "S1", "description": "No runtime gate evidence is attached.", "mitigation": "Attach dated build/session evidence before any PASS.", "owner": "production-director", "status": "open"}],
-  "next_cycle_entry": "stage-2-retune",
+  "next_cycle_entry": "stage-1-evidence-repair",
   "decision_log_path": "_workspace/20260716-shadow-lord-rts-rpg/production/decision-log.md",
   "validated": true,
   "validation_status": "validated",

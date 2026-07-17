@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a Shadow Lord stage transition MP4 from a generated PNG key-art image.
+"""Render an Abyssal Surge stage transition MP4 from a generated PNG key-art image.
 
 Render settings are intentionally fixed for runtime compatibility: H.264, yuv420p,
 960x540, 24 fps, `-preset medium`, and `-crf 20`; faststart is enabled for web delivery.
@@ -218,7 +218,7 @@ def validate(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Render or validate a Shadow Lord stage transition MP4. Render uses H.264 yuv420p "
+            "Render or validate an Abyssal Surge stage transition MP4. Render uses H.264 yuv420p "
             "960x540 at 24 fps, CRF 20/preset medium by default, with faststart."
         )
     )

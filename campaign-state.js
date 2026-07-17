@@ -1,8 +1,8 @@
-export const RULES_VERSION = "abyssal-surge-rules-v2";
+export const RULES_VERSION = "abyssal-surge-rules-v3";
 export const SAVE_SCHEMA = "abyssal-surge-campaign";
 export const SAVE_SCHEMA_VERSION = 2;
 
-// Balance v2 knobs. Every number the G2 band tuning may touch lives here.
+// Balance v3 knobs. Every number the G2 band tuning may touch lives here.
 // See _workspace/20260716-shadow-lord-rts-rpg/design/balance-sheet.md for the
 // decision table and the iteration log that produced these values.
 export const BALANCE = Object.freeze({
@@ -16,15 +16,16 @@ export const BALANCE = Object.freeze({
   soulsPerExtract: 4,                     // souls granted per extraction cycle
   materializeCost: 2,                     // souls consumed per materialize
   materializeSummon: 2,                   // shades summoned per materialize
+  cohortSummonBonus: 2,                   // ember-cohort: extra shades per materialize
   vanguardLegion: 4,                      // veil-vanguard: shades already raised entering Echo Throne
   anchorRestore: 2,                       // anchor-shard: integrity restored entering Echo Throne
   hourglassCooldownReduction: 0.2,        // stillwater-hourglass: action cooldown reduction
   bannerSummonBonus: 1,                   // abyssal-banner: extra shade per materialize
   bannerInitialAegis: 1,                  // abyssal-banner: protection at stage entry
-  brandAssaultDamage: 1,                  // shadebreaker-brand: unconditional assault damage
+  brandCounterReduction: 2,               // shadebreaker-brand: counterblow reduction
   assaultBase: Object.freeze([3, 3, 4]),  // player assault damage per stage
   possessDamage: 1,                       // extra assault damage while a sentinel is possessed
-  lensDamage: 1,                          // rift-lens: extra damage on possession strikes
+  lensDamage: 4,                          // rift-lens: extra damage on possession strikes
   maxIntegrity: 10
 });
 
@@ -44,11 +45,21 @@ export const STAGES = Object.freeze([
     bossName: "Cinder Warden",
     bossHealth: 8,
     rewards: Object.freeze([
-      Object.freeze({ id: "ember-cohort", name: "Ember Cohort", description: "+12 legion slots for the remaining campaign." }),
-      Object.freeze({ id: "rift-lens", name: "Rift Lens", description: "Possession strikes deal +1 damage from Veil Citadel onward." }),
-      Object.freeze({ id: "stillwater-hourglass", name: "Stillwater Hourglass", description: "Reduce battle-control cooldowns by 20% for the remaining campaign." }),
-      Object.freeze({ id: "shadebreaker-brand", name: "Shadebreaker Brand", description: "Assaults deal +1 damage for the remaining campaign." })
-    ])
+      Object.freeze({ id: "ember-cohort", name: "Ember Cohort", description: "Legion doctrine: Materialize raises 2 additional shades (base 2) for the remaining campaign." }),
+      Object.freeze({ id: "rift-lens", name: "Rift Lens", description: "Burst doctrine: possession assaults deal +4 damage from Veil Citadel onward." }),
+      Object.freeze({ id: "stillwater-hourglass", name: "Stillwater Hourglass", description: "Tempo doctrine: reduce command cooldowns by 20%; the second Hunt immediately extracts the soul cache." }),
+      Object.freeze({ id: "shadebreaker-brand", name: "Bulwark Brand", description: "Bulwark doctrine: reduce every boss counterblow by 2 (never below 1)." })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-011", region: "AS-WV-012", description: "AS-WV-013" }),
+      boss: Object.freeze({ name: "AS-WV-014", description: "AS-WV-015" }),
+      rewards: Object.freeze({
+        "ember-cohort": Object.freeze({ name: "AS-WV-016", description: "AS-WV-017" }),
+        "rift-lens": Object.freeze({ name: "AS-WV-018", description: "AS-WV-019" }),
+        "stillwater-hourglass": Object.freeze({ name: "AS-WV-020", description: "AS-WV-021" }),
+        "shadebreaker-brand": Object.freeze({ name: "AS-WV-022", description: "AS-WV-023" })
+      })
+    })
   }),
   Object.freeze({
     id: "veil-citadel",
@@ -60,10 +71,19 @@ export const STAGES = Object.freeze([
     bossName: "Veil Tactician",
     bossHealth: 10,
     rewards: Object.freeze([
-      Object.freeze({ id: "veil-vanguard", name: "Veil Vanguard", description: "Begin Echo Throne with a four-shade vanguard already raised." }),
-      Object.freeze({ id: "anchor-shard", name: "Anchor Shard", description: "Enter Echo Throne with 2 integrity restored." }),
-      Object.freeze({ id: "abyssal-banner", name: "Abyssal Banner", description: "Enter the next stage with 1 aegis and materialize 1 additional shade each time." })
-    ])
+      Object.freeze({ id: "veil-vanguard", name: "Veil Vanguard", description: "Start Echo Throne with four shades already raised; this skips setup but remains a thin legion." }),
+      Object.freeze({ id: "anchor-shard", name: "Anchor Shard", description: "Recovery doctrine: restore 2 additional integrity when entering Echo Throne." }),
+      Object.freeze({ id: "abyssal-banner", name: "Abyssal Banner", description: "Legion doctrine: enter with 1 aegis; every Materialize raises 1 additional shade; Lord's Domain adds its 2 aegis." })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-024", region: "AS-WV-025", description: "AS-WV-026" }),
+      boss: Object.freeze({ name: "AS-WV-027", description: "AS-WV-028" }),
+      rewards: Object.freeze({
+        "veil-vanguard": Object.freeze({ name: "AS-WV-029", description: "AS-WV-030" }),
+        "anchor-shard": Object.freeze({ name: "AS-WV-031", description: "AS-WV-032" }),
+        "abyssal-banner": Object.freeze({ name: "AS-WV-033", description: "AS-WV-034" })
+      })
+    })
   }),
   Object.freeze({
     id: "echo-throne",
@@ -77,9 +97,53 @@ export const STAGES = Object.freeze([
     rewards: Object.freeze([
       Object.freeze({ id: "throne-echo", name: "Throne Echo", description: "Records the legion's final oath in the campaign archive." }),
       Object.freeze({ id: "dawnless-crown", name: "Dawnless Crown", description: "Records a crown forged from the closed gate." })
-    ])
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-035", region: "AS-WV-036", description: "AS-WV-037" }),
+      boss: Object.freeze({ name: "AS-WV-038", description: "AS-WV-039" }),
+      rewards: Object.freeze({
+        "throne-echo": Object.freeze({ name: "AS-WV-040", description: "AS-WV-041" }),
+        "dawnless-crown": Object.freeze({ name: "AS-WV-042", description: "AS-WV-043" })
+      })
+    })
   })
 ]);
+
+export const CONTENT_TRACE = Object.freeze({
+  "AS-WV-011": Object.freeze({ stageId: "cinder-span", entity: "stage", field: "name", value: "Cinder Span" }),
+  "AS-WV-012": Object.freeze({ stageId: "cinder-span", entity: "stage", field: "region", value: "The ember bridge above the drowned forge" }),
+  "AS-WV-013": Object.freeze({ stageId: "cinder-span", entity: "stage", field: "description", value: "Hunt the rift spoor, extract its shade, materialize a legion, seize the forge node, then break the Cinder Warden." }),
+  "AS-WV-014": Object.freeze({ stageId: "cinder-span", entity: "boss", field: "name", value: "Cinder Warden" }),
+  "AS-WV-015": Object.freeze({ stageId: "cinder-span", entity: "boss", field: "description", value: "The forge bridge's ashbound sentinel breaks intruders against the drowned iron." }),
+  "AS-WV-016": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "ember-cohort", field: "name", value: "Ember Cohort" }),
+  "AS-WV-017": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "ember-cohort", field: "description", value: "Legion doctrine: Materialize raises 2 additional shades (base 2) for the remaining campaign." }),
+  "AS-WV-018": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "rift-lens", field: "name", value: "Rift Lens" }),
+  "AS-WV-019": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "rift-lens", field: "description", value: "Burst doctrine: possession assaults deal +4 damage from Veil Citadel onward." }),
+  "AS-WV-020": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "stillwater-hourglass", field: "name", value: "Stillwater Hourglass" }),
+  "AS-WV-021": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "stillwater-hourglass", field: "description", value: "Tempo doctrine: reduce command cooldowns by 20%; the second Hunt immediately extracts the soul cache." }),
+  "AS-WV-022": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "shadebreaker-brand", field: "name", value: "Bulwark Brand" }),
+  "AS-WV-023": Object.freeze({ stageId: "cinder-span", entity: "reward", rewardId: "shadebreaker-brand", field: "description", value: "Bulwark doctrine: reduce every boss counterblow by 2 (never below 1)." }),
+  "AS-WV-024": Object.freeze({ stageId: "veil-citadel", entity: "stage", field: "name", value: "Veil Citadel" }),
+  "AS-WV-025": Object.freeze({ stageId: "veil-citadel", entity: "stage", field: "region", value: "A fortress of listening stone" }),
+  "AS-WV-026": Object.freeze({ stageId: "veil-citadel", entity: "stage", field: "description", value: "Carry your first boon, hold both signal nodes, possess a sentinel, and defeat the tactician who commands the veil." }),
+  "AS-WV-027": Object.freeze({ stageId: "veil-citadel", entity: "boss", field: "name", value: "Veil Tactician" }),
+  "AS-WV-028": Object.freeze({ stageId: "veil-citadel", entity: "boss", field: "description", value: "A tactician of listening stone that turns every uncovered route into a killing field." }),
+  "AS-WV-029": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "veil-vanguard", field: "name", value: "Veil Vanguard" }),
+  "AS-WV-030": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "veil-vanguard", field: "description", value: "Start Echo Throne with four shades already raised; this skips setup but remains a thin legion." }),
+  "AS-WV-031": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "anchor-shard", field: "name", value: "Anchor Shard" }),
+  "AS-WV-032": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "anchor-shard", field: "description", value: "Recovery doctrine: restore 2 additional integrity when entering Echo Throne." }),
+  "AS-WV-033": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "abyssal-banner", field: "name", value: "Abyssal Banner" }),
+  "AS-WV-034": Object.freeze({ stageId: "veil-citadel", entity: "reward", rewardId: "abyssal-banner", field: "description", value: "Legion doctrine: enter with 1 aegis; every Materialize raises 1 additional shade; Lord's Domain adds its 2 aegis." }),
+  "AS-WV-035": Object.freeze({ stageId: "echo-throne", entity: "stage", field: "name", value: "Echo Throne" }),
+  "AS-WV-036": Object.freeze({ stageId: "echo-throne", entity: "stage", field: "region", value: "The gate above the last remembered sea" }),
+  "AS-WV-037": Object.freeze({ stageId: "echo-throne", entity: "stage", field: "description", value: "Carry both boons, secure the throne node, invoke the one-use Lord's Domain comeback, and unmake the Gate Sovereign." }),
+  "AS-WV-038": Object.freeze({ stageId: "echo-throne", entity: "boss", field: "name", value: "Gate Sovereign" }),
+  "AS-WV-039": Object.freeze({ stageId: "echo-throne", entity: "boss", field: "description", value: "The final gate's remembered ruler, holding back the last abyssal tide." }),
+  "AS-WV-040": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "throne-echo", field: "name", value: "Throne Echo" }),
+  "AS-WV-041": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "throne-echo", field: "description", value: "Records the legion's final oath in the campaign archive." }),
+  "AS-WV-042": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "dawnless-crown", field: "name", value: "Dawnless Crown" }),
+  "AS-WV-043": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "dawnless-crown", field: "description", value: "Records a crown forged from the closed gate." })
+});
 
 const ACTIONS = Object.freeze(["hunt", "extract", "materialize", "capture", "possess", "domain", "assault"]);
 
@@ -99,15 +163,15 @@ function rewardBenefits(rewards) {
   const ids = new Set(rewards.map((reward) => reward.rewardId));
   const rewardCount = (rewardId) => rewards.filter((reward) => reward.rewardId === rewardId).length;
   return Object.freeze({
-    capacityBonus: ids.has("ember-cohort") ? 12 : 0,
     lensDamage: ids.has("rift-lens") ? BALANCE.lensDamage : 0,
     vanguardLegion: ids.has("veil-vanguard") ? BALANCE.vanguardLegion : 0,
     anchorRestore: ids.has("anchor-shard") ? BALANCE.anchorRestore : 0,
     maxIntegrity: BALANCE.maxIntegrity,
     cooldownReduction: rewardCount("stillwater-hourglass") * BALANCE.hourglassCooldownReduction,
-    extraAssaultDamage: ids.has("shadebreaker-brand") ? BALANCE.brandAssaultDamage : 0,
-    summonBonus: ids.has("abyssal-banner") ? BALANCE.bannerSummonBonus : 0,
-    autoExtract: false,
+    extraAssaultDamage: 0,
+    counterReduction: ids.has("shadebreaker-brand") ? BALANCE.brandCounterReduction : 0,
+    summonBonus: (ids.has("ember-cohort") ? BALANCE.cohortSummonBonus : 0) + (ids.has("abyssal-banner") ? BALANCE.bannerSummonBonus : 0),
+    autoExtract: ids.has("stillwater-hourglass"),
     initialAegis: ids.has("abyssal-banner") ? BALANCE.bannerInitialAegis : 0,
     activeItemNames: rewards.map((reward) => reward.rewardName)
   });
@@ -119,7 +183,11 @@ export function getCampaignBenefits(state) {
   return Object.freeze({
     maxIntegrity: benefits.maxIntegrity,
     cooldownReduction: clamp(benefits.cooldownReduction, 0, 0.5),
+    lensDamage: benefits.lensDamage,
+    vanguardLegion: benefits.vanguardLegion,
+    anchorRestore: benefits.anchorRestore,
     extraAssaultDamage: benefits.extraAssaultDamage,
+    counterReduction: benefits.counterReduction,
     summonBonus: benefits.summonBonus,
     autoExtract: benefits.autoExtract,
     initialAegis: benefits.initialAegis,
@@ -129,7 +197,7 @@ export function getCampaignBenefits(state) {
 
 function makeStageState(stage, rewards, entryIntegrity) {
   const benefits = rewardBenefits(rewards);
-  const capacity = clamp(MIN_SLOTS + benefits.capacityBonus, MIN_SLOTS, MAX_SLOTS);
+  const capacity = MIN_SLOTS;
   const legion = stage.number === 3 ? Math.min(benefits.vanguardLegion, capacity) : 0;
   const integrity = clamp(entryIntegrity, 0, benefits.maxIntegrity);
   return {
@@ -202,11 +270,12 @@ function isThin(legion, stage) {
   return legion < BALANCE.thinMargin + stage.number;
 }
 
-function counterDamage(stageState, stage) {
+function counterDamage(stageState, stage, benefits) {
   const shield = Math.floor(stageState.legion / BALANCE.shieldDivisor);
   const base = BALANCE.counterBase[stage.number - 1];
   const thin = isThin(stageState.legion, stage) ? BALANCE.thinPenalty : 0;
-  return Math.max(1, base - shield) + thin;
+  const rawCounter = Math.max(1, base - shield) + thin;
+  return Math.max(1, rawCounter - benefits.counterReduction);
 }
 
 function assaultDamage(stageState, stage, benefits) {
@@ -309,7 +378,7 @@ export function applyAction(state, action) {
     if (action === "domain") {
       target.domainUses = 1;
       target.integrity = clamp(target.integrity + BALANCE.domainRestore, 0, benefits.maxIntegrity);
-      target.aegis = Math.max(target.aegis, BALANCE.domainAegis);
+      target.aegis += BALANCE.domainAegis;
       draft.lastMessage = "Lord's Domain unfolds once: the abyss restores 4 integrity, and the next 2 counterblows break against it.";
     }
     if (action === "assault") {
@@ -319,7 +388,7 @@ export function applyAction(state, action) {
       if (target.aegis > 0) {
         target.aegis -= 1;
       } else {
-        counter = counterDamage(target, stage);
+        counter = counterDamage(target, stage, benefits);
         target.integrity = Math.max(0, target.integrity - counter);
       }
       if (target.bossHealth === 0) {
@@ -436,8 +505,8 @@ export function createSaveEnvelope(state) {
 
 export function restoreSaveEnvelope(envelope) {
   assert(envelope && typeof envelope === "object", "Save envelope must be an object.");
-  assert(envelope.schema === SAVE_SCHEMA, "This file is not an Abyssal Surge save.");
-  assert(envelope.schemaVersion !== 1, "This save was written under the v1 balance rules and cannot continue in v2. Begin a new campaign.");
+  assert(envelope.schema === SAVE_SCHEMA, "This file is not an Abyssal Command save.");
+  assert(envelope.schemaVersion !== 1, "This save was written under the v1 balance rules and cannot continue in v3. Begin a new campaign.");
   assert(envelope.schemaVersion === SAVE_SCHEMA_VERSION, "This save schema is not supported.");
   assert(envelope.rulesVersion === RULES_VERSION, "This save uses incompatible campaign rules.");
   assert(Array.isArray(envelope.trace), "Save trace is missing.");

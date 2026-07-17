@@ -112,6 +112,27 @@ function isOptionalMediaUrl(url) {
     return false;
   }
 }
+function collectClientErrors(page) {
+  const unexpectedErrors = [];
+  const optionalMediaErrors = [];
+  page.on("pageerror", (error) => unexpectedErrors.push(`pageerror: ${error.message}`));
+  page.on("console", (message) => {
+    console.log(`PAGE LOG [${message.type()}]:`, message.text());
+    if (message.type() !== "error") return;
+    const sourceUrl = message.location().url || "";
+    if (isOptionalMediaUrl(sourceUrl)) {
+      optionalMediaErrors.push(`console: ${sourceUrl}`);
+    } else {
+      unexpectedErrors.push(`console: ${message.text()}${sourceUrl ? ` (${sourceUrl})` : ""}`);
+    }
+  });
+  return { unexpectedErrors, optionalMediaErrors };
+}
+
+function assertNoClientErrors(errors, scenario) {
+  assert.deepEqual(errors.unexpectedErrors, [], `${scenario} emitted unexpected client errors:\n${errors.unexpectedErrors.join("\n")}`);
+}
+
 
 async function text(locator) {
   return (await locator.textContent() || "").trim();
@@ -158,6 +179,11 @@ async function assertBattlePresentation(page, number) {
 
   const fallback = page.locator("#battle-visual-fallback");
   if (await fallback.isVisible()) {
+    assert.equal(
+      await text(fallback.locator(".battle-fallback-kicker")),
+      "Static tactical briefing",
+      `Stage ${number} fallback must describe a static tactical briefing, not a map.`
+    );
     assert.equal(await text(page.locator("#battle-fallback-operation")), presentation.operation, `Stage ${number} fallback must retain the current operation.`);
     assert.equal(await text(page.locator("#battle-fallback-doctrine")), presentation.doctrine, `Stage ${number} fallback must retain the current doctrine.`);
     assert.equal(
@@ -204,6 +230,57 @@ async function runActions(page, selectors) {
   }
 }
 
+function battleTargetSelector(action) {
+  return `#battle-pointer-controls [data-battle-target="${action}"]`;
+}
+
+async function assertBattleTargetEnabled(page, action, expected, description) {
+  const target = page.locator(battleTargetSelector(action));
+  await target.waitFor({ state: "visible" });
+  assert.equal(await target.isEnabled(), expected, description);
+  assert.equal(
+    await target.getAttribute("aria-disabled"),
+    String(!expected),
+    `${description} The public target aria-disabled state must match its native disabled state.`
+  );
+  return target;
+}
+
+async function assertBattleCanvasBlankPassThrough(page) {
+  const point = await page.evaluate(() => {
+    const canvas = document.querySelector("#battle-canvas-3d");
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const step = Math.max(24, Math.floor(Math.min(rect.width, rect.height) / 6));
+    for (let y = rect.top + 12; y < rect.bottom - 12; y += step) {
+      for (let x = rect.left + 12; x < rect.right - 12; x += step) {
+        if (document.elementFromPoint(x, y) === canvas) return { x, y };
+      }
+    }
+    return null;
+  });
+  assert.ok(point, "The live battlefield must expose a blank canvas point outside the mouse target overlay.");
+
+  const canvasPointerDown = page.evaluate(() => new Promise((resolve, reject) => {
+    const canvas = document.querySelector("#battle-canvas-3d");
+    const timeout = window.setTimeout(() => reject(new Error("Timed out waiting for the blank battlefield click to reach the canvas.")), 5_000);
+    let count = 0;
+    canvas.addEventListener("pointerdown", (event) => {
+      count += 1;
+      window.requestAnimationFrame(() => {
+        window.clearTimeout(timeout);
+        resolve({ count, targetId: event.target.id });
+      });
+    }, { once: true });
+  }));
+  await page.mouse.click(point.x, point.y);
+  assert.deepEqual(
+    await canvasPointerDown,
+    { count: 1, targetId: "battle-canvas-3d" },
+    "A physical click through a blank overlay point must deliver exactly one pointerdown to the canvas."
+  );
+}
+
 async function enterBattle(page, number, heading) {
   await assertStage(page, number, heading);
   await page.locator("#view-scenario").waitFor({ state: "visible" });
@@ -216,6 +293,196 @@ async function enterBattle(page, number, heading) {
   await assertBattleVisualizationStatus(page, number);
   await assertBattlePresentation(page, number);
   return text(page.locator("#integrity-value"));
+}
+
+const BATTLE_BREACH_TIMEOUT_MS = 50_000;
+const COMMAND_COOLDOWN_TIMEOUT_MS = 7_000;
+
+async function configureBattleParityContext(context, { failCanvas = false, auditAnimationFrames = false } = {}) {
+  await context.addInitScript(({ failCanvas, auditAnimationFrames }) => {
+    // Canvas failure is the only degradation injected into the campaign path.
+
+    if (failCanvas) {
+      const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function getContext(type, ...args) {
+        if (type === "2d") return null;
+        return nativeGetContext.call(this, type, ...args);
+      };
+    }
+
+    if (auditAnimationFrames) {
+      const nativeRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+      let captureActive = false;
+      let capturedRequests = 0;
+      window.requestAnimationFrame = (callback) => {
+        if (captureActive) capturedRequests += 1;
+        return nativeRequestAnimationFrame(callback);
+      };
+      Object.defineProperty(window, "__battleAnimationAudit", {
+        configurable: true,
+        value: {
+          begin() {
+            capturedRequests = 0;
+            captureActive = true;
+          },
+          end() {
+            captureActive = false;
+            return capturedRequests;
+          }
+        }
+      });
+    }
+  }, { failCanvas, auditAnimationFrames });
+}
+
+async function campaignTrace(page) {
+  const downloadReady = page.waitForEvent("download");
+  await page.locator("#export-save").click();
+  const download = await downloadReady;
+  const downloadPath = await download.path();
+  assert.ok(downloadPath, "The public save export must provide a readable download.");
+  const envelope = JSON.parse(fs.readFileSync(downloadPath, "utf8"));
+  assert.ok(Array.isArray(envelope.trace), "The public campaign save export must expose a versioned trace.");
+  return envelope.trace;
+}
+
+async function awaitTimedBattleBreachBatch(page, entryIntegrity) {
+  await page.waitForFunction(
+    (initialIntegrity) => Number.parseInt(document.querySelector("#integrity-value")?.textContent || "", 10) < initialIntegrity,
+    entryIntegrity,
+    { polling: 20, timeout: BATTLE_BREACH_TIMEOUT_MS }
+  );
+  await page.waitForTimeout(250);
+
+  const trace = await campaignTrace(page);
+  const breaches = trace.filter((event) => event.kind === "battle-breach");
+  const integrity = Number.parseInt(await text(page.locator("#integrity-value")), 10);
+  assert.ok(breaches.length > 0, "The scheduled battle wave must serialize at least one battle-breach transition.");
+  assert.ok(integrity < entryIntegrity, "The rendered battle integrity must drop after a scheduled breach.");
+  return Object.freeze({
+    integrity,
+    trace: trace.map((event) => event.kind === "action" ? { kind: event.kind, action: event.action } : { kind: event.kind })
+  });
+}
+
+async function verifyCommandCooldown(page) {
+  const hunt = page.locator("#action-hunt");
+  assert.equal(await hunt.isEnabled(), true, "The Hunt command must remain enabled while battle presentation degrades.");
+  await clickEnabledAction(page, "#action-hunt");
+  await hunt.waitFor({ state: "visible" });
+  await page.waitForFunction(
+    () => {
+      const command = document.querySelector("#action-hunt");
+      return Boolean(command && !command.disabled);
+    },
+    undefined,
+    { timeout: COMMAND_COOLDOWN_TIMEOUT_MS }
+  );
+}
+
+async function runBattleParityPath(browser, baseUrl, { failCanvas = false } = {}) {
+  const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
+  let page;
+  try {
+    await configureBattleParityContext(context, { failCanvas });
+    page = await context.newPage();
+    const clientErrors = collectClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.querySelector("#save-status")?.textContent !== "Preparing local save…");
+    await page.locator("#start-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    const entryIntegrity = Number.parseInt(await enterBattle(page, 1, "Cinder Span"), 10);
+
+    if (failCanvas) {
+      assert.equal(await page.locator("#battle-canvas-3d").isHidden(), true, "A failed Canvas 2D context must reveal the static tactical brief instead of a blank renderer.");
+      assert.equal(await page.locator("#battle-visual-fallback").isVisible(), true, "A failed Canvas 2D context must expose the tactical fallback card.");
+      assert.equal(await text(page.locator("#campaign-status")), "Battle visualization is unavailable; command rules remain ready.", "Canvas fallback status must preserve the command-ready guarantee.");
+      assert.equal(
+        await page.locator("#battle-pointer-controls").isHidden(),
+        true,
+        "A failed Canvas 2D context must hide the renderer-only mouse target overlay."
+      );
+      for (const action of ["materialize", "capture", "assault"]) {
+        assert.equal(
+          await page.locator(battleTargetSelector(action)).isHidden(),
+          true,
+          `Canvas fallback must keep the ${action} mouse target inaccessible while command-pad controls remain available.`
+        );
+      }
+    }
+    if (!failCanvas) {
+      assert.equal(
+        await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches),
+        false,
+        "The renderer-enabled parity path must run without reduced-motion preference before waiting for live-wave breaches."
+      );
+      assert.equal(await page.locator("#battle-visual-fallback").isHidden(), true, "A functioning Canvas 2D renderer must keep the static tactical fallback card hidden.");
+    }
+
+    const breach = await awaitTimedBattleBreachBatch(page, entryIntegrity);
+    if (failCanvas) {
+      assert.equal(
+        await text(page.locator("#battle-pressure")),
+        "Static tactical fallback: rendering is unavailable, but command rules remain active.",
+        "The first scheduled fallback breach must not overwrite the truthful static battle pressure."
+      );
+      assert.equal(
+        await text(page.locator("#battle-wave-indicator")),
+        "STATIC TACTICAL BRIEFING · COMMAND SCHEDULE ACTIVE",
+        "The first scheduled fallback breach must retain the static tactical briefing command schedule instead of a live-wave label."
+      );
+    }
+    if (failCanvas) await verifyCommandCooldown(page);
+    assertNoClientErrors(clientErrors, failCanvas ? "Canvas fallback battle path" : "Rendered battle path");
+    return breach;
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyRendererIndependentBattleBreach(browser, baseUrl) {
+  const rendered = await runBattleParityPath(browser, baseUrl);
+  const fallback = await runBattleParityPath(browser, baseUrl, { failCanvas: true });
+  const renderedBreaches = rendered.trace.filter((event) => event.kind === "battle-breach");
+  const fallbackBreaches = fallback.trace.filter((event) => event.kind === "battle-breach");
+  const renderedActions = rendered.trace.filter((event) => event.kind === "action");
+  const fallbackActions = fallback.trace.filter((event) => event.kind === "action");
+
+  assert.ok(renderedBreaches.length > 0, "The renderer-enabled battle path must record one or more scheduled battle-breach transitions.");
+  assert.ok(fallbackBreaches.length > 0, "The Canvas-fallback battle path must record one or more scheduled battle-breach transitions.");
+  assert.deepEqual(
+    fallbackActions,
+    renderedActions,
+    "The renderer-enabled and Canvas-fallback paths must preserve the same normalized player action sequence."
+  );
+  assert.deepEqual(rendered.trace[0], { kind: "start" }, "The renderer-enabled battle trace must begin with the campaign start transition.");
+  assert.deepEqual(
+    fallback.trace[0],
+    rendered.trace[0],
+    "The renderer-enabled and Canvas-fallback paths must share the same initial campaign start transition."
+  );
+}
+
+async function verifyReducedMotionBattlePresentation(browser, baseUrl) {
+  const context = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1280, height: 900 } });
+  try {
+    await configureBattleParityContext(context, { auditAnimationFrames: true });
+    const page = await context.newPage();
+    const clientErrors = collectClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.querySelector("#save-status")?.textContent !== "Preparing local save…");
+    await page.locator("#start-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.evaluate(() => window.__battleAnimationAudit.begin());
+    await enterBattle(page, 1, "Cinder Span");
+    await page.waitForTimeout(350);
+    const animationRequests = await page.evaluate(() => window.__battleAnimationAudit.end());
+    assert.ok(animationRequests <= 1, `Reduced-motion battle presentation must not start a continuous Canvas requestAnimationFrame loop; observed ${animationRequests} request(s).`);
+    await verifyCommandCooldown(page);
+    assertNoClientErrors(clientErrors, "Reduced-motion battle presentation");
+  } finally {
+    await context.close();
+  }
 }
 
 async function assertPreparationIntegrity(page, number, entryIntegrity) {
@@ -244,9 +511,41 @@ async function chooseRewardAndAdvance(page, rewardId, number, heading) {
 
 async function runStageOne(page) {
   const entryIntegrity = await enterBattle(page, 1, "Cinder Span");
-  await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract", "#action-materialize", "#action-capture"]);
+  await assertBattleCanvasBlankPassThrough(page);
+  for (const action of ["materialize", "capture", "assault"]) {
+    await assertBattleTargetEnabled(
+      page,
+      action,
+      false,
+      `Stage 1 ${action} mouse target must start disabled until its public command prerequisites are met.`
+    );
+  }
+
+  await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract"]);
+  await assertBattleTargetEnabled(page, "materialize", true, "Stage 1 Materialize mouse target must unlock after Hunt twice and Extract.");
+  await assertBattleTargetEnabled(page, "capture", false, "Stage 1 Capture mouse target must remain disabled until a legion materializes.");
+  await assertBattleTargetEnabled(page, "assault", false, "Stage 1 Assault mouse target must remain disabled until the forge node is captured.");
+
+  const legionBeforeMaterialize = await text(page.locator("#legion-value"));
+  await clickEnabledAction(page, battleTargetSelector("materialize"));
+  assert.equal(await text(page.locator("#legion-value")), "2 / 10", "Clicking the Stage 1 Materialize mouse target must raise the public legion count.");
+  assert.notEqual(await text(page.locator("#legion-value")), legionBeforeMaterialize, "The Stage 1 Materialize mouse target must visibly update legion status.");
+
+  await assertBattleTargetEnabled(page, "capture", true, "Stage 1 Capture mouse target must unlock after Materialize.");
+  await assertBattleTargetEnabled(page, "assault", false, "Stage 1 Assault mouse target must remain disabled until the forge node is captured.");
+  const nodesBeforeCapture = await text(page.locator("#nodes-value"));
+  await clickEnabledAction(page, battleTargetSelector("capture"));
+  assert.equal(await text(page.locator("#nodes-value")), "1 / 1", "Clicking the Stage 1 Capture mouse target must claim the public node status.");
+  assert.notEqual(await text(page.locator("#nodes-value")), nodesBeforeCapture, "The Stage 1 Capture mouse target must visibly update node status.");
+
+  await assertBattleTargetEnabled(page, "assault", true, "Stage 1 Assault mouse target must unlock after Capture.");
+  const bossBeforeAssault = await text(page.locator("#boss-value"));
   await assertPreparationIntegrity(page, 1, entryIntegrity);
-  await runActions(page, ["#action-assault", "#action-assault", "#action-assault"]);
+  await clickEnabledAction(page, battleTargetSelector("assault"));
+  assert.equal(await text(page.locator("#boss-value")), "5 / 8", "Clicking the Stage 1 Assault mouse target must damage the public boss health.");
+  assert.notEqual(await text(page.locator("#boss-value")), bossBeforeAssault, "The Stage 1 Assault mouse target must visibly update boss health.");
+
+  await runActions(page, [battleTargetSelector("assault"), battleTargetSelector("assault")]);
 
   await page.locator("#reward-panel").waitFor({ state: "visible" });
   const rewards = page.locator("#reward-options .reward-option");
@@ -374,40 +673,31 @@ async function run() {
   let browser;
   let context;
   let page;
-  const unexpectedErrors = [];
-  const optionalMediaErrors = [];
+  let clientErrors;
 
   try {
     const hosting = await startServer();
     server = hosting.server;
     browser = await playwright.chromium.launch({ headless: true });
+    await verifyRendererIndependentBattleBreach(browser, hosting.baseUrl);
+    await verifyReducedMotionBattlePresentation(browser, hosting.baseUrl);
+
     context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     page = await context.newPage();
-
-    page.on("pageerror", (error) => unexpectedErrors.push(`pageerror: ${error.message}`));
-    page.on("console", (message) => {
-      if (message.type() !== "error") return;
-      const location = message.location();
-      const sourceUrl = location.url || "";
-      if (isOptionalMediaUrl(sourceUrl)) {
-        optionalMediaErrors.push(`console: ${sourceUrl}`);
-      } else {
-        unexpectedErrors.push(`console: ${message.text()}${sourceUrl ? ` (${sourceUrl})` : ""}`);
-      }
-    });
+    clientErrors = collectClientErrors(page);
     page.on("requestfailed", (request) => {
       if (isOptionalMediaUrl(request.url())) {
-        optionalMediaErrors.push(`request: ${request.url()}`);
+        clientErrors.optionalMediaErrors.push(`request: ${request.url()}`);
       } else {
-        unexpectedErrors.push(`request: ${request.url()} (${request.failure()?.errorText || "failed"})`);
+        clientErrors.unexpectedErrors.push(`request: ${request.url()} (${request.failure()?.errorText || "failed"})`);
       }
     });
     page.on("response", (response) => {
       if (response.status() < 400) return;
       if (isOptionalMediaUrl(response.url())) {
-        optionalMediaErrors.push(`response ${response.status()}: ${response.url()}`);
+        clientErrors.optionalMediaErrors.push(`response ${response.status()}: ${response.url()}`);
       } else {
-        unexpectedErrors.push(`response ${response.status()}: ${response.url()}`);
+        clientErrors.unexpectedErrors.push(`response ${response.status()}: ${response.url()}`);
       }
     });
 
@@ -421,8 +711,8 @@ async function run() {
     await runStageTwo(page);
     await runStageThree(page);
 
-    assert.deepEqual(unexpectedErrors, [], `Unexpected browser errors:\n${unexpectedErrors.join("\n")}`);
-    console.log(`PLAYTEST_BROWSER_PASS stages=Cinder Span,Veil Citadel,Echo Throne legion=0/10,4/10,8/10 worker=${new URL(worker.scriptUrl).pathname} cache=${worker.cacheName} optional-media-errors=${optionalMediaErrors.length}`);
+    assertNoClientErrors(clientErrors, "Full campaign path");
+    console.log(`PLAYTEST_BROWSER_PASS stages=Cinder Span,Veil Citadel,Echo Throne legion=0/10,4/10,8/10 worker=${new URL(worker.scriptUrl).pathname} cache=${worker.cacheName} optional-media-errors=${clientErrors.optionalMediaErrors.length}`);
   } catch (error) {
     let screenshotPath = "";
     if (page) {
@@ -434,6 +724,17 @@ async function run() {
       }
     }
     console.error(`PLAYTEST_BROWSER_FAIL: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+    if (page) {
+      try {
+        const screenHtml = await page.evaluate(() => document.querySelector("#campaign-screen")?.outerHTML);
+        console.error("Campaign screen HTML:", screenHtml);
+      } catch (e) {
+        console.error("Failed to get campaign screen HTML:", e.message);
+      }
+    }
+    if (clientErrors && clientErrors.unexpectedErrors.length > 0) {
+      console.error("Unexpected client errors:", clientErrors.unexpectedErrors.join("\n"));
+    }
     if (screenshotPath) console.error(`Failure screenshot: ${screenshotPath}`);
     process.exitCode = 1;
   } finally {

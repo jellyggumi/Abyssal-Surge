@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="Abyssal Command, an original mobile-first Shadow Lord RTS-RPG campaign." />
+    <meta name="description" content="Abyssal Command, an original mobile-first offline RTS-RPG campaign." />
     <meta name="theme-color" content="#0a0d18" />
-    <title>Abyssal Command — Shadow Lord Campaign</title>
+    <title>Abyssal Command — Original Offline Campaign</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -17,7 +17,7 @@
     <a class="skip-link" href="#command-panel" data-i18n="skipLink">캠페인 명령으로 건너뛰기</a>
     <header class="site-header">
       <div>
-        <p class="eyebrow" data-i18n="header.eyebrow">오리지널 그림자 RTS-RPG</p>
+        <p class="eyebrow" data-i18n="header.eyebrow">오리지널 심연 RTS-RPG</p>
         <h1 class="shiny-text">Abyssal Command</h1>
         <p class="subtitle shiny-text" data-i18n="header.subtitle">가라앉은 문을 차지하라</p>
       </div>
@@ -101,7 +101,7 @@
               <img src="assets/images/storyboard/scene_01_soul_pool_v01.jpg" alt="Soul Extraction" />
               <div class="card-content">
                 <h5 data-i18n="storyboard.card01Title">01. 영혼 추출</h5>
-                <p data-i18n="storyboard.card01Desc">재의 메아리를 처치하고 "일어나라"를 외쳐 그림자 유닛을 실체화하라.</p>
+                <p data-i18n="storyboard.card01Desc">재의 메아리를 처치하고 감시자의 "결속" 명령으로 군단을 실체화하라.</p>
               </div>
             </div>
             <div class="storyboard-card">
@@ -174,6 +174,7 @@
         <div id="view-scenario" class="sub-view">
           <div id="stage-transition" class="stage-transition" aria-live="polite">
             <video id="stage-transition-video" muted playsinline preload="metadata" hidden aria-label="Optional stage atmosphere"></video>
+            <div id="narrator-atlas" class="narrator-atlas" aria-hidden="true"></div>
             <div class="stage-transition-copy">
               <p id="narration-line" class="narration-line" aria-hidden="true"></p>
               <p id="narration-sr" class="sr-only" role="status"></p>
@@ -224,7 +225,7 @@
               <ul class="stats-list">
                 <li>최대 내구도 (Max Integrity): <span id="stat-max-integrity">10</span></li>
                 <li>쿨타임 감소 (Cooldown Reduction): <span id="stat-cooldown-reduction">0%</span></li>
-                <li>총공격 보너스 피해 (Extra Damage): <span id="stat-extra-damage">+0</span></li>
+                <li>전장 보정 (Combat Modifiers): <span id="stat-extra-damage">None</span></li>
                 <li>장착된 특수 보상/아이템: <span id="stat-active-items">None</span></li>
               </ul>
             </div>
@@ -253,10 +254,16 @@
               </dl>
               <p id="battle-pressure" class="battle-pressure" aria-live="polite">Preparation window: issue commands before the first hostile wave enters the lane.</p>
             </section>
+            <p id="battle-mouse-help" class="battle-mouse-help">마우스: 전장의 소환 관문·기술 거점·보스를 클릭해 명령을 내리세요. 그림자는 드래그로 선택한 뒤 지면을 클릭해 이동시킵니다.</p>
             <div id="canvas-container-3d" class="canvas-container-3d">
               <canvas id="battle-canvas-3d"></canvas>
+              <div id="battle-pointer-controls" class="battle-pointer-controls" role="group" aria-label="전장 마우스 명령" hidden>
+                <button id="battle-target-materialize" class="battle-pointer-target" data-battle-target="materialize" type="button" aria-label="소환 관문: 그림자 군단 실체화" aria-describedby="battle-mouse-help">소환</button>
+                <button id="battle-target-capture" class="battle-pointer-target" data-battle-target="capture" type="button" aria-label="기술 거점: 점거" aria-describedby="battle-mouse-help">점거</button>
+                <button id="battle-target-assault" class="battle-pointer-target" data-battle-target="assault" type="button" aria-label="보스: 총공격" aria-describedby="battle-mouse-help">총공격</button>
+              </div>
               <aside id="battle-visual-fallback" class="battle-visual-fallback" aria-labelledby="battle-fallback-title" hidden>
-                <p class="battle-fallback-kicker">Static tactical map</p>
+                <p class="battle-fallback-kicker">Static tactical briefing</p>
                 <h4 id="battle-fallback-title">Rendering unavailable</h4>
                 <p id="battle-fallback-operation" class="battle-operation">Operation: Ember Break</p>
                 <p id="battle-fallback-doctrine">Open the forge lane, raise shades, then sever the Warden's hold.</p>
@@ -387,6 +394,7 @@
             <div>
               <h3 id="save-heading" data-i18n="save.heading">로컬 캠페인 저장</h3>
               <p id="save-status" class="hint" role="status">Preparing local save…</p>
+              <p id="campaign-mirror-status" class="mirror-status" role="status">탭 간 로컬 동기화를 확인하는 중입니다.</p>
             </div>
             <div class="button-row">
               <button id="export-save" type="button" data-i18n="save.exportButton">저장 내보내기</button>

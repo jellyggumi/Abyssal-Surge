@@ -1,8 +1,9 @@
-const CACHE_NAME = "abyssal-surge-static-v8";
+const CACHE_NAME = "abyssal-surge-static-v13";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./app.js",
+  "./campaign-sync.js",
   "./battle-visualizer.js",
   "./battle-presentation.js",
   "./iso-math.js",
@@ -42,6 +43,9 @@ const OPTIONAL_MEDIA = [
   "./assets/images/ui/boss-cinder-warden.png",
   "./assets/images/ui/boss-veil-tactician.png",
   "./assets/images/ui/boss-gate-sovereign.png",
+  "./assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png",
+  "./assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png",
+  "./assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png",
   "./assets/images/ui/emblem-gate-sovereign.jpg",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
@@ -64,7 +68,7 @@ const OPTIONAL_MEDIA = [
   "./assets/video/cinder-span.mp4",
   "./assets/video/veil-citadel.mp4",
   "./assets/video/echo-throne.mp4",
-  "./assets/video/shadow-lord-cinematic.mp4"
+  "./assets/video/abyssal-surge-cinematic.mp4"
 ];
 
 function isSameOriginGet(request) {
@@ -76,7 +80,7 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/battle-visualizer.js", "/battle-presentation.js", "/iso-math.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-presentation.js", "/iso-math.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 self.addEventListener("install", (event) => {

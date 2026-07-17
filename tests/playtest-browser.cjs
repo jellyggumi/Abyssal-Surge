@@ -97,13 +97,13 @@ async function run() {
   assert.equal(audioFetchStatus, 200, "Audio assets must be served with HTTP 200 status");
   
   // 1. Verify Lobby screen is visible
-  const lobbyVisible = await page.isVisible("#lobby-screen");
+  const lobbyVisible = await page.isVisible("#campaign-lobby");
   console.log("Lobby visible:", lobbyVisible);
   assert.equal(lobbyVisible, true, "Lobby screen must be visible on startup");
   
   // 2. Click Begin campaign
   console.log("Clicking Begin button...");
-  await page.click("#begin-button");
+  await page.click("#start-campaign");
   
   // Cycle 006 cross-stage evidence flags
   let sawHostileTelegraph = false;
@@ -114,7 +114,7 @@ async function run() {
     let stageOutcome = null;
     let stageFoeHealth = null;
     console.log(`\n=== PLAYING STAGE ${stageNum} ===`);
-    await page.waitForSelector("#play-screen:not([hidden])", { timeout: 2000 });
+    await page.waitForSelector("#campaign-screen:not([hidden])", { timeout: 2000 });
 
     // DET7-CINE: stage-intro cinematic overlay must appear once per new encounter,
     // then be skippable; skip input must NOT leak into gameplay.
@@ -319,7 +319,7 @@ async function run() {
     
     if (stageNum < 5) {
       console.log(`Transitioning to Stage ${stageNum + 1}...`);
-      await page.click("#continue-button");
+      await page.click("#go-to-next-scenario");
     }
     return { outcome: stageOutcome, foeHealth: stageFoeHealth, commandLog };
   }

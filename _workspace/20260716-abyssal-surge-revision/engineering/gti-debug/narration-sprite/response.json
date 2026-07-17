@@ -1,0 +1,14 @@
+{
+  "status": 429,
+  "headers": {
+    "content-type": "application/json",
+    "x-codex-active-limit": "premium",
+    "x-codex-plan-type": "prolite",
+    "x-models-etag": "W/\"db60f8f7f9061ceb4f1d6877e76fff10\"",
+    "x-oai-request-id": "1aeb3060-5e3a-4835-ad89-86374ea6b637"
+  },
+  "body": {
+    "format": "unparsed",
+    "body": "{\"error\":{\"type\":\"usage_limit_reached\",\"message\":\"The usage limit has been reached\",\"plan_type\":\"prolite\",\"resets_at\":1784780205,\"eligible_promo\":null,\"resets_in_seconds\":537512}}"
+  }
+}

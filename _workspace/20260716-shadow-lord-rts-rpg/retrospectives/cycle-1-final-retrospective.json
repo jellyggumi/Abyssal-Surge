@@ -2,42 +2,42 @@
   "schema_version": "1.0",
   "run_id": "20260716-shadow-lord-rts-rpg",
   "cycle_number": 1,
-  "source_design": "docs/shadow-lord-rts-rpg-hybrid-design.md",
-  "public_beat": "Live GitHub Pages deploy of the balanced 3-stage Shadow Lord campaign",
+  "source_design": "production/production-contract.md",
+  "public_beat": "Offline Cinder Span vertical-slice playtest pending dated build/session evidence",
   "stages": [
     {
       "stage": "stage-1",
       "entry_gate": "pass",
-      "exit_gate": "pass",
-      "outcome": "Concept, presentation (narration+typing+sprites+storyboard), resources (12 audio, 16 sprites, emblem), and core build shipped; live stage clear measured 7.1s/14act (bot pace).",
+      "exit_gate": "fix",
+      "outcome": "Stage 1 exit is blocked: G1 failed content traceability, G6 is not run, and G7 has only partial repeat evidence.",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md",
-        "_workspace/20260716-shadow-lord-rts-rpg/design/ui-sprite-manifest.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md",
+        "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md"
       ],
       "risks": [
-        "Stage-1 loop upper band shrinks if action counts grow"
+        "G1 trace failure, G6 missing session evidence, and G7 repeat evidence block exit"
       ]
     },
     {
       "stage": "stage-2",
-      "entry_gate": "pass",
-      "exit_gate": "pass",
-      "outcome": "Balance v2: casual 51.0% in-band, 4 archetypes viable + rusher lesson, combos live (EV 1.119), comeback proven; defeat reachable live in production.",
+      "entry_gate": "not-run",
+      "exit_gate": "not-run",
+      "outcome": "Stage 2 exit is not assessed: G2 and G5 are not run, while G8 scoring remains pending.",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/design/balance-sheet.md",
-        "_workspace/20260716-shadow-lord-rts-rpg/qa/exploit-register.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md",
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"
       ],
       "risks": [
-        "TTK seconds target undefined — G2 TTK row unjudgeable"
+        "G2 lacks full mechanics, matchup, TTK, and reward-combo coverage"
       ]
     },
     {
       "stage": "stage-3",
-      "entry_gate": "pass",
-      "exit_gate": "fix",
-      "outcome": "Ops evidence strong (perf p95 9.2ms, SW cache v2, live E2E 47-action full campaign, marker CI guard) but G4 immersion scoring and G1 final audit remain unrun.",
+      "entry_gate": "not-run",
+      "exit_gate": "not-run",
+      "outcome": "Stage 3 exit is deferred: final G1, G4, and G6 evidence is not run.",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/engineering/perf-budget.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"
       ],
       "risks": [
         "G4 structured immersion sessions not run",
@@ -48,12 +48,12 @@
   "gates": [
     {
       "gate_id": "G1",
-      "verdict": "FIX",
+      "verdict": "FAIL",
       "threshold": "0 un-waived lore violations; 100% trace coverage",
-      "measured_value": "scenario-bible self-audit: 0 new contradictions; 4 pre-existing worldview inventory gaps recorded; full build audit not-run",
-      "measurement_method": "ScenarioWriter G1 self-audit table vs worldview.md",
+      "measured_value": "lore-violation count: not-run; trace coverage: failed because player-visible source has no AS-WV/inventory_id trace metadata",
+      "measurement_method": "direct source-to-worldview audit",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/design/scenario-bible.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md"
       ],
       "timestamp": "2026-07-16T16:20:00Z",
       "revision_loops": 0,
@@ -61,10 +61,10 @@
     },
     {
       "gate_id": "G2",
-      "verdict": "PASS",
+      "verdict": "NOT-RUN",
       "threshold": "100% mechanics; win rates 45–55%; TTK ±15%; no combo >1.3× median EV",
-      "measured_value": "casual 51.0% (n=200); combo EV 1.119x; TTK row unjudgeable (no seconds target — director-accepted gap)",
-      "measurement_method": "node scripts/run-campaign-balance-sim.mjs, deterministic, 8-knob iteration log",
+      "measured_value": "casual legal walker 55.0% (110/200) and selected-combo maximum/median 1.118571x; full mechanics, matchup, TTK, and reward-combo coverage not-run",
+      "measurement_method": "deterministic simulator reconciliation; incomplete coverage is not a gate pass",
       "evidence_paths": [
         "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md"
       ],
@@ -87,12 +87,12 @@
     },
     {
       "gate_id": "G4",
-      "verdict": "FIX",
+      "verdict": "NOT-RUN",
       "threshold": "median ≥4/5; feedback ≤100 ms; 0 unresolved S1/S2 readability",
-      "measured_value": "feedback latency structurally ≤1 frame (p95 9.2ms); structured immersion scoring not-run",
-      "measurement_method": "frame sampling + code path review; human sessions pending",
+      "measured_value": "not-run; no structured immersion sessions, feedback timing capture, or readability audit are attached",
+      "measurement_method": "Stage 3 evidence slot remains pending",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/engineering/perf-budget.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"
       ],
       "timestamp": "2026-07-16T16:40:00Z",
       "revision_loops": 0,
@@ -100,12 +100,12 @@
     },
     {
       "gate_id": "G5",
-      "verdict": "PASS",
+      "verdict": "NOT-RUN",
       "threshold": "paid/free delta ≤5 pp; reversal ≤30%; free parity 10–20 sessions",
-      "measured_value": "no monetization shipped (delta 0pp, vacuous-true by design); comeback reversal is play-earned (domain), not purchase",
-      "measurement_method": "revenue-map review — monetization disabled this cycle per negotiation record",
+      "measured_value": "not-run; no revenue surface or fairness cohort evidence is attached",
+      "measurement_method": "production gate ledger",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/pm/revenue-map.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"
       ],
       "timestamp": "2026-07-16T16:40:00Z",
       "revision_loops": 0,
@@ -113,13 +113,13 @@
     },
     {
       "gate_id": "G6",
-      "verdict": "FIX",
+      "verdict": "NOT-RUN",
       "threshold": "telemetry, rollback, checklist; p95 ≤16.7 ms; long frames <0.5%; 30-min stable; input ≤100 ms",
-      "measured_value": "p95 9.2ms; long frames 0/300; heap 3.1MB; SW v2 0-transfer reload; rollback workflow_dispatch path exists; marker guard added to CI; 30-min soak not-run (structural: static page, 3.1MB heap, zero timers beyond rAF)",
-      "measurement_method": "live rAF sampling + workflow review",
+      "measured_value": "not-run; no instrumented browser/mobile session is attached",
+      "measurement_method": "instrumented browser/mobile session pending",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/engineering/perf-budget.md",
-        ".github/workflows/static.yml"
+        "_workspace/20260716-shadow-lord-rts-rpg/qa/gate-measurements.md",
+        "_workspace/20260716-shadow-lord-rts-rpg/ops/telemetry-contract.md"
       ],
       "timestamp": "2026-07-16T16:40:00Z",
       "revision_loops": 0,
@@ -127,7 +127,7 @@
     },
     {
       "gate_id": "G7",
-      "verdict": "PASS",
+      "verdict": "PARTIAL",
       "threshold": "30–180 s, ≥3 actions, ≥1 reward, repeat ≥70%",
       "measured_value": "live stage clears 7.1/8.8/9.3s at bot pace (9-17 act/stage; human-pace conversion in-band); reward 3/3; repeat proxy PARTIAL (restart verified, human sessions pending)",
       "measurement_method": "live browser drivers (2 policies) + simulator proxy",
@@ -140,12 +140,12 @@
     },
     {
       "gate_id": "G8",
-      "verdict": "FIX",
+      "verdict": "NOT-RUN",
       "threshold": "≤2/5 comparable frequency; impression ≥4/5",
-      "measured_value": "novelty candidate (extraction-to-legion loop + persistent-integrity comeback) documented; 5-title frequency matrix pending final scoring",
-      "measurement_method": "trend-survey frequency table; impression scoring pending",
+      "measured_value": "not-run; the frequency matrix and impression scoring are pending",
+      "measurement_method": "Stage 2 evidence slot remains pending",
       "evidence_paths": [
-        "_workspace/20260716-shadow-lord-rts-rpg/design/novelty-scorecard.md"
+        "_workspace/20260716-shadow-lord-rts-rpg/production/production-contract.md"
       ],
       "timestamp": "2026-07-16T16:40:00Z",
       "revision_loops": 0,
@@ -156,33 +156,33 @@
   "unresolved_risks": [
     {
       "id": "R-101",
-      "stage": "stage-3",
+      "stage": "stage-1",
       "severity": "S2",
-      "description": "G4 structured immersion scoring and G1 full-build audit not run (need human sessions).",
-      "mitigation": "Run 10 voluntary human sessions with immersion scoring next cycle entry.",
+      "description": "G1 traceability failed: player-visible content has no AS-WV/inventory_id trace metadata, and the violation audit is absent.",
+      "mitigation": "Attach a complete player-visible inventory audit and resolve every trace violation before any G1 pass.",
       "owner": "game-qa",
       "status": "open"
     },
     {
       "id": "R-102",
       "stage": "stage-2",
-      "severity": "S3",
-      "description": "TTK seconds target undefined; G2 TTK row cannot be judged.",
-      "mitigation": "Designer defines seconds target in balance-sheet band-overrides.",
-      "owner": "game-designer",
+      "severity": "S2",
+      "description": "G2 is not run: no full mechanics/matchup coverage, elapsed-time TTK measurement, or all-reward-pair combo evaluation is attached.",
+      "mitigation": "Produce the missing coverage matrix, timed sessions, and complete reward-pair simulation evidence.",
+      "owner": "game-qa",
       "status": "open"
     },
     {
       "id": "R-103",
-      "stage": "cross-cycle",
+      "stage": "stage-1",
       "severity": "S2",
-      "description": "Concurrent-session battle-visualizer refactor of app.js in flight at cycle close.",
-      "mitigation": "CI marker guard + node --check gate protect deploy; next cycle re-verifies live.",
-      "owner": "game-programmer",
+      "description": "G6 lacks an instrumented browser/mobile session and G7 lacks voluntary human repeat evidence.",
+      "mitigation": "Run the required local browser/mobile and voluntary-session evidence before reassessing exit gates.",
+      "owner": "game-qa",
       "status": "open"
     }
   ],
-  "next_cycle_entry": "stage-2-retune",
+  "next_cycle_entry": "stage-1-evidence-repair",
   "decision_log_path": "_workspace/20260716-shadow-lord-rts-rpg/production/decision-log.md",
   "validated": true,
   "validation_status": "validated",

@@ -18,19 +18,19 @@
 | materialize.mp3 | SFX | "shadow smoke coalescing into solid form, whoosh, dark fantasy, single one-shot cue" (dur 1.3s) | 1.31 | 131k | 20.9 | −20.9 / 0.0 | — |
 | assault.mp3 | SFX | "massive dark energy strike impact, dark fantasy, single one-shot impact" (dur 1.2s) | 1.23 | 131k | 19.6 | −18.2 / −1.2 | — |
 | hunt.mp3 | SFX | "low sonar ping, void echo, dark fantasy, single one-shot cue" (dur 1.0s) | 1.04 | 132k | 16.8 | −22.1 / −5.2 | +14dB, 128k 재인코딩 |
-| narr-intro.mp3 | TTS | "심연의 문이 열렸다. 그림자 군주여, 일어나라." | 3.58 | 97k | 42.3 | −23.3 / −8.9 | — |
-| narr-stage1.mp3 | TTS | "잿빛 교량, 신더 스팬. 재의 메아리를 사냥하고 영혼을 거두어라." | 5.51 | 97k | 64.9 | −23.0 / −6.8 | — |
-| narr-stage2.mp3 | TTS | "장막 성채, 베일 시타델. 빙의의 힘이 깨어난다. 두 거점을 동시에 장악하라." | 6.64 | 96k | 78.1 | −22.9 / −3.2 | — |
-| narr-stage3.mp3 | TTS | "메아리 왕좌. 군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라." | 5.43 | 97k | 64.0 | −22.4 / −7.5 | — |
-| narr-victory.mp3 | TTS | "침묵한 문 앞에서, 그림자 군단이 왕좌에 오른다." | 3.89 | 97k | 46.0 | −23.1 / −7.2 | — |
-| narr-defeat.mp3 | TTS | "군단의 닻이 끊어졌다. 다시, 일어나라." | 3.66 | 97k | 43.2 | −23.4 / −5.5 | — |
+| narr-intro.mp3 | TTS | "심연의 문이 열렸다. 그림자 군주여, 일어나라." | 3.47 | 97k | 42.0 | prior measurement (not remeasured) | — |
+| narr-stage1.mp3 | TTS | "잿빛 교량, 신더 스팬. 재의 메아리를 사냥하고 영혼을 거두어라." | 5.70 | 97k | 68.7 | prior measurement (not remeasured) | — |
+| narr-stage2.mp3 | TTS | "장막 성채, 베일 시타델. 빙의의 힘이 깨어난다. 두 거점을 동시에 장악하라." | 7.84 | 96k | 94.4 | prior measurement (not remeasured) | — |
+| narr-stage3.mp3 | TTS | "메아리 왕좌. 군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라." | 5.09 | 97k | 61.5 | prior measurement (not remeasured) | — |
+| narr-victory.mp3 | TTS | "침묵한 문 앞에서, 그림자 군단이 왕좌에 오른다." | 4.02 | 97k | 48.6 | prior measurement (not remeasured) | — |
+| narr-defeat.mp3 | TTS | "군단의 닻이 끊어졌다. 다시, 일어나라." | 3.84 | 97k | 46.4 | prior measurement (not remeasured) | — |
 
 ## 수치 요약
 
-- 12/12 파일 ≤400KB 게이트 통과 (최대 78.1KB, narr-stage2.mp3) — ≤300KB 목표 대비 최대 26% 수준이라 96k 재인코딩 불필요 (TTS는 이미 mp3_44100_96 출력).
+- 12/12 파일 ≤400KB 게이트 통과 (최대 94.4KB, narr-stage2.mp3) — ≤300KB 목표 대비 최대 32% 수준이라 96k 재인코딩 불필요 (TTS는 이미 mp3_44100_96 출력).
 - SFX 길이 1.04–1.52s (요구 0.8–1.5s; reward.mp3 1.52s는 요청 1.5s 대비 +0.02s 인코더 오차).
-- 내레이션 길이 3.58–6.64s, 전량 eleven_multilingual_v2 한국어.
-- 총 용량: 462.0KB (12 파일).
+- 내레이션 길이 3.47–7.84s, 전량 eleven_multilingual_v2 한국어.
+- 총 용량: 488.2KB (12 파일).
 
 ## 참고
 

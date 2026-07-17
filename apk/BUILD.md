@@ -17,7 +17,7 @@ bubblewrap init --manifest https://jellyggumi.github.io/Abyssal-Command/manifest
 
 With `twa-manifest.json` copied in first, bubblewrap pre-fills its answers from
 it (packageId `io.github.jellyggumi.abyssalsurge`, name "Abyssal Surge", theme
-`#0b0d14`, start URL `/Abyssal-Surge/index.html`, icon
+`#0b0d14`, start URL `/Abyssal-Command/`, icon
 `https://jellyggumi.github.io/Abyssal-Command/assets/icons/icon-512.png`).
 
 ## 2. Generate a signing keystore (first time only)
@@ -51,7 +51,7 @@ keytool -list -v -keystore android.keystore -alias android | grep SHA256
 
 Digital Asset Links are **origin-scoped**: Chrome fetches
 `https://jellyggumi.github.io/.well-known/assetlinks.json` at the **host
-root** — never under `/Abyssal-Surge/`. This project-Pages repo cannot publish
+root — never under `/Abyssal-Command/`. This project-Pages repo cannot publish
 that path, so committing `.well-known/` here does NOT work. Two real options:
 
 1. **User-site repo:** create a GitHub repo literally named
@@ -73,7 +73,7 @@ silently falls back to Custom Tabs and the browser URL bar stays visible.
 
 ## Verification checklist
 
-- [ ] `https://jellyggumi.github.io/.well-known/assetlinks.json` returns HTTP 200 valid JSON (host root, not /Abyssal-Surge/)
+- [ ] `https://jellyggumi.github.io/.well-known/assetlinks.json` returns HTTP 200 valid JSON (host root, not /Abyssal-Command/)
 - [ ] Statement List Tester passes: https://developers.google.com/digital-asset-links/tools/generator (site + package + fingerprint)
 - [ ] On device: launch the app — no URL bar. For verbose logs, `chrome://flags` → "Enable TWA verification debugging"
 - [ ] App opens full-screen to the game; offline relaunch works (service worker cache `abyssal-surge-static-v4`)

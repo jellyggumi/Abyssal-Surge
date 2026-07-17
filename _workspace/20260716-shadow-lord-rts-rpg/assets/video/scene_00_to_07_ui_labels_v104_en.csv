@@ -1,0 +1,15 @@
+start_sec,end_sec,state,ui_key,scene_label
+0.0,16.0,S0_OPENING,scene_00_opening_gate,Scene 0: Ingress Opening
+16.0,18.0,S0_DEGRADED,scene_00_opening_degraded,Scene 0: Opening (Gate Calibration)
+18.0,24.0,S1_HUNT,scene_01_possession_hunt,Scene 1: Hunt & Summon Loop
+24.0,29.0,S1_RETRY,scene_01_retry,Scene 1: Retry Loop
+29.0,40.0,S2_NODE,scene_02_node_contest,Scene 2: Node Contest
+40.0,46.0,S2_FLEEBACK,scene_02_fleeback,Scene 2: Contest Recovery
+46.0,57.0,S3_BLOOM,scene_03_engagement_expand,Scene 3: Engagement Expansion
+57.0,64.0,S3_STAGGER,scene_03_stagger,Scene 3: Stagger Recovery
+64.0,88.0,S4_COMEBACK,scene_04_coming_back,Scene 4: Turnaround Maneuver
+88.0,108.0,S5_STORM,scene_05_storm_resistance,Scene 5: Sovereign Counter-Storm
+108.0,122.0,S5_DESPAIR,scene_05_despair,Scene 5: Despair Segment
+122.0,151.0,S6_APEX,scene_06_sovereign_apex,Scene 6: Boss Apex
+151.0,167.0,FAIL_PIVOT,scene_fail_pivot,Scene 0-7: Emergency Pivot
+167.0,189.0,S7_RETURN,scene_07_return_persistence,Scene 7: Return & Persistence

@@ -23,7 +23,7 @@ class Waiver(BaseModel):
 
 class GateResult(BaseModel):
     gate_id: Literal["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]
-    verdict: Literal["PASS", "FIX", "REDO", "FAIL"]
+    verdict: Literal["PASS", "FIX", "REDO", "FAIL", "NOT-RUN", "PARTIAL"]
     threshold: NonEmptyText
     measured_value: int | float | str | dict[str, int | float | str]
     measurement_method: NonEmptyText
@@ -69,13 +69,13 @@ class CycleRetrospectiveV1(BaseModel):
     schema_version: Literal["1.0"]
     run_id: RunId
     cycle_number: PositiveInt
-    source_design: Literal["docs/shadow-lord-rts-rpg-hybrid-design.md"]
+    source_design: Literal["production/production-contract.md"]
     public_beat: NonEmptyText
     stages: Annotated[list[StageRetrospective], Field(min_length=3, max_length=3)]
     gates: Annotated[list[GateResult], Field(min_length=8, max_length=8)]
     open_s1_defect_ids: list[NonEmptyText]
     unresolved_risks: list[Risk]
-    next_cycle_entry: Literal["stage-1-concept-shift", "stage-2-retune"]
+    next_cycle_entry: Literal["stage-1-concept-shift", "stage-1-evidence-repair", "stage-2-retune"]
     decision_log_path: str | None
     validated: bool
     validation_status: Literal["validated", "repaired", "failed"]

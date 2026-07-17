@@ -40,7 +40,7 @@ const TitleCard: React.FC = () => {
         }}
       >
         <div style={{ color: violet, fontSize: 26, letterSpacing: 12, marginBottom: 18 }}>
-          ORIGINAL SHADOW RTS-RPG
+          ORIGINAL ABYSSAL RTS-RPG
         </div>
         <div
           style={{
@@ -50,10 +50,10 @@ const TitleCard: React.FC = () => {
             textShadow: `0 0 ${40 * glow}px ${aqua}`,
           }}
         >
-          ABYSSAL COMMAND
+          ABYSSAL SURGE
         </div>
         <div style={{ color: aqua, fontSize: 30, marginTop: 16 }}>
-          심연의 문이 열렸다 — 그림자 군주여, 일어나라
+          심연의 문이 열렸다. 그림자 군주여, 일어나라.
         </div>
       </div>
     </AbsoluteFill>
@@ -83,7 +83,7 @@ const Outro: React.FC = () => {
         }}
       />
       <div style={{ color: "#f4f7ff", fontSize: 40, fontWeight: 700, marginTop: 28, opacity: enter }}>
-        3-Stage Shadow Lord Campaign
+        3-Stage Abyssal Surge Campaign
       </div>
       <div style={{ color: aqua, fontSize: 26, marginTop: 12, opacity: enter }}>
         jellyggumi.github.io/Abyssal-Surge

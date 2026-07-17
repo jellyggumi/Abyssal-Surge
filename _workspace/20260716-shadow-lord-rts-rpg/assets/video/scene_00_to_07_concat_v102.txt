@@ -1,0 +1,8 @@
+file 'scene_00_to_01_opening_encounter_cinematic_v01.mp4'
+file 'scene_01_shot_possession_hint_v01.mp4'
+file 'scene_02_node_contest_v01.mp4'
+file 'scene_02_to_03_arise_push_v01.mp4'
+file 'scene_03_to_04_engagement_shift_v01.mp4'
+file 'scene_04_to_05_dominance_fall_v01.mp4'
+file 'scene_05_to_06_storm_to_apex_v01.mp4'
+file 'scene_06_to_07_return_persistence_v01.mp4'
