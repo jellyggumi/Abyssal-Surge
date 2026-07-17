@@ -438,7 +438,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   .visual-effect { display: none; }
- .narrator-atlas { animation: none; background-position: center, 0 0; }
+  .narrator-atlas { animation: none; background-position: center, 0 0; }
 }
 
 /* Campaign Map & Movement Path */
