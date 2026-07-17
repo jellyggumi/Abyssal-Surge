@@ -969,7 +969,7 @@ export class BattleVisualizer {
         x: BOSS_TILE.x - 0.5 - this.rng() * 0.5,
         y: BOSS_TILE.y + (this.rng() - 0.5) * 2.4,
         speed: archetype === "scout" ? 1.5 + this.rng() * 0.4 : 0.9 + this.rng() * 0.4,
-        hp: 2,
+        hp: Math.max(1, Number(wave.hostileHealth) || 2),
         archetype,
         waveId: wave.id,
         laneY: archetype === "scout" ? (this.rng() > 0.5 ? 1.6 : GRID_H - 2.6) : BOSS_TILE.y + (this.rng() - 0.5) * 1.6,

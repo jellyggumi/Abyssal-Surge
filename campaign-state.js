@@ -1,6 +1,6 @@
-export const RULES_VERSION = "abyssal-surge-rules-v5";
+export const RULES_VERSION = "abyssal-surge-rules-v6";
 export const SAVE_SCHEMA = "abyssal-surge-campaign";
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
 
 // Campaign-wide limits only. Encounter, command, boss, and reward rules live
 // with the stage that owns them.
@@ -122,14 +122,14 @@ export const STAGES = Object.freeze([
   Object.freeze({
     id: "echo-throne",
     number: 3,
-    nextStageId: null,
+    nextStageId: "sunken-bastion",
     title: "Echo Throne",
     region: "The gate above the last remembered sea",
     objective: "Carry both boons, secure the throne node, invoke the one-use Lord's Domain comeback, and unmake the Gate Sovereign.",
     nodeGoal: 1,
     bossName: "Gate Sovereign",
     bossHealth: 17,
-    rewardIntegrityRestore: 1,
+    rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
       hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
@@ -155,6 +155,357 @@ export const STAGES = Object.freeze([
       rewards: Object.freeze({
         "throne-echo": Object.freeze({ name: "AS-WV-040", description: "AS-WV-041" }),
         "dawnless-crown": Object.freeze({ name: "AS-WV-042", description: "AS-WV-043" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "sunken-bastion",
+    number: 4,
+    nextStageId: "howling-sprawl",
+    title: "Sunken Bastion",
+    region: "A drowned breakwater fortress reclaimed by the tide",
+    objective: "Raise the legion above the waterline, hold the flood node, weather four tide waves, and drown the Tide Warden's claim.",
+    nodeGoal: 1,
+    bossName: "Tide Warden",
+    bossHealth: 12,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 3,
+        counter: Object.freeze({ mode: "threshold", minimumLegion: 5, belowDamage: 2, readyDamage: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 2,
+      waves: Object.freeze([
+        Object.freeze({ id: "tide", spawnAtSeconds: 10, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "undertow", spawnAtSeconds: 24, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "riptide", spawnAtSeconds: 38, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "depthguard", spawnAtSeconds: 52, hostiles: 4, hostileHealth: 3, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "tidebreaker-sigil", name: "Tidebreaker Sigil", description: "Tempo doctrine: reduce command cooldowns by a further 10%.", effects: Object.freeze({ cooldownMultiplier: 0.9 }) }),
+      Object.freeze({ id: "coral-aegis", name: "Coral Aegis", description: "Bulwark doctrine: enter every remaining stage with 1 additional aegis.", effects: Object.freeze({ entryAegis: 1 }) }),
+      Object.freeze({ id: "depth-cohort", name: "Depth Cohort", description: "Legion doctrine: Materialize raises 1 additional shade.", effects: Object.freeze({ materializeBonus: 1 }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-044", region: "AS-WV-045", description: "AS-WV-046" }),
+      boss: Object.freeze({ name: "AS-WV-047", description: "AS-WV-048" }),
+      rewards: Object.freeze({
+        "tidebreaker-sigil": Object.freeze({ name: "AS-WV-049", description: "AS-WV-050" }),
+        "coral-aegis": Object.freeze({ name: "AS-WV-051", description: "AS-WV-052" }),
+        "depth-cohort": Object.freeze({ name: "AS-WV-053", description: "AS-WV-054" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "howling-sprawl",
+    number: 5,
+    nextStageId: "glass-necropolis",
+    title: "Howling Sprawl",
+    region: "A moonlit ruin district ruled by the pack",
+    objective: "Take the howl node, possess a pack sentinel, survive four hunting waves, and silence the Pack Herald.",
+    nodeGoal: 1,
+    bossName: "Pack Herald",
+    bossHealth: 14,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 1 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 3,
+        possessedDamage: 1,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 3, shieldDivisor: 4, thinLegion: 4, thinPenalty: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 2,
+      waves: Object.freeze([
+        Object.freeze({ id: "howler", spawnAtSeconds: 10, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "packrunner", spawnAtSeconds: 24, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "alphaguard", spawnAtSeconds: 38, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "direpack", spawnAtSeconds: 52, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "pack-banner", name: "Pack Banner", description: "Legion doctrine: Materialize raises 1 additional shade and every stage entry grants 1 aegis.", effects: Object.freeze({ materializeBonus: 1, entryAegis: 1 }) }),
+      Object.freeze({ id: "howl-lens", name: "Howl Lens", description: "Burst doctrine: possession assaults deal +2 additional damage.", effects: Object.freeze({ possessedAssaultBonus: 2 }) }),
+      Object.freeze({ id: "sprawl-hourglass", name: "Sprawl Hourglass", description: "Tempo doctrine: reduce command cooldowns by a further 15%.", effects: Object.freeze({ cooldownMultiplier: 0.85 }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-055", region: "AS-WV-056", description: "AS-WV-057" }),
+      boss: Object.freeze({ name: "AS-WV-058", description: "AS-WV-059" }),
+      rewards: Object.freeze({
+        "pack-banner": Object.freeze({ name: "AS-WV-060", description: "AS-WV-061" }),
+        "howl-lens": Object.freeze({ name: "AS-WV-062", description: "AS-WV-063" }),
+        "sprawl-hourglass": Object.freeze({ name: "AS-WV-064", description: "AS-WV-065" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "glass-necropolis",
+    number: 6,
+    nextStageId: "starless-canal",
+    title: "Glass Necropolis",
+    region: "A cathedral of grave-glass that sings back every march",
+    objective: "Hold both glass nodes, possess a chorister sentinel, endure four requiem waves, and shatter the Requiem Choir.",
+    nodeGoal: 2,
+    bossName: "Requiem Choir",
+    bossHealth: 16,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 2 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 4,
+        possessedDamage: 1,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 4, shieldDivisor: 4, thinLegion: 5, thinPenalty: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 2,
+      waves: Object.freeze([
+        Object.freeze({ id: "requiem", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "dirge", spawnAtSeconds: 26, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "lament", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "threnody", spawnAtSeconds: 58, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "glass-chorus", name: "Glass Chorus", description: "Tempo doctrine: reduce command cooldowns by a further 10%.", effects: Object.freeze({ cooldownMultiplier: 0.9 }) }),
+      Object.freeze({ id: "necropolis-plate", name: "Necropolis Plate", description: "Bulwark doctrine: reduce every boss counterblow by 1 more (never below 1).", effects: Object.freeze({ counterReduction: 1 }) }),
+      Object.freeze({ id: "choir-shard", name: "Choir Shard", description: "Recovery doctrine: restore 2 additional integrity when entering Starless Canal.", effects: Object.freeze({ stageEntry: Object.freeze({ "starless-canal": Object.freeze({ integrity: 2 }) }) }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-066", region: "AS-WV-067", description: "AS-WV-068" }),
+      boss: Object.freeze({ name: "AS-WV-069", description: "AS-WV-070" }),
+      rewards: Object.freeze({
+        "glass-chorus": Object.freeze({ name: "AS-WV-071", description: "AS-WV-072" }),
+        "necropolis-plate": Object.freeze({ name: "AS-WV-073", description: "AS-WV-074" }),
+        "choir-shard": Object.freeze({ name: "AS-WV-075", description: "AS-WV-076" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "starless-canal",
+    number: 7,
+    nextStageId: "shattered-causeway",
+    title: "Starless Canal",
+    region: "A lightless waterway strung with tyrant lanterns",
+    objective: "Seize both toll nodes, reopen Lord's Domain, outlast four lantern waves, and douse the Lantern Tyrant.",
+    nodeGoal: 2,
+    bossName: "Lantern Tyrant",
+    bossHealth: 18,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 1 }),
+      domain: Object.freeze({ requiresNodes: 2, limit: 1, integrityRestore: 3, aegis: 2 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 4,
+        possessedDamage: 1,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 5, shieldDivisor: 4, thinLegion: 5, thinPenalty: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 3,
+      waves: Object.freeze([
+        Object.freeze({ id: "lantern", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "bargeguard", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "tollkeeper", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "tyrantwake", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 3, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "canal-lantern", name: "Canal Lantern", description: "Bulwark doctrine: enter every remaining stage with 1 additional aegis.", effects: Object.freeze({ entryAegis: 1 }) }),
+      Object.freeze({ id: "tyrant-chain", name: "Tyrant Chain", description: "Bulwark doctrine: reduce every boss counterblow by 1 more (never below 1).", effects: Object.freeze({ counterReduction: 1 }) }),
+      Object.freeze({ id: "starless-cohort", name: "Starless Cohort", description: "Legion doctrine: Materialize raises 1 additional shade.", effects: Object.freeze({ materializeBonus: 1 }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-077", region: "AS-WV-078", description: "AS-WV-079" }),
+      boss: Object.freeze({ name: "AS-WV-080", description: "AS-WV-081" }),
+      rewards: Object.freeze({
+        "canal-lantern": Object.freeze({ name: "AS-WV-082", description: "AS-WV-083" }),
+        "tyrant-chain": Object.freeze({ name: "AS-WV-084", description: "AS-WV-085" }),
+        "starless-cohort": Object.freeze({ name: "AS-WV-086", description: "AS-WV-087" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "shattered-causeway",
+    number: 8,
+    nextStageId: "abyss-chancel",
+    title: "Shattered Causeway",
+    region: "The broken land-bridge where a colossus still stands watch",
+    objective: "Anchor both span nodes, invoke the Domain, break five siege waves, and topple the Bridge Colossus.",
+    nodeGoal: 2,
+    bossName: "Bridge Colossus",
+    bossHealth: 20,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 1 }),
+      domain: Object.freeze({ requiresNodes: 2, limit: 1, integrityRestore: 3, aegis: 2 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 4,
+        possessedDamage: 2,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 6, shieldDivisor: 4, thinLegion: 5, thinPenalty: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 3,
+      waves: Object.freeze([
+        Object.freeze({ id: "rubble", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "spanwarden", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "keystone", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "colossusguard", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "causeway-core", name: "Causeway Core", description: "Legion doctrine: Materialize raises 2 additional shades.", effects: Object.freeze({ materializeBonus: 2 }) }),
+      Object.freeze({ id: "colossus-plate", name: "Colossus Plate", description: "Bulwark doctrine: reduce every boss counterblow by 2 more (never below 1).", effects: Object.freeze({ counterReduction: 2 }) }),
+      Object.freeze({ id: "span-sigil", name: "Span Sigil", description: "Vanguard doctrine: start Abyss Chancel with four shades already raised.", effects: Object.freeze({ stageEntry: Object.freeze({ "abyss-chancel": Object.freeze({ legion: 4 }) }) }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-088", region: "AS-WV-089", description: "AS-WV-090" }),
+      boss: Object.freeze({ name: "AS-WV-091", description: "AS-WV-092" }),
+      rewards: Object.freeze({
+        "causeway-core": Object.freeze({ name: "AS-WV-093", description: "AS-WV-094" }),
+        "colossus-plate": Object.freeze({ name: "AS-WV-095", description: "AS-WV-096" }),
+        "span-sigil": Object.freeze({ name: "AS-WV-097", description: "AS-WV-098" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "abyss-chancel",
+    number: 9,
+    nextStageId: "gate-zenith",
+    title: "Abyss Chancel",
+    region: "A floating chancel where the Concordat signs the abyss away",
+    objective: "Claim all three rite nodes, possess a signatory, open the Domain, survive four oath waves, and unbind the Veiled Concordat.",
+    nodeGoal: 3,
+    bossName: "Veiled Concordat",
+    bossHealth: 22,
+    rewardIntegrityRestore: 3,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 2 }),
+      domain: Object.freeze({ requiresNodes: 3, limit: 1, integrityRestore: 4, aegis: 2 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 5,
+        possessedDamage: 2,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 7, shieldDivisor: 4, thinLegion: 6, thinPenalty: 1 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 3,
+      waves: Object.freeze([
+        Object.freeze({ id: "acolyte", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "votary", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "oathbound", spawnAtSeconds: 42, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "concord", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "chancel-veil", name: "Chancel Veil", description: "Bulwark doctrine: enter the final gate with 2 additional aegis.", effects: Object.freeze({ entryAegis: 2 }) }),
+      Object.freeze({ id: "concord-lens", name: "Concord Lens", description: "Burst doctrine: possession assaults deal +2 additional damage.", effects: Object.freeze({ possessedAssaultBonus: 2 }) }),
+      Object.freeze({ id: "rite-hourglass", name: "Rite Hourglass", description: "Tempo doctrine: reduce command cooldowns by a further 15%.", effects: Object.freeze({ cooldownMultiplier: 0.85 }) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-099", region: "AS-WV-100", description: "AS-WV-101" }),
+      boss: Object.freeze({ name: "AS-WV-102", description: "AS-WV-103" }),
+      rewards: Object.freeze({
+        "chancel-veil": Object.freeze({ name: "AS-WV-104", description: "AS-WV-105" }),
+        "concord-lens": Object.freeze({ name: "AS-WV-106", description: "AS-WV-107" }),
+        "rite-hourglass": Object.freeze({ name: "AS-WV-108", description: "AS-WV-109" })
+      })
+    })
+  }),
+  Object.freeze({
+    id: "gate-zenith",
+    number: 10,
+    nextStageId: null,
+    title: "Gate Zenith",
+    region: "The stormcrowned summit above every drowned gate",
+    objective: "Carry every boon, hold all three crown nodes, spend the Domain, outlast five zenith waves, and unmake the Abyss Regent.",
+    nodeGoal: 3,
+    bossName: "Abyss Regent",
+    bossHealth: 26,
+    rewardIntegrityRestore: 1,
+    progression: STANDARD_PROGRESSION,
+    commands: Object.freeze({
+      hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
+      extract: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.extract }),
+      materialize: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.materialize }),
+      capture: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.capture }),
+      possess: Object.freeze({ requiresNodes: 2 }),
+      domain: Object.freeze({ requiresNodes: 3, limit: 1, integrityRestore: 4, aegis: 3 }),
+      assault: Object.freeze({
+        cooldown: STANDARD_COMMAND_COOLDOWNS.assault,
+        damage: 5,
+        possessedDamage: 2,
+        counter: Object.freeze({ mode: "shielded", baseDamage: 9, shieldDivisor: 4, thinLegion: 6, thinPenalty: 2 })
+      })
+    }),
+    encounter: Object.freeze({
+      preparationSeconds: 8,
+      preparationLegion: 3,
+      waves: Object.freeze([
+        Object.freeze({ id: "zenithguard", spawnAtSeconds: 10, hostiles: 5, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "stormherald", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "gatewrath", spawnAtSeconds: 42, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "regentsown", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 }),
+        Object.freeze({ id: "lasttide", spawnAtSeconds: 74, hostiles: 7, hostileHealth: 4, breachDamage: 1 })
+      ])
+    }),
+    rewards: Object.freeze([
+      Object.freeze({ id: "zenith-crown", name: "Zenith Crown", description: "Records the crown taken above every drowned gate.", effects: Object.freeze({}) }),
+      Object.freeze({ id: "abyssal-oath", name: "Abyssal Oath", description: "Records the oath that keeps the gates closed.", effects: Object.freeze({}) })
+    ]),
+    trace: Object.freeze({
+      stage: Object.freeze({ name: "AS-WV-110", region: "AS-WV-111", description: "AS-WV-112" }),
+      boss: Object.freeze({ name: "AS-WV-113", description: "AS-WV-114" }),
+      rewards: Object.freeze({
+        "zenith-crown": Object.freeze({ name: "AS-WV-115", description: "AS-WV-116" }),
+        "abyssal-oath": Object.freeze({ name: "AS-WV-117", description: "AS-WV-118" })
       })
     })
   })
@@ -195,7 +546,82 @@ export const CONTENT_TRACE = Object.freeze({
   "AS-WV-040": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "throne-echo", field: "name", value: "Throne Echo" }),
   "AS-WV-041": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "throne-echo", field: "description", value: "Records the legion's final oath in the campaign archive." }),
   "AS-WV-042": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "dawnless-crown", field: "name", value: "Dawnless Crown" }),
-  "AS-WV-043": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "dawnless-crown", field: "description", value: "Records a crown forged from the closed gate." })
+  "AS-WV-043": Object.freeze({ stageId: "echo-throne", entity: "reward", rewardId: "dawnless-crown", field: "description", value: "Records a crown forged from the closed gate." }),
+  "AS-WV-044": Object.freeze({ stageId: "sunken-bastion", entity: "stage", field: "name", value: "Sunken Bastion" }),
+  "AS-WV-045": Object.freeze({ stageId: "sunken-bastion", entity: "stage", field: "region", value: "A drowned breakwater fortress reclaimed by the tide" }),
+  "AS-WV-046": Object.freeze({ stageId: "sunken-bastion", entity: "stage", field: "description", value: "Raise the legion above the waterline, hold the flood node, weather four tide waves, and drown the Tide Warden's claim." }),
+  "AS-WV-047": Object.freeze({ stageId: "sunken-bastion", entity: "boss", field: "name", value: "Tide Warden" }),
+  "AS-WV-048": Object.freeze({ stageId: "sunken-bastion", entity: "boss", field: "description", value: "A drowned warden whose coral-fused armor drags whole companies beneath the breakwater." }),
+  "AS-WV-049": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "tidebreaker-sigil", field: "name", value: "Tidebreaker Sigil" }),
+  "AS-WV-050": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "tidebreaker-sigil", field: "description", value: "Tempo doctrine: reduce command cooldowns by a further 10%." }),
+  "AS-WV-051": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "coral-aegis", field: "name", value: "Coral Aegis" }),
+  "AS-WV-052": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "coral-aegis", field: "description", value: "Bulwark doctrine: enter every remaining stage with 1 additional aegis." }),
+  "AS-WV-053": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "depth-cohort", field: "name", value: "Depth Cohort" }),
+  "AS-WV-054": Object.freeze({ stageId: "sunken-bastion", entity: "reward", rewardId: "depth-cohort", field: "description", value: "Legion doctrine: Materialize raises 1 additional shade." }),
+  "AS-WV-055": Object.freeze({ stageId: "howling-sprawl", entity: "stage", field: "name", value: "Howling Sprawl" }),
+  "AS-WV-056": Object.freeze({ stageId: "howling-sprawl", entity: "stage", field: "region", value: "A moonlit ruin district ruled by the pack" }),
+  "AS-WV-057": Object.freeze({ stageId: "howling-sprawl", entity: "stage", field: "description", value: "Take the howl node, possess a pack sentinel, survive four hunting waves, and silence the Pack Herald." }),
+  "AS-WV-058": Object.freeze({ stageId: "howling-sprawl", entity: "boss", field: "name", value: "Pack Herald" }),
+  "AS-WV-059": Object.freeze({ stageId: "howling-sprawl", entity: "boss", field: "description", value: "The pack's crowned herald; every howl is a marching order for the ruin district." }),
+  "AS-WV-060": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "pack-banner", field: "name", value: "Pack Banner" }),
+  "AS-WV-061": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "pack-banner", field: "description", value: "Legion doctrine: Materialize raises 1 additional shade and every stage entry grants 1 aegis." }),
+  "AS-WV-062": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "howl-lens", field: "name", value: "Howl Lens" }),
+  "AS-WV-063": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "howl-lens", field: "description", value: "Burst doctrine: possession assaults deal +2 additional damage." }),
+  "AS-WV-064": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "sprawl-hourglass", field: "name", value: "Sprawl Hourglass" }),
+  "AS-WV-065": Object.freeze({ stageId: "howling-sprawl", entity: "reward", rewardId: "sprawl-hourglass", field: "description", value: "Tempo doctrine: reduce command cooldowns by a further 15%." }),
+  "AS-WV-066": Object.freeze({ stageId: "glass-necropolis", entity: "stage", field: "name", value: "Glass Necropolis" }),
+  "AS-WV-067": Object.freeze({ stageId: "glass-necropolis", entity: "stage", field: "region", value: "A cathedral of grave-glass that sings back every march" }),
+  "AS-WV-068": Object.freeze({ stageId: "glass-necropolis", entity: "stage", field: "description", value: "Hold both glass nodes, possess a chorister sentinel, endure four requiem waves, and shatter the Requiem Choir." }),
+  "AS-WV-069": Object.freeze({ stageId: "glass-necropolis", entity: "boss", field: "name", value: "Requiem Choir" }),
+  "AS-WV-070": Object.freeze({ stageId: "glass-necropolis", entity: "boss", field: "description", value: "Three grave-choristers fused into one requiem that sings marching legions apart." }),
+  "AS-WV-071": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "glass-chorus", field: "name", value: "Glass Chorus" }),
+  "AS-WV-072": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "glass-chorus", field: "description", value: "Tempo doctrine: reduce command cooldowns by a further 10%." }),
+  "AS-WV-073": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "necropolis-plate", field: "name", value: "Necropolis Plate" }),
+  "AS-WV-074": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "necropolis-plate", field: "description", value: "Bulwark doctrine: reduce every boss counterblow by 1 more (never below 1)." }),
+  "AS-WV-075": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "choir-shard", field: "name", value: "Choir Shard" }),
+  "AS-WV-076": Object.freeze({ stageId: "glass-necropolis", entity: "reward", rewardId: "choir-shard", field: "description", value: "Recovery doctrine: restore 2 additional integrity when entering Starless Canal." }),
+  "AS-WV-077": Object.freeze({ stageId: "starless-canal", entity: "stage", field: "name", value: "Starless Canal" }),
+  "AS-WV-078": Object.freeze({ stageId: "starless-canal", entity: "stage", field: "region", value: "A lightless waterway strung with tyrant lanterns" }),
+  "AS-WV-079": Object.freeze({ stageId: "starless-canal", entity: "stage", field: "description", value: "Seize both toll nodes, reopen Lord's Domain, outlast four lantern waves, and douse the Lantern Tyrant." }),
+  "AS-WV-080": Object.freeze({ stageId: "starless-canal", entity: "boss", field: "name", value: "Lantern Tyrant" }),
+  "AS-WV-081": Object.freeze({ stageId: "starless-canal", entity: "boss", field: "description", value: "A canal tyrant strung with tribute lanterns, each one a soul still paying the toll." }),
+  "AS-WV-082": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "canal-lantern", field: "name", value: "Canal Lantern" }),
+  "AS-WV-083": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "canal-lantern", field: "description", value: "Bulwark doctrine: enter every remaining stage with 1 additional aegis." }),
+  "AS-WV-084": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "tyrant-chain", field: "name", value: "Tyrant Chain" }),
+  "AS-WV-085": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "tyrant-chain", field: "description", value: "Bulwark doctrine: reduce every boss counterblow by 1 more (never below 1)." }),
+  "AS-WV-086": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "starless-cohort", field: "name", value: "Starless Cohort" }),
+  "AS-WV-087": Object.freeze({ stageId: "starless-canal", entity: "reward", rewardId: "starless-cohort", field: "description", value: "Legion doctrine: Materialize raises 1 additional shade." }),
+  "AS-WV-088": Object.freeze({ stageId: "shattered-causeway", entity: "stage", field: "name", value: "Shattered Causeway" }),
+  "AS-WV-089": Object.freeze({ stageId: "shattered-causeway", entity: "stage", field: "region", value: "The broken land-bridge where a colossus still stands watch" }),
+  "AS-WV-090": Object.freeze({ stageId: "shattered-causeway", entity: "stage", field: "description", value: "Anchor both span nodes, invoke the Domain, break five siege waves, and topple the Bridge Colossus." }),
+  "AS-WV-091": Object.freeze({ stageId: "shattered-causeway", entity: "boss", field: "name", value: "Bridge Colossus" }),
+  "AS-WV-092": Object.freeze({ stageId: "shattered-causeway", entity: "boss", field: "description", value: "The last watch-colossus of the broken span, still holding a bridge that no longer exists." }),
+  "AS-WV-093": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "causeway-core", field: "name", value: "Causeway Core" }),
+  "AS-WV-094": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "causeway-core", field: "description", value: "Legion doctrine: Materialize raises 2 additional shades." }),
+  "AS-WV-095": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "colossus-plate", field: "name", value: "Colossus Plate" }),
+  "AS-WV-096": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "colossus-plate", field: "description", value: "Bulwark doctrine: reduce every boss counterblow by 2 more (never below 1)." }),
+  "AS-WV-097": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "span-sigil", field: "name", value: "Span Sigil" }),
+  "AS-WV-098": Object.freeze({ stageId: "shattered-causeway", entity: "reward", rewardId: "span-sigil", field: "description", value: "Vanguard doctrine: start Abyss Chancel with four shades already raised." }),
+  "AS-WV-099": Object.freeze({ stageId: "abyss-chancel", entity: "stage", field: "name", value: "Abyss Chancel" }),
+  "AS-WV-100": Object.freeze({ stageId: "abyss-chancel", entity: "stage", field: "region", value: "A floating chancel where the Concordat signs the abyss away" }),
+  "AS-WV-101": Object.freeze({ stageId: "abyss-chancel", entity: "stage", field: "description", value: "Claim all three rite nodes, possess a signatory, open the Domain, survive four oath waves, and unbind the Veiled Concordat." }),
+  "AS-WV-102": Object.freeze({ stageId: "abyss-chancel", entity: "boss", field: "name", value: "Veiled Concordat" }),
+  "AS-WV-103": Object.freeze({ stageId: "abyss-chancel", entity: "boss", field: "description", value: "Three veiled signatories who countersign the abyss itself against every intruder." }),
+  "AS-WV-104": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "chancel-veil", field: "name", value: "Chancel Veil" }),
+  "AS-WV-105": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "chancel-veil", field: "description", value: "Bulwark doctrine: enter the final gate with 2 additional aegis." }),
+  "AS-WV-106": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "concord-lens", field: "name", value: "Concord Lens" }),
+  "AS-WV-107": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "concord-lens", field: "description", value: "Burst doctrine: possession assaults deal +2 additional damage." }),
+  "AS-WV-108": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "rite-hourglass", field: "name", value: "Rite Hourglass" }),
+  "AS-WV-109": Object.freeze({ stageId: "abyss-chancel", entity: "reward", rewardId: "rite-hourglass", field: "description", value: "Tempo doctrine: reduce command cooldowns by a further 15%." }),
+  "AS-WV-110": Object.freeze({ stageId: "gate-zenith", entity: "stage", field: "name", value: "Gate Zenith" }),
+  "AS-WV-111": Object.freeze({ stageId: "gate-zenith", entity: "stage", field: "region", value: "The stormcrowned summit above every drowned gate" }),
+  "AS-WV-112": Object.freeze({ stageId: "gate-zenith", entity: "stage", field: "description", value: "Carry every boon, hold all three crown nodes, spend the Domain, outlast five zenith waves, and unmake the Abyss Regent." }),
+  "AS-WV-113": Object.freeze({ stageId: "gate-zenith", entity: "boss", field: "name", value: "Abyss Regent" }),
+  "AS-WV-114": Object.freeze({ stageId: "gate-zenith", entity: "boss", field: "description", value: "The regent above every drowned gate, wearing the storm as a crown and the tide as a writ." }),
+  "AS-WV-115": Object.freeze({ stageId: "gate-zenith", entity: "reward", rewardId: "zenith-crown", field: "name", value: "Zenith Crown" }),
+  "AS-WV-116": Object.freeze({ stageId: "gate-zenith", entity: "reward", rewardId: "zenith-crown", field: "description", value: "Records the crown taken above every drowned gate." }),
+  "AS-WV-117": Object.freeze({ stageId: "gate-zenith", entity: "reward", rewardId: "abyssal-oath", field: "name", value: "Abyssal Oath" }),
+  "AS-WV-118": Object.freeze({ stageId: "gate-zenith", entity: "reward", rewardId: "abyssal-oath", field: "description", value: "Records the oath that keeps the gates closed." })
 });
 
 const ACTIONS = Object.freeze(["hunt", "extract", "materialize", "capture", "possess", "domain", "assault"]);
@@ -442,7 +868,10 @@ export function startCampaign(state = createCampaign()) {
 function guardAssault(state, stage, current) {
   const assault = stage.commands.assault;
   const encounter = encounterState(current, stage);
-  if (encounter && !encounter.bossExposed) return rejected(state, "Clear Scout, Guard, and Reinforcement before assaulting the boss.");
+  if (encounter && !encounter.bossExposed) {
+    const waveNames = stage.encounter.waves.map((wave) => wave.id).join(", ");
+    return rejected(state, `Clear every declared wave (${waveNames}) before assaulting the boss.`);
+  }
   if (current.nodes < stage.nodeGoal) return rejected(state, "Hold every required node before the boss can be assaulted.");
   if (assault.requiresPossessed && !current.possessed) return rejected(state, `Possess a sentinel before confronting the ${stage.bossName}.`);
   return null;
@@ -639,12 +1068,20 @@ export function chooseReward(state, rewardId) {
     const nextStage = stage.nextStageId ? STAGES_BY_ID[stage.nextStageId] : null;
     if (!nextStage) {
       draft.status = "campaign-complete";
-      draft.lastMessage = `${reward.name} is claimed. The Gate Sovereign is gone, and Abyssal Command endures.`;
+      draft.lastMessage = `${reward.name} is claimed. The ${stage.bossName} is gone, and Abyssal Command endures.`;
       return;
     }
     const benefits = rewardBenefits(draft.rewards);
     const entry = entryBenefits(benefits, nextStage);
-    const carried = clamp(draft.stage.integrity + stage.rewardIntegrityRestore + entry.integrity, 0, benefits.maxIntegrity);
+    // The anchor re-forms between gates: a photo-finish victory (integrity
+    // 0-1) must not open the next stage as an unwinnable retry treadmill.
+    // 4 is the measured survival threshold for the declared-wave stages.
+    const ENTRY_INTEGRITY_FLOOR = 4;
+    const carried = clamp(
+      Math.max(draft.stage.integrity + stage.rewardIntegrityRestore + entry.integrity, ENTRY_INTEGRITY_FLOOR),
+      0,
+      benefits.maxIntegrity
+    );
     draft.stageId = nextStage.id;
     draft.stageIndex = STAGES.indexOf(nextStage);
     draft.status = "active";

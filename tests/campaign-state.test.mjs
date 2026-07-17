@@ -83,11 +83,77 @@ const S1_OPTIMAL = [...ECONOMY_L4, "capture", ...S1_ENCOUNTER, "assault", "assau
 const S2_LENS = [...ECONOMY_L4, "capture", "capture", "possess", "assault", "assault"];
 const S3_VANGUARD_LENS = ["capture", "domain", "possess", "assault", "assault"];
 
+// Deterministic late-campaign reward line: one legal pick per stage 4-10.
+const LATE_REWARDS = Object.freeze({
+  "sunken-bastion": "tidebreaker-sigil",
+  "howling-sprawl": "pack-banner",
+  "glass-necropolis": "glass-chorus",
+  "starless-canal": "canal-lantern",
+  "shattered-causeway": "causeway-core",
+  "abyss-chancel": "chancel-veil",
+  "gate-zenith": "zenith-crown",
+});
+
+function legionTarget(stage) {
+  const counter = stage.commands.assault.counter;
+  return counter.mode === "threshold" ? counter.minimumLegion : counter.thinLegion;
+}
+
+// Soul-economy loop from the verified balance line: materialize when souls
+// allow, extract when the spoor is mapped, hunt otherwise.
+function buildLegion(state, target) {
+  const progression = STAGES[state.stageIndex].progression;
+  while (state.stage.legion < target) {
+    if (state.stage.souls >= progression.materializeCost && state.stage.legion < state.stage.capacity) {
+      state = command(state, "materialize");
+    } else if (state.stage.hunted >= progression.huntGoal) {
+      state = command(state, "extract");
+    } else {
+      state = command(state, "hunt");
+    }
+  }
+  return state;
+}
+
+// Clears every declared wave in schedule order after proving the schedule is
+// enforced: the second declared wave must reject while the first is uncleared.
+function clearDeclaredWaves(state) {
+  const stage = STAGES[state.stageIndex];
+  const waves = stage.encounter.waves;
+  rejectWithoutMutation(
+    state,
+    (current) => applyEncounterEvent(current, { type: "start-wave", stageId: stage.id, waveId: waves[1].id }),
+    `${stage.id}: the ${waves[1].id} wave must not start before ${waves[0].id} clears`,
+  );
+  for (const wave of waves) {
+    state = encounter(state, "start-wave", wave.id);
+    state = encounter(state, "wave-cleared", wave.id);
+  }
+  return state;
+}
+
+// One late stage (4-10) on the verified deterministic line: clear the declared
+// encounter, build the legion past the thin threshold, take every node, spend
+// possess/domain where the stage offers them, then assault to the reward.
+function clearLateStage(state) {
+  const stage = STAGES[state.stageIndex];
+  assert.equal(state.stage.bossHealth, stage.bossHealth, `${stage.id} must open at its declared ${stage.bossHealth} boss health`);
+  state = clearDeclaredWaves(state);
+  state = buildLegion(state, legionTarget(stage));
+  while (state.stage.nodes < stage.nodeGoal) state = command(state, "capture");
+  if (stage.commands.possess) state = command(state, "possess");
+  if (stage.commands.domain) state = command(state, "domain");
+  while (state.status === "active") state = command(state, "assault");
+  assert.equal(state.status, "reward", `${stage.id} must end in a reward choice, not ${state.status}: ${state.lastMessage}`);
+  return accept(chooseReward(state, LATE_REWARDS[stage.id]));
+}
+
 function finishCampaign() {
   let state = start();
   state = accept(chooseReward(commands(state, S1_OPTIMAL), "rift-lens"));
   state = accept(chooseReward(commands(state, S2_LENS), "veil-vanguard"));
   state = accept(chooseReward(commands(state, S3_VANGUARD_LENS), "throne-echo"));
+  while (state.status === "active") state = clearLateStage(state);
   return state;
 }
 
@@ -165,17 +231,49 @@ test("battle breaches consume aegis, defeat at zero integrity, and replay from s
   assert.deepEqual(restoreSaveEnvelope(JSON.parse(JSON.stringify(envelope))), state);
 });
 
-test("public campaign API completes the deterministic three-stage Abyssal Command path", () => {
-  const completed = finishCampaign();
+test("public campaign API completes the deterministic ten-stage Abyssal Command path", () => {
+  // Stages 1-3: the established balance reference line, unchanged.
+  let state = start();
+  state = accept(chooseReward(commands(state, S1_OPTIMAL), "rift-lens"));
+  state = accept(chooseReward(commands(state, S2_LENS), "veil-vanguard"));
+  state = accept(chooseReward(commands(state, S3_VANGUARD_LENS), "throne-echo"));
 
-  assert.equal(completed.status, "campaign-complete");
-  assert.equal(completed.stageIndex, 2);
-  assert.deepEqual(completed.rewards.map(({ stageId, rewardId }) => [stageId, rewardId]), [
+  // Echo Throne's reward no longer ends the campaign: it opens Stage 4.
+  assert.equal(state.status, "active", "the third reward must advance the campaign instead of completing it");
+  assert.equal(state.stageIndex, 3);
+  assert.equal(state.stageId, "sunken-bastion");
+
+  // Stages 4-10 on the verified deterministic line. Each stage asserts its
+  // declared boss health at entry (inside clearLateStage), keeps the replay
+  // trace within budget, and must restore identically from a save envelope.
+  for (let stageIndex = 3; stageIndex < STAGES.length; stageIndex += 1) {
+    assert.equal(state.stageIndex, stageIndex, `the reward chain must advance into ${STAGES[stageIndex].id}`);
+    state = clearLateStage(state);
+    assert.ok(state.trace.length <= 400, `the trace after ${STAGES[stageIndex].id} must stay within the 400-event replay budget`);
+    assert.deepEqual(
+      restoreSaveEnvelope(JSON.parse(JSON.stringify(createSaveEnvelope(state)))),
+      state,
+      `the save envelope after ${STAGES[stageIndex].id} must restore the identical campaign state`,
+    );
+  }
+
+  assert.equal(state.status, "campaign-complete");
+  assert.equal(state.stageIndex, 9);
+  assert.deepEqual(state.rewards.map(({ stageId, rewardId }) => [stageId, rewardId]), [
     ["cinder-span", "rift-lens"],
     ["veil-citadel", "veil-vanguard"],
     ["echo-throne", "throne-echo"],
-  ]);
-  assert.deepEqual(completed.trace.map(({ kind }) => kind), [
+    ["sunken-bastion", "tidebreaker-sigil"],
+    ["howling-sprawl", "pack-banner"],
+    ["glass-necropolis", "glass-chorus"],
+    ["starless-canal", "canal-lantern"],
+    ["shattered-causeway", "causeway-core"],
+    ["abyss-chancel", "chancel-veil"],
+    ["gate-zenith", "zenith-crown"],
+  ], "the campaign must earn exactly one reward per stage, in declared chain order");
+
+  const kinds = state.trace.map(({ kind }) => kind);
+  assert.deepEqual(kinds.slice(0, 34), [
     "start",
     ...Array(6).fill("action"),
     ...Array(6).fill("encounter"),
@@ -185,7 +283,60 @@ test("public campaign API completes the deterministic three-stage Abyssal Comman
     "reward",
     ...Array(5).fill("action"),
     "reward",
-  ]);
+  ], "the preserved stage 1-3 line must replay with its established event shape");
+  assert.equal(kinds.filter((kind) => kind === "reward").length, 10, "the trace must record exactly one reward event per stage");
+  assert.equal(kinds.at(-1), "reward", "the campaign must end on the final reward choice");
+
+  assert.equal(
+    state.lastMessage,
+    "Zenith Crown is claimed. The Abyss Regent is gone, and Abyssal Command endures.",
+  );
+});
+
+test("stage 4-10 declared encounters expose the boss only after every wave clears", () => {
+  for (const stage of STAGES.slice(3)) {
+    assert.ok(stage.encounter, `${stage.id} must declare an encounter that guards its boss`);
+    assert.ok(stage.encounter.waves.length >= 4, `${stage.id} must declare its full wave schedule`);
+  }
+
+  // Enter Sunken Bastion with every non-encounter assault prerequisite met.
+  let state = start();
+  state = accept(chooseReward(commands(state, S1_OPTIMAL), "rift-lens"));
+  state = accept(chooseReward(commands(state, S2_LENS), "veil-vanguard"));
+  state = accept(chooseReward(commands(state, S3_VANGUARD_LENS), "throne-echo"));
+  const stage = STAGES[state.stageIndex];
+  assert.equal(stage.id, "sunken-bastion");
+
+  state = buildLegion(state, legionTarget(stage));
+  while (state.stage.nodes < stage.nodeGoal) state = command(state, "capture");
+
+  // With nodes held and the legion ready, only the declared encounter gates the boss.
+  rejectWithoutMutation(
+    state,
+    (current) => applyAction(current, "assault"),
+    "the Stage 4 boss must stay protected while declared waves remain",
+  );
+
+  const waves = stage.encounter.waves;
+  for (const wave of waves.slice(0, -1)) {
+    state = encounter(state, "start-wave", wave.id);
+    state = encounter(state, "wave-cleared", wave.id);
+  }
+  assert.equal(state.stage.encounter.bossExposed, false, "the boss stays protected until the final declared wave clears");
+  rejectWithoutMutation(
+    state,
+    (current) => applyAction(current, "assault"),
+    "one remaining declared wave must still block the boss assault",
+  );
+
+  const lastWave = waves.at(-1);
+  state = encounter(state, "start-wave", lastWave.id);
+  state = encounter(state, "wave-cleared", lastWave.id);
+  assert.equal(state.stage.encounter.bossExposed, true, "clearing the final declared wave exposes the boss");
+  assert.equal(state.stage.encounter.spawningStopped, true, "clearing the final declared wave stops spawning");
+
+  const struck = accept(applyAction(state, "assault"), "the exposed Stage 4 boss must accept the assault");
+  assert.equal(struck.stage.bossHealth, stage.bossHealth - stage.commands.assault.damage, "the first legal assault must land its declared damage");
 });
 
 test("Stage 1 encounter accepts only the active declared wave and exposes the boss after the third clear", () => {
@@ -363,7 +514,7 @@ test("defeat is reachable: the thin rush dies on Echo Throne and retry restores 
   assert.equal(state.status, "reward", "the thin Stage 2 line survives on the killing blow");
   assert.equal(state.stage.integrity, 0);
   state = accept(chooseReward(state, "anchor-shard"));
-  assert.equal(state.stage.integrity, 3, "Echo Throne entry = 0 + restore 1 + Anchor Shard 2");
+  assert.equal(state.stage.integrity, 4, "Echo Throne entry = max(0 + restore 1 + Anchor Shard 2, entry floor 4)");
 
   state = commands(state, [...thinLine, "capture", "assault"]);
   assert.equal(state.status, "defeat", "the first undefended Echo Throne assault must be lethal");
@@ -372,7 +523,7 @@ test("defeat is reachable: the thin rush dies on Echo Throne and retry restores 
 
   const retried = accept(retryStage(state), "defeat must allow a retry");
   assert.equal(retried.status, "active");
-  assert.equal(retried.stage.integrity, 3, "retry must restore the recorded stage-entry integrity");
+  assert.equal(retried.stage.integrity, 4, "retry must restore the recorded stage-entry integrity");
   assert.equal(retried.stage.nodes, 0, "retry must reset stage progress");
   assert.deepEqual(retried.rewards.map(({ rewardId }) => rewardId), ["rift-lens", "anchor-shard"]);
 });

@@ -40,6 +40,9 @@ jobs:
         assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3
         assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3
         assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png
+        assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png
+        assets/images/starless-canal.png assets/images/shattered-causeway.png assets/images/abyss-chancel.png
+        assets/images/gate-zenith.png
         assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg
         assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg
         assets/images/storyboard/scene_07_return_ui_v01.jpg
@@ -48,6 +51,9 @@ jobs:
         assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png
         assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png
         assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png
+        assets/images/ui/boss-tide-warden.png assets/images/ui/boss-pack-herald.png assets/images/ui/boss-requiem-choir.png
+        assets/images/ui/boss-lantern-tyrant.png assets/images/ui/boss-bridge-colossus.png
+        assets/images/ui/boss-veiled-concordat.png assets/images/ui/boss-abyss-regent.png
         assets/images/ui/concept-tactical-surface.webp assets/images/ui/boss-veil-tactician.png
         assets/images/ui/boss-gate-sovereign.png assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png
         assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png
@@ -98,6 +104,9 @@ jobs:
             assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3 \
             assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3 \
             assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png \
+            assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png \
+            assets/images/starless-canal.png assets/images/shattered-causeway.png assets/images/abyss-chancel.png \
+            assets/images/gate-zenith.png \
             assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg \
             assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg \
             assets/images/storyboard/scene_07_return_ui_v01.jpg \
@@ -106,6 +115,9 @@ jobs:
             assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png \
             assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png \
             assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png \
+            assets/images/ui/boss-tide-warden.png assets/images/ui/boss-pack-herald.png assets/images/ui/boss-requiem-choir.png \
+            assets/images/ui/boss-lantern-tyrant.png assets/images/ui/boss-bridge-colossus.png \
+            assets/images/ui/boss-veiled-concordat.png assets/images/ui/boss-abyss-regent.png \
             assets/images/characters/dusk-legion-atlas.png assets/images/ui/concept-tactical-surface.webp \
             assets/images/ui/boss-veil-tactician.png assets/images/ui/boss-gate-sovereign.png \
             assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png \

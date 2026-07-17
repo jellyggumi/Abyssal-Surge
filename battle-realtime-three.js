@@ -7,10 +7,20 @@ import {
   createStageNavigation,
 } from "./stage-navigation.js";
 
+// Stages 4-10 reuse the three shipped GLB sets; per-stage identity comes from
+// the presentation palette, heightfield, and 2D boss portraits. Dedicated
+// models can replace these entries later without touching the runtime.
 const STAGE_ASSETS = Object.freeze({
   1: Object.freeze({ terrain: "terrain/cinder-span.glb", boss: "bosses/cinder-warden.glb" }),
   2: Object.freeze({ terrain: "terrain/veil-citadel.glb", boss: "bosses/veil-tactician.glb" }),
   3: Object.freeze({ terrain: "terrain/echo-throne-steps.glb", boss: "bosses/gate-sovereign.glb" }),
+  4: Object.freeze({ terrain: "terrain/veil-citadel.glb", boss: "bosses/cinder-warden.glb" }),
+  5: Object.freeze({ terrain: "terrain/cinder-span.glb", boss: "bosses/veil-tactician.glb" }),
+  6: Object.freeze({ terrain: "terrain/veil-citadel.glb", boss: "bosses/veil-tactician.glb" }),
+  7: Object.freeze({ terrain: "terrain/cinder-span.glb", boss: "bosses/gate-sovereign.glb" }),
+  8: Object.freeze({ terrain: "terrain/echo-throne-steps.glb", boss: "bosses/cinder-warden.glb" }),
+  9: Object.freeze({ terrain: "terrain/veil-citadel.glb", boss: "bosses/gate-sovereign.glb" }),
+  10: Object.freeze({ terrain: "terrain/echo-throne-steps.glb", boss: "bosses/gate-sovereign.glb" }),
 });
 const MODEL_ROOT = "./assets/models/abyssal-command/";
 const MOVE_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"]);
@@ -862,7 +872,7 @@ export class RealtimeBattle {
         this.retire(enemy);
         continue;
       }
-      enemy.hp = 2;
+      enemy.hp = Math.max(1, Number(wave.hostileHealth) || 2);
       enemy.archetype = wave.id;
       
       enemy.defeated = false;

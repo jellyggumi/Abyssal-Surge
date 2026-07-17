@@ -399,7 +399,9 @@ function contractProbes() {
     let state = startCampaign(createCampaign()).state;
     const applied = [];
     const encounterEvents = [];
-    for (let i = 0; i < STAGES.length; i += 1) {
+    // Probe sequences may cover a prefix of the campaign (the chain now runs
+    // ten stages); reaching the end of the provided lines is a valid stop.
+    for (let i = 0; i < Math.min(STAGES.length, seqStages.length); i += 1) {
       for (const action of seqStages[i]) {
         if (action === "assault" && hasPendingEncounter(state)) {
           const resolved = resolveDeclaredEncounter(state);
@@ -416,7 +418,7 @@ function contractProbes() {
       }
       if (state.status === "reward") state = chooseReward(state, rewards[i]).state;
     }
-    return { status: state.status, applied, encounterEvents };
+    return { status: state.status, stage: STAGES[state.stageIndex].id, applied, encounterEvents };
   };
   const thinLine = ["hunt", "hunt", "extract", "materialize"];
   const s1 = [...thinLine, "capture", "assault", "assault", "assault"];
@@ -439,7 +441,8 @@ function contractProbes() {
       perStage: [s1, s2, comebackS3],
       result: comebackWin
     },
-    domainConvertsDefeatToWin: rusherDefeat.status === "defeat" && comebackWin.status === "campaign-complete"
+    domainConvertsDefeatToWin: rusherDefeat.status === "defeat" && rusherDefeat.stage === "echo-throne" &&
+      comebackWin.status !== "defeat" && comebackWin.stage !== "echo-throne"
   };
 }
 

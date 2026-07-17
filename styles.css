@@ -950,6 +950,10 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   pointer-events: none;
 }
 
+/* display:flex above beats the UA [hidden] rule - restore it, or the
+   dark overlay smothers every command button while idle. */
+.cooldown-overlay[hidden] { display: none; }
+
 .cooldown-timer {
   font-size: 1rem;
   font-weight: 900;
@@ -1291,23 +1295,8 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   .command-grid button small { grid-column: 1 / -1; }
 }
 
-/* Tablet/mobile: rail drops below the field, commands stay thumb-reachable */
-@media (max-width: 899px) {
-  .cockpit-main { grid-template-columns: 1fr; }
-  .cockpit-rail { max-height: none; overflow-y: visible; flex-direction: row; flex-wrap: wrap; }
-  .cockpit-rail .rail-panel { flex: 1 1 16rem; }
-  .command-hint { text-align: left; max-width: none; }
-  .cockpit-main .canvas-container-3d {
-    flex: 0 0 auto;
-    height: clamp(17rem, 54vh, 28rem);
-    min-height: 0;
-  }
-  .field-command-dock {
-    position: static;
-    margin-top: .6rem;
-    box-shadow: none;
-  }
-}
+/* Tablet/mobile layout lives in the "Mobile RTS HUD" section near the
+   end of this sheet (single source of truth for <=899px). */
 
 /* One-screen fit: while the cockpit is live, shrink global chrome so the
    field + rail + command pad share a single viewport (PC RTS rule). */
@@ -1522,74 +1511,132 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
   margin: .35rem;
 }
 
+/* ============================================================
+   Mobile RTS HUD (<=899px)
+   The cockpit becomes a scrollable column: field first, command
+   status directly under it, secondary intel collapsed. The
+   command pad is a sticky bottom dock inside the thumb zone.
+   ============================================================ */
 @media (max-width: 899px) {
-  body:has(#campaign-screen:not([hidden])) main { overflow: hidden; }
-  #campaign-screen {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+  /* The page scrolls again; the sticky pad needs a scrollport. */
+  body:has(#campaign-screen:not([hidden])) main {
+    overflow: hidden auto;
+    padding-bottom: 0;
+    scrollbar-width: thin;
   }
+  #campaign-screen {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: .2rem 0 calc(.35rem + env(safe-area-inset-bottom, 0px));
+  }
+  .cockpit { gap: .3rem; }
+
+  /* Global chrome: one slim row while the cockpit is live. */
+  body:has(#campaign-screen:not([hidden])) .site-header {
+    flex-direction: row;
+    align-items: center;
+    padding: .3rem 0 .25rem;
+  }
+  body:has(#campaign-screen:not([hidden])) .build-label { display: none; }
+
+  /* -- Top bar: stage identity + actions, then a swipeable stage strip -- */
   .cockpit-top {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: .3rem;
+    gap: .25rem .4rem;
   }
   .cockpit-top .cockpit-stage-id {
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
   }
+  .cockpit-top .cockpit-stage-id .eyebrow,
+  .cockpit-top .commander-identity {
+    display: none;
+  }
+  .cockpit-top h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .cockpit-top .campaign-heading-actions {
     grid-column: 2;
     grid-row: 1;
     margin-left: 0;
     flex-wrap: nowrap;
-    gap: .2rem;
+    gap: .25rem;
   }
   .cockpit-top .campaign-heading-actions button {
-    min-height: 2rem;
-    padding: .25rem .35rem;
+    min-height: 2.35rem;
+    padding: .25rem .45rem;
     font-size: .62rem;
-  }
-  .cockpit-top .stage-selector {
-    grid-column: 1;
-    grid-row: 2;
-    min-width: 0;
-  }
-  .cockpit-top .wave-badge {
-    grid-column: 2;
-    grid-row: 2;
-    order: initial;
     white-space: nowrap;
   }
+  /* Stage selector: one horizontal swipe lane, scrollbar hidden. */
+  .cockpit-top .stage-selector {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .cockpit-top .stage-selector::-webkit-scrollbar { display: none; }
   .stage-selector ol {
-    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
-    gap: .2rem;
+    display: flex;
+    gap: .25rem;
+    width: max-content;
+    min-width: 100%;
   }
+  .stage-selector li { flex: 0 0 auto; }
   .stage-selector button {
-    min-height: 2.15rem;
-    padding: .2rem;
-    font-size: .62rem;
+    width: auto;
+    min-height: 2.75rem;
+    min-width: 5.2rem;
+    padding: .25rem .5rem;
+    font-size: .64rem;
+    white-space: nowrap;
   }
-  .cockpit-main {
-    grid-template-areas:
-      "battle"
-      "hud"
-      "commands";
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    gap: .3rem;
+  .stage-selector button span { font-size: .58rem; }
+  /* Wave badge: full-width ticker line under the strip. */
+  .cockpit-top .wave-badge {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    order: initial;
+    justify-self: stretch;
     overflow: hidden;
+    min-width: 0;
+    padding: .12rem .45rem;
+    font-size: .58rem;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* -- Main column: field, status, brief, details, sticky pad -- */
+  .cockpit-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: .3rem;
+    min-height: 0;
+    overflow: visible;
   }
   .cockpit-main .battle-field-panel {
-    height: 100%;
-    min-height: 0;
-    padding: .45rem;
-  }
-  .cockpit-main .canvas-container-3d {
+    order: 0;
     height: auto;
-    min-height: 8rem;
+    min-height: 0;
+    padding: .4rem;
+  }
+  /* Field keeps a real tactical footprint: never letterbox-thin. */
+  .cockpit-main .canvas-container-3d {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: clamp(14rem, 38vh, 22rem);
   }
   #battle-direct-help {
     position: absolute;
@@ -1600,50 +1647,48 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+
+  /* Intel rail: command status outranks everything else. */
   .field-edge-hud {
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    grid-template-rows: auto;
+    display: flex;
+    flex-direction: column;
+    order: 1;
     gap: .3rem;
-    overflow: hidden;
+    max-height: none;
+    overflow: visible;
   }
-  .field-edge-hud .battle-tactical-brief {
-    padding: .35rem .45rem;
+  .field-edge-hud .rail-panel { flex: 0 0 auto; }
+  .field-edge-hud .campaign-status {
+    order: -1;
+    padding: .4rem .5rem;
   }
-  .field-edge-hud .battle-operation,
   .field-edge-hud .campaign-status .section-heading,
-  .field-edge-hud .objective-checklist {
+  .field-edge-hud .objective-checklist,
+  .field-edge-hud .boss-portrait {
     display: none;
   }
-  .field-edge-hud .battle-pressure {
-    overflow: hidden;
-    margin: 0;
-    font-size: .62rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .field-edge-hud .campaign-status {
-    padding: .35rem .45rem;
-  }
+  /* Five status chips in one glance row: souls/legion/nodes/hull/boss. */
   .field-edge-hud .status-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: .16rem;
+    gap: .2rem;
+    margin: .1rem 0 0;
   }
   .field-edge-hud .status-grid div,
   .field-edge-hud .status-grid div:last-child {
     display: grid;
     grid-column: auto;
-    gap: .04rem;
-    padding: .18rem .24rem;
+    gap: .05rem;
+    padding: .22rem .28rem;
   }
   .field-edge-hud .status-grid dt {
     overflow: hidden;
-    font-size: .52rem;
+    font-size: .56rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .field-edge-hud .status-grid dd {
     overflow: hidden;
-    font-size: .64rem;
+    font-size: .74rem;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1652,7 +1697,7 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     align-items: baseline;
     gap: .3rem;
     overflow: hidden;
-    margin: .16rem 0 0;
+    margin: .2rem 0 0;
     padding: .2rem .3rem;
     font-size: .64rem;
     white-space: nowrap;
@@ -1661,46 +1706,113 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .field-command-dock {
-    padding: .35rem .4rem;
+  /* Operation brief: a slim strip - forces + live pressure only. */
+  .field-edge-hud .battle-tactical-brief { padding: .35rem .45rem; }
+  .field-edge-hud .battle-operation { display: none; }
+  .field-edge-hud .battle-pressure {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    font-size: .62rem;
   }
-  .field-command-dock .section-heading {
+
+  /* Secondary intel (boss spec + narration) folds into <details>. */
+  .cockpit-details {
+    display: block;
+    order: 2;
+    margin: 0;
+  }
+  .cockpit-details > summary {
+    min-height: 2.5rem;
+    padding: .6rem .65rem;
+  }
+  .cockpit-details[open] {
+    max-height: 14rem;
+    overflow-y: auto;
+  }
+
+  /* -- Command pad: sticky dock riding the bottom edge -- */
+  .field-command-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    order: 3;
+    margin-top: auto;
+    padding: .4rem .45rem calc(.4rem + env(safe-area-inset-bottom, 0px));
+    border-color: color-mix(in srgb, var(--battle-ally) 58%, var(--line));
+    background: rgb(6 9 18 / 97%);
+    box-shadow: 0 -0.6rem 1.6rem rgb(0 0 0 / 5%);
+  }
+  /* Page content fades out under the pad instead of hard-clipping. */
+  .field-command-dock::before {
+    position: absolute;
+    right: -.1rem;
+    bottom: 100%;
+    left: -.1rem;
+    height: 1.1rem;
+    content: "";
+    pointer-events: none;
+    background: linear-gradient(to top, rgb(4 6 12 / 82%), transparent);
+  }
+  /* Keep the live status line; drop the heading + keyboard hint. */
+  .field-command-dock .section-heading { display: block; margin: 0; }
+  .field-command-dock .section-heading h3,
+  .field-command-dock .command-hint {
     display: none;
   }
+  .field-command-dock .status-message {
+    overflow: hidden;
+    max-width: none;
+    min-height: 1rem;
+    margin: 0 0 .25rem;
+    font-size: .66rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* 7 commands as thumb keys: 4-up, icon + hotkey + name, no desc. */
   .field-command-dock .command-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: .16rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .3rem;
   }
   .field-command-dock .command-grid button {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: .18rem;
     min-width: 0;
-    min-height: 3.45rem;
-    padding: .16rem;
+    min-height: 3.25rem;
+    padding: .3rem .2rem;
     text-align: center;
   }
-  .field-command-dock .action-icon,
-  .field-command-dock .command-grid small {
-    display: none;
+  .field-command-dock .command-grid button:last-child { grid-column: span 2; }
+  .field-command-dock .command-grid small { display: none; }
+  .field-command-dock .action-icon {
+    display: block;
+    width: 1.55rem;
+    height: 1.55rem;
   }
   .field-command-dock .key {
-    min-width: 1.25rem;
-    padding: .04rem .12rem;
-    font-size: .56rem;
+    position: absolute;
+    top: .18rem;
+    right: .22rem;
+    min-width: 1rem;
+    padding: 0 .14rem;
+    font-size: .5rem;
   }
   .field-command-dock .command-grid strong {
     max-width: 100%;
     overflow: hidden;
-    font-size: .56rem;
-    line-height: 1.05;
+    font-size: .62rem;
+    font-weight: 800;
+    line-height: 1.1;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .cockpit-details {
-    display: none;
-  }
+
+  /* Save dock: quiet footer under the sticky pad's resting place. */
   .cockpit .save-dock {
     min-height: 0;
     margin: .3rem 0 0;
@@ -1719,10 +1831,33 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
   }
   .cockpit .save-dock button,
   .cockpit .save-dock .file-button {
-    min-height: 2.1rem;
+    min-height: 2.35rem;
     padding: .25rem .45rem;
     font-size: .65rem;
   }
+}
+
+/* Mobile dialogs: briefing + result take the full width, stacked. */
+@media (max-width: 640px) {
+  .mission-briefing,
+  .result-overlay {
+    padding: .5rem .5rem calc(.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  .mission-briefing-panel {
+    width: calc(100% - 1rem);
+    max-height: calc(100dvh - 1.5rem);
+    overflow-y: auto;
+    padding: .9rem .85rem;
+  }
+  .mission-briefing-facts { gap: .35rem; }
+  .mission-briefing-facts div { padding: .45rem .55rem; }
+  .mission-briefing-panel .primary { min-height: 3rem; }
+  .result-overlay .result-panel {
+    width: calc(100% - 1rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+  .reward-options { grid-template-columns: 1fr; }
+  .result-panel .button-row button { min-height: 2.75rem; }
 }
 
 /* Ultra-short desktop cockpit: keep the title, live field, and command row in

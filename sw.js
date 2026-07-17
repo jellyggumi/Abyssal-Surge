@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-surge-static-v25";
+const CACHE_NAME = "abyssal-surge-static-v26";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -67,6 +67,20 @@ const OPTIONAL_MEDIA = [
   "./assets/images/cinder-span.png",
   "./assets/images/veil-citadel.png",
   "./assets/images/echo-throne.png",
+  "./assets/images/sunken-bastion.png",
+  "./assets/images/howling-sprawl.png",
+  "./assets/images/glass-necropolis.png",
+  "./assets/images/starless-canal.png",
+  "./assets/images/shattered-causeway.png",
+  "./assets/images/abyss-chancel.png",
+  "./assets/images/gate-zenith.png",
+  "./assets/images/ui/boss-tide-warden.png",
+  "./assets/images/ui/boss-pack-herald.png",
+  "./assets/images/ui/boss-requiem-choir.png",
+  "./assets/images/ui/boss-lantern-tyrant.png",
+  "./assets/images/ui/boss-bridge-colossus.png",
+  "./assets/images/ui/boss-veiled-concordat.png",
+  "./assets/images/ui/boss-abyss-regent.png",
   "./assets/images/storyboard/scene_00_opening_gate_v01.jpg",
   "./assets/images/storyboard/scene_01_soul_pool_v01.jpg",
   "./assets/images/storyboard/scene_03_possession_action_v01.jpg",

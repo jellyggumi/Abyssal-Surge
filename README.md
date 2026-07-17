@@ -24,13 +24,22 @@
 5. **브라우저 프레젠테이션**
    - 스테이지 브리핑, 보스 패널, 선택형 보상, 내레이션, Canvas 전장, reduced-motion 대체 프레젠테이션을 제공합니다.
 
-## 3단계 캠페인
+## 10단계 캠페인
 
 | Stage | 무대 | 핵심 전술 | 보스 |
 |---|---|---|---|
 | 1 | **Cinder Span** | 추출·점령 기본 루프 | Cinder Warden (HP 8) |
 | 2 | **Veil Citadel** | Possession과 두 거점 유지 | Veil Tactician (HP 10) |
 | 3 | **Echo Throne** | 1회성 Lord's Domain 역전기 | Gate Sovereign (HP 17) |
+| 4 | **Sunken Bastion** | 4웨이브 방파제 방어 | Tide Warden (HP 12) |
+| 5 | **Howling Sprawl** | 무리 파수꾼 빙의 | Pack Herald (HP 14) |
+| 6 | **Glass Necropolis** | 두 유리 단상 + 3HP 정예 | Requiem Choir (HP 16) |
+| 7 | **Starless Canal** | Domain 재개방, 두 다리 차선 | Lantern Tyrant (HP 18) |
+| 8 | **Shattered Causeway** | 끊어진 스팬 차선 통제 | Bridge Colossus (HP 20) |
+| 9 | **Abyss Chancel** | 세 의식 단상 장악 | Veiled Concordat (HP 22) |
+| 10 | **Gate Zenith** | 5웨이브 + 전 보온 총력전 | Abyss Regent (HP 26) |
+
+스테이지 사이에는 엔트리 플로어(최소 내구도 4)가 적용되어 아슬아슬한 승리가 다음 스테이지의 재시도 러닝머신으로 이어지지 않습니다.
 
 스테이지·보스·보상 이름과 설명은 `campaign-state.js`의 `STAGES[*].trace` 및 `CONTENT_TRACE`에 기록됩니다. 원본 콘텐츠·자산 매핑은 [worldview inventory](_workspace/20260716-shadow-lord-rts-rpg/design/worldview.md)와 [resource manifest](_workspace/20260716-shadow-lord-rts-rpg/engineering/resource-manifest.md)에 있습니다.
 

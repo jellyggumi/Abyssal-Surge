@@ -56,7 +56,14 @@ const RESUME_STATUS_KEYS = Object.freeze({
 const BOSS_SPEC = Object.freeze([
   Object.freeze({ threat: "Class A", counter: 1, lore: "The forge bridge's ashbound sentinel breaks intruders against the drowned iron." }),
   Object.freeze({ threat: "Class S", counter: 2, lore: "A tactician of listening stone that turns every uncovered route into a killing field." }),
-  Object.freeze({ threat: "Class Sovereign", counter: 8, lore: "The final gate's remembered ruler, holding back the last abyssal tide." })
+  Object.freeze({ threat: "Class Sovereign", counter: 8, lore: "The final gate's remembered ruler, holding back the last abyssal tide." }),
+  Object.freeze({ threat: "Class A+", counter: 2, lore: "A drowned warden whose coral-fused armor drags whole companies beneath the breakwater." }),
+  Object.freeze({ threat: "Class S", counter: 3, lore: "The pack's crowned herald; every howl is a marching order for the ruin district." }),
+  Object.freeze({ threat: "Class S+", counter: 4, lore: "Three grave-choristers fused into one requiem that sings marching legions apart." }),
+  Object.freeze({ threat: "Class SS", counter: 5, lore: "A canal tyrant strung with tribute lanterns, each one a soul still paying the toll." }),
+  Object.freeze({ threat: "Class SS", counter: 6, lore: "The last watch-colossus of the broken span, still holding a bridge that no longer exists." }),
+  Object.freeze({ threat: "Class SSS", counter: 7, lore: "Three veiled signatories who countersign the abyss itself against every intruder." }),
+  Object.freeze({ threat: "Class Zenith", counter: 9, lore: "The regent above every drowned gate, wearing the storm as a crown and the tide as a writ." })
 ]);
 const CUE_BY_EFFECT = Object.freeze({
   hunt: "assets/audio/hunt.mp3",
@@ -93,6 +100,43 @@ const NARRATION = Object.freeze({
     msPerChar: 45,
     holdMs: 2000
   }),
+  // Stages 4-10: text narration ships now; audio lines land with the next
+  // recording batch (playNarration skips audio when the field is absent).
+  "sunken-bastion": Object.freeze({
+    lines: Object.freeze(["가라앉은 보루, 선큰 바스티온.", "방파제 위에서 조수의 감시자를 수장시켜라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "howling-sprawl": Object.freeze({
+    lines: Object.freeze(["울부짖는 폐허, 하울링 스프롤.", "무리의 파수꾼을 빙의해 전령의 목을 조여라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "glass-necropolis": Object.freeze({
+    lines: Object.freeze(["유리 묘역, 글래스 네크로폴리스.", "두 유리 단상을 장악하고 진혼곡을 침묵시켜라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "starless-canal": Object.freeze({
+    lines: Object.freeze(["별 없는 운하, 스타리스 커낼.", "군주의 영역이 돌아온다. 폭군의 등불을 모두 꺼라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "shattered-causeway": Object.freeze({
+    lines: Object.freeze(["부서진 둑길, 섀터드 코즈웨이.", "다리를 지키는 거상을 그 다리 아래로 무너뜨려라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "abyss-chancel": Object.freeze({
+    lines: Object.freeze(["심연 예배당, 어비스 챈슬.", "세 의식 단상을 모두 점거하고 계약을 파기하라."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
+  "gate-zenith": Object.freeze({
+    lines: Object.freeze(["게이트 제니스, 마지막 정점.", "모든 은총을 걸고 심연의 섭정을 unmake하라.", "문은 오늘 닫힌다."]),
+    msPerChar: 45,
+    holdMs: 2000
+  }),
   victory: Object.freeze({
     audio: "assets/audio/narr-victory.mp3",
     lines: Object.freeze(["침묵한 문 앞에서,", "그림자 군단이 왕좌에 오른다."]),
@@ -106,10 +150,28 @@ const NARRATION = Object.freeze({
     holdMs: 1473
   })
 });
+// Stage art: stages 4-10 portraits/backdrops are generated in this release;
+// resolveStageArt falls back to the flagship trio until a file exists.
 const BOSS_BY_STAGE = Object.freeze({
   "cinder-span": "assets/images/ui/boss-cinder-warden.png",
   "veil-citadel": "assets/images/ui/boss-veil-tactician.png",
-  "echo-throne": "assets/images/ui/boss-gate-sovereign.png"
+  "echo-throne": "assets/images/ui/boss-gate-sovereign.png",
+  "sunken-bastion": "assets/images/ui/boss-tide-warden.png",
+  "howling-sprawl": "assets/images/ui/boss-pack-herald.png",
+  "glass-necropolis": "assets/images/ui/boss-requiem-choir.png",
+  "starless-canal": "assets/images/ui/boss-lantern-tyrant.png",
+  "shattered-causeway": "assets/images/ui/boss-bridge-colossus.png",
+  "abyss-chancel": "assets/images/ui/boss-veiled-concordat.png",
+  "gate-zenith": "assets/images/ui/boss-abyss-regent.png"
+});
+const BOSS_FALLBACK_BY_STAGE = Object.freeze({
+  "sunken-bastion": "assets/images/ui/boss-cinder-warden.png",
+  "howling-sprawl": "assets/images/ui/boss-veil-tactician.png",
+  "glass-necropolis": "assets/images/ui/boss-veil-tactician.png",
+  "starless-canal": "assets/images/ui/boss-gate-sovereign.png",
+  "shattered-causeway": "assets/images/ui/boss-cinder-warden.png",
+  "abyss-chancel": "assets/images/ui/boss-gate-sovereign.png",
+  "gate-zenith": "assets/images/ui/boss-gate-sovereign.png"
 });
 const NARRATOR_ATLAS_BY_STAGE = Object.freeze({
   "cinder-span": "assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png",
@@ -124,7 +186,14 @@ const VIDEO_BY_STAGE = Object.freeze({
 const IMAGE_BY_STAGE = Object.freeze({
   "cinder-span": "assets/images/cinder-span.png",
   "veil-citadel": "assets/images/veil-citadel.png",
-  "echo-throne": "assets/images/echo-throne.png"
+  "echo-throne": "assets/images/echo-throne.png",
+  "sunken-bastion": "assets/images/sunken-bastion.png",
+  "howling-sprawl": "assets/images/howling-sprawl.png",
+  "glass-necropolis": "assets/images/glass-necropolis.png",
+  "starless-canal": "assets/images/starless-canal.png",
+  "shattered-causeway": "assets/images/shattered-causeway.png",
+  "abyss-chancel": "assets/images/abyss-chancel.png",
+  "gate-zenith": "assets/images/gate-zenith.png"
 });
 const TACTICAL_SURFACE = "assets/images/ui/concept-tactical-surface.webp";
 const CINEMATIC_COPY = Object.freeze({
@@ -133,7 +202,7 @@ const CINEMATIC_COPY = Object.freeze({
     transcriptHide: "시네마틱 시각 설명문 닫기",
     transcriptHeading: "시네마틱 시각 설명문",
     transcriptIntro: "시네마틱은 선택 사항입니다. 아래 설명문은 영상과 소리 없이도 캠페인 브리핑을 전달합니다.",
-    transcriptBrief: "캠페인 명령: 신더 스팬에서 사냥과 추출을 시작하고, 베일 시타델에서 두 거점을 장악한 뒤, 메아리 왕좌에서 군주의 영역으로 게이트 소버린에 맞섭니다.",
+    transcriptBrief: "캠페인 명령: 신더 스팬의 사냥으로 시작해 메아리 왕좌를 넘어서면, 가라앉은 보루·울부짖는 폐허·유리 묘역·별 없는 운하·부서진 둑길·심연 예배당을 거쳐 게이트 제니스의 심연 섭정과 최후의 결전을 치릅니다. 총 10개 전장입니다.",
     optional: "시네마틱은 선택 사항이며 처음에는 음소거됩니다.",
     loading: "선택형 시네마틱을 불러오는 중입니다…",
     playing: "시네마틱이 음소거 상태로 재생 중입니다. 소리는 기본 컨트롤에서 켤 수 있습니다.",
@@ -145,7 +214,7 @@ const CINEMATIC_COPY = Object.freeze({
     transcriptHide: "Hide cinematic visual transcript",
     transcriptHeading: "Cinematic visual transcript",
     transcriptIntro: "The cinematic is optional. This transcript conveys the campaign briefing without video or sound.",
-    transcriptBrief: "Campaign orders: begin with hunting and extraction at Cinder Span, hold two nodes at Veil Citadel, then face the Gate Sovereign at Echo Throne with the Lord's Domain.",
+    transcriptBrief: "Campaign orders: begin with the hunt at Cinder Span, break the first three wards, then push through Sunken Bastion, Howling Sprawl, Glass Necropolis, Starless Canal, Shattered Causeway, and Abyss Chancel before facing the Abyss Regent at Gate Zenith. Ten battlefields in all.",
     optional: "The cinematic is optional and starts muted.",
     loading: "Loading optional cinematic…",
     playing: "Cinematic is playing muted. Use native controls to enable sound.",
@@ -336,7 +405,7 @@ const elements = Object.freeze({
   narrationLine: document.querySelector("#narration-line"),
   narrationSr: document.querySelector("#narration-sr"),
   commandButtons: [...document.querySelectorAll("[data-action]")],
-  stageButtons: [1, 2, 3].map((number) => document.querySelector(`#stage-select-${number}`)),
+  stageButtons: [...document.querySelectorAll("#stage-selector [data-stage-number]")],
   bgmToggle: document.querySelector("#bgm-toggle"),
   bgmPlayer: document.querySelector("#bgm-player"),
   languageToggle: document.querySelector("#lang-toggle")
@@ -450,7 +519,8 @@ function renderStageMedia(stage) {
   const atlasSource = NARRATOR_ATLAS_BY_STAGE[stage.id];
   if (elements.narratorAtlas.dataset.stage !== stage.id) {
     elements.narratorAtlas.dataset.stage = stage.id;
-    elements.narratorAtlas.style.setProperty("--narrator-atlas-image", `url("${atlasSource}")`);
+    if (atlasSource) elements.narratorAtlas.style.setProperty("--narrator-atlas-image", `url("${atlasSource}")`);
+    else elements.narratorAtlas.style.removeProperty("--narrator-atlas-image");
   }
   elements.transition.style.removeProperty("background-image");
   if (imageSource) {
@@ -468,7 +538,7 @@ function renderStageMedia(stage) {
   if (portrait) {
     const bossArt = BOSS_BY_STAGE[stage.id];
     if (bossArt) {
-      portrait.src = bossArt;
+      applyStageArt(portrait, bossArt, BOSS_FALLBACK_BY_STAGE[stage.id]);
       portrait.alt = "";
       portrait.hidden = false;
     } else {
@@ -873,9 +943,20 @@ function syncCockpit() {
   if (campaign.status === "active" && !stageBriefingOpen && !visualizer && !cooldownTimer) startBattle();
 }
 
+// Sets an <img> to `source`, swapping to `fallback` once if the file is not
+// shipped yet (stages 4-10 art lands asset-by-asset).
+function applyStageArt(img, source, fallback) {
+  if (img.dataset.artSource === source) return;
+  img.dataset.artSource = source;
+  img.onerror = fallback && fallback !== source
+    ? () => { img.onerror = null; img.src = fallback; }
+    : null;
+  img.src = source;
+}
+
 function renderBossSpec(stage, state, benefits) {
   const spec = BOSS_SPEC[stage.number - 1];
-  elements.bossSpecPortrait.src = BOSS_BY_STAGE[stage.id];
+  applyStageArt(elements.bossSpecPortrait, BOSS_BY_STAGE[stage.id], BOSS_FALLBACK_BY_STAGE[stage.id]);
   elements.bossSpecPortrait.alt = `${stage.bossName} portrait`;
   elements.bossSpecName.textContent = stage.bossName;
   elements.bossSpecLore.textContent = spec.lore;
@@ -969,8 +1050,10 @@ function render() {
     const action = button.dataset.action;
     renderCooldown(button, action, available.has(action));
   }
-  for (const [index, button] of elements.stageButtons.entries()) {
-    const stageNumber = index + 1;
+  for (const button of elements.stageButtons) {
+    const stageNumber = Number(button.dataset.stageNumber);
+    const definition = STAGES[stageNumber - 1];
+    if (!definition) { button.hidden = true; continue; }
     const active = stageNumber === stage.number && !isComplete;
     const cleared = stageNumber < stage.number || isComplete;
     button.disabled = true;
@@ -979,7 +1062,8 @@ function render() {
     button.classList.toggle("locked", !active && !cleared);
     if (active) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
-    button.setAttribute("aria-label", `${STAGES[index].title}: ${active ? "current stage" : cleared ? "cleared" : "locked"}`);
+    button.setAttribute("aria-label", `${definition.title}: ${active ? "current stage" : cleared ? "cleared" : "locked"}`);
+    if (active) button.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "smooth" });
   }
 
   renderChecklist(getStageChecklist(campaign));
@@ -1071,8 +1155,12 @@ function playNarration(key) {
   }
   narrationPlayer.pause();
   narrationPlayer.currentTime = 0;
-  narrationPlayer.src = entry.audio;
-  narrationPlayer.play().catch(() => undefined);
+  if (entry.audio) {
+    narrationPlayer.src = entry.audio;
+    narrationPlayer.play().catch(() => undefined);
+  } else {
+    narrationPlayer.removeAttribute("src");
+  }
   return true;
 }
 
