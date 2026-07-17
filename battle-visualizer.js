@@ -23,9 +23,11 @@ import {
   selectTilemapRenderMode, visibleIndividualItems,
 } from "./tilemap-renderer.js";
 import { DEFAULT_BATTLE_PRESENTATION } from "./battle-presentation.js";
-
-const GRID_W = 16;
-const GRID_H = 8;
+import {
+  STAGE_GRID_WIDTH as GRID_W,
+  STAGE_GRID_HEIGHT as GRID_H,
+  createStageNavigation,
+} from "./stage-navigation.js";
 const ALLY_SPAWN = Object.freeze({ x: 1, y: 3.5 });
 const BOSS_TILE = Object.freeze({ x: 14, y: 3.5 });
 const BREACH_X = 1.2;          // enemy reaching this x = breach
@@ -124,34 +126,6 @@ function isBridgeRecord(record) {
 
 
 
-// Per-stage heightfields (16×8, integers; -1 = chasm/unwalkable).
-// Stage 1 Cinder Span: a bridge over the drowned forge — void edges.
-// Stage 2 Veil Citadel: twin raised plateaus (the two signal nodes) + ramps.
-// Stage 3 Echo Throne: stepped ascent toward the throne.
-function buildHeightfield(stageNumber) {
-  const h = [];
-  for (let y = 0; y < GRID_H; y++) {
-    h.push(new Array(GRID_W).fill(0));
-  }
-  if (stageNumber === 1) {
-    for (let x = 0; x < GRID_W; x++) {
-      h[0][x] = -1;
-      h[GRID_H - 1][x] = -1;
-      if (x >= 5 && x <= 10) { h[1][x] = -1; h[GRID_H - 2][x] = -1; } // narrow span
-    }
-  } else if (stageNumber === 2) {
-    for (let y = 2; y <= 5; y++) {
-      for (let x = 5; x <= 6; x++) h[y][x] = 1;
-      for (let x = 9; x <= 10; x++) h[y][x] = 1;
-    }
-  } else {
-    for (let y = 2; y <= 5; y++) {
-      for (let x = 11; x <= 12; x++) h[y][x] = 1;
-      for (let x = 13; x <= 15; x++) h[y][x] = 2;
-    }
-  }
-  return h;
-}
 
 export class BattleVisualizer {
   constructor(canvas, presentation = DEFAULT_BATTLE_PRESENTATION, options = {}) {
@@ -168,6 +142,9 @@ export class BattleVisualizer {
 
     this.allies = [];
     this.enemies = [];
+    this.engagements = new Map();
+    this.exchanges = 0;
+    this.authoritativeLegion = null;
     this.particles = [];
     this.nodes = [];        // {x, y}
     this.nodeGoal = Math.max(1, Number.isInteger(options.nodeGoal) ? options.nodeGoal : 1);
@@ -177,20 +154,20 @@ export class BattleVisualizer {
     this.waveCounter = 0;
     this.isAssaulting = false;
     this.assaultTimer = 0;
-
-    // Engine-facing event: fired when a hostile visually crosses the Dusk
-    // Portal line in the LIVE simulation. app.js records it as a
-    // battle-breach transition (save/replay applies the recorded event, so
-    // the deterministic contract is preserved). Under reduced-motion or
-    // renderer fallback there is no live sim — app.js uses timers instead.
-    this.onEnemyBreach = null;
+    this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
+    this.onRuntimeState = typeof options.onRuntimeState === "function" ? options.onRuntimeState : null;
+    this.onEnemyBreach = null; // Legacy callback; encounter events take precedence.
+    this.encounter = null;
+    this.encounterSnapshot = null;
+    this.currentWaveId = null;
+    this.pendingEncounterEvent = null;
+    this.bossExposed = false;
+    this.runtimeSignature = null;
     this.breachFlash = 0;
-
-    // Canvas HUD mirror of engine numbers (app.js pushes via setHud()).
     this.hud = null;
 
 
-    this.height = buildHeightfield(this.stageNumber);
+    this.navigation = createStageNavigation(this.stageNumber);
     this.rng = mulberry32(0x5eed + this.stageNumber * 977);
 
     this.view = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 };
@@ -223,21 +200,19 @@ export class BattleVisualizer {
   // --- terrain helpers -------------------------------------------------
 
   heightAt(x, y) {
-    if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return -1;
-    return this.height[y][x];
+    return this.navigation.heightAt(x, y);
   }
 
   walkable(x, y) {
-    return this.heightAt(x, y) >= 0;
+    return this.navigation.walkable(x, y);
   }
 
   climbOk(x0, y0, x1, y1) {
-    return Math.abs(this.heightAt(x1, y1) - this.heightAt(x0, y0)) <= 1;
+    return this.navigation.climbOk(x0, y0, x1, y1);
   }
 
   elevationAt(fx, fy) {
-    const h = this.heightAt(Math.floor(fx), Math.floor(fy));
-    return h < 0 ? 0 : h;
+    return this.navigation.elevationAt(fx, fy);
   }
 
   sortRootAt(fx, fy) {
@@ -251,6 +226,7 @@ export class BattleVisualizer {
   init() {
     if (this.destroyed || this.ctx) return this;
     this.ctx = this.canvas.getContext("2d");
+    if (Number.isInteger(this.authoritativeLegion)) this.reconcileAllies(this.authoritativeLegion);
     this.computeView();
     this.buildStaticLayer();
     this.loadBossArt();
@@ -267,6 +243,8 @@ export class BattleVisualizer {
     window.addEventListener("resize", this.resizeHandler);
 
     this.lastTime = performance.now();
+    this.reconcileEncounterWave();
+    this.publishRuntimeState();
     if (this.reducedMotion) this.render();
     else this.animate();
     return this;
@@ -354,7 +332,7 @@ export class BattleVisualizer {
     const floorChunks = new Map();
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        const z = this.height[y][x];
+        const z = this.heightAt(x, y);
         const tile = {
           id: `terrain-${x}-${y}`,
           x,
@@ -895,7 +873,165 @@ export class BattleVisualizer {
     }
   }
 
-  triggerAction(semantic) {
+  applyEncounter({ stageId, config, state } = {}) {
+    const waves = Array.isArray(config?.waves) ? config.waves : null;
+    const activeWaveId = typeof state?.activeWaveId === "string" ? state.activeWaveId : null;
+    const snapshot = JSON.stringify({
+      stageId: typeof stageId === "string" ? stageId : null,
+      activeWaveId,
+      bossExposed: state?.bossExposed === true,
+      waves: Array.isArray(state?.waves)
+        ? state.waves.map((wave) => ({ id: wave?.id, cleared: wave?.cleared === true, breaches: Number(wave?.breaches) || 0 }))
+        : [],
+    });
+    if (this.encounterSnapshot !== null && this.encounterSnapshot !== snapshot) this.pendingEncounterEvent = null;
+    this.encounterSnapshot = snapshot;
+    this.encounter = waves ? { stageId, config, state } : null;
+    this.bossExposed = state?.bossExposed === true;
+    this.reconcileEncounterWave(activeWaveId);
+    this.publishRuntimeState();
+    this.renderStatic();
+  }
+
+  applyCampaignState({ campaign, stage, encounter, state } = {}) {
+    const config = encounter?.config ?? stage?.encounter ?? null;
+    const encounterState = encounter?.state ?? state?.encounter ?? state ?? campaign?.stage?.encounter ?? encounter ?? null;
+    const stageId = encounter?.stageId ?? stage?.id ?? campaign?.stageId ?? null;
+    const legion = Number(state?.legion ?? campaign?.stage?.legion);
+    if (Number.isInteger(legion) && legion >= 0) {
+      this.authoritativeLegion = legion;
+      this.reconcileAllies(legion);
+    }
+    this.applyEncounter({ stageId, config, state: encounterState });
+  }
+
+  reconcileEncounterWave(activeWaveId = this.encounter?.state?.activeWaveId ?? null) {
+    const wave = this.encounter?.config?.waves?.find((candidate) => candidate?.id === activeWaveId);
+    if (!wave || this.currentWaveId !== wave.id) {
+      this.clearEncounterWave();
+      if (!wave || !this.ctx) return;
+      this.currentWaveId = wave.id;
+      this.spawnEncounterWave(wave);
+    }
+  }
+
+  clearEncounterWave() {
+    for (const enemy of this.enemies) this.clearEngagement(enemy);
+    this.enemies = [];
+    this.currentWaveId = null;
+  }
+
+  spawnAlly(count = 1) {
+    const additions = Math.max(0, Number(count) || 0);
+    for (let index = 0; index < additions; index += 1) {
+      const unit = {
+        x: ALLY_SPAWN.x + (this.allies.length % 3) * 0.34,
+        y: ALLY_SPAWN.y + ((this.allies.length % 3) - 1) * 0.45,
+        speed: 1.2 + this.rng() * 0.25,
+        hp: 3,
+        facing: 0,
+        path: null,
+        holdUntil: 0,
+        isPossessed: false,
+        defeated: false,
+      };
+      this.allies.push(unit);
+      this.burst(unit.x, unit.y, 8, this.palette.ally);
+    }
+  }
+
+  reconcileAllies(count) {
+    if (!this.ctx) return;
+    const target = Math.max(0, count);
+    const survivors = [];
+    for (const ally of this.allies) {
+      if (ally.defeated) {
+        this.clearEngagement(ally);
+        this.selection.delete(ally);
+      } else {
+        survivors.push(ally);
+      }
+    }
+    this.allies = survivors;
+    while (this.allies.length > target) {
+      const ally = this.allies.pop();
+      this.clearEngagement(ally);
+      this.selection.delete(ally);
+    }
+    this.spawnAlly(target - this.allies.length);
+  }
+
+  spawnEncounterWave(wave) {
+    const count = Math.max(0, Number(wave?.hostiles) || 0);
+    const archetype = wave.id === "reinforcement" ? "reinforce" : wave.id;
+    for (let index = 0; index < count; index += 1) {
+      const unit = {
+        x: BOSS_TILE.x - 0.5 - this.rng() * 0.5,
+        y: BOSS_TILE.y + (this.rng() - 0.5) * 2.4,
+        speed: archetype === "scout" ? 1.5 + this.rng() * 0.4 : 0.9 + this.rng() * 0.4,
+        hp: 2,
+        archetype,
+        waveId: wave.id,
+        laneY: archetype === "scout" ? (this.rng() > 0.5 ? 1.6 : GRID_H - 2.6) : BOSS_TILE.y + (this.rng() - 0.5) * 1.6,
+        facing: 4,
+        defeated: false,
+        breachVisualized: false,
+      };
+      this.enemies.push(unit);
+      this.burst(unit.x, unit.y, 8, this.palette.enemy);
+    }
+    this.playSpatial(BOSS_TILE.x, BOSS_TILE.y, { freq: 180, type: "sawtooth", duration: 0.3, gain: 0.8 });
+  }
+
+  emitEncounterEvent(type) {
+    const waveId = this.currentWaveId;
+    const stageId = this.encounter?.stageId;
+    if (
+      this.pendingEncounterEvent ||
+      (type !== "wave-cleared" && type !== "breach") ||
+      !waveId ||
+      typeof stageId !== "string" ||
+      this.encounter?.state?.activeWaveId !== waveId
+    ) return;
+    this.pendingEncounterEvent = { type, stageId, waveId };
+    if (this.onEncounterEvent) this.onEncounterEvent(this.pendingEncounterEvent);
+    else if (type === "breach") this.onEnemyBreach?.();
+  }
+
+  activeEngagements() {
+    let count = 0;
+    for (const ally of this.allies) {
+      const enemy = this.engagements.get(ally);
+      if (enemy && this.engagements.get(enemy) === ally && this.liveAlly(ally) && this.liveEnemy(enemy)) count += 1;
+    }
+    return count;
+  }
+
+  getRuntimeState() {
+    const total = this.encounter?.config?.waves?.length ?? 0;
+    const resolved = this.encounter?.state?.waves?.filter((wave) => wave?.cleared === true).length ?? 0;
+    return {
+      mode: "canvas-2d",
+      enemiesActive: this.enemies.length,
+      alliesVisible: this.allies.filter((ally) => !ally.defeated).length,
+      engagements: this.activeEngagements(),
+      exchanges: this.exchanges,
+      activeWaveId: this.encounter?.state?.activeWaveId ?? null,
+      resolved,
+      total,
+      bossExposed: this.bossExposed,
+    };
+  }
+
+  publishRuntimeState() {
+    const runtime = this.getRuntimeState();
+    const signature = JSON.stringify(runtime);
+    if (signature === this.runtimeSignature) return;
+    this.runtimeSignature = signature;
+    this.onRuntimeState?.(runtime);
+  }
+
+  playActionEffect(semantic = {}) {
     const action = semantic?.action;
     if (!action || this.destroyed) return;
     const source = this.actionPoint(semantic.source);
@@ -905,59 +1041,25 @@ export class BattleVisualizer {
     if (sourceAvailable && !this.reducedMotion) {
       this.actionFx.push({ action, source, target, sourceAsset: semantic.sourceAsset, clip: semantic.clip, life: 0.8, duration: 0.8 });
     }
-
     if (action === "hunt") this.triggerHunt();
     else if (action === "extract") this.triggerExtract();
     else if (action === "materialize") this.triggerMaterialize(semantic.count);
     else if (action === "capture") this.triggerCapture(semantic.nodes, semantic.nodeGoal);
     else if (action === "possess") this.triggerPossess();
     else if (action === "domain") this.triggerDomain();
-    else if (action === "assault") this.triggerAssault();
-
+    else if (action === "assault" && this.bossExposed) this.triggerAssault();
     if (sourceAvailable) this.setBridgeClip(semantic.sourceAsset, semantic.clip);
+    this.publishRuntimeState();
     this.renderStatic();
   }
 
-  spawnAlly(count = 2, isPossessed = false) {
-    if (this.destroyed) return;
-    for (let i = 0; i < count; i++) {
-      const unit = {
-        x: ALLY_SPAWN.x + this.rng() * 0.6,
-        y: ALLY_SPAWN.y + (this.rng() - 0.5) * 2.4,
-        speed: 1.4 + this.rng() * 0.5,
-        hp: isPossessed ? 4 : 2,
-        isPossessed,
-        path: null,
-        holdUntil: 0,
-        facing: 0
-      };
-      this.allies.push(unit);
-      this.burst(unit.x, unit.y, 10, this.palette.ally);
-    }
-    this.playSpatial(ALLY_SPAWN.x, ALLY_SPAWN.y, { freq: 240, type: "sine", duration: 0.22 });
-    this.renderStatic();
+  triggerAction(semantic) {
+    this.playActionEffect(semantic);
   }
 
-  spawnEnemy(count = 3) {
-    if (this.destroyed) return;
-    const archetypes = ["scout", "guard", "reinforce"];
-    const archetype = archetypes[this.waveCounter % archetypes.length];
-    this.waveCounter += 1;
-    for (let i = 0; i < count; i++) {
-      const unit = {
-        x: BOSS_TILE.x - 0.5 - this.rng() * 0.5,
-        y: BOSS_TILE.y + (this.rng() - 0.5) * 2.4,
-        speed: archetype === "scout" ? 1.5 + this.rng() * 0.4 : 0.9 + this.rng() * 0.4,
-        hp: archetype === "reinforce" ? 2 : 1,
-        archetype,
-        laneY: archetype === "scout" ? (this.rng() > 0.5 ? 1.6 : GRID_H - 2.6) : BOSS_TILE.y + (this.rng() - 0.5) * 1.6,
-        facing: 4
-      };
-      this.enemies.push(unit);
-      this.burst(unit.x, unit.y, 8, this.palette.enemy);
-    }
-    this.playSpatial(BOSS_TILE.x, BOSS_TILE.y, { freq: 180, type: "sawtooth", duration: 0.3, gain: 0.8 });
-    this.renderStatic();
+  // Compatibility wrapper: visual effects must not establish encounter units.
+  spawnEnemy() {
+    this.playActionEffect({ action: "hunt" });
   }
 
   triggerHunt() {
@@ -973,7 +1075,11 @@ export class BattleVisualizer {
   }
 
   triggerMaterialize(count = 2) {
-    this.spawnAlly(count);
+    if (Number.isInteger(this.authoritativeLegion)) {
+      this.reconcileAllies(this.authoritativeLegion);
+    } else {
+      this.spawnAlly(count);
+    }
   }
 
   triggerPossess() {
@@ -1029,10 +1135,6 @@ export class BattleVisualizer {
 
   triggerAssault() {
     this.isAssaulting = true;
-    for (const ally of this.allies) {
-      ally.speed = 5.2;
-      ally.path = null; // assault overrides move orders
-    }
     if (this.reducedMotion) {
       this.orderFlag = { x: BOSS_TILE.x, y: BOSS_TILE.y, life: 1 };
       this.isAssaulting = false;
@@ -1072,30 +1174,156 @@ export class BattleVisualizer {
     if (this.reducedMotion) this.render();
   }
 
+  liveAlly(unit) {
+    return !unit.defeated;
+  }
+
+  liveEnemy(unit) {
+    return !unit.defeated && !unit.breachVisualized;
+  }
+
+  clearEngagement(unit) {
+    const mate = this.engagements.get(unit);
+    if (!mate) return;
+    this.engagements.delete(unit);
+    if (this.engagements.get(mate) === unit) this.engagements.delete(mate);
+  }
+
+  bindEngagement(ally, enemy) {
+    if (!this.liveAlly(ally) || !this.liveEnemy(enemy)) return false;
+    const allyMate = this.engagements.get(ally);
+    const enemyMate = this.engagements.get(enemy);
+    if (allyMate === enemy && enemyMate === ally) return true;
+    if (allyMate || enemyMate) return false;
+    this.engagements.set(ally, enemy);
+    this.engagements.set(enemy, ally);
+    return true;
+  }
+
+  reconcileEngagements() {
+    for (const [unit, mate] of this.engagements) {
+      const unitIsAlly = this.allies.includes(unit);
+      const mateIsAlly = this.allies.includes(mate);
+      if (
+        this.engagements.get(mate) !== unit ||
+        (unitIsAlly ? !this.liveAlly(unit) : !this.liveEnemy(unit)) ||
+        (mateIsAlly ? !this.liveAlly(mate) : !this.liveEnemy(mate))
+      ) this.clearEngagement(unit);
+    }
+  }
+
+  selectEngagements() {
+    const contactSquared = CLASH_DIST * CLASH_DIST;
+    for (const ally of this.allies) {
+      if (!this.liveAlly(ally) || this.engagements.has(ally)) continue;
+      let nearest = null;
+      let closest = contactSquared;
+      for (const enemy of this.enemies) {
+        if (!this.liveEnemy(enemy) || this.engagements.has(enemy)) continue;
+        const dx = enemy.x - ally.x;
+        const dy = enemy.y - ally.y;
+        const distance = dx * dx + dy * dy;
+        if (distance <= closest) {
+          closest = distance;
+          nearest = enemy;
+        }
+      }
+      if (nearest) this.bindEngagement(ally, nearest);
+    }
+  }
+
+  clampMovementToContact(unit, x, y, allySide) {
+    const startX = unit.x;
+    const startY = unit.y;
+    const dx = x - startX;
+    const dy = y - startY;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared <= 0.000001) return false;
+    const opponents = allySide ? this.enemies : this.allies;
+    let firstContact = 1;
+    let mate = null;
+    for (const opponent of opponents) {
+      if (allySide ? !this.liveEnemy(opponent) : !this.liveAlly(opponent)) continue;
+      const fromX = startX - opponent.x;
+      const fromY = startY - opponent.y;
+      const contact = fromX * fromX + fromY * fromY - CLASH_DIST * CLASH_DIST;
+      if (contact <= 0) {
+        firstContact = 0;
+        mate = opponent;
+        break;
+      }
+      const projection = 2 * (fromX * dx + fromY * dy);
+      const discriminant = projection * projection - 4 * distanceSquared * contact;
+      if (discriminant < 0) continue;
+      const at = (-projection - Math.sqrt(discriminant)) / (2 * distanceSquared);
+      if (at >= 0 && at <= firstContact) {
+        firstContact = at;
+        mate = opponent;
+      }
+    }
+    if (!mate) return false;
+    const stop = Math.max(0, firstContact - 0.0001);
+    unit.x = startX + dx * stop;
+    unit.y = startY + dy * stop;
+    if (allySide) this.bindEngagement(unit, mate);
+    else this.bindEngagement(mate, unit);
+    return true;
+  }
+
   nearestEnemy(unit, range) {
     let best = null;
     let bestD = range * range;
     for (const enemy of this.enemies) {
+      if (!this.liveEnemy(enemy) || this.engagements.has(enemy)) continue;
       const dx = enemy.x - unit.x;
       const dy = enemy.y - unit.y;
       const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = enemy; }
+      if (d < bestD) {
+        bestD = d;
+        best = enemy;
+      }
     }
     return best;
+  }
+
+  updateEngagements(dt) {
+    for (const ally of this.allies) {
+      const enemy = this.engagements.get(ally);
+      if (!enemy || this.engagements.get(enemy) !== ally || !this.liveAlly(ally) || !this.liveEnemy(enemy)) continue;
+      ally.clashCd = Math.max(0, (ally.clashCd ?? 0) - dt);
+      enemy.clashCd = Math.max(0, (enemy.clashCd ?? 0) - dt);
+      if (ally.clashCd !== 0 || enemy.clashCd !== 0) continue;
+      this.burst(ally.x, ally.y, 4, this.palette.spark);
+      this.playSpatial(ally.x, ally.y, { freq: 480, type: "triangle", duration: 0.1, gain: 0.5 });
+      ally.hp -= 1;
+      enemy.hp -= 1;
+      ally.clashCd = CLASH_TICK_S;
+      enemy.clashCd = CLASH_TICK_S;
+      this.exchanges += 1;
+      if (enemy.hp <= 0) {
+        enemy.defeated = true;
+        this.clearEngagement(enemy);
+      }
+      if (ally.hp <= 0) {
+        ally.defeated = true;
+        this.selection.delete(ally);
+        this.clearEngagement(ally);
+      }
+    }
   }
 
   // --- simulation ---------------------------------------------------------
 
   updateUnits(dt) {
-    // Allies: explicit move order > intercept nearby hostile > hold picket.
-    // Shades are DEFENDERS by default - they advance to the picket line in
-    // front of the signal nodes and engage what comes, instead of marching
-    // into the portal and despawning. Only an Assault order sends them in.
-    for (let i = this.allies.length - 1; i >= 0; i--) {
-      const ally = this.allies[i];
-      if ((ally.engagedT ?? 0) > 0) { ally.engagedT -= dt; continue; } // locked in melee
-      let target;
-      if (ally.path && ally.path.length > 0) {
+    this.reconcileEngagements();
+    this.selectEngagements();
+    this.updateEngagements(dt);
+    this.reconcileEngagements();
+
+    for (const ally of this.allies) {
+      if (!this.liveAlly(ally) || this.engagements.has(ally)) continue;
+      let target = null;
+      if (ally.path?.length) {
         target = ally.path[0];
         const dx = target.x - ally.x;
         const dy = target.y - ally.y;
@@ -1103,91 +1331,53 @@ export class BattleVisualizer {
           ally.path.shift();
           if (ally.path.length === 0) ally.path = null;
         }
-      } else if (this.isAssaulting) {
-        target = { x: GOAL_X, y: ally.y };
       } else {
         const prey = this.nearestEnemy(ally, INTERCEPT_RANGE);
-        if (prey) {
-          target = { x: prey.x, y: prey.y };
-        } else if (performance.now() < ally.holdUntil) {
-          target = null; // hold position (defender behavior after a move order)
-        } else if (Math.abs(ally.x - PICKET_X) > 0.25) {
-          target = { x: PICKET_X, y: ally.y };
-        } else {
-          target = null; // standing watch on the picket line
-        }
+        if (prey) target = { x: prey.x, y: prey.y };
+        else if (performance.now() >= ally.holdUntil && Math.abs(ally.x - PICKET_X) > 0.25) target = { x: PICKET_X, y: ally.y };
       }
-      if (target) {
-        const mag = Math.hypot(target.x - ally.x, target.y - ally.y) || 1;
-        const preferred = {
-          x: ((target.x - ally.x) / mag) * ally.speed,
-          y: ((target.y - ally.y) / mag) * ally.speed
-        };
-        const v = steer(ally, preferred, this.allies);
-        ally.x += v.x * dt;
-        ally.y = Math.max(0.4, Math.min(GRID_H - 0.4, ally.y + v.y * dt));
-        ally.facing = directionIndex(v.x, v.y);
+      if (!target) continue;
+      const magnitude = Math.hypot(target.x - ally.x, target.y - ally.y) || 1;
+      const velocity = steer(ally, {
+        x: ((target.x - ally.x) / magnitude) * ally.speed,
+        y: ((target.y - ally.y) / magnitude) * ally.speed,
+      }, this.allies.filter((candidate) => !candidate.defeated));
+      const nextX = ally.x + velocity.x * dt;
+      const nextY = Math.max(0.4, Math.min(GRID_H - 0.4, ally.y + velocity.y * dt));
+      const blocked = this.clampMovementToContact(ally, nextX, nextY, true);
+      if (!blocked) {
+        ally.x = nextX;
+        ally.y = nextY;
       }
-      if (this.isAssaulting && ally.x >= GOAL_X) {
-        this.burst(ally.x, ally.y, 6, this.palette.ally);
-        this.allies.splice(i, 1);
-        this.selection.delete(ally);
-      }
+      ally.facing = directionIndex(velocity.x, velocity.y);
     }
 
-    // Enemies: scouts flank via laneY then cut in; others straight lane.
-    for (let i = this.enemies.length - 1; i >= 0; i--) {
-      const enemy = this.enemies[i];
-      if ((enemy.clashCd ?? 0) > 0) enemy.clashCd -= dt;
-      if ((enemy.engagedT ?? 0) > 0) { enemy.engagedT -= dt; continue; } // locked in melee
+    for (const enemy of this.enemies) {
+      if (!this.liveEnemy(enemy) || this.engagements.has(enemy)) continue;
       const preferred = { x: -enemy.speed, y: 0 };
-      if (enemy.archetype === "scout" && enemy.x > 5) {
-        preferred.y = (enemy.laneY - enemy.y) * 1.2;
-      } else if (enemy.x <= 5) {
-        preferred.y = (BOSS_TILE.y - enemy.y) * 0.6; // converge on the portal
+      if (enemy.archetype === "scout" && enemy.x > 5) preferred.y = (enemy.laneY - enemy.y) * 1.2;
+      else if (enemy.x <= 5) preferred.y = (BOSS_TILE.y - enemy.y) * 0.6;
+      const velocity = steer(enemy, preferred, this.enemies.filter((candidate) => !candidate.defeated && !candidate.breachVisualized));
+      const nextX = enemy.x + velocity.x * dt;
+      const nextY = Math.max(0.4, Math.min(GRID_H - 0.4, enemy.y + velocity.y * dt));
+      const blocked = this.clampMovementToContact(enemy, nextX, nextY, false);
+      if (!blocked) {
+        enemy.x = nextX;
+        enemy.y = nextY;
       }
-      const v = steer(enemy, preferred, this.enemies);
-      enemy.x += v.x * dt;
-      enemy.y = Math.max(0.4, Math.min(GRID_H - 0.4, enemy.y + v.y * dt));
-      enemy.facing = directionIndex(v.x, v.y);
+      enemy.facing = directionIndex(velocity.x, velocity.y);
       if (enemy.x <= BREACH_X) {
+        enemy.breachVisualized = true;
+        this.clearEngagement(enemy);
         this.burst(enemy.x, enemy.y, 10, this.palette.enemy);
         this.playSpatial(enemy.x, enemy.y, { freq: 110, type: "sawtooth", duration: 0.5, gain: 1.3 });
-        this.enemies.splice(i, 1);
         this.breachFlash = 1;
-        if (typeof this.onEnemyBreach === "function") this.onEnemyBreach();
+        this.emitEncounterEvent("breach");
       }
     }
 
-    // Clash: engagement ticks, not per-frame melts. Each unit swings at most
-    // once per CLASH_TICK_S, so a 2HP shade visibly holds the line against
-    // two 1HP scouts instead of evaporating in two frames.
-    for (let i = this.allies.length - 1; i >= 0; i--) {
-      const ally = this.allies[i];
-      if ((ally.clashCd ?? 0) > 0) ally.clashCd -= dt;
-      for (let j = this.enemies.length - 1; j >= 0; j--) {
-        const enemy = this.enemies[j];
-        if ((enemy.clashCd ?? 0) > 0) continue;
-        if ((ally.clashCd ?? 0) > 0) break;
-        const dx = ally.x - enemy.x;
-        const dy = ally.y - enemy.y;
-        if (dx * dx + dy * dy < CLASH_DIST * CLASH_DIST) {
-          this.burst(ally.x, ally.y, 4, this.palette.spark);
-          this.playSpatial(ally.x, ally.y, { freq: 480, type: "triangle", duration: 0.1, gain: 0.5 });
-          ally.hp -= 1;
-          enemy.hp -= 1;
-          ally.clashCd = CLASH_TICK_S;
-          enemy.clashCd = CLASH_TICK_S;
-          ally.engagedT = CLASH_TICK_S;
-          enemy.engagedT = CLASH_TICK_S;
-          if (enemy.hp <= 0) this.enemies.splice(j, 1);
-          if (ally.hp <= 0) {
-            this.allies.splice(i, 1);
-            this.selection.delete(ally);
-            break;
-          }
-        }
-      }
+    if (this.currentWaveId && this.enemies.length > 0 && this.enemies.every((enemy) => enemy.defeated)) {
+      this.emitEncounterEvent("wave-cleared");
     }
   }
 
@@ -1455,6 +1645,7 @@ export class BattleVisualizer {
   }
 
   drawBoss() {
+    if (!this.bossExposed) return;
     const ctx = this.ctx;
     const p = this.project(BOSS_TILE.x, BOSS_TILE.y, this.elevationAt(BOSS_TILE.x, BOSS_TILE.y));
     const s = this.view.scale;
@@ -1510,7 +1701,7 @@ export class BattleVisualizer {
     const bridgeAsset = kind === "enemy" ? unit.archetype : kind === "possessed" ? "possessed" : "shade";
     const clip = unit.bridgeClipUntil > performance.now()
       ? unit.bridgeClip
-      : unit.engagedT > 0
+      : this.engagements.has(unit)
         ? "Strike"
         : (unit.path?.length || (kind !== "enemy" && this.isAssaulting))
           ? "Move"
@@ -1640,6 +1831,7 @@ export class BattleVisualizer {
       this.updateParticles(dt);
       if (this.breachFlash > 0) this.breachFlash = Math.max(0, this.breachFlash - dt * 1.6);
     }
+    this.publishRuntimeState();
     this.render();
   }
 

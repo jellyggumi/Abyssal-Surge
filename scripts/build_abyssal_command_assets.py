@@ -300,8 +300,8 @@ def clip_keyframes(category: str, clip_name: str) -> dict[str, tuple[tuple[int, 
             "scale": ((1, identity_scale), (15, (1.015, 1.015, 1.015)), (30, identity_scale)),
         }
     if clip_name == "Move":
+        # Runtime owns the actor's world transform; locomotion must remain in place.
         return {
-            "location": ((1, identity_location), (15, (0.0, 0.28, 0.02)), (30, (0.0, 0.56, 0.0))),
             "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.radians(-4))), (30, identity_rotation)),
             "scale": ((1, identity_scale), (15, (1.0, 1.0, 0.97)), (30, identity_scale)),
         }
@@ -562,16 +562,34 @@ def terrain_veil_citadel():
 
 def terrain_echo_steps():
     collection = make_collection("echo-throne-steps", "terrain")
-    for index in range(5):
-        cube(
-            collection,
-            f"throne-step-{index}",
-            (0, index * 0.36 - 0.72, index * 0.15 - 0.1),
-            (3.2 - index * 0.24, 0.5, 0.3),
-            MATS["obsidian"],
-            bevel=0.05,
-        )
-    cube(collection, "throne-dais", (0, 1.25, 0.72), (2.1, 1.12, 0.42), MATS["gold"], bevel=0.08)
+    # Runtime terrain is normalized to a 22-unit horizontal span. Author these
+    # slabs directly in that frame so they coincide with the Stage 3 grid:
+    # base floor, x=11–12 ascent, then x=13–15 throne platform.
+    slab_depth = 0.002
+    cube(
+        collection,
+        "throne-low-floor",
+        (0, 0, slab_depth / 2),
+        (22.0, 8.0, slab_depth),
+        MATS["obsidian"],
+        bevel=0.0,
+    )
+    cube(
+        collection,
+        "throne-first-platform",
+        (4.0, 0, 0.42 - slab_depth / 2),
+        (2.0, 4.0, slab_depth),
+        MATS["obsidian"],
+        bevel=0.0,
+    )
+    cube(
+        collection,
+        "throne-dais",
+        (6.5, 0, 0.84 - slab_depth / 2),
+        (3.0, 4.0, slab_depth),
+        MATS["gold"],
+        bevel=0.0,
+    )
     register("echo-throne-steps", "terrain", collection, "terrain/echo-throne-steps.glb")
 
 

@@ -7,7 +7,6 @@ Run from the repository root with Blender:
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
 import bpy
@@ -16,6 +15,10 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 TEXTURE_ROOT = ROOT / "assets" / "models" / "abyssal-command" / "textures"
 SOURCE_ROOT = TEXTURE_ROOT / "source"
+
+# Source art is retained under textures/source; emitted PBR maps are deliberately
+# POT-sized to keep every embedded GLB texture residency bounded.
+OUTPUT_TEXTURE_SIZE = 1024
 
 TEXTURES = {
     "void-obsidian": 2.6,
@@ -31,11 +34,14 @@ TEXTURES = {
 def save_albedo(source_path: Path, target_path: Path):
     image = bpy.data.images.load(str(source_path), check_existing=False)
     image.colorspace_settings.name = "sRGB"
-    width, height = image.size
-    pixels = np.asarray(image.pixels[:], dtype=np.float32).reshape(height, width, 4)
-    shutil.copy2(source_path, target_path)
+    source_width, source_height = image.size
+    image.scale(OUTPUT_TEXTURE_SIZE, OUTPUT_TEXTURE_SIZE)
+    image.filepath_raw = str(target_path)
+    image.file_format = "PNG"
+    image.save()
+    pixels = np.asarray(image.pixels[:], dtype=np.float32).reshape(OUTPUT_TEXTURE_SIZE, OUTPUT_TEXTURE_SIZE, 4)
     bpy.data.images.remove(image)
-    return pixels
+    return pixels, (source_width, source_height)
 
 
 def save_normal(texture_id: str, albedo: np.ndarray, strength: float, target_path: Path):
@@ -59,26 +65,27 @@ def save_normal(texture_id: str, albedo: np.ndarray, strength: float, target_pat
     bpy.data.images.remove(normal)
 
 
+texture_records = []
 for texture_id, strength in TEXTURES.items():
     source = SOURCE_ROOT / f"{texture_id}.png"
     if not source.is_file():
         raise FileNotFoundError(f"Missing source texture: {source}")
-    albedo = save_albedo(source, TEXTURE_ROOT / f"{texture_id}-albedo.png")
+    albedo, source_resolution = save_albedo(source, TEXTURE_ROOT / f"{texture_id}-albedo.png")
     save_normal(texture_id, albedo, strength, TEXTURE_ROOT / f"{texture_id}-normal.png")
+    texture_records.append({
+        "id": texture_id,
+        "source": f"source/{texture_id}.png",
+        "albedo": f"{texture_id}-albedo.png",
+        "normal": f"{texture_id}-normal.png",
+        "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+        "normalStrength": strength,
+        "sourceResolution": list(source_resolution),
+        "outputResolution": [OUTPUT_TEXTURE_SIZE, OUTPUT_TEXTURE_SIZE],
+    })
 
 provenance = {
-    "version": 1,
-    "baseColorSources": [
-        {
-            "id": texture_id,
-            "source": f"source/{texture_id}.png",
-            "albedo": f"{texture_id}-albedo.png",
-            "normal": f"{texture_id}-normal.png",
-            "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
-            "normalStrength": strength,
-        }
-        for texture_id, strength in TEXTURES.items()
-    ],
+    "version": 2,
+    "baseColorSources": texture_records,
 }
 (TEXTURE_ROOT / "texture-manifest.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
 print(f"ABYSSAL_TEXTURES_READY count={len(TEXTURES)} output={TEXTURE_ROOT}")

@@ -1,9 +1,10 @@
-const CACHE_NAME = "abyssal-surge-static-v19";
+const CACHE_NAME = "abyssal-surge-static-v25";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./app.js",
   "./campaign-sync.js",
+  "./stage-navigation.js",
   "./battle-visualizer.js",
   "./battle-presentation.js",
   "./battle-realtime-three.js",
@@ -127,7 +128,7 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-realtime-three.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/vendor/loaders/GLTFLoader.js", "/vendor/utils/BufferGeometryUtils.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/stage-navigation.js", "/battle-visualizer.js", "/battle-realtime-three.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/vendor/loaders/GLTFLoader.js", "/vendor/utils/BufferGeometryUtils.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 function isGlbBridgeRequest(request) {
@@ -140,21 +141,42 @@ function isLazySourceBattleRequest(request) {
   return LAZY_SOURCE_BATTLE_PATHS.some((suffix) => path.endsWith(suffix));
 }
 
-async function networkFirstLazySourceBattle(request) {
+function isExpectedSourceGlbResponse(response) {
+  const mediaType = (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
+  return response.status === 200 && mediaType === "model/gltf-binary";
+}
+
+async function networkFirstLazySourceBattle(request, event) {
+  let resolveCache;
+  const cacheLifetime = new Promise((resolve) => {
+    resolveCache = resolve;
+  });
+  event.waitUntil(cacheLifetime);
   try {
     const response = await fetch(request, { cache: "no-store" });
     if (!response.ok) {
+      resolveCache();
       const cached = await caches.match(request);
       return cached || response;
     }
-    try {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put(request, response.clone());
-    } catch {
-      // Live source assets remain usable when cache storage is unavailable.
+    if (!isExpectedSourceGlbResponse(response)) {
+      resolveCache();
+      return response;
     }
-    return response;
+    const bytes = await response.arrayBuffer();
+    const responseInit = {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    };
+    const cachedResponse = new Response(bytes.slice(0), responseInit);
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.put(request, cachedResponse))
+      .catch(() => undefined)
+      .then(resolveCache, resolveCache);
+    return new Response(bytes, responseInit);
   } catch {
+    resolveCache();
     const cached = await caches.match(request);
     return cached || Response.error();
   }
@@ -204,9 +226,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (!isSameOriginGet(request)) return;
 
-
   if (isLazySourceBattleRequest(request)) {
-    event.respondWith(networkFirstLazySourceBattle(request));
+    event.respondWith(networkFirstLazySourceBattle(request, event));
     return;
   }
 

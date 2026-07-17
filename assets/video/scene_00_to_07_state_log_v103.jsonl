@@ -1,0 +1,14 @@
+{"idx": 0, "state": "S0_OPENING", "scene": "씬 0: 침투 개막", "start_sec": 0.0, "end_sec": 16.0, "start_ts": "00:00:00,000", "end_ts": "00:00:16,000", "note": "state::scene_00_opening_gate"}
+{"idx": 1, "state": "S0_DEGRADED", "scene": "씬 0: 침투 개막(게이트 보정)", "start_sec": 16.0, "end_sec": 18.0, "start_ts": "00:00:16,000", "end_ts": "00:00:18,000", "note": "state::scene_00_opening_gate_degraded"}
+{"idx": 2, "state": "S1_HUNT", "scene": "씬 1: 사냥-창출 루프", "start_sec": 18.0, "end_sec": 24.0, "start_ts": "00:00:18,000", "end_ts": "00:00:24,000", "note": "state::scene_01_possession_hunt"}
+{"idx": 3, "state": "S1_RETRY", "scene": "씬 1 실패 루프: 재시도", "start_sec": 24.0, "end_sec": 29.0, "start_ts": "00:00:24,000", "end_ts": "00:00:29,000", "note": "state::scene_01_retry_loop"}
+{"idx": 4, "state": "S2_NODE", "scene": "씬 2: 거점 분쟁", "start_sec": 29.0, "end_sec": 40.0, "start_ts": "00:00:29,000", "end_ts": "00:00:40,000", "note": "state::scene_02_node_contest"}
+{"idx": 5, "state": "S2_FLEEBACK", "scene": "씬 2 실패 루프: 거점 복귀", "start_sec": 40.0, "end_sec": 46.0, "start_ts": "00:00:40,000", "end_ts": "00:00:46,000", "note": "state::scene_02_fleeback_realign"}
+{"idx": 6, "state": "S3_BLOOM", "scene": "씬 3: 교전 확장", "start_sec": 46.0, "end_sec": 57.0, "start_ts": "00:00:46,000", "end_ts": "00:00:57,000", "note": "state::scene_03_engagement_expand"}
+{"idx": 7, "state": "S3_STAGGER", "scene": "씬 3 실패 루프: 전황 흔들림", "start_sec": 57.0, "end_sec": 64.0, "start_ts": "00:00:57,000", "end_ts": "00:01:04,000", "note": "state::scene_03_stagger"}
+{"idx": 8, "state": "S4_COMEBACK", "scene": "씬 4: 역전 기동", "start_sec": 64.0, "end_sec": 88.0, "start_ts": "00:01:04,000", "end_ts": "00:01:28,000", "note": "state::scene_04_coming_back"}
+{"idx": 9, "state": "S5_STORM", "scene": "씬 5: 영주 반격", "start_sec": 88.0, "end_sec": 108.0, "start_ts": "00:01:28,000", "end_ts": "00:01:48,000", "note": "state::scene_05_storm_resistance"}
+{"idx": 10, "state": "S5_DESPAIR", "scene": "씬 5 실패 루프: 심연 흡수 준비", "start_sec": 108.0, "end_sec": 121.0, "start_ts": "00:01:48,000", "end_ts": "00:02:01,000", "note": "state::scene_05_despair_lock"}
+{"idx": 11, "state": "S6_APEX", "scene": "씬 6: 보스 정점", "start_sec": 121.0, "end_sec": 150.0, "start_ts": "00:02:01,000", "end_ts": "00:02:30,000", "note": "state::scene_06_sovereign_apex"}
+{"idx": 12, "state": "FAIL_PIVOT", "scene": "공통 실패 피벗: 성소로 즉시 귀환", "start_sec": 150.0, "end_sec": 165.0, "start_ts": "00:02:30,000", "end_ts": "00:02:45,000", "note": "state::scene_fail_pivot_return_impulse"}
+{"idx": 13, "state": "S7_RETURN", "scene": "씬 7: 귀환·영속", "start_sec": 165.0, "end_sec": 189.0, "start_ts": "00:02:45,000", "end_ts": "00:03:09,000", "note": "state::scene_07_return_persistence"}

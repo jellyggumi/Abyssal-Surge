@@ -31,7 +31,7 @@ jobs:
       PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
       PAGES_RUNTIME_PATHS: >-
         index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js
-        campaign-state.js campaign-sync.js i18n.js liquid-ether.js
+        campaign-state.js campaign-sync.js stage-navigation.js i18n.js liquid-ether.js
         vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js
         styles.css privacy.html sw.js manifest.json icon.svg favicon.ico
         assets/icons/icon-192.png assets/icons/icon-512.png
@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           for file in \
             index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js \
-            campaign-state.js campaign-sync.js i18n.js liquid-ether.js \
+            campaign-state.js campaign-sync.js stage-navigation.js i18n.js liquid-ether.js \
             vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js \
             styles.css privacy.html sw.js manifest.json icon.svg favicon.ico \
             assets/icons/icon-192.png assets/icons/icon-512.png \

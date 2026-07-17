@@ -18,3 +18,11 @@ scripts/__pycache__/
 
 # Derived binary collage posters for Abyssal Surge concept film
 _workspace/20260716-abyssal-surge-revision/production/vox-concept-film/keyframes/
+
+# GLB bridge build intermediates (only the composed atlases + manifest ship)
+assets/images/battle/glb/.parts/
+assets/images/battle/glb/.staging/
+
+# Blender autosave backups (the .blend source itself IS tracked - the asset
+# pack test asserts manifest.source exists in the pack)
+*.blend1

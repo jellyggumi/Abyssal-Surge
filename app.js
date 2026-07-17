@@ -2,7 +2,7 @@ import {
   RULES_VERSION,
   STAGES,
   applyAction,
-  applyBattleBreach,
+  applyEncounterEvent,
   chooseReward,
   createCampaign,
   createSaveEnvelope,
@@ -53,17 +53,6 @@ const RESUME_STATUS_KEYS = Object.freeze({
   defeat: "lobby.resumeStatus.defeat",
   "campaign-complete": "lobby.resumeStatus.campaignComplete"
 });
-const BATTLE_PREPARATION_MS = 25_000;
-// Simulated-mode breach pacing (reduced-motion / renderer fallback ONLY).
-// In the live sim a breach fires when a hostile VISUALLY reaches the Dusk
-// Portal (BattleVisualizer.onEnemyBreach) - defenders can prevent it.
-// Timers can't be defended against, so the simulated schedule must be
-// forgiving: longer fuse, and only ~half of each wave converts to a breach.
-const BATTLE_BREACH_DELAY_MS = 20_000;
-const SIMULATED_BREACH_RATIO = 0.5;
-// Wave cycle: 3 waves 8s apart, then a lull to hunt/extract/materialize.
-const WAVE_GAP_MS = 9_000;
-const WAVE_LULL_MS = 14_000;
 const BOSS_SPEC = Object.freeze([
   Object.freeze({ threat: "Class A", counter: 1, lore: "The forge bridge's ashbound sentinel breaks intruders against the drowned iron." }),
   Object.freeze({ threat: "Class S", counter: 2, lore: "A tactician of listening stone that turns every uncovered route into a killing field." }),
@@ -90,13 +79,13 @@ const NARRATION = Object.freeze({
     audio: "assets/audio/narr-stage1.mp3",
     lines: Object.freeze(["잿빛 교량, 신더 스팬.", "재의 메아리를 사냥하고 영혼을 거두어라."]),
     msPerChar: 45,
-    holdMs: 2000
+    holdMs: 2085
   }),
   "veil-citadel": Object.freeze({
     audio: "assets/audio/narr-stage2.mp3",
     lines: Object.freeze(["장막 성채, 베일 시타델.", "빙의의 힘이 깨어난다.", "두 거점을 동시에 장악하라."]),
     msPerChar: 45,
-    holdMs: 1700
+    holdMs: 2014
   }),
   "echo-throne": Object.freeze({
     audio: "assets/audio/narr-stage3.mp3",
@@ -108,13 +97,13 @@ const NARRATION = Object.freeze({
     audio: "assets/audio/narr-victory.mp3",
     lines: Object.freeze(["침묵한 문 앞에서,", "그림자 군단이 왕좌에 오른다."]),
     msPerChar: 45,
-    holdMs: 1400
+    holdMs: 1452
   }),
   defeat: Object.freeze({
     audio: "assets/audio/narr-defeat.mp3",
     lines: Object.freeze(["군단의 닻이 끊어졌다.", "다시, 일어나라."]),
     msPerChar: 45,
-    holdMs: 1400
+    holdMs: 1473
   })
 });
 const BOSS_BY_STAGE = Object.freeze({
@@ -277,6 +266,7 @@ const elements = Object.freeze({
   briefingOperation: document.querySelector("#briefing-operation"),
   briefingDoctrine: document.querySelector("#briefing-doctrine"),
   briefingBoss: document.querySelector("#briefing-boss"),
+  briefingNarration: document.querySelector("#briefing-narration"),
   startCombat: document.querySelector("#start-combat"),
   saveDock: document.querySelector("#save-dock"),
   retryFromResult: document.querySelector("#retry-from-result"),
@@ -367,20 +357,21 @@ let narratedStageId = null;
 let narratedOutcome = null;
 let stageBriefingOpen = false;
 let entryGuidanceStageId = null;
+let pendingCommandFocus = false;
 // Single-screen cockpit: the battlefield, intel rail, and command pad are
 // always visible while a campaign runs. `battleUiActive()` (a live battle
 // session exists) replaces the old activeView === "battle" checks; the
 // result overlay is derived from campaign.status in render().
 let visualizer = null;
-let waveTimer = 0;
-let wavePreparationTimer = 0;
-const battleBreachTimers = new Set();
 let battleSessionId = 0;
+let encounterStartTimer = 0;
+let battleStartedAt = 0;
+let rendererRuntime = null;
+let encounterEventQueue = Promise.resolve();
 let cooldownTimer = 0;
 let battleVisualFallback = false;
 let battleStarting = false;
 let pendingBattleRenderer = null;
-let waveIndex = 0;
 const cooldowns = new Map();
 let resultOverlayOpen = false;
 let campaignMirror = null;
@@ -566,7 +557,17 @@ function setMissionBriefingModal(active) {
   }
 }
 
+function setBriefingStageArt(stage) {
+  const imageSource = IMAGE_BY_STAGE[stage.id];
+  if (imageSource) {
+    elements.briefing.style.setProperty("--briefing-stage-art", `url("${imageSource}")`);
+  } else {
+    elements.briefing.style.removeProperty("--briefing-stage-art");
+  }
+}
+
 function renderMissionBriefing(stage) {
+  setBriefingStageArt(stage);
   setMissionBriefingModal(stageBriefingOpen);
   if (!stageBriefingOpen) return;
   const presentation = getBattlePresentation(stage.id);
@@ -578,18 +579,184 @@ function renderMissionBriefing(stage) {
   elements.briefingBoss.textContent = stage.bossName;
 }
 
+function clearEncounterStartTimer() {
+  window.clearTimeout(encounterStartTimer);
+  encounterStartTimer = 0;
+}
+
+function currentEncounter(stage = currentStage(), state = campaign?.stage) {
+  if (!stage?.encounter) return null;
+  return state?.encounter ?? null;
+}
+
+function armEncounterWhenPrepared(sessionId = battleSessionId) {
+  if (battleStartedAt || !campaign || campaign.status !== "active") return;
+  const stage = currentStage();
+  const encounter = currentEncounter(stage);
+  if (!stage.encounter || !encounter || encounter.bossExposed || encounter.spawningStopped) return;
+
+  const preparationLegion = stage.encounter.preparationLegion ?? 0;
+  const readyForInitialWave = encounter.activeWaveId !== null ||
+    campaign.stage.legion >= preparationLegion;
+  if (!readyForInitialWave) return;
+
+  battleStartedAt = performance.now();
+  scheduleEncounterWaveStart(sessionId);
+}
+
+function currentEncounterWave(stage = currentStage(), encounter = currentEncounter(stage)) {
+  if (!stage?.encounter || !encounter?.activeWaveId) return null;
+  return stage.encounter.waves.find((wave) => wave.id === encounter.activeWaveId) ?? null;
+}
+
+function projectBattleRuntime() {
+  if (!campaign) return;
+  const stage = currentStage();
+  const state = campaign.stage;
+  const encounter = currentEncounter(stage, state);
+  const activeWave = currentEncounterWave(stage, encounter);
+  const rendererMode = typeof rendererRuntime?.mode === "string" ? rendererRuntime.mode : "";
+  const runtimeCount = (value) => Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  const engagements = runtimeCount(rendererRuntime?.engagements);
+  const exchanges = runtimeCount(rendererRuntime?.exchanges);
+
+
+  elements.battleAllyLabel.textContent = `Dusk Legion · ${state.legion}/${state.capacity} fielded`;
+  elements.battleFallbackAllyLabel.textContent = elements.battleAllyLabel.textContent;
+  elements.battleField.dataset.runtimeMode = rendererMode;
+  elements.battleField.dataset.engagements = String(engagements);
+  elements.battleField.dataset.exchanges = String(exchanges);
+
+
+  if (!encounter) {
+    const bossLabel = `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
+    elements.battleHostileLabel.textContent = bossLabel;
+    elements.battleFallbackHostileLabel.textContent = bossLabel;
+    if (!stageBriefingOpen) setBattlePressure("preparation", `BOSS COMMAND · ${stage.bossName.toUpperCase()}`);
+    return;
+  }
+
+  if (activeWave) {
+    const waveIndex = stage.encounter.waves.findIndex((wave) => wave.id === activeWave.id) + 1;
+    const waveLabel = `${activeWave.id.toUpperCase()} · ${activeWave.hostiles} HOSTILES`;
+    elements.battleHostileLabel.textContent = waveLabel;
+    elements.battleFallbackHostileLabel.textContent = waveLabel;
+    if (!stageBriefingOpen) setBattlePressure("live", `LIVE WAVE · ${waveIndex}/${stage.encounter.waves.length} · ${activeWave.id.toUpperCase()}`);
+    return;
+  }
+
+  if (encounter.bossExposed) {
+    const bossLabel = `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
+    elements.battleHostileLabel.textContent = bossLabel;
+    elements.battleFallbackHostileLabel.textContent = bossLabel;
+    if (!stageBriefingOpen) setBattlePressure("live", `BOSS EXPOSED · ${stage.bossName.toUpperCase()}`);
+    return;
+  }
+
+  const nextWaveIndex = encounter.waves.findIndex((wave) => !wave.cleared);
+  const nextWave = stage.encounter.waves[nextWaveIndex];
+  const nextLabel = nextWave ? `${nextWave.id.toUpperCase()} INBOUND · ${nextWave.hostiles} HOSTILES` : "ENCOUNTER STANDING BY";
+  elements.battleHostileLabel.textContent = nextLabel;
+  elements.battleFallbackHostileLabel.textContent = nextLabel;
+  if (!stageBriefingOpen) setBattlePressure("preparation", `PREPARATION · WAVE ${nextWaveIndex + 1}/${stage.encounter.waves.length} · ${nextWave?.id?.toUpperCase() ?? "STANDING BY"}`);
+}
+
+function synchronizeBattleRenderer(renderer = visualizer) {
+  if (!renderer || !campaign) return;
+  const stage = currentStage();
+  const state = campaign.stage;
+  const encounter = currentEncounter(stage, state);
+  renderer.applyCampaignState({
+    campaign,
+    stage,
+    state,
+    integrity: state.integrity,
+    maxIntegrity: getCampaignBenefits(campaign).maxIntegrity,
+    bossHealth: state.bossHealth,
+    bossMax: stage.bossHealth,
+    aegis: state.aegis ?? 0
+  });
+  renderer.applyEncounter({
+    stageId: stage.id,
+    config: stage.encounter ?? null,
+    state: encounter ?? { waves: [], activeWaveId: null, bossExposed: true, spawningStopped: true }
+  });
+}
+
+function handleRendererRuntime(runtime, sessionId, source) {
+  if (source !== visualizer || sessionId !== battleSessionId || campaign?.status !== "active") return;
+  rendererRuntime = runtime ?? null;
+  projectBattleRuntime();
+}
+
+function scheduleEncounterWaveStart(sessionId = battleSessionId) {
+  clearEncounterStartTimer();
+  if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
+  const stage = currentStage();
+  const encounter = currentEncounter(stage);
+  if (!stage.encounter || !encounter || encounter.activeWaveId || encounter.bossExposed || encounter.spawningStopped) return;
+
+  const waveIndex = encounter.waves.findIndex((wave) => !wave.cleared);
+  const wave = stage.encounter.waves[waveIndex];
+  if (!wave) return;
+  const scheduledAtSeconds = waveIndex === 0
+    ? Math.max(wave.spawnAtSeconds, stage.encounter.preparationSeconds)
+    : wave.spawnAtSeconds;
+  const elapsed = performance.now() - battleStartedAt;
+  const delay = Math.max(0, scheduledAtSeconds * 1000 - elapsed);
+  encounterStartTimer = window.setTimeout(() => {
+    encounterStartTimer = 0;
+    void handleEncounterEvent({ type: "start-wave", stageId: stage.id, waveId: wave.id }, sessionId);
+  }, delay);
+}
+
+function handleEncounterEvent(event, sessionId = battleSessionId, source = null) {
+  const transition = async () => {
+    if (
+      campaign?.status !== "active" ||
+      sessionId !== battleSessionId ||
+      (source !== null && source !== visualizer)
+    ) return;
+
+    const result = applyEncounterEvent(campaign, event);
+    if (!result.accepted) {
+      synchronizeBattleRenderer();
+      return;
+    }
+
+    campaign = result.state;
+    const encounter = currentEncounter();
+    if (campaign.status !== "active" || encounter?.bossExposed || encounter?.spawningStopped) {
+      clearEncounterStartTimer();
+    }
+    await persistCampaign(`Encounter ${event.type} saved`);
+    render();
+    synchronizeBattleRenderer();
+
+    if (
+      event.type === "wave-cleared" &&
+      campaign.status === "active" &&
+      !currentEncounter()?.bossExposed &&
+      !currentEncounter()?.spawningStopped
+    ) {
+      scheduleEncounterWaveStart(sessionId);
+    }
+  };
+  encounterEventQueue = encounterEventQueue.then(transition, transition);
+  return encounterEventQueue;
+}
+
 function stopBattle() {
   battleSessionId += 1;
-  window.clearInterval(waveTimer);
-  window.clearTimeout(wavePreparationTimer);
-  for (const timer of battleBreachTimers) window.clearTimeout(timer);
-  battleBreachTimers.clear();
+  clearEncounterStartTimer();
   window.clearInterval(cooldownTimer);
-  waveTimer = 0;
-  wavePreparationTimer = 0;
+  battleStartedAt = 0;
+  rendererRuntime = null;
+  encounterEventQueue = Promise.resolve();
   cooldownTimer = 0;
   battleVisualFallback = false;
   cooldowns.clear();
+  pendingCommandFocus = false;
   pendingBattleRenderer?.destroy();
   pendingBattleRenderer = null;
   battleStarting = false;
@@ -597,59 +764,17 @@ function stopBattle() {
   visualizer = null;
 }
 
-function battleSimulated() {
-  // No live unit sim = breaches can't come from the canvas. Timer schedule
-  // (defense-blind, so deliberately forgiving) covers these two paths.
-  return battleVisualFallback || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function scheduleBattleBreaches(enemyCount, sessionId) {
-  const breaches = Math.ceil(enemyCount * SIMULATED_BREACH_RATIO);
-  for (let enemyIndex = 0; enemyIndex < breaches; enemyIndex += 1) {
-    const timer = window.setTimeout(() => {
-      battleBreachTimers.delete(timer);
-      if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
-      void handleBattleBreach();
-    }, BATTLE_BREACH_DELAY_MS);
-    battleBreachTimers.add(timer);
-  }
-}
-
-function spawnBattleWave(sessionId = battleSessionId) {
-  if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
-  const stage = currentStage();
-  const waveNames = ["SCOUT", "GUARD", "BOSS REINFORCEMENT"];
-  // Sized against the defense economy: one hunt->extract->materialize loop
-  // fields ~4 shades (8 swings) per ~11s. Stage 1 cycle = 2+3+4 hostiles
-  // (13 swings incl. 2HP reinforcements) - holdable with sustained play,
-  // lethal if the economy stalls.
-  const enemyCounts = [2, 2 + stage.number, 3 + stage.number];
-  const enemyCount = enemyCounts[waveIndex];
-  setBattlePressure("live", `LIVE WAVE · ${waveIndex + 1}/3 · ${waveNames[waveIndex]}`);
-  visualizer?.spawnEnemy(enemyCount);
-  if (battleSimulated()) scheduleBattleBreaches(enemyCount, sessionId);
-  const lastWaveOfCycle = waveIndex === waveNames.length - 1;
-  waveIndex = (waveIndex + 1) % waveNames.length;
-  // Cycle rhythm: waves 8s apart, then a lull - the window where the
-  // hunt -> extract -> materialize economy loop actually gets played.
-  if (lastWaveOfCycle) {
-    const lullLabel = window.setTimeout(() => {
-      battleBreachTimers.delete(lullLabel);
-      if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
-      setBattlePressure("preparation", "LULL · REINFORCE THE PICKET LINE");
-    }, WAVE_GAP_MS);
-    battleBreachTimers.add(lullLabel);
-  }
-  waveTimer = window.setTimeout(() => spawnBattleWave(sessionId), lastWaveOfCycle ? WAVE_LULL_MS : WAVE_GAP_MS);
-}
-
-function activateBattleFallback(stage) {
+function activateBattleFallback(stage, sessionId) {
   battleVisualFallback = true;
   renderBattleAssetStatus({ state: "unavailable" });
   renderBattlePresentation(stage);
-  const fallback = new BattleVisualizer(elements.battleFallbackCanvas, getBattlePresentation(stage.id), {
+  let fallback = null;
+  fallback = new BattleVisualizer(elements.battleFallbackCanvas, getBattlePresentation(stage.id), {
     nodeGoal: stage.nodeGoal,
     onAssetStatus: renderBattleAssetStatus,
+    onActionRequest: (action) => void handleAction(action),
+    onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, fallback),
+    onRuntimeState: (runtime) => handleRendererRuntime(runtime, sessionId, fallback)
   });
   try {
     fallback.init();
@@ -664,12 +789,13 @@ async function startBattle() {
   if (!campaign || campaign.status !== "active" || visualizer || cooldownTimer || battleStarting) return;
   battleStarting = true;
   const sessionId = ++battleSessionId;
-  waveIndex = 0;
+  rendererRuntime = null;
   battleVisualFallback = false;
+  cooldownTimer = window.setInterval(render, 100);
   let battleRenderer = null;
   const stage = currentStage();
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    visualizer = activateBattleFallback(stage);
+    visualizer = activateBattleFallback(stage, sessionId);
     battleStarting = false;
   } else {
     try {
@@ -678,9 +804,13 @@ async function startBattle() {
         nodeGoal: stage.nodeGoal,
         onAssetStatus: renderBattleAssetStatus,
         onActionRequest: (action) => void handleAction(action),
+        onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, battleRenderer),
+        onRuntimeState: (runtime) => handleRendererRuntime(runtime, sessionId, battleRenderer),
         onRendererFailure: () => {
           if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
-          visualizer = activateBattleFallback(currentStage());
+          visualizer = activateBattleFallback(currentStage(), sessionId);
+          synchronizeBattleRenderer();
+          projectBattleRuntime();
         },
       });
       pendingBattleRenderer = battleRenderer;
@@ -691,37 +821,25 @@ async function startBattle() {
       }
       visualizer = battleRenderer;
       if (pendingBattleRenderer === battleRenderer) pendingBattleRenderer = null;
-      battleRenderer.onEnemyBreach = () => {
-        if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
-        void handleBattleBreach();
-      };
     } catch {
       battleRenderer?.destroy();
       if (sessionId !== battleSessionId || campaign?.status !== "active") return;
-      visualizer = activateBattleFallback(currentStage());
+      visualizer = activateBattleFallback(currentStage(), sessionId);
     } finally {
       if (pendingBattleRenderer === battleRenderer) pendingBattleRenderer = null;
       if (!pendingBattleRenderer) battleStarting = false;
     }
   }
-  if (sessionId !== battleSessionId || campaign?.status !== "active") return;
-  setBattlePressure(
-    battleVisualFallback ? "fallback" : "preparation",
-    battleVisualFallback
-      ? "Static tactical fallback: rendering is unavailable, but command rules remain active."
-      : "PREPARATION · WAVE 1/3 · SCOUT INBOUND"
-  );
-  wavePreparationTimer = window.setTimeout(() => {
-    if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
-    wavePreparationTimer = 0;
-    spawnBattleWave(sessionId);
-  }, BATTLE_PREPARATION_MS);
-  cooldownTimer = window.setInterval(render, 100);
+  if (sessionId !== battleSessionId || campaign?.status !== "active" || !visualizer) return;
+  synchronizeBattleRenderer();
+  projectBattleRuntime();
+  render();
+  armEncounterWhenPrepared(sessionId);
 }
 
 
 function battleUiActive() {
-  return cooldownTimer !== 0;
+  return cooldownTimer !== 0 && !battleStarting && visualizer !== null;
 }
 
 // The cockpit has ONE screen. The result overlay opens whenever the engine
@@ -800,6 +918,14 @@ function renderCooldown(button, action, available) {
 
 
 
+function focusPendingCommand() {
+  if (!pendingCommandFocus || stageBriefingOpen || !battleUiActive()) return;
+  const command = elements.commandButtons[0];
+  if (!command || command.disabled) return;
+  pendingCommandFocus = false;
+  command.focus({ preventScroll: true });
+}
+
 function render() {
   if (!campaign) return;
   const stage = currentStage();
@@ -814,11 +940,17 @@ function render() {
   elements.stageHeading.textContent = stage.title;
   elements.stageRegion.textContent = stage.region;
   elements.stageObjective.textContent = stage.objective;
-  elements.status.textContent = entryGuidanceStageId === stage.id && campaign.status === "active" && state.hunted === 0
-    ? "First order: Hunt two rift spoor."
-    : battleVisualFallback && battleUiActive()
-      ? "Battle visualization is unavailable; command rules remain ready."
-      : campaign.lastMessage;
+  const hasRewardCarryMessage = campaign.lastMessage.endsWith(` carries into ${stage.title}.`);
+  const stageEntryOrder = entryGuidanceStageId === stage.id && campaign.status === "active" && state.hunted === 0 && !state.extracted;
+  elements.status.textContent = hasRewardCarryMessage && stageEntryOrder
+    ? `${campaign.lastMessage} First order: Hunt two rift spoor.`
+    : hasRewardCarryMessage
+      ? campaign.lastMessage
+      : stageEntryOrder
+        ? "First order: Hunt two rift spoor."
+        : battleVisualFallback && battleUiActive()
+          ? "Battle visualization is unavailable; command rules remain ready."
+          : campaign.lastMessage;
   elements.souls.textContent = String(state.souls);
   elements.legion.textContent = `${state.legion} / ${state.capacity}`;
   elements.nodes.textContent = `${state.nodes} / ${stage.nodeGoal}`;
@@ -832,25 +964,10 @@ function render() {
   renderResult(isComplete);
   syncCockpit();
 
-  // Mirror engine numbers onto the battle canvas HUD - the battlefield must
-  // be readable without glancing at the side panel.
-  visualizer?.setHud?.({
-    integrity: state.integrity,
-    maxIntegrity: benefits.maxIntegrity,
-    bossHealth: state.bossHealth,
-    bossMax: stage.bossHealth,
-    aegis: state.aegis ?? 0
-  });
-
-  const canRedeploy =
-    campaign.status === "active" &&
-    !!visualizer &&
-    state.legion > 0 &&
-    visualizer.allies.length < state.legion;
+  projectBattleRuntime();
   for (const button of elements.commandButtons) {
     const action = button.dataset.action;
-    const usable = available.has(action) || (action === "materialize" && canRedeploy);
-    renderCooldown(button, action, usable);
+    renderCooldown(button, action, available.has(action));
   }
   for (const [index, button] of elements.stageButtons.entries()) {
     const stageNumber = index + 1;
@@ -869,6 +986,7 @@ function render() {
   if (campaign.status === "reward") renderRewards(stage);
   renderStageMedia(stage);
   syncNarration();
+  focusPendingCommand();
 }
 
 async function resumeCampaign() {
@@ -915,18 +1033,23 @@ function waitForNarration(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function setTypedNarrationLine(line) {
+  elements.narrationLine.textContent = line;
+  elements.briefingNarration.textContent = line;
+}
+
 async function typeNarration(entry, run) {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   for (const line of entry.lines) {
     if (run !== narrationRun) return;
-    elements.narrationLine.textContent = "";
+    setTypedNarrationLine("");
     elements.narrationLine.classList.toggle("is-typing", !reduceMotion);
     if (reduceMotion) {
-      elements.narrationLine.textContent = line;
+      setTypedNarrationLine(line);
     } else {
       for (let index = 1; index <= line.length; index += 1) {
         if (run !== narrationRun) return;
-        elements.narrationLine.textContent = line.slice(0, index);
+        setTypedNarrationLine(line.slice(0, index));
         await waitForNarration(entry.msPerChar);
       }
     }
@@ -959,6 +1082,7 @@ function openCurrentStageBriefing(narrationKey = currentStage().id) {
   narratedOutcome = null;
   narratedStageId = currentStage().id;
   playNarration(narrationKey);
+  pendingCommandFocus = false;
 }
 
 function syncNarration() {
@@ -1032,19 +1156,11 @@ async function applyMirroredCampaign(envelope) {
   }
 }
 
-function triggerBattleVisual(action) {
+function triggerBattleVisual(action, details = {}) {
   if (!visualizer || !campaign) return;
-  const state = campaign.stage;
-  const benefits = getCampaignBenefits(campaign);
   const semantic = BATTLE_ACTION_SEMANTICS[action];
   if (!semantic) return;
-  visualizer.triggerAction({
-    ...semantic,
-    action,
-    count: action === "materialize" ? Math.max(1, 2 + benefits.summonBonus) : undefined,
-    nodes: action === "capture" ? state.nodes : undefined,
-    nodeGoal: action === "capture" ? currentStage().nodeGoal : undefined,
-  });
+  visualizer.playActionEffect({ ...semantic, action, ...details });
 }
 
 function startActionCooldown(action) {
@@ -1055,53 +1171,34 @@ function startActionCooldown(action) {
 
 async function handleAction(action) {
   if (!campaign || !battleUiActive() || resultOverlayOpen || remainingCooldown(action) > 0) return;
-  if (!getAvailableActions(campaign).includes(action)) {
-    // Presentation-only redeploy: the engine refuses materialize at full
-    // legion capacity, but the VISUAL field may have lost its shades to
-    // melee. Reserves stepping back onto the field is pure presentation -
-    // no engine transition, no save event, replay unaffected.
-    if (
-      action === "materialize" &&
-      visualizer &&
-      campaign.status === "active" &&
-      campaign.stage.legion > 0 &&
-      visualizer.allies.length < campaign.stage.legion
-    ) {
-      const benefits = getCampaignBenefits(campaign);
-      const count = Math.min(
-        Math.max(1, 2 + benefits.summonBonus),
-        campaign.stage.legion - visualizer.allies.length
-      );
-      visualizer.triggerMaterialize(count);
-      startActionCooldown(action);
-      flashEffect("materialize");
-      playCue("materialize");
-      render();
-    }
-    return;
-  }
-  const result = applyAction(campaign, action);
+  if (!getAvailableActions(campaign).includes(action)) return;
+
+  const stage = currentStage();
+  const priorCampaign = campaign;
+  const result = action === "assault" && stage.encounter
+    ? applyEncounterEvent(campaign, { type: "boss-assault", stageId: stage.id })
+    : applyAction(campaign, action);
+  const materializeCount = action === "materialize" && result.accepted
+    ? result.state.stage.legion - priorCampaign.stage.legion
+    : 0;
   campaign = result.state;
+  if (campaign.status !== "active" || currentEncounter()?.bossExposed || currentEncounter()?.spawningStopped) {
+    clearEncounterStartTimer();
+  }
   if (!result.accepted) {
     render();
     return;
   }
+
   startActionCooldown(action);
-  triggerBattleVisual(action);
-  flashEffect(result.effect);
-  playCue(result.effect);
+  synchronizeBattleRenderer();
+  armEncounterWhenPrepared();
+  triggerBattleVisual(action, action === "materialize" ? { count: materializeCount } : {});
+  const effect = action === "assault" ? "assault" : result.effect;
+  flashEffect(effect);
+  playCue(effect);
   render();
   await persistCampaign("Campaign saved");
-}
-
-async function handleBattleBreach() {
-  if (!campaign || !battleUiActive()) return;
-  const result = applyBattleBreach(campaign);
-  campaign = result.state;
-  if (!result.accepted) return;
-  flashEffect("assault");
-  await persistCampaign("Battle breach saved");
-  render();
 }
 
 async function handleReward(rewardId) {
@@ -1120,8 +1217,9 @@ async function handleReward(rewardId) {
     document.querySelector("#completion-heading")?.focus();
     return;
   }
+  openCurrentStageBriefing(currentStage().id);
   render();
-  window.requestAnimationFrame(() => elements.stageHeading.focus());
+  window.requestAnimationFrame(() => elements.startCombat.focus());
 }
 
 async function beginNewCampaign() {
@@ -1176,8 +1274,8 @@ function beginStageCombat() {
   if (!campaign || campaign.status !== "active" || !stageBriefingOpen) return;
   stageBriefingOpen = false;
   entryGuidanceStageId = currentStage().id;
+  pendingCommandFocus = true;
   render();
-  window.requestAnimationFrame(() => elements.commandButtons[0]?.focus());
 }
 
 function exportSave() {

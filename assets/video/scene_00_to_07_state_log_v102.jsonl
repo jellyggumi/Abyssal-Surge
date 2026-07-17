@@ -1,0 +1,8 @@
+{"idx": 0, "state": "S0_OPENING", "scene": "씬 0: 침투 개막", "start_sec": 0.0, "end_sec": 18.0, "start_ts": "00:00:00,000", "end_ts": "00:00:18,000", "note": "state::scene_00_opening_gate"}
+{"idx": 1, "state": "S1_HUNT", "scene": "씬 1: 사냥-창출 루프", "start_sec": 18.0, "end_sec": 21.0, "start_ts": "00:00:18,000", "end_ts": "00:00:21,000", "note": "state::scene_01_possession_hunt"}
+{"idx": 2, "state": "S2_NODE", "scene": "씬 2: 거점 분쟁", "start_sec": 21.0, "end_sec": 33.0, "start_ts": "00:00:21,000", "end_ts": "00:00:33,000", "note": "state::scene_02_node_contest"}
+{"idx": 3, "state": "S3_BLOOM", "scene": "씬 3: 교전 확장", "start_sec": 33.0, "end_sec": 60.0, "start_ts": "00:00:33,000", "end_ts": "00:01:00,000", "note": "state::scene_03_engagement_expand"}
+{"idx": 4, "state": "S4_COMEBACK", "scene": "씬 4: 역전 기동", "start_sec": 60.0, "end_sec": 90.0, "start_ts": "00:01:00,000", "end_ts": "00:01:30,000", "note": "state::scene_04_coming_back"}
+{"idx": 5, "state": "S5_STORM", "scene": "씬 5: 영주 반격", "start_sec": 90.0, "end_sec": 120.0, "start_ts": "00:01:30,000", "end_ts": "00:02:00,000", "note": "state::scene_05_storm_resistance"}
+{"idx": 6, "state": "S6_APEX", "scene": "씬 6: 보스 정점", "start_sec": 120.0, "end_sec": 153.0, "start_ts": "00:02:00,000", "end_ts": "00:02:33,000", "note": "state::scene_06_sovereign_apex"}
+{"idx": 7, "state": "S7_RETURN", "scene": "씬 7: 귀환·영속", "start_sec": 153.0, "end_sec": 189.0, "start_ts": "00:02:33,000", "end_ts": "00:03:09,000", "note": "state::scene_07_return_persistence"}

@@ -365,7 +365,7 @@ main {
 .campaign-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; flex-shrink: 0; }
 .campaign-heading-actions button { white-space: normal; }
 .stage-selector { max-width: 100%; margin: 0 0 .45rem; padding: .1rem; overflow-x: clip; flex-shrink: 0; }
-.stage-selector ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.stage-selector ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .stage-selector button { width: 100%; min-height: 2.8rem; padding: .3rem .45rem; color: var(--muted); overflow-wrap: anywhere; text-align: left; }
 .stage-selector button span { display: block; color: var(--cinder); font-size: .72rem; }
 .stage-selector button.active { border-color: var(--aqua); color: var(--ink); background: #244158; opacity: 1; }
@@ -1109,6 +1109,46 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   margin-top: 0;
 }
 
+.cockpit-main .battle-field-panel {
+  position: relative;
+}
+
+.field-command-dock {
+  position: absolute;
+  z-index: 4;
+  right: .75rem;
+  bottom: .75rem;
+  left: .75rem;
+  margin: 0;
+  padding: .55rem .7rem;
+  border-color: color-mix(in srgb, var(--battle-ally) 58%, var(--line));
+  background: color-mix(in srgb, var(--battle-background) 78%, rgb(4 6 12 / 90%));
+  box-shadow: 0 .75rem 1.8rem rgb(0 0 0 / 36%);
+  backdrop-filter: blur(9px);
+}
+
+.field-command-dock .section-heading {
+  gap: .45rem .75rem;
+  margin-bottom: .45rem;
+}
+
+.field-command-dock .section-heading h3 {
+  font-size: .85rem;
+}
+
+.field-command-dock .command-hint {
+  font-size: .68rem;
+}
+
+.field-command-dock .command-grid button {
+  min-height: 3.35rem;
+}
+
+.field-command-dock .action-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
 .cockpit-rail {
   display: flex;
   flex-direction: column;
@@ -1184,6 +1224,36 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   background: linear-gradient(135deg, rgb(4 6 12 / 86%), rgb(15 22 40 / 74%));
   backdrop-filter: blur(7px);
 }
+
+.mission-briefing::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(135deg, rgb(4 6 12 / 88%), rgb(15 22 40 / 56%)),
+    var(--briefing-stage-art, none);
+  background-position: center;
+  background-size: cover;
+  opacity: .72;
+}
+
+.mission-briefing-panel {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mission-briefing::before {
+    animation: briefing-scene-arrival 700ms ease-out both;
+  }
+}
+
+@keyframes briefing-scene-arrival {
+  from { opacity: 0; transform: scale(1.035); }
+  to { opacity: .72; transform: scale(1); }
+}
 .mission-briefing[hidden] { display: none !important; }
 .mission-briefing-panel {
   width: min(40rem, 94vw);
@@ -1200,12 +1270,21 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .mission-briefing-facts dt { margin-bottom: .12rem; color: var(--cinder); }
 .mission-briefing-facts dd { margin: 0; font-size: .9rem; font-weight: 650; }
 .mission-briefing-next { margin: 0 0 1rem; color: var(--focus); font-weight: 750; }
+
+.mission-briefing-narration {
+  min-height: 2.7em;
+  margin: 0 0 1rem;
+  color: var(--ink);
+  font-size: .96rem;
+  font-style: italic;
+  line-height: 1.45;
+}
 .mission-briefing-panel .primary { width: 100%; }
 
 /* Desktop-wide: give the field more room */
 @media (min-width: 1100px) {
-  .cockpit-main { grid-template-columns: minmax(0, 1fr) 22rem; }
-  .cockpit-main .canvas-container-3d { min-height: clamp(20rem, 52vh, 34rem); }
+  .cockpit-main { grid-template-columns: minmax(0, 1fr) 18rem; }
+  .cockpit-main .canvas-container-3d { min-height: clamp(23rem, 58vh, 38rem); }
   .command-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .command-grid button:last-child { grid-column: auto; }
   .command-grid button { grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; min-height: 4.6rem; }
@@ -1218,6 +1297,16 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   .cockpit-rail { max-height: none; overflow-y: visible; flex-direction: row; flex-wrap: wrap; }
   .cockpit-rail .rail-panel { flex: 1 1 16rem; }
   .command-hint { text-align: left; max-width: none; }
+  .cockpit-main .canvas-container-3d {
+    flex: 0 0 auto;
+    height: clamp(17rem, 54vh, 28rem);
+    min-height: 0;
+  }
+  .field-command-dock {
+    position: static;
+    margin-top: .6rem;
+    box-shadow: none;
+  }
 }
 
 /* One-screen fit: while the cockpit is live, shrink global chrome so the
@@ -1249,3 +1338,535 @@ body:has(#campaign-screen:not([hidden])) .site-header .eyebrow { display: none; 
 .cockpit-rail .status-grid dd { margin: 0; font-size: .82rem; font-weight: 800; }
 .cockpit-rail .objective-checklist { margin: .35rem 0 0; font-size: .74rem; }
 .cockpit-top .wave-badge { order: 2; }
+
+/* Tactical cockpit: battlefield, live edge HUD, then an independent command row. */
+body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
+#campaign-screen {
+  height: 100%;
+  min-height: 0;
+  padding: .3rem 0 .5rem;
+  overflow: hidden;
+}
+
+.cockpit-main {
+  flex: 1 1 auto;
+  grid-template-areas:
+    "battle hud"
+    "commands details";
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem);
+  grid-template-rows: minmax(13rem, 1fr) auto;
+  gap: .45rem;
+  overflow: hidden;
+}
+
+.cockpit-main .battle-field-panel {
+  grid-area: battle;
+  height: 100%;
+  padding: .65rem;
+}
+
+.cockpit-main .canvas-container-3d {
+  min-height: 10rem;
+  height: auto;
+}
+
+.field-edge-hud {
+  grid-area: hud;
+  display: grid;
+  align-content: stretch;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: .45rem;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+.field-edge-hud .rail-panel {
+  margin: 0;
+  min-width: 0;
+}
+
+.field-edge-hud .battle-tactical-brief {
+  grid-template-columns: 1fr;
+  gap: .28rem;
+  padding: .5rem .6rem;
+}
+
+.field-edge-hud .rail-doctrine,
+.field-edge-hud .battle-asset-status {
+  display: none;
+}
+
+.field-edge-hud .battle-force-labels {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-edge-hud .campaign-status {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: .55rem .65rem;
+}
+
+.field-edge-hud .status-body {
+  grid-template-columns: 1fr;
+  gap: .3rem;
+}
+
+.field-edge-hud .boss-portrait {
+  width: 3rem;
+}
+
+.field-edge-hud .status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .25rem;
+  margin: .2rem 0;
+}
+
+.field-edge-hud .status-grid div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .35rem;
+  min-width: 0;
+  padding: .25rem .4rem;
+}
+
+.field-edge-hud .status-grid div:last-child {
+  grid-column: span 2;
+  border-color: var(--danger);
+}
+
+.field-edge-hud .status-grid dt {
+  font-size: .64rem;
+}
+
+.field-edge-hud .status-grid dd {
+  margin: 0;
+  font-size: .78rem;
+}
+
+.field-current-objective {
+  display: grid;
+  gap: .12rem;
+  margin: .25rem 0;
+  padding: .35rem .45rem;
+  border-inline-start: .18rem solid var(--cinder);
+  border-radius: .35rem;
+  background: rgb(255 184 92 / 8%);
+  color: var(--ink);
+  font-size: .73rem;
+  font-weight: 700;
+}
+
+.field-current-objective > span:first-child {
+  color: var(--cinder);
+  font-size: .6rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.field-edge-hud .objective-checklist {
+  gap: .18rem;
+  margin-top: auto;
+  font-size: .7rem;
+}
+
+.field-edge-hud .objective-checklist li {
+  padding: .28rem .35rem .28rem 1.55rem;
+}
+
+.field-edge-hud .objective-checklist li::before {
+  left: .52rem;
+}
+
+.field-command-dock {
+  grid-area: commands;
+  position: static;
+  z-index: auto;
+  margin: 0;
+  padding: .5rem .65rem;
+  box-shadow: none;
+}
+
+.field-command-dock .command-grid button {
+  min-height: 3.15rem;
+}
+
+.cockpit-details {
+  grid-area: details;
+  min-width: 0;
+  align-self: start;
+  border: 1px solid rgb(112 229 208 / 24%);
+  border-radius: .6rem;
+  background: rgb(7 12 25 / 48%);
+}
+
+.cockpit-details > summary {
+  padding: .45rem .6rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.cockpit-details[open] {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.cockpit-details[open] > .rail-panel {
+  margin: .35rem;
+}
+
+@media (max-width: 899px) {
+  body:has(#campaign-screen:not([hidden])) main { overflow: hidden; }
+  #campaign-screen {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .cockpit-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .3rem;
+  }
+  .cockpit-top .cockpit-stage-id {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+  .cockpit-top .campaign-heading-actions {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
+    flex-wrap: nowrap;
+    gap: .2rem;
+  }
+  .cockpit-top .campaign-heading-actions button {
+    min-height: 2rem;
+    padding: .25rem .35rem;
+    font-size: .62rem;
+  }
+  .cockpit-top .stage-selector {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .cockpit-top .wave-badge {
+    grid-column: 2;
+    grid-row: 2;
+    order: initial;
+    white-space: nowrap;
+  }
+  .stage-selector ol {
+    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+    gap: .2rem;
+  }
+  .stage-selector button {
+    min-height: 2.15rem;
+    padding: .2rem;
+    font-size: .62rem;
+  }
+  .cockpit-main {
+    grid-template-areas:
+      "battle"
+      "hud"
+      "commands";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: .3rem;
+    overflow: hidden;
+  }
+  .cockpit-main .battle-field-panel {
+    height: 100%;
+    min-height: 0;
+    padding: .45rem;
+  }
+  .cockpit-main .canvas-container-3d {
+    height: auto;
+    min-height: 8rem;
+  }
+  #battle-direct-help {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .field-edge-hud {
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    grid-template-rows: auto;
+    gap: .3rem;
+    overflow: hidden;
+  }
+  .field-edge-hud .battle-tactical-brief {
+    padding: .35rem .45rem;
+  }
+  .field-edge-hud .battle-operation,
+  .field-edge-hud .campaign-status .section-heading,
+  .field-edge-hud .objective-checklist {
+    display: none;
+  }
+  .field-edge-hud .battle-pressure {
+    overflow: hidden;
+    margin: 0;
+    font-size: .62rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .field-edge-hud .campaign-status {
+    padding: .35rem .45rem;
+  }
+  .field-edge-hud .status-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .16rem;
+  }
+  .field-edge-hud .status-grid div,
+  .field-edge-hud .status-grid div:last-child {
+    display: grid;
+    grid-column: auto;
+    gap: .04rem;
+    padding: .18rem .24rem;
+  }
+  .field-edge-hud .status-grid dt {
+    overflow: hidden;
+    font-size: .52rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .field-edge-hud .status-grid dd {
+    overflow: hidden;
+    font-size: .64rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .field-current-objective {
+    display: flex;
+    align-items: baseline;
+    gap: .3rem;
+    overflow: hidden;
+    margin: .16rem 0 0;
+    padding: .2rem .3rem;
+    font-size: .64rem;
+    white-space: nowrap;
+  }
+  .field-current-objective > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .field-command-dock {
+    padding: .35rem .4rem;
+  }
+  .field-command-dock .section-heading {
+    display: none;
+  }
+  .field-command-dock .command-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .16rem;
+  }
+  .field-command-dock .command-grid button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 3.45rem;
+    padding: .16rem;
+    text-align: center;
+  }
+  .field-command-dock .action-icon,
+  .field-command-dock .command-grid small {
+    display: none;
+  }
+  .field-command-dock .key {
+    min-width: 1.25rem;
+    padding: .04rem .12rem;
+    font-size: .56rem;
+  }
+  .field-command-dock .command-grid strong {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: .56rem;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cockpit-details {
+    display: none;
+  }
+  .cockpit .save-dock {
+    min-height: 0;
+    margin: .3rem 0 0;
+    padding: .3rem .4rem;
+  }
+  .cockpit .save-dock h3,
+  .cockpit .save-dock .hint,
+  .cockpit .save-dock .mirror-status {
+    display: none;
+  }
+  .cockpit .save-dock .section-heading {
+    justify-content: flex-end;
+  }
+  .cockpit .save-dock .button-row {
+    gap: .3rem;
+  }
+  .cockpit .save-dock button,
+  .cockpit .save-dock .file-button {
+    min-height: 2.1rem;
+    padding: .25rem .45rem;
+    font-size: .65rem;
+  }
+}
+
+/* Ultra-short desktop cockpit: keep the title, live field, and command row in
+   the fixed game frame rather than letting the desktop field minimum push the
+   command grid below the viewport. */
+@media (min-width: 900px) and (max-height: 22rem) {
+  body:has(#campaign-screen:not([hidden])) .site-header {
+    padding: .15rem 0;
+  }
+
+  body:has(#campaign-screen:not([hidden])) .site-header h1 {
+    font-size: 1rem;
+  }
+
+  .cockpit {
+    gap: .25rem;
+  }
+
+  .cockpit-top {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: .2rem .45rem;
+  }
+
+  .cockpit-top .cockpit-stage-id {
+    min-width: 0;
+  }
+
+  .cockpit-top h2 {
+    font-size: 1rem;
+  }
+
+  .cockpit-top .cockpit-stage-id .eyebrow,
+  .cockpit-top .commander-identity,
+  .cockpit-top .stage-selector,
+  .cockpit-top .campaign-heading-actions {
+    display: none;
+  }
+
+  .stage-selector button,
+  .cockpit-top .campaign-heading-actions button {
+    min-height: 2rem;
+    padding: .15rem .3rem;
+    font-size: .62rem;
+  }
+
+  .cockpit .save-dock {
+    display: none;
+    min-height: 0;
+    margin: .25rem 0 0;
+    padding: .25rem .4rem;
+  }
+
+  .cockpit .save-dock h3,
+  .cockpit .save-dock .hint,
+  .cockpit .save-dock .mirror-status {
+    display: none;
+  }
+
+  .cockpit .save-dock .section-heading {
+    justify-content: flex-end;
+  }
+
+  .cockpit .save-dock .button-row {
+    gap: .3rem;
+  }
+
+  .cockpit .save-dock button,
+  .cockpit .save-dock .file-button {
+    min-height: 2.1rem;
+    padding: .25rem .45rem;
+    font-size: .65rem;
+  }
+
+  .cockpit-main {
+    grid-template-areas:
+      "battle"
+      "commands";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: .3rem;
+  }
+
+  .field-edge-hud,
+  .cockpit-details {
+    display: none;
+  }
+
+  .cockpit-main .battle-field-panel,
+  .cockpit-main .canvas-container-3d {
+    min-height: 0;
+  }
+
+  #battle-direct-help {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .field-command-dock {
+    grid-area: commands;
+    position: static;
+    margin: 0;
+    padding: .25rem .35rem;
+  }
+
+  .field-command-dock .section-heading,
+  .field-command-dock .action-icon,
+  .field-command-dock .command-grid small {
+    display: none;
+  }
+
+  .field-command-dock .command-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .16rem;
+  }
+
+  .field-command-dock .command-grid button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 2.35rem;
+    padding: .1rem .15rem;
+    text-align: center;
+  }
+
+  .field-command-dock .key {
+    min-width: 1.25rem;
+    padding: .04rem .12rem;
+    font-size: .56rem;
+  }
+
+  .field-command-dock .command-grid strong {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: .56rem;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

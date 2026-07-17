@@ -44,6 +44,13 @@
 - Canvas 2D 런타임은 이 래스터 출력만 불러옵니다. 브라우저에서 GLB를 직접 로드하거나 네이티브 WebGL/GLB 재생을 제공하지 않습니다.
 - 알려진 전투 액션은 소스에 연결된 아틀라스 애니메이션·시각 효과와 오디오 큐로 제시됩니다. 서비스 워커는 브리지 출력에 network-first 캐시를 적용해, 오프라인에서는 마지막으로 유효했던 매니페스트와 래스터 출력을 유지합니다.
 
+### 2026-07-17 검증 증거
+
+- `node --test tests/abyssal-command-assets.test.mjs tests/battle-realtime-three.test.mjs`는 12/12 통과했습니다. 임베디드 텍스처 소스 GLB, 런타임 액션 클립, normal-map/tangent 속성, Echo Throne의 얇은 높이 계단, 16×8 공용 이동·충돌 규칙을 검증합니다.
+- `node --test tests/release-closure.test.mjs`는 15/15 통과했습니다. 런타임 미디어 URL은 Pages allowlist와 서비스 워커 캐시 정책에 모두 닫히며, `ffprobe`로 측정한 6개 내레이션 MP3보다 런타임 자막 노출 시간이 씬마다 최소 50ms 더 깁니다.
+- Playwriter headless 세션으로 `http://127.0.0.1:4173/`을 확인했습니다. 새 캠페인 → Stage 1의 사냥·추출·실체화·점거 → scout/guard/reinforcement 웨이브 → Cinder Warden 처치 → 보상 선택 → Stage 2 브리핑 전이가 정상 동작했습니다. Stage 1의 렌더 증거는 `/tmp/abyssal-stage1-narration-recheck.png`에 보관됩니다.
+- 내레이션은 저역 남성 Daniel 보이스, 짧은 실내 폐허 잔향이라는 톤 계약을 유지합니다. 측정 길이와 자막 동기 계산은 [narration scripts](_workspace/20260716-shadow-lord-rts-rpg/design/narration-scripts.md)에 기록합니다.
+
 
 ## 프로젝트 구조
 

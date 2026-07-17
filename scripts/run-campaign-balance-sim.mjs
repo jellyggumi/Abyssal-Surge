@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Campaign balance simulator + exploit fuzzer for Abyssal Surge rules v3.
-// Node 22, zero dependencies. Reads the deterministic rules engine and measures
-// G2 (balance), G3 (archetype diversity), G7 (loop) inputs plus exploit probes.
+// Campaign balance simulator + exploit fuzzer for Abyssal Surge rules v5.
+// Node 22, zero dependencies. It derives arithmetic from the public stage
+// definitions and reward-benefit API, then exercises legal campaign transitions.
 // Usage: node scripts/run-campaign-balance-sim.mjs   (prints one JSON summary)
 
 import {
-  BALANCE,
   RULES_VERSION,
   STAGES,
   createCampaign,
   startCampaign,
   applyAction,
+  applyEncounterEvent,
   chooseReward,
   retryStage,
   getStageChecklist,
@@ -20,16 +20,14 @@ import {
   getCampaignBenefits,
 } from "../campaign-state.js";
 
-const ACTIONS = ["hunt", "extract", "materialize", "capture", "possess", "domain", "assault"];
+const ACTIONS = [...new Set(STAGES.flatMap((stage) => Object.keys(stage.commands)))];
 const ALL_REWARD_IDS = STAGES.flatMap((s) => s.rewards.map((r) => r.id));
 const CASUAL_TRIALS = 200;
 const FUZZ_SEQUENCES = 1000;
 const FUZZ_OPS_PER_SEQ = 150;
 const MAX_CAMPAIGN_STEPS = 500;
-// G7 proxy assumption: per semantic action pacing band (design has no measured
-// seconds-per-action; 75 s stage-1 target / 8 actions ~ 9.4 s/action sits inside).
-const SEC_PER_ACTION_MIN = 5;
-const SEC_PER_ACTION_MAX = 15;
+// Derived action-count arithmetic only; this simulator does not measure player
+// time, fairness, or live-session behavior.
 
 // --- deterministic PRNG (mulberry32) ---
 function mulberry32(seed) {
@@ -44,19 +42,23 @@ function mulberry32(seed) {
 }
 const pick = (rng, arr) => arr[Math.floor(rng() * arr.length)];
 
-// --- shared helpers over public reward benefits and engine combat math ---
-function counterAt(stageNumber, legion, counterReduction = 0) {
-  const shield = Math.floor(legion / BALANCE.shieldDivisor);
-  const base = BALANCE.counterBase[stageNumber - 1];
-  const thin = legion < BALANCE.thinMargin + stageNumber ? BALANCE.thinPenalty : 0;
-  const rawCounter = Math.max(1, base - shield) + thin;
-  return Math.max(1, rawCounter - counterReduction);
+// --- shared helpers over public stage commands and reward benefits ---
+function counterAt(stage, legion, counterReduction = 0) {
+  const counter = stage.commands.assault.counter;
+  if (counter.mode === "threshold") {
+    const base = legion >= counter.minimumLegion ? counter.readyDamage : counter.belowDamage;
+    return Math.max(1, base - counterReduction);
+  }
+  const shield = Math.floor(legion / counter.shieldDivisor);
+  const thin = legion < counter.thinLegion ? counter.thinPenalty : 0;
+  return Math.max(1, Math.max(1, counter.baseDamage - shield) + thin - counterReduction);
 }
 function materializedLegion(state, legion) {
+  const stage = STAGES[state.stageIndex];
   const benefits = getCampaignBenefits(state);
   return Math.min(
     state.stage.capacity,
-    legion + BALANCE.materializeSummon + benefits.summonBonus
+    legion + stage.progression.materializeSummon + benefits.summonBonus
   );
 }
 function reachableLegionTiers(state) {
@@ -70,10 +72,38 @@ function reachableLegionTiers(state) {
 }
 function counterOneTarget(state) {
   const benefits = getCampaignBenefits(state);
-  const stageNumber = STAGES[state.stageIndex].number;
+  const stage = STAGES[state.stageIndex];
   return reachableLegionTiers(state).find(
-    (legion) => counterAt(stageNumber, legion, benefits.counterReduction) === 1
+    (legion) => counterAt(stage, legion, benefits.counterReduction) === 1
   ) ?? null;
+}
+function hasPendingEncounter(state) {
+  const stage = STAGES[state.stageIndex];
+  return Boolean(stage.encounter && !state.stage.encounter?.bossExposed);
+}
+function readyForBossAssault(state) {
+  const stage = STAGES[state.stageIndex];
+  const assault = stage.commands.assault;
+  return state.stage.nodes >= stage.nodeGoal && (!assault.requiresPossessed || state.stage.possessed);
+}
+function resolveDeclaredEncounter(state) {
+  const stage = STAGES[state.stageIndex];
+  const events = [];
+  while (hasPendingEncounter(state)) {
+    const encounter = state.stage.encounter;
+    const wave = stage.encounter.waves.find((configured) =>
+      !encounter.waves.find((progress) => progress.id === configured.id)?.cleared
+    );
+    if (!wave) throw new Error(`encounter ${stage.id} has no uncleared declared wave`);
+    const event = encounter.activeWaveId === wave.id
+      ? { type: "wave-cleared", stageId: stage.id, waveId: wave.id }
+      : { type: "start-wave", stageId: stage.id, waveId: wave.id };
+    const result = applyEncounterEvent(state, event);
+    if (!result.accepted) throw new Error(`declared encounter event rejected: ${event.type}/${wave.id}`);
+    state = result.state;
+    events.push(event);
+  }
+  return { state, events };
 }
 function wantsEconomy(state, targetLegion) {
   const s = state.stage;
@@ -130,16 +160,21 @@ const policies = {
     if (stage.number < 3) {
       target = counterOneTarget(state) ?? s.capacity;
     } else {
-      const damage = BALANCE.assaultBase[stage.number - 1] + BALANCE.possessDamage + benefits.lensDamage;
+      const assault = stage.commands.assault;
+      const possessionDamage = stage.commands.possess
+        ? (assault.possessedDamage ?? 0) + benefits.lensDamage
+        : 0;
+      const damage = assault.damage + possessionDamage;
       const assaults = Math.ceil(s.bossHealth / damage);
-      const availableAegis = s.aegis + (s.domainUses === 0 ? BALANCE.domainAegis : 0);
+      const domain = stage.commands.domain;
+      const availableAegis = s.aegis + (s.domainUses === 0 ? (domain?.aegis ?? 0) : 0);
       const nonKillingExposed = Math.max(0, assaults - availableAegis - 1);
       const postDomainIntegrity = s.domainUses === 0
-        ? Math.min(benefits.maxIntegrity, s.integrity + BALANCE.domainRestore)
+        ? Math.min(benefits.maxIntegrity, s.integrity + (domain?.integrityRestore ?? 0))
         : s.integrity;
       target = reachableLegionTiers(state).find(
         (legion) => postDomainIntegrity - nonKillingExposed * counterAt(
-          stage.number,
+          stage,
           legion,
           benefits.counterReduction
         ) > 0
@@ -185,8 +220,8 @@ const policies = {
   }
 };
 
-// Reward plans deliberately cover every non-terminal v3 doctrine; Stage 3's
-// terminal archive choice has no combat effect.
+// Reward plans deliberately cover every non-terminal doctrine; Stage 3's
+// terminal archive choice has no mechanical effect.
 const rewardPrefs = {
   rusher: { "cinder-span": "rift-lens", "veil-citadel": "veil-vanguard", "echo-throne": "throne-echo" },
   "greedy-economy": { "cinder-span": "ember-cohort", "veil-citadel": "abyssal-banner", "echo-throne": "dawnless-crown" },
@@ -200,8 +235,16 @@ const rewardPrefs = {
 function runCampaign(name, rng, rewardPlan) {
   let state = startCampaign(createCampaign()).state;
   const probe = { integrityBeforeDomain: null };
-  const perStage = STAGES.map(() => ({ actions: 0, sequence: [], integrityEntry: null, integrityEnd: null, integrityMin: BALANCE.maxIntegrity }));
-  perStage[0].integrityEntry = BALANCE.maxIntegrity;
+  const maxIntegrity = getCampaignBenefits(state).maxIntegrity;
+  const perStage = STAGES.map(() => ({
+    actions: 0,
+    encounterEvents: 0,
+    sequence: [],
+    integrityEntry: null,
+    integrityEnd: null,
+    integrityMin: maxIntegrity
+  }));
+  perStage[0].integrityEntry = state.stage.integrity;
   const rewardsTaken = [];
   let steps = 0;
   let defeatedAt = null;
@@ -222,6 +265,12 @@ function runCampaign(name, rng, rewardPlan) {
       continue;
     }
     const bucket = perStage[state.stageIndex];
+    if (hasPendingEncounter(state) && readyForBossAssault(state)) {
+      const resolved = resolveDeclaredEncounter(state);
+      state = resolved.state;
+      bucket.encounterEvents += resolved.events.length;
+      continue;
+    }
     const action = policies[name](state, rng, probe);
     const result = applyAction(state, action);
     if (!result.accepted) throw new Error(`policy ${name} chose rejected action ${action}`);
@@ -260,6 +309,7 @@ function measureArchetypes() {
       perStage: run.perStage.map((s, i) => ({
         stage: STAGES[i].id,
         actions: s.actions,
+        encounterEvents: s.encounterEvents,
         integrityEntry: s.integrityEntry,
         integrityEnd: s.integrityEnd,
         integrityMin: s.integrityMin
@@ -317,15 +367,15 @@ function measureCombos() {
         totalActions: run.totalActions,
         perStageActions: run.perStage.map((s) => s.actions),
         integrityEndPerStage: run.integrityTrail,
-        evPerAction: run.win ? 1 / run.totalActions : 0
+        completionPerAction: run.win ? 1 / run.totalActions : 0
       });
     }
   }
-  const evs = combos.map((combo) => combo.evPerAction).sort((a, b) => a - b);
-  const middle = Math.floor(evs.length / 2);
-  const medianEv = evs.length % 2 === 0
-    ? (evs[middle - 1] + evs[middle]) / 2
-    : evs[middle];
+  const completionRates = combos.map((combo) => combo.completionPerAction).sort((a, b) => a - b);
+  const middle = Math.floor(completionRates.length / 2);
+  const medianCompletionPerAction = completionRates.length % 2 === 0
+    ? (completionRates[middle - 1] + completionRates[middle]) / 2
+    : completionRates[middle];
   const outcomeKeys = new Set(combos.map((combo) => `${combo.totalActions}:${combo.integrityEndPerStage.join(",")}`));
   return {
     stage1RewardIds: stage1.rewards.map((reward) => reward.id),
@@ -334,29 +384,39 @@ function measureCombos() {
     measuredPairCount: combos.length,
     completeCoverage: combos.length === stage1.rewards.length * stage2.rewards.length,
     combos,
-    medianEv,
-    maxEvRatio: medianEv > 0 ? Math.max(...evs) / medianEv : null,
+    medianCompletionPerAction,
+    maxCompletionPerActionRatio: medianCompletionPerAction > 0
+      ? Math.max(...completionRates) / medianCompletionPerAction
+      : null,
     distinctOutcomes: outcomeKeys.size,
     identicalOutcomes: outcomeKeys.size === 1
   };
 }
 
-// --- targeted contract probes (B1/B3 resolution evidence) ---
+// --- targeted command and encounter-resolution probes ---
 function contractProbes() {
   const play = (seqStages, rewards) => {
     let state = startCampaign(createCampaign()).state;
     const applied = [];
-    for (let i = 0; i < 3; i += 1) {
+    const encounterEvents = [];
+    for (let i = 0; i < STAGES.length; i += 1) {
       for (const action of seqStages[i]) {
+        if (action === "assault" && hasPendingEncounter(state)) {
+          const resolved = resolveDeclaredEncounter(state);
+          state = resolved.state;
+          encounterEvents.push(...resolved.events);
+        }
         const result = applyAction(state, action);
-        if (!result.accepted) return { status: "rejected", at: `${STAGES[i].id}:${action}`, applied };
+        if (!result.accepted) return { status: "rejected", at: `${STAGES[i].id}:${action}`, applied, encounterEvents };
         state = result.state;
         applied.push(action);
-        if (state.status === "defeat") return { status: "defeat", stage: STAGES[state.stageIndex].id, integrity: state.stage.integrity, applied };
+        if (state.status === "defeat") {
+          return { status: "defeat", stage: STAGES[state.stageIndex].id, integrity: state.stage.integrity, applied, encounterEvents };
+        }
       }
       if (state.status === "reward") state = chooseReward(state, rewards[i]).state;
     }
-    return { status: state.status, applied };
+    return { status: state.status, applied, encounterEvents };
   };
   const thinLine = ["hunt", "hunt", "extract", "materialize"];
   const s1 = [...thinLine, "capture", "assault", "assault", "assault"];
@@ -368,13 +428,13 @@ function contractProbes() {
   const comebackWin = play([s1, s2, comebackS3], rewards);
   return {
     rusherDefeatSequence: {
-      description: "thin-legion rush (1 materialize per stage), no Domain: first Echo Throne assault is lethal",
+      description: "thin-legion rush without invoking the configured Echo Throne Domain; the first Echo Throne assault is lethal",
       rewards,
       perStage: [s1, s2, rusherS3],
       result: rusherDefeat
     },
     comebackDomainFlip: {
-      description: "identical S1/S2 line; Echo Throne opens with Domain (+4 integrity, aegis 2) and wins",
+      description: "identical S1/S2 line; Echo Throne invokes its configured Domain before the possession assaults",
       rewards,
       perStage: [s1, s2, comebackS3],
       result: comebackWin
@@ -389,14 +449,14 @@ function stageInvariantErrors(state) {
   const stage = STAGES[state.stageIndex];
   const s = state.stage;
   const benefits = getCampaignBenefits(state);
-  const maximumAegis = benefits.initialAegis + (s.domainUses * BALANCE.domainAegis);
-  if (!(s.integrity >= 0 && s.integrity <= BALANCE.maxIntegrity)) errs.push(`integrity out of [0,${BALANCE.maxIntegrity}]: ${s.integrity}`);
-  if (!(s.entryIntegrity >= 0 && s.entryIntegrity <= BALANCE.maxIntegrity)) errs.push(`entryIntegrity out of range: ${s.entryIntegrity}`);
+  const maximumAegis = benefits.initialAegis + (s.domainUses * (stage.commands.domain?.aegis ?? 0));
+  if (!(s.integrity >= 0 && s.integrity <= benefits.maxIntegrity)) errs.push(`integrity out of [0,${benefits.maxIntegrity}]: ${s.integrity}`);
+  if (!(s.entryIntegrity >= 0 && s.entryIntegrity <= benefits.maxIntegrity)) errs.push(`entryIntegrity out of range: ${s.entryIntegrity}`);
   if (!(s.souls >= 0)) errs.push(`souls negative: ${s.souls}`);
   if (!(s.legion >= 0 && s.legion <= s.capacity)) errs.push(`legion out of [0,capacity]: ${s.legion}/${s.capacity}`);
-  if (!(s.capacity >= 10 && s.capacity <= 100)) errs.push(`capacity out of [10,100]: ${s.capacity}`);
+  if (!(Number.isInteger(s.capacity) && s.capacity >= s.legion)) errs.push(`capacity is invalid for legion ${s.legion}: ${s.capacity}`);
   if (!(s.bossHealth >= 0 && s.bossHealth <= stage.bossHealth)) errs.push(`bossHealth out of bounds: ${s.bossHealth}`);
-  if (!(s.hunted >= 0 && s.hunted <= 2)) errs.push(`hunted out of [0,2]: ${s.hunted}`);
+  if (!(s.hunted >= 0 && s.hunted <= stage.progression.huntGoal)) errs.push(`hunted out of [0,${stage.progression.huntGoal}]: ${s.hunted}`);
   if (!(s.aegis >= 0 && s.aegis <= maximumAegis)) errs.push(`aegis out of [0,${maximumAegis}]: ${s.aegis}`);
   if (!(s.nodes >= 0 && s.nodes <= stage.nodeGoal)) errs.push(`nodes exceed goal: ${s.nodes}/${stage.nodeGoal}`);
   if (s.integrity === 0 && state.status === "active") errs.push("integrity 0 while status active (integrity-0 bypass)");
@@ -409,6 +469,19 @@ function stageInvariantErrors(state) {
 function semanticEqual(a, b) {
   return JSON.stringify({ i: a.stageIndex, st: a.status, r: a.rewards, sg: a.stage }) ===
     JSON.stringify({ i: b.stageIndex, st: b.status, r: b.rewards, sg: b.stage });
+}
+function fuzzEncounterEvent(state, rng) {
+  const stage = STAGES[state.stageIndex];
+  const encounter = state.stage.encounter;
+  const nextWave = stage.encounter?.waves.find((wave) =>
+    !encounter?.waves.find((progress) => progress.id === wave.id)?.cleared
+  );
+  const event = nextWave && encounter?.activeWaveId === nextWave.id
+    ? { type: pick(rng, ["wave-cleared", "breach"]), stageId: stage.id, waveId: nextWave.id }
+    : { type: "start-wave", stageId: stage.id, waveId: nextWave?.id ?? "forged-wave" };
+  if (rng() < 0.15) event.waveId = "forged-wave";
+  if (rng() < 0.1) event.stageId = "forged-stage";
+  return event;
 }
 
 function fuzz() {
@@ -431,18 +504,22 @@ function fuzz() {
       let result;
       let opDesc;
       try {
-        if (roll < 0.62) {
+        if (roll < 0.56) {
           const action = pick(rng, ACTIONS);
           opDesc = `applyAction(${action})`;
           result = applyAction(state, action);
-        } else if (roll < 0.74) {
+        } else if (roll < 0.68) {
+          const event = fuzzEncounterEvent(state, rng);
+          opDesc = `applyEncounterEvent(${event.type}/${event.stageId}/${event.waveId})`;
+          result = applyEncounterEvent(state, event);
+        } else if (roll < 0.78) {
           const rewardId = rng() < 0.85 ? pick(rng, ALL_REWARD_IDS) : "forged-crown-of-nothing";
           opDesc = `chooseReward(${rewardId})`;
           result = chooseReward(state, rewardId);
-        } else if (roll < 0.84) {
+        } else if (roll < 0.88) {
           opDesc = "retryStage()";
           result = retryStage(state);
-        } else if (roll < 0.94) {
+        } else if (roll < 0.96) {
           opDesc = "startCampaign()";
           result = startCampaign(state);
         } else {
@@ -484,29 +561,29 @@ function fuzz() {
       }
     }
   }
-  // targeted probe: oversized trace envelope must be rejected
+  // Targeted probe: an oversized current-schema trace envelope must be rejected.
   let oversizeRejected = false;
   try {
     restoreSaveEnvelope({
       schema: "abyssal-surge-campaign",
-      schemaVersion: 2,
+      schemaVersion: 4,
       rulesVersion: RULES_VERSION,
       trace: Array.from({ length: 401 }, () => ({ kind: "action", action: "hunt" }))
     });
   } catch {
     oversizeRejected = true;
   }
-  // targeted probe: v1 envelope must be rejected with the migration message
-  let v1Rejection = null;
+  // Targeted probe: the preceding v4-rules/schema-v3 envelope must be rejected.
+  let legacyEnvelopeRejection = null;
   try {
     restoreSaveEnvelope({
       schema: "abyssal-surge-campaign",
-      schemaVersion: 1,
-      rulesVersion: "abyssal-surge-rules-v1",
+      schemaVersion: 3,
+      rulesVersion: "abyssal-surge-rules-v4",
       trace: [{ kind: "start" }]
     });
   } catch (error) {
-    v1Rejection = error.message;
+    legacyEnvelopeRejection = error.message;
   }
   return {
     sequences: FUZZ_SEQUENCES,
@@ -516,7 +593,7 @@ function fuzz() {
     defeatsReachedByFuzzer: defeatsSeen,
     saveRestoreRoundTrips: roundTrips,
     oversizeTraceRejected: oversizeRejected,
-    v1EnvelopeRejection: v1Rejection,
+    legacyEnvelopeRejection,
     findings
   };
 }
@@ -536,9 +613,15 @@ function branchCensus() {
         continue;
       }
       const avail = getAvailableActions(state);
+      if (hasPendingEncounter(state) && readyForBossAssault(state)) {
+        state = resolveDeclaredEncounter(state).state;
+        continue;
+      }
       decisions += 1;
       if (avail.length > 1) branchPoints += 1;
-      state = applyAction(state, policies[name](state, rng, probe)).state;
+      const result = applyAction(state, policies[name](state, rng, probe));
+      if (!result.accepted) throw new Error(`branch census policy ${name} chose a rejected action`);
+      state = result.state;
     }
     return { policy: name, decisions, branchPoints, branchFraction: decisions ? branchPoints / decisions : 0 };
   };
@@ -583,19 +666,16 @@ function measureSummaryComponents() {
       distinctDeterministicOutcomes: outcomeVariety.size
     },
     g7Proxy: {
-      assumption: `seconds-per-action band ${SEC_PER_ACTION_MIN}-${SEC_PER_ACTION_MAX}s (75s stage-1 target / 8 actions = 9.4s/action)`,
+      source: "derived command and declared-encounter event counts; no player-time or fairness measurement",
       perStage: STAGES.map((stage, index) => {
-        const actions = archetypes.optimal.perStage[index].actions;
+        const run = archetypes.optimal.perStage[index];
         return {
           stage: stage.id,
-          actionsPerLoop: actions,
-          derivedLoopSecondsMin: actions * SEC_PER_ACTION_MIN,
-          derivedLoopSecondsMax: actions * SEC_PER_ACTION_MAX,
-          band: "30-180",
-          rewardEventsPerLoop: 1
+          commandActions: run.actions,
+          encounterEvents: run.encounterEvents,
+          rewardChoicesPerCompletedCampaign: 1
         };
-      }),
-      repeatRateProxy: "NOT-RUN (requires live playtest sessions, not simulatable)"
+      })
     }
   };
 }
@@ -610,8 +690,8 @@ const deterministic = determinismCheck();
 const summary = {
   simulator: "run-campaign-balance-sim.mjs",
   rulesVersion: RULES_VERSION,
-  balance: BALANCE,
-  winDefinition: "campaign-complete with zero defeats; first defeat ends the measured run",
+  campaignMaxIntegrity: getCampaignBenefits(createCampaign()).maxIntegrity,
+  stageRuleIds: STAGES.map((stage) => stage.id),
   ...components,
   determinismDoubleRunIdentical: deterministic
 };

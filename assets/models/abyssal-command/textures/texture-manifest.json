@@ -1,0 +1,117 @@
+{
+  "version": 2,
+  "baseColorSources": [
+    {
+      "id": "void-obsidian",
+      "source": "source/void-obsidian.png",
+      "albedo": "void-obsidian-albedo.png",
+      "normal": "void-obsidian-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 2.6,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "cold-steel",
+      "source": "source/cold-steel.png",
+      "albedo": "cold-steel-albedo.png",
+      "normal": "cold-steel-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.8,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "ash-cloth",
+      "source": "source/ash-cloth.png",
+      "albedo": "ash-cloth-albedo.png",
+      "normal": "ash-cloth-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.0,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "violet-rift",
+      "source": "source/violet-rift.png",
+      "albedo": "violet-rift-albedo.png",
+      "normal": "violet-rift-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.2,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "cinder-ember",
+      "source": "source/cinder-ember.png",
+      "albedo": "cinder-ember-albedo.png",
+      "normal": "cinder-ember-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.8,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "gate-gold",
+      "source": "source/gate-gold.png",
+      "albedo": "gate-gold-albedo.png",
+      "normal": "gate-gold-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.5,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "old-bone",
+      "source": "source/old-bone.png",
+      "albedo": "old-bone-albedo.png",
+      "normal": "old-bone-normal.png",
+      "normalConvention": "OpenGL tangent-space (+Y), tiling Sobel derivation",
+      "normalStrength": 1.2,
+      "sourceResolution": [
+        1254,
+        1254
+      ],
+      "outputResolution": [
+        1024,
+        1024
+      ]
+    }
+  ]
+}

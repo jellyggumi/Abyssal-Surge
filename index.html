@@ -217,6 +217,7 @@
               <div><dt data-i18n="briefing.doctrineLabel">교리</dt><dd id="briefing-doctrine"></dd></div>
               <div><dt data-i18n="briefing.bossLabel">대상</dt><dd id="briefing-boss"></dd></div>
             </dl>
+            <p id="briefing-narration" class="mission-briefing-narration" aria-hidden="true"></p>
             <p class="mission-briefing-next" data-i18n="briefing.nextOrder">첫 명령: 균열 흔적을 두 번 사냥해 영혼 은닉처를 드러내세요.</p>
             <button id="start-combat" class="primary" type="button" data-i18n="briefing.startButton">전투 개시</button>
           </section>
@@ -242,9 +243,69 @@
             </div>
             <p id="battle-direct-help" class="battle-mouse-help">Focus the field, then hold WASD or arrow keys to move the commander; hold Shift to surge. Drag to orbit, wheel to zoom, click ground for a personal rally, right-click ground for shade rally, and click a marked target to request its command.</p>
           </section>
+          <section id="command-panel" class="panel command-panel cockpit-commands field-command-dock" aria-labelledby="commands-heading">
+            <div class="section-heading">
+              <div>
+                <h3 id="commands-heading" data-i18n="command.heading">의미 기반 명령</h3>
+                <output id="campaign-status" class="status-message" aria-live="polite"></output>
+              </div>
+              <p class="hint command-hint" data-i18n="command.hint">버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요. 행동 마다 고유 쿨타임이 적용됩니다.</p>
+            </div>
+            <div class="command-grid">
+              <button id="action-hunt" data-action="hunt" type="button" aria-keyshortcuts="H">
+                <img class="action-icon" src="assets/images/ui/action-hunt.png" alt="" />
+                <span class="key">H</span>
+                <strong data-i18n="command.hunt.name">사냥</strong>
+                <small data-i18n="command.hunt.desc">균열 흔적 두 곳을 탐색</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-extract" data-action="extract" type="button" aria-keyshortcuts="E">
+                <img class="action-icon" src="assets/images/ui/action-extract.png" alt="" />
+                <span class="key">E</span>
+                <strong data-i18n="command.extract.name">추출</strong>
+                <small data-i18n="command.extract.desc">그림자 은닉처를 확보</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-materialize" data-action="materialize" type="button" aria-keyshortcuts="M">
+                <img class="action-icon" src="assets/images/ui/action-materialize.png" alt="" />
+                <span class="key">M</span>
+                <strong data-i18n="command.materialize.name">실체화</strong>
+                <small data-i18n="command.materialize.desc">그림자 군단을 소환</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-capture" data-action="capture" type="button" aria-keyshortcuts="C">
+                <img class="action-icon" src="assets/images/ui/action-capture.png" alt="" />
+                <span class="key">C</span>
+                <strong data-i18n="command.capture.name">점거</strong>
+                <small data-i18n="command.capture.desc">기술 거점을 고정</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-possess" data-action="possess" type="button" aria-keyshortcuts="P">
+                <img class="action-icon" src="assets/images/ui/action-possess.png" alt="" />
+                <span class="key">P</span>
+                <strong data-i18n="command.possess.name">빙의</strong>
+                <small data-i18n="command.possess.desc">2단계에서 해금</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-domain" data-action="domain" type="button" aria-keyshortcuts="D">
+                <img class="action-icon" src="assets/images/ui/action-domain.png" alt="" />
+                <span class="key">D</span>
+                <strong data-i18n="command.domain.name">군주의 영역</strong>
+                <small data-i18n="command.domain.desc">3단계에서 1회 사용</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+              <button id="action-assault" data-action="assault" type="button" aria-keyshortcuts="A">
+                <img class="action-icon" src="assets/images/ui/action-assault.png" alt="" />
+                <span class="key">A</span>
+                <strong data-i18n="command.assault.name">총공격</strong>
+                <small data-i18n="command.assault.desc">스테이지 보스를 무너뜨림</small>
+                <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
+              </button>
+            </div>
+          </section>
 
           <!-- RIGHT RAIL: every piece of intel, always visible -->
-          <aside class="cockpit-rail">
+          <aside class="cockpit-rail field-edge-hud" aria-label="Tactical field status">
             <section id="battle-tactical-brief" class="panel rail-panel battle-tactical-brief" aria-labelledby="battle-operation">
               <h4 id="battle-operation" class="battle-operation">Operation: Ember Break</h4>
               <p id="battle-doctrine" class="rail-doctrine">Open the forge lane, raise shades, then sever the Warden's hold.</p>
@@ -270,9 +331,14 @@
                   <div><dt id="boss-label">Boss ward</dt><dd id="boss-value">8 / 8</dd></div>
                 </dl>
               </div>
+              <p class="field-current-objective"><span>Current objective</span><span id="stage-objective"></span></p>
               <ol id="objective-checklist" class="objective-checklist" aria-label="Stage objectives"></ol>
             </section>
+          </aside>
 
+
+          <details class="cockpit-details">
+            <summary>Operational detail</summary>
             <section class="panel rail-panel rail-boss" aria-labelledby="boss-spec-name">
               <div class="rail-boss-head">
                 <img id="boss-portrait-spec" class="boss-portrait-rail" src="assets/images/ui/boss-cinder-warden.png" alt="Boss Portrait" />
@@ -302,75 +368,13 @@
                 <div class="stage-transition-copy">
                   <p id="narration-line" class="narration-line" aria-hidden="true"></p>
                   <p id="narration-sr" class="sr-only" role="status"></p>
-                  <p id="stage-objective"></p>
                   <button id="toggle-stage-ambience" type="button" aria-pressed="false">Play ambient sound</button>
                 </div>
               </div>
             </section>
-          </aside>
+          </details>
         </div>
 
-        <!-- BOTTOM: command pad + live status line, RTS style -->
-        <section id="command-panel" class="panel command-panel cockpit-commands" aria-labelledby="commands-heading">
-          <div class="section-heading">
-            <div>
-              <h3 id="commands-heading" data-i18n="command.heading">의미 기반 명령</h3>
-              <output id="campaign-status" class="status-message" aria-live="polite"></output>
-            </div>
-            <p class="hint command-hint" data-i18n="command.hint">버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요. 행동 마다 고유 쿨타임이 적용됩니다.</p>
-          </div>
-          <div class="command-grid">
-            <button id="action-hunt" data-action="hunt" type="button" aria-keyshortcuts="H">
-              <img class="action-icon" src="assets/images/ui/action-hunt.png" alt="" />
-              <span class="key">H</span>
-              <strong data-i18n="command.hunt.name">사냥</strong>
-              <small data-i18n="command.hunt.desc">균열 흔적 두 곳을 탐색</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-extract" data-action="extract" type="button" aria-keyshortcuts="E">
-              <img class="action-icon" src="assets/images/ui/action-extract.png" alt="" />
-              <span class="key">E</span>
-              <strong data-i18n="command.extract.name">추출</strong>
-              <small data-i18n="command.extract.desc">그림자 은닉처를 확보</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-materialize" data-action="materialize" type="button" aria-keyshortcuts="M">
-              <img class="action-icon" src="assets/images/ui/action-materialize.png" alt="" />
-              <span class="key">M</span>
-              <strong data-i18n="command.materialize.name">실체화</strong>
-              <small data-i18n="command.materialize.desc">그림자 군단을 소환</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-capture" data-action="capture" type="button" aria-keyshortcuts="C">
-              <img class="action-icon" src="assets/images/ui/action-capture.png" alt="" />
-              <span class="key">C</span>
-              <strong data-i18n="command.capture.name">점거</strong>
-              <small data-i18n="command.capture.desc">기술 거점을 고정</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-possess" data-action="possess" type="button" aria-keyshortcuts="P">
-              <img class="action-icon" src="assets/images/ui/action-possess.png" alt="" />
-              <span class="key">P</span>
-              <strong data-i18n="command.possess.name">빙의</strong>
-              <small data-i18n="command.possess.desc">2단계에서 해금</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-domain" data-action="domain" type="button" aria-keyshortcuts="D">
-              <img class="action-icon" src="assets/images/ui/action-domain.png" alt="" />
-              <span class="key">D</span>
-              <strong data-i18n="command.domain.name">군주의 영역</strong>
-              <small data-i18n="command.domain.desc">3단계에서 1회 사용</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-            <button id="action-assault" data-action="assault" type="button" aria-keyshortcuts="A">
-              <img class="action-icon" src="assets/images/ui/action-assault.png" alt="" />
-              <span class="key">A</span>
-              <strong data-i18n="command.assault.name">총공격</strong>
-              <small data-i18n="command.assault.desc">스테이지 보스를 무너뜨림</small>
-              <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
-            </button>
-          </div>
-        </section>
 
         <section id="save-dock" class="panel save-panel save-dock" aria-labelledby="save-heading">
           <div class="section-heading">

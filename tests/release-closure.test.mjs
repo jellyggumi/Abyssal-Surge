@@ -1,14 +1,36 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { STAGES } from "../campaign-state.js";
+
+const execFileAsync = promisify(execFile);
 
 const SOURCE_ROOT = new URL("../", import.meta.url);
 const CANONICAL_PAGES_BASE = "https://jellyggumi.github.io/Abyssal-Surge";
 
 async function readProjectFile(path) {
   return readFile(new URL(path, SOURCE_ROOT), "utf8");
+}
+
+async function ffprobeAudioDurationMs(assetPath) {
+  const audioFsPath = fileURLToPath(new URL(assetPath, SOURCE_ROOT));
+  const { stdout } = await execFileAsync("ffprobe", [
+    "-v", "error",
+    "-select_streams", "a:0",
+    "-show_entries", "format=duration",
+    "-of", "json",
+    audioFsPath,
+  ]);
+  const duration = Number(JSON.parse(stdout).format?.duration);
+  assert.ok(
+    Number.isFinite(duration) && duration > 0,
+    `ffprobe must report a positive duration for ${assetPath}`,
+  );
+  return duration * 1000;
 }
 
 function staticRelativeImports(source) {
@@ -133,12 +155,14 @@ function bridgeOutputPaths(bridgeManifest, bridgeRoot) {
     assert.ok(output && typeof output === "object", `GLB bridge record ${index} must declare output metadata`);
     const outputPath = output.path;
     assert.equal(typeof outputPath, "string", `GLB bridge record ${index} must declare an output path`);
+    const rawOutputPath = outputPath.split(/[?#]/, 1)[0];
     assert.ok(
       outputPath.startsWith(`${bridgeRootWithoutDot}/`),
       `GLB bridge output ${outputPath} must stay under ${bridgeRoot}`,
     );
     assert.ok(
       outputPath.endsWith(".png") &&
+        !/(?:^|[\\/])(?:\.|%2e){1,2}(?=[\\/]|$)|%2f|%5c|\\/i.test(rawOutputPath) &&
         !outputPath.includes("\\") &&
         outputPath.split("/").every((segment) => segment !== "" && segment !== "." && segment !== ".."),
       `GLB bridge output ${outputPath} must use a safe in-root PNG path`,
@@ -162,6 +186,65 @@ function coreAssetPaths(serviceWorker) {
   assert.ok(declaration, "service worker must declare CORE_ASSETS");
 
   return new Set([...declaration.groups.assets.matchAll(/["'](?<path>\.[^"']+)["']/g)].map((match) => match.groups.path));
+}
+
+function runtimeAssetPath(path) {
+  const declaration = path.match(/^(?:\.\/)?(?<asset>assets\/(?<subpath>[^?#]+))$/);
+  assert.ok(declaration, `runtime media URL must be a literal relative assets path: ${path}`);
+  const segments = declaration.groups.subpath.split("/");
+  assert.ok(
+    segments.every(
+      (segment) =>
+        segment !== "" &&
+        segment !== "." &&
+        segment !== ".." &&
+        !/%2e|%2f|%5c/i.test(segment) &&
+        !segment.includes("\\"),
+    ),
+    `runtime media URL must use a safe assets subpath: ${path}`,
+  );
+  return `./${declaration.groups.asset}`;
+}
+
+function runtimeMediaPaths(app, index) {
+  const objectDeclarations = [
+    "CUE_BY_EFFECT",
+    "BOSS_BY_STAGE",
+    "NARRATOR_ATLAS_BY_STAGE",
+    "VIDEO_BY_STAGE",
+    "IMAGE_BY_STAGE",
+  ];
+  const appPaths = objectDeclarations.flatMap((name) => {
+    const declaration = app.match(
+      new RegExp(`const ${name} = Object\\.freeze\\(\\{(?<entries>[\\s\\S]*?)\\}\\);`),
+    );
+    assert.ok(declaration, `app.js must declare ${name}`);
+    return [...declaration.groups.entries.matchAll(
+      /^\s*(?:"[^"]+"|\w+)\s*:\s*"(?<path>(?:\.\/)?assets\/[^"]+)"/gm,
+    )].map((match) => match.groups.path);
+  });
+  const narration = app.match(/const NARRATION = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  assert.ok(narration, "app.js must declare NARRATION");
+  appPaths.push(
+    ...[...narration.groups.entries.matchAll(
+      /^\s*audio:\s*"(?<path>(?:\.\/)?assets\/[^"]+)"/gm,
+    )].map((match) => match.groups.path),
+  );
+  for (const expression of [
+    /const TACTICAL_SURFACE = "(?<path>(?:\.\/)?assets\/[^"]+)";/,
+    /new Audio\("(?<path>(?:\.\/)?assets\/[^"]+)"\)/,
+    /\bvideo\.src = "(?<path>(?:\.\/)?assets\/[^"]+)";/,
+  ]) {
+    const match = app.match(expression);
+    assert.ok(match, `app.js must retain runtime media declaration ${expression}`);
+    appPaths.push(match.groups.path);
+  }
+
+  const indexPaths = [...index.matchAll(
+    /<(?:audio|video|img|track)\b[^>]*\bsrc=["'](?<path>(?:\.\/)?assets\/[^"']+)["'][^>]*>/gi,
+  )].map((match) => match.groups.path);
+
+  return [...new Set([...appPaths, ...indexPaths].map(runtimeAssetPath))].sort();
 }
 
 function rewardArtIds(app) {
@@ -449,6 +532,59 @@ test("Pages artifact explicitly allowlists the complete runtime GLB surface", as
   );
 });
 
+test("literal runtime media URLs are shipped by Pages and covered by the offline asset policy", async () => {
+  const [app, index, workflow, serviceWorker, battleRuntime, battleVisualizer] = await Promise.all([
+    readProjectFile("app.js"),
+    readProjectFile("index.html"),
+    readProjectFile(".github/workflows/static.yml"),
+    readProjectFile("sw.js"),
+    readProjectFile("battle-realtime-three.js"),
+    readProjectFile("battle-visualizer.js"),
+  ]);
+  const pagesArtifact = archivePaths(workflow);
+  const serviceWorkerAssets = new Set([
+    ...coreAssetPaths(serviceWorker),
+    ...optionalMediaPaths(serviceWorker),
+  ]);
+  const sourceGlbs = new Set(runtimeGlbUrls(battleRuntime));
+  const bridgeManifestPath = glbBridgeManifestPath(serviceWorker, battleVisualizer);
+  const bridgeRoot = bridgeManifestPath.replace(/\/manifest\.json$/, "");
+  const bridgeOutputs = bridgeOutputPaths(
+    JSON.parse(await readProjectFile(bridgeManifestPath.slice(2))),
+    bridgeRoot,
+  );
+  const bridgeRoutes = new Set([bridgeManifestPath, ...bridgeOutputs]);
+  const runtimeMedia = runtimeMediaPaths(app, index);
+  const missingPagesPaths = runtimeMedia.filter(
+    (path) =>
+      !pagesArtifact.has(path) &&
+      !(bridgeRoutes.has(path) && pagesArtifact.has(bridgeRoot)),
+  );
+  const unsupportedOfflinePaths = runtimeMedia.filter(
+    (path) =>
+      !serviceWorkerAssets.has(path) &&
+      !sourceGlbs.has(path) &&
+      !bridgeRoutes.has(path),
+  );
+
+  assert.ok(runtimeMedia.length > 0, "app.js and index.html must declare literal runtime media URLs");
+  assert.equal(
+    pagesArtifact.has(bridgeRoot),
+    true,
+    "Pages must publish the validated GLB bridge route when runtime media references it",
+  );
+  assert.deepEqual(
+    missingPagesPaths,
+    [],
+    `literal runtime media URLs must be shipped by Pages: ${missingPagesPaths.join(", ")}`,
+  );
+  assert.deepEqual(
+    unsupportedOfflinePaths,
+    [],
+    `literal runtime media URLs must be covered by service-worker, GLB source, or bridge policy: ${unsupportedOfflinePaths.join(", ")}`,
+  );
+});
+
 test("requested reward art belongs to a stage reward and exists in the release assets", async () => {
   const app = await readProjectFile("app.js");
   const artIds = rewardArtIds(app);
@@ -557,12 +693,12 @@ test("runtime narration preserves the locked spoken lines and timing", async () 
     "cinder-span": {
       lines: ["잿빛 교량, 신더 스팬.", "재의 메아리를 사냥하고 영혼을 거두어라."],
       msPerChar: 45,
-      holdMs: 2000,
+      holdMs: 2085,
     },
     "veil-citadel": {
       lines: ["장막 성채, 베일 시타델.", "빙의의 힘이 깨어난다.", "두 거점을 동시에 장악하라."],
       msPerChar: 45,
-      holdMs: 1700,
+      holdMs: 2014,
     },
     "echo-throne": {
       lines: ["메아리 왕좌.", "군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라."],
@@ -572,14 +708,43 @@ test("runtime narration preserves the locked spoken lines and timing", async () 
     victory: {
       lines: ["침묵한 문 앞에서,", "그림자 군단이 왕좌에 오른다."],
       msPerChar: 45,
-      holdMs: 1400,
+      holdMs: 1452,
     },
     defeat: {
       lines: ["군단의 닻이 끊어졌다.", "다시, 일어나라."],
       msPerChar: 45,
-      holdMs: 1400,
+      holdMs: 1473,
     },
   });
+});
+
+test("runtime narration presentation duration exceeds measured audio duration by a safety margin", async () => {
+  const app = await readProjectFile("app.js");
+  const narration = runtimeNarrationEntries(app);
+  const audioCatalog = runtimeNarrationAudioCatalog(app);
+  const audioIds = Object.keys(audioCatalog);
+
+  assert.ok(audioIds.length > 0, "app.js must declare at least one NARRATION audio path to measure");
+
+  const measurements = await Promise.all(
+    audioIds.map(async (id) => {
+      const audioPath = audioCatalog[id];
+      const durationMs = await ffprobeAudioDurationMs(audioPath);
+      const entry = narration[id];
+      assert.ok(entry, `app.js must declare a runtime narration entry for ${id}`);
+      const codeUnitCount = entry.lines.reduce((total, line) => total + line.length, 0);
+      const presentationMs = codeUnitCount * entry.msPerChar + entry.lines.length * entry.holdMs;
+      return { id, audioPath, durationMs, presentationMs };
+    }),
+  );
+
+  for (const { id, audioPath, durationMs, presentationMs } of measurements) {
+    assert.ok(
+      presentationMs >= durationMs + 50,
+      `runtime narration timing budget for ${id} (${audioPath}) must exceed measured audio duration by at least 50ms: ` +
+        `presentation=${presentationMs}ms, audio=${durationMs.toFixed(3)}ms, margin=${(presentationMs - durationMs).toFixed(3)}ms`,
+    );
+  }
 });
 
 test("changed narration stays synchronized across runtime, committed generator, and manifest", async () => {

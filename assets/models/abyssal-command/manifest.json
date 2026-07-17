@@ -1,0 +1,357 @@
+{
+  "version": 1,
+  "pack": "abyssal-command-low-poly",
+  "source": "abyssal-command-resource-pack.blend",
+  "coordinateSystem": "Blender Z-up; ground-center pivots",
+  "rendering": "Flat-shaded PBR GLB resources with embedded albedo and tangent-space normal textures; no external texture URLs",
+  "textures": {
+    "embeddedInGlb": true,
+    "uvSet": "UV0",
+    "normalMapSpace": "tangent",
+    "resources": [
+      {
+        "family": "ash-cloth",
+        "albedo": "textures/ash-cloth-albedo.png",
+        "normal": "textures/ash-cloth-normal.png"
+      },
+      {
+        "family": "cinder-ember",
+        "albedo": "textures/cinder-ember-albedo.png",
+        "normal": "textures/cinder-ember-normal.png"
+      },
+      {
+        "family": "cold-steel",
+        "albedo": "textures/cold-steel-albedo.png",
+        "normal": "textures/cold-steel-normal.png"
+      },
+      {
+        "family": "gate-gold",
+        "albedo": "textures/gate-gold-albedo.png",
+        "normal": "textures/gate-gold-normal.png"
+      },
+      {
+        "family": "old-bone",
+        "albedo": "textures/old-bone-albedo.png",
+        "normal": "textures/old-bone-normal.png"
+      },
+      {
+        "family": "violet-rift",
+        "albedo": "textures/violet-rift-albedo.png",
+        "normal": "textures/violet-rift-normal.png"
+      },
+      {
+        "family": "void-obsidian",
+        "albedo": "textures/void-obsidian-albedo.png",
+        "normal": "textures/void-obsidian-normal.png"
+      }
+    ]
+  },
+  "assets": [
+    {
+      "id": "shade",
+      "category": "unit",
+      "path": "units/shade.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "ash-cloth",
+        "cold-steel",
+        "void-obsidian"
+      ],
+      "actions": [
+        "shade__Idle",
+        "shade__Move",
+        "shade__Strike",
+        "shade__Special",
+        "shade__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Move",
+        "Strike",
+        "Special",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "possessed",
+      "category": "unit",
+      "path": "units/possessed.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "possessed__Idle",
+        "possessed__Move",
+        "possessed__Strike",
+        "possessed__Special",
+        "possessed__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Move",
+        "Strike",
+        "Special",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "scout",
+      "category": "unit",
+      "path": "units/scout.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cinder-ember",
+        "cold-steel",
+        "void-obsidian"
+      ],
+      "actions": [
+        "scout__Idle",
+        "scout__Move",
+        "scout__Strike",
+        "scout__Special",
+        "scout__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Move",
+        "Strike",
+        "Special",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "guard",
+      "category": "unit",
+      "path": "units/guard.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "gate-gold",
+        "void-obsidian"
+      ],
+      "actions": [
+        "guard__Idle",
+        "guard__Move",
+        "guard__Strike",
+        "guard__Special",
+        "guard__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Move",
+        "Strike",
+        "Special",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "reinforce",
+      "category": "unit",
+      "path": "units/reinforce.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cinder-ember",
+        "cold-steel",
+        "old-bone",
+        "void-obsidian"
+      ],
+      "actions": [
+        "reinforce__Idle",
+        "reinforce__Move",
+        "reinforce__Strike",
+        "reinforce__Special",
+        "reinforce__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Move",
+        "Strike",
+        "Special",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "cinder-warden",
+      "category": "boss",
+      "path": "bosses/cinder-warden.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cinder-ember",
+        "gate-gold",
+        "old-bone",
+        "void-obsidian"
+      ],
+      "actions": [
+        "cinder-warden__Idle",
+        "cinder-warden__Attack",
+        "cinder-warden__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Attack",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "veil-tactician",
+      "category": "boss",
+      "path": "bosses/veil-tactician.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "gate-gold",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "veil-tactician__Idle",
+        "veil-tactician__Attack",
+        "veil-tactician__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Attack",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "gate-sovereign",
+      "category": "boss",
+      "path": "bosses/gate-sovereign.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "gate-gold",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "gate-sovereign__Idle",
+        "gate-sovereign__Attack",
+        "gate-sovereign__Defeat"
+      ],
+      "actionClips": [
+        "Idle",
+        "Attack",
+        "Defeat"
+      ]
+    },
+    {
+      "id": "rift-portal",
+      "category": "prop",
+      "path": "props/rift-portal.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "rift-portal__Idle",
+        "rift-portal__Activate"
+      ],
+      "actionClips": [
+        "Idle",
+        "Activate"
+      ]
+    },
+    {
+      "id": "command-obelisk",
+      "category": "prop",
+      "path": "props/command-obelisk.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "command-obelisk__Idle",
+        "command-obelisk__Activate"
+      ],
+      "actionClips": [
+        "Idle",
+        "Activate"
+      ]
+    },
+    {
+      "id": "soul-extractor",
+      "category": "prop",
+      "path": "props/soul-extractor.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "cold-steel",
+        "gate-gold",
+        "violet-rift"
+      ],
+      "actions": [
+        "soul-extractor__Idle",
+        "soul-extractor__Activate"
+      ],
+      "actionClips": [
+        "Idle",
+        "Activate"
+      ]
+    },
+    {
+      "id": "echo-throne",
+      "category": "prop",
+      "path": "props/echo-throne.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "gate-gold",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [
+        "echo-throne__Idle",
+        "echo-throne__Activate"
+      ],
+      "actionClips": [
+        "Idle",
+        "Activate"
+      ]
+    },
+    {
+      "id": "cinder-span",
+      "category": "terrain",
+      "path": "terrain/cinder-span.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "ash-cloth",
+        "cold-steel",
+        "void-obsidian"
+      ],
+      "actions": [],
+      "actionClips": []
+    },
+    {
+      "id": "veil-citadel",
+      "category": "terrain",
+      "path": "terrain/veil-citadel.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "ash-cloth",
+        "cold-steel",
+        "violet-rift",
+        "void-obsidian"
+      ],
+      "actions": [],
+      "actionClips": []
+    },
+    {
+      "id": "echo-throne-steps",
+      "category": "terrain",
+      "path": "terrain/echo-throne-steps.glb",
+      "pivot": "ground-center",
+      "textureFamilies": [
+        "gate-gold",
+        "void-obsidian"
+      ],
+      "actions": [],
+      "actionClips": []
+    }
+  ]
+}
