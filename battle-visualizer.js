@@ -87,6 +87,20 @@ const UNIT_ATLAS = Object.freeze({
   fps: 16
 });
 
+// Blender-rendered PER-UNIT 8-direction dimetric strips (1024x128, 8 frames,
+// dir0 = facing camera/screen-S, CCW yaw). Distinct silhouettes per archetype
+// keep G4 readability: shade cloak vs scout quadruped vs guard shield vs
+// reinforce spine-back. The conceptual tinted atlas above stays as fallback.
+const UNIT_ATLASES = Object.freeze({
+  ally: "assets/images/battle/shade-atlas.png",
+  possessed: "assets/images/battle/possessed-atlas.png",
+  scout: "assets/images/battle/scout-atlas.png",
+  guard: "assets/images/battle/guard-atlas.png",
+  reinforce: "assets/images/battle/reinforce-atlas.png"
+});
+const ATLAS_FRAME_PX = 128;
+
+
 // Per-stage heightfields (16×8, integers; -1 = chasm/unwalkable).
 // Stage 1 Cinder Span: a bridge over the drowned forge — void edges.
 // Stage 2 Veil Citadel: twin raised plateaus (the two signal nodes) + ramps.
@@ -161,7 +175,7 @@ export class BattleVisualizer {
     this.staticChunks = new Map();
     this.terrainTiles = [];
     this.occluderTiles = [];
-    this.unitAtlas = null;
+    this.unitAtlases = new Map();
     this.bossImage = null;
 
     this.selection = new Set();
@@ -208,6 +222,7 @@ export class BattleVisualizer {
     this.buildStaticLayer();
     this.loadBossArt();
     this.loadUnitAtlas();
+    this.loadUnitStrips();
     this.attachPointerHandlers();
 
     this.resizeHandler = () => {
@@ -443,18 +458,48 @@ export class BattleVisualizer {
     img.src = src;
   }
 
-  // 8-direction unit atlases (Blender-rendered dimetric sprites). Each strip
-  // is 8x 128px frames, dir0 = facing the camera (screen S), CCW yaw steps.
-  // Fallback: the procedural orb sprites remain if a file never loads.
+  // One manifest-proven conceptual 4×4 atlas, loaded once for every battle.
+  // The red hostile source stays original; ally and possessed variants are
+  // rasterized once onto transparent canvases, never recolored per frame.
   loadUnitAtlas() {
     const img = new Image();
     img.onload = () => {
       if (this.destroyed) return;
-      this.unitAtlas = img;
+      this.unitAtlases.set("enemy", img);
+      this.unitAtlases.set("ally", this.tintUnitAtlas(img, this.palette.ally));
+      this.unitAtlases.set("possessed", this.tintUnitAtlas(img, this.palette.allyPossessed));
       this.render();
     };
     img.onerror = () => undefined;
     img.src = UNIT_ATLAS.src;
+  }
+
+  tintUnitAtlas(image, tint) {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(image, 0, 0);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.globalAlpha = 0.38;
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  // Blender per-unit strips load on top: distinct archetype silhouettes
+  // (namespaced "u:" keys so the conceptual kind-keys keep working).
+  loadUnitStrips() {
+    for (const [key, src] of Object.entries(UNIT_ATLASES)) {
+      const img = new Image();
+      img.onload = () => {
+        if (this.destroyed) return;
+        this.unitAtlases.set(`u:${key}`, img);
+        if (this.reducedMotion) this.render();
+      };
+      img.onerror = () => undefined;
+      img.src = src;
+    }
   }
 
   // World-facing sector (directionIndex: 0 = +x world = screen SE, CCW) ->
@@ -463,12 +508,6 @@ export class BattleVisualizer {
     return (7 - (facing ?? 0)) % 8;
   }
 
-  // World-facing sector (directionIndex: 0 = +x world = screen SE, CCW) ->
-  // atlas frame (0 = screen S, CCW). Both rings are CCW; they differ by a
-  // constant quarter-plus-eighth turn: frame = 7 - facing.
-  atlasFrame(facing) {
-    return (7 - (facing ?? 0)) % 8;
-  }
 
   // --- audio (virtual listener at screen ground focus) --------------------
 
@@ -1133,30 +1172,48 @@ export class BattleVisualizer {
       ctx.stroke();
     }
 
-    const atlas = this.unitAtlas;
-    if (!atlas) return;
-
+    const tint = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
     const size = 64 * s * (kind === "enemy" && unit.archetype === "reinforce" ? 1.18 : 1);
     ctx.fillStyle = "rgba(0,0,0,0.42)";
     ctx.beginPath();
     ctx.ellipse(p.x, p.y + 3 * s, size * 0.2, size * 0.09, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    const phase = this.reducedMotion ? 0 : Math.floor(this.lastTime / (1000 / UNIT_ATLAS.fps)) % 2;
-    const frame = this.atlasFacing(unit.facing) * 2 + phase;
-    const sourceX = UNIT_ATLAS.padding + (frame % 4) * UNIT_ATLAS.stride;
-    const sourceY = UNIT_ATLAS.padding + Math.floor(frame / 4) * UNIT_ATLAS.stride;
-    const left = p.x - size / 2;
-    const top = p.y - size * 0.86;
-    ctx.drawImage(atlas, sourceX, sourceY, UNIT_ATLAS.framePx, UNIT_ATLAS.framePx, left, top, size, size);
+    // 1st choice: Blender per-unit strip (archetype silhouette, 8-dir).
+    const stripKey = kind === "enemy" ? `u:${unit.archetype ?? "guard"}` : kind === "possessed" ? "u:possessed" : "u:ally";
+    const strip = this.unitAtlases.get(stripKey);
+    if (strip) {
+      const frame = this.atlasFacing(unit.facing);
+      ctx.drawImage(strip, frame * ATLAS_FRAME_PX, 0, ATLAS_FRAME_PX, ATLAS_FRAME_PX, p.x - size / 2, p.y - size * 0.86, size, size);
+      return; // directional sheet carries facing - no tick needed
+    }
 
-    const tint = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
-    ctx.save();
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.globalAlpha = 0.32;
-    ctx.fillStyle = tint;
-    ctx.fillRect(left, top, size, size);
-    ctx.restore();
+
+    // Manifest-proven conceptual atlas, pre-tinted by faction on load.
+    const atlas = this.unitAtlases.get(kind);
+    if (atlas) {
+      const phase = this.reducedMotion ? 0 : Math.floor(this.lastTime / (1000 / UNIT_ATLAS.fps)) % 2;
+      const frame = this.atlasFacing(unit.facing) * 2 + phase;
+      const sourceX = UNIT_ATLAS.padding + (frame % 4) * UNIT_ATLAS.stride;
+      const sourceY = UNIT_ATLAS.padding + Math.floor(frame / 4) * UNIT_ATLAS.stride;
+      ctx.drawImage(atlas, sourceX, sourceY, UNIT_ATLAS.framePx, UNIT_ATLAS.framePx, p.x - size / 2, p.y - size * 0.86, size, size);
+    } else {
+      ctx.save();
+      ctx.fillStyle = tint;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      if (kind === "enemy") {
+        ctx.moveTo(p.x, p.y - size * 0.68);
+        ctx.lineTo(p.x + size * 0.24, p.y - size * 0.1);
+        ctx.lineTo(p.x, p.y + size * 0.08);
+        ctx.lineTo(p.x - size * 0.24, p.y - size * 0.1);
+      } else {
+        ctx.arc(p.x, p.y - size * 0.34, size * 0.24, 0, Math.PI * 2);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
 
     const angle = -unit.facing * (Math.PI / 4);
     ctx.strokeStyle = tint;
@@ -1275,7 +1332,7 @@ export class BattleVisualizer {
     this.particles = [];
     this.nodes = [];
     this.selection.clear();
-    this.unitAtlas = null;
+    this.unitAtlases.clear();
     this.staticChunks.clear();
     this.terrainTiles = [];
     this.occluderTiles = [];
