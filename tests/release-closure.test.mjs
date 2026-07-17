@@ -5,7 +5,7 @@ import test from "node:test";
 import { STAGES } from "../campaign-state.js";
 
 const SOURCE_ROOT = new URL("../", import.meta.url);
-const CANONICAL_PAGES_BASE = "https://jellyggumi.github.io/Abyssal-Command";
+const CANONICAL_PAGES_BASE = "https://jellyggumi.github.io/Abyssal-Surge";
 
 async function readProjectFile(path) {
   return readFile(new URL(path, SOURCE_ROOT), "utf8");
@@ -248,6 +248,41 @@ test("TWA launch URLs target the canonical GitHub Pages application base", async
       webManifestUrl: `${CANONICAL_PAGES_BASE}/manifest.json`,
     },
   );
+});
+
+test("public launch documentation uses the canonical Pages application base", async () => {
+  const documents = await Promise.all(
+    ["README.md", "apk/BUILD.md"].map(async (path) => [path, await readProjectFile(path)]),
+  );
+
+  for (const [path, source] of documents) {
+    assert.doesNotMatch(source, /Abyssal-Command/, `${path} must not reference the former public app URL`);
+    assert.ok(source.includes(CANONICAL_PAGES_BASE), `${path} must link to the canonical Pages application`);
+  }
+  const buildGuide = documents.find(([path]) => path === "apk/BUILD.md")?.[1];
+  const hostRootAssetLinks = "https://jellyggumi.github.io/.well-known/assetlinks.json";
+  const projectPathAssetLinks = `${CANONICAL_PAGES_BASE}/.well-known/assetlinks.json`;
+
+  assert.ok(buildGuide, "apk/BUILD.md must be included in public launch documentation checks");
+  assert.ok(
+    buildGuide.includes(hostRootAssetLinks),
+    "apk/BUILD.md must document the host-root Digital Asset Links endpoint",
+  );
+  assert.equal(
+    buildGuide.includes(projectPathAssetLinks),
+    false,
+    "apk/BUILD.md must not use the project-path Digital Asset Links endpoint",
+  );
+});
+test("TWA build guidance verifies the service worker cache used by the app", async () => {
+  const [serviceWorker, buildGuide] = await Promise.all([
+    readProjectFile("sw.js"),
+    readProjectFile("apk/BUILD.md"),
+  ]);
+  const cacheName = /const CACHE_NAME = ["'](?<cacheName>[^"']+)["'];/.exec(serviceWorker)?.groups?.cacheName;
+
+  assert.ok(cacheName, "sw.js must define CACHE_NAME");
+  assert.ok(buildGuide.includes(cacheName), `apk/BUILD.md must verify the ${cacheName} offline cache`);
 });
 
 test("every narration audio asset requested by app.js is declared in the media manifest", async () => {

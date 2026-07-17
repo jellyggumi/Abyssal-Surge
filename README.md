@@ -1,11 +1,11 @@
 # Abyssal Command
 
-[![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Command/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Command/actions/workflows/static.yml)
-[![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Command/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Command/)
+[![Deploy to Pages](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml/badge.svg)](https://github.com/jellyggumi/Abyssal-Surge/actions/workflows/static.yml)
+[![GitHub Pages](https://img.shields.io/github/deployments/jellyggumi/Abyssal-Surge/github-pages?label=GitHub%20Pages)](https://jellyggumi.github.io/Abyssal-Surge/)
 
 **Abyssal Command**는 오리지널 세계관의 전투 중심 무자원 RTS-RPG 하이브리드 웹 캠페인입니다. 모든 진행은 브라우저 로컬에서 결정론적으로 계산되며, 온라인 서비스·멀티플레이·클라우드 동기화를 사용하지 않습니다.
 
-**▶ 플레이:** https://jellyggumi.github.io/Abyssal-Command/ (모바일·데스크톱, PWA 오프라인 지원)
+**▶ 플레이:** https://jellyggumi.github.io/Abyssal-Surge/ (모바일·데스크톱, PWA 오프라인 지원)
 
 ## 게임 시스템
 
@@ -41,7 +41,7 @@
 ## 프로젝트 구조
 
 ```text
-Abyssal-Command/
+Abyssal-Surge/
 ├── index.html            # 캠페인 UI와 공개 메타데이터
 ├── styles.css            # 프레젠테이션과 reduced-motion 규칙
 ├── app.js                # 입력, HUD, 내레이션, 로컬 저장
