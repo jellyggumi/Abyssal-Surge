@@ -281,6 +281,20 @@ main {
   margin-top: 0;
 }
 #campaign-cinematic { width: 100%; max-height: min(22vh, 11rem); border: 1px solid var(--line); border-radius: .75rem; background: #000; }
+.cinematic-transcript {
+  max-height: min(32vh, 19rem);
+  overflow-y: auto;
+  padding: .8rem .9rem;
+  border: 1px solid rgb(112 229 208 / 36%);
+  border-radius: .75rem;
+  background: rgb(7 12 25 / 62%);
+}
+.cinematic-transcript[hidden] { display: none; }
+.cinematic-transcript:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.cinematic-transcript h3 { margin-bottom: .35rem; color: var(--aqua); font-size: 1rem; }
+.cinematic-transcript ol { display: grid; gap: .65rem; margin: .75rem 0; padding-left: 1.25rem; }
+.cinematic-transcript li { padding-left: .15rem; }
+.cinematic-transcript strong { color: var(--focus); }
 .lobby-panel > #campaign-description { grid-area: description; margin: 0; font-size: .82rem; }
 #campaign-lobby .campaign-map-section { grid-area: map; }
 #campaign-lobby .storyboard-section { grid-area: storyboard; }
@@ -863,59 +877,24 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   margin-top: .75rem;
 }
 
-#battle-canvas-3d {
+#battle-canvas-3d,
+#battle-canvas-fallback {
   position: relative;
   z-index: 0;
   width: 100%;
   height: 100%;
   display: block;
   cursor: crosshair;
+  touch-action: none;
 }
 
-.battle-pointer-controls {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
+#battle-canvas-3d:focus-visible {
+  outline: 3px solid var(--battle-accent);
+  outline-offset: -4px;
 }
 
-.battle-pointer-controls[hidden] {
-  display: none;
-}
-
-.battle-pointer-target {
-  position: absolute;
-  z-index: 2;
-  min-height: auto;
-  padding: .28rem .45rem;
-  border-color: color-mix(in srgb, var(--battle-ally) 55%, var(--line));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--battle-background) 68%, var(--battle-ally));
-  color: var(--ink);
-  font-size: .64rem;
-  font-weight: 900;
-  line-height: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%);
-}
-.battle-pointer-target:active:not(:disabled) { transform: translate(-50%, -50%) translateY(1px); }
-
-.battle-pointer-target[data-battle-target="capture"] {
-  border-color: color-mix(in srgb, var(--battle-accent) 65%, var(--line));
-  background: color-mix(in srgb, var(--battle-background) 68%, var(--battle-accent));
-}
-
-.battle-pointer-target[data-battle-target="assault"] {
-  border-color: color-mix(in srgb, var(--battle-hostile) 70%, var(--line));
-  background: color-mix(in srgb, var(--battle-background) 68%, var(--battle-hostile));
-}
-
-.battle-pointer-target:disabled {
-  cursor: not-allowed;
-  opacity: .62;
-}
-
-#battle-canvas-3d[hidden] {
+#battle-canvas-3d[hidden],
+#battle-canvas-fallback[hidden] {
   display: none;
 }
 
@@ -953,31 +932,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   max-width: 30rem;
 }
 
-.combat-overlay-labels {
-  position: absolute;
-  bottom: 0.5rem;
-  left: 0;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 .85rem;
-  pointer-events: none;
-  font-size: 0.66rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.7;
-}
-
-.label-camp-ally {
-  color: var(--battle-ally);
-  text-shadow: 0 0 5px color-mix(in srgb, var(--battle-ally) 50%, transparent);
-}
-
-.label-camp-boss {
-  color: var(--battle-hostile);
-  text-shadow: 0 0 5px color-mix(in srgb, var(--battle-hostile) 50%, transparent);
-}
 
 /* Cooldown Overlays on Command Buttons */
 .command-grid button {

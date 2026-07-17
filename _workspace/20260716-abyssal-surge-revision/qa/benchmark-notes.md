@@ -4,12 +4,12 @@
 
 ## Baseline provenance and target identity
 
-The production brief records a source packet captured on **2026-07-16** from a local tab at `http://127.0.0.1:4174/` and the configured live page at `https://jellyggumi.github.io/Abyssal-Command/`. This QA task did **not** operate a browser, replay a campaign, or create a new snapshot; it uses that recorded baseline plus a static source inspection only.
+The production brief preserves a historical source packet captured on **2026-07-16** from a local tab at `http://127.0.0.1:4174/` and the then-configured live page at `https://jellyggumi.github.io/Abyssal-Command/`. Current release evidence is the 2026-07-17 release reflection, which records the renamed `jellyggumi/Abyssal-Surge` repository, successful Pages deployment, and public campaign content at `https://jellyggumi.github.io/Abyssal-Surge/`. This QA task did **not** operate a browser, replay a campaign, or create a new snapshot; it uses the recorded baseline plus a static source inspection only.
 
 | Surface | Recorded baseline fact | What it does **not** prove | QA consequence |
 |---|---|---|---|
-| **Configured live campaign** — `https://jellyggumi.github.io/Abyssal-Command/` | The production brief records it as the active playable Pages endpoint and says its live release title is **Abyssal Command**. | It does not prove a particular build SHA, current asset set, stage completion, save behavior, media behavior, or performance. | Use it only as the current live comparison target; capture a fresh Playwriter URL/title/snapshot before using any result. |
-| **Requested branded URL** — `https://jellyggumi.github.io/Abyssal-Surge/` | The decision log records a redirect to `https://jellyggumi.github.io/journal/`. | It is not a deployed game endpoint and cannot supply gameplay evidence. | Record as an S1 release-target defect until repository/Pages configuration is corrected; do not silently redirect the test plan to a journal page. |
+| **2026-07-16 configured live campaign baseline** — `https://jellyggumi.github.io/Abyssal-Command/` | The production brief recorded it as the active playable Pages endpoint and titled the release **Abyssal Command** on that date. | It does not establish a current target, build SHA, current asset set, stage completion, save behavior, media behavior, or performance. | Retain only as dated source-packet provenance; never use it as the current release comparison target. |
+| **Current public campaign target** — `https://jellyggumi.github.io/Abyssal-Surge/` | The 2026-07-17 release reflection records the repository rename, a successful Pages deployment, and public campaign content at this endpoint. | It does not prove a particular Playwriter session, stage completion, save behavior, media behavior, or performance. | Use it as the current live comparison target; capture a fresh Playwriter URL/title/snapshot before using any result. |
 | **Local source-packet tab** — `http://127.0.0.1:4174/` | The production brief records it as the local snapshot origin selected for the 2026-07-16 source packet. Static inspection confirms the local app exposes Start/Resume, seven action controls, export/import, media hooks, and reduced-motion branches. | The brief does not retain a session ID, snapshot artifact, device/browser metadata, action history, media network results, or timing data in this revision workspace. Static inspection is not a playtest. | A new independent session must capture all metadata and cannot call this row a behavioral pass. |
 
 ### Current implementation facts relevant to the next run
@@ -26,7 +26,7 @@ These are source/brief facts, not browser-measured outcomes:
 
 | Metric | Gate | Baseline value | Evidence quality | Why it is not a result | Required independent measurement |
 |---|---|---:|---|---|---|
-| Campaign target URL | G6 | Configured live target recorded; branded URL redirects to journal | Recorded production brief/decision log | No fresh capture in this task. | Playwriter URL/title/snapshot for local, configured live, and branded URL. |
+| Campaign target URL | G6 | 2026-07-16 baseline: `Abyssal-Command`; current target: `Abyssal-Surge`, verified 2026-07-17 | Recorded production brief/release reflection | No fresh Playwriter capture in this task. | Playwriter URL/title/snapshot for the local candidate and current `Abyssal-Surge` target. |
 | First-play completion | G7 | `not measured` | None | No run or user completed Stage 1 in this task. | A1 session from fresh storage to first reward; record start/end and action count. |
 | Stage 2/3 completion | G7 | `not measured` | None | No Playwriter action chain has been captured. | PW-04/PW-05 with state checkpoints and rewards. |
 | Loop duration | G7 | 75 s is a design target, **not a baseline** | Design-only | No human/browser duration exists. | Ten voluntary loops; median must be 30–180 s. |
@@ -63,7 +63,7 @@ These are source/brief facts, not browser-measured outcomes:
 | Gap | Effect | Required closure |
 |---|---|---|
 | No retained snapshot artifacts/session IDs for the brief's local/live source packet | Baseline cannot establish exact DOM, build, browser, device, or behavior. | Fresh Playwriter captures in PW-00 onward. |
-| `Abyssal-Surge` Pages URL redirects to a journal | Branded deployment cannot be called playable or release-ready. | Repository/Pages configuration decision plus fresh branded-target smoke capture. |
+| No retained fresh Playwriter snapshot artifact/session ID for the current `Abyssal-Surge` target | The verified public endpoint does not establish the exact DOM, build, browser, device, or behavior that a QA run must measure. | Fresh Playwriter capture of the current target in PW-00 onward. |
 | No player scorecards, voluntary repeats, timing data, or action telemetry | G4/G7 cannot be passed; no fairness/feel claim is defensible. | Independent participant sessions and raw evidence per test plan. |
 | No 30-minute browser stability evidence, rollback exercise, or full release record | Final G6 is blocked. | PW-18 plus release/rollback evidence in the correct delivery workflow. |
 | Candidate narrative/resource records are not yet supplied in this revision workspace | G1 cannot be audited, particularly provenance of new scenes, visual assets, audio, and video. | Create `_workspace/20260716-abyssal-surge-revision/design/worldview.md` and `engineering/resource-manifest.md`; seed them from the complete PW-00–14 runtime/fallback union, assign item IDs/anchors, and require bidirectional reconciliation. Absent row/provenance/credential/anchor/reverse mapping keeps PW-15/PW-16 `BLOCKED`. |

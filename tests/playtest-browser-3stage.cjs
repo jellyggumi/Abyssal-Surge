@@ -8,6 +8,7 @@ const vm = require("node:vm");
 
 const BRIDGE_CACHE_BOUNDARY_MODE = process.argv.includes("--bridge-cache-boundary");
 const BRIDGE_ONLY_MODE = process.argv.includes("--bridge-only");
+const REALTIME_ONLY_MODE = process.argv.includes("--realtime-only");
 let playwright;
 if (!BRIDGE_CACHE_BOUNDARY_MODE) {
   try {
@@ -26,6 +27,7 @@ if (!BRIDGE_CACHE_BOUNDARY_MODE) {
 const ROOT = path.resolve(__dirname, "..");
 const MIME_TYPES = Object.freeze({
   ".css": "text/css; charset=utf-8",
+  ".glb": "model/gltf-binary",
   ".html": "text/html; charset=utf-8",
   ".ico": "image/x-icon",
   ".jpeg": "image/jpeg",
@@ -296,6 +298,45 @@ function assertNoClientErrors(errors, scenario) {
   assert.deepEqual(errors.unexpectedErrors, [], `${scenario} emitted unexpected client errors:\n${errors.unexpectedErrors.join("\n")}`);
 }
 
+function isTeardownAbortedRealtimeAsset(url, errorText) {
+  try {
+    const pathname = new URL(url).pathname;
+    return (
+      (pathname.startsWith("/assets/models/abyssal-command/") || pathname.startsWith("/assets/images/battle/glb/"))
+      && errorText === "net::ERR_ABORTED"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function collectStrictClientErrors(page) {
+  const errors = collectClientErrors(page);
+  let teardownStarted = false;
+  page.on("requestfailed", (request) => {
+    const errorText = request.failure()?.errorText || "failed";
+    if (teardownStarted && isTeardownAbortedRealtimeAsset(request.url(), errorText)) return;
+    errors.unexpectedErrors.push(`request: ${request.url()} (${errorText})`);
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) errors.unexpectedErrors.push(`response ${response.status()}: ${response.url()}`);
+  });
+  return {
+    ...errors,
+    beginTeardown() {
+      teardownStarted = true;
+    }
+  };
+}
+
+function assertNoStrictClientErrors(errors, scenario) {
+  assert.deepEqual(
+    [...errors.unexpectedErrors, ...errors.optionalMediaErrors],
+    [],
+    `${scenario} emitted client or network errors:\n${[...errors.unexpectedErrors, ...errors.optionalMediaErrors].join("\n")}`
+  );
+}
+
 
 async function text(locator) {
   return (await locator.textContent() || "").trim();
@@ -375,77 +416,43 @@ async function assertBattlePresentation(page, number) {
   }
 }
 
-async function assertGlbCanvasBridgeReadiness(page) {
-  const manifest = await page.evaluate(async () => {
-    const response = await fetch("assets/images/battle/glb/manifest.json", { credentials: "same-origin" });
-    const payload = response.ok ? await response.json() : null;
-    const records = Array.isArray(payload?.records) ? payload.records : [];
-    const actionAtlases = records.filter((record) => record?.kind === "actionAtlas");
-    const terrainPlates = records.filter((record) => record?.kind === "terrainPlate");
-    const outputResponses = await Promise.all(records.map(async (record) => {
-      const output = await fetch(new URL(record?.output?.path || "", window.location.href), {
-        method: "HEAD",
-        credentials: "same-origin",
-      });
-      return {
-        path: record?.output?.path,
-        ok: output.ok,
-        status: output.status,
-        contentType: output.headers.get("content-type"),
-      };
-    }));
+async function assertDirectSourceGlbReadiness(page) {
+  const sourceGlbs = await page.evaluate(async (paths) => Promise.all(paths.map(async (assetPath) => {
+    const response = await fetch(assetPath, { method: "HEAD", credentials: "same-origin" });
     return {
+      assetPath,
       status: response.status,
-      generationVersion: payload?.generationVersion,
-      actionColumns: payload?.atlasLayout?.actionColumns,
-      actionRows: payload?.atlasLayout?.actionRows,
-      recordCount: records.length,
-      actionAtlasCount: actionAtlases.length,
-      terrainPlateCount: terrainPlates.length,
-      actionAtlasOutputContract: actionAtlases.every((record) =>
-        record?.output?.width === 1024 &&
-        record?.output?.height === 512 &&
-        record?.output?.mimeType === "image/png" &&
-        record?.layout?.columns === 8 &&
-        record?.layout?.rows === 4
-      ),
-      terrainOutputContract: terrainPlates.every((record) =>
-        typeof record?.output?.path === "string" &&
-        record.output.path.startsWith("assets/images/battle/glb/") &&
-        record.output.mimeType === "image/png" &&
-        record.output.width > 0 &&
-        record.output.height > 0
-      ),
-      unavailableOutputs: outputResponses.filter((output) => !output.ok || output.contentType !== "image/png"),
+      contentType: response.headers.get("content-type"),
     };
-  });
+  })), [
+    "assets/models/abyssal-command/terrain/cinder-span.glb",
+    "assets/models/abyssal-command/units/shade.glb",
+    "assets/models/abyssal-command/units/scout.glb",
+    "assets/models/abyssal-command/bosses/cinder-warden.glb",
+  ]);
 
-  assert.equal(manifest.status, 200, "The GLB raster manifest must be served to the live tactical browser.");
-  assert.equal(manifest.generationVersion, "glb-raster-pack-v1", "The live tactical browser must receive the declared GLB raster manifest generation.");
-  assert.equal(manifest.actionColumns, 8, "The GLB raster manifest must declare eight action-atlas columns.");
-  assert.equal(manifest.actionRows, 4, "The GLB raster manifest must declare four action-atlas rows.");
-  assert.equal(manifest.recordCount, 45, "The GLB raster manifest must declare all 45 generated bridge records.");
-  assert.equal(manifest.actionAtlasCount, 42, "The GLB raster manifest must declare 42 action-atlas records.");
-  assert.equal(manifest.terrainPlateCount, 3, "The GLB raster manifest must declare three terrain-plate records.");
-  assert.equal(manifest.actionAtlasOutputContract, true, "Every declared action atlas must retain the 1024×512 8×4 PNG output contract.");
-  assert.equal(manifest.terrainOutputContract, true, "Every declared terrain plate must retain a valid bridge PNG output contract.");
   assert.deepEqual(
-    manifest.unavailableOutputs,
-    [],
-    `Every declared GLB bridge output must answer as image/png; unavailable outputs: ${JSON.stringify(manifest.unavailableOutputs)}`
+    sourceGlbs,
+    [
+      { assetPath: "assets/models/abyssal-command/terrain/cinder-span.glb", status: 200, contentType: "model/gltf-binary" },
+      { assetPath: "assets/models/abyssal-command/units/shade.glb", status: 200, contentType: "model/gltf-binary" },
+      { assetPath: "assets/models/abyssal-command/units/scout.glb", status: 200, contentType: "model/gltf-binary" },
+      { assetPath: "assets/models/abyssal-command/bosses/cinder-warden.glb", status: 200, contentType: "model/gltf-binary" },
+    ],
+    "The local static HTTP server must serve every actual Stage 1 source GLB with the glTF binary media type."
   );
 
   await page.waitForFunction(() => document.querySelector("#battle-asset-status")?.dataset.state === "loaded", undefined, { timeout: 30_000 });
   const status = await text(page.locator("#battle-asset-status"));
   assert.match(
     status,
-    /^(?:Source GLB atlases 45\/45 · 42 action clips active|GLB 소스 아틀라스 45\/45 · 동작 클립 42개 활성)$/,
-    "The tactical brief must visibly report that all source GLB atlases and action clips are ready."
+    /^(?:Source GLB atlases 4\/4 · \d+ action clips active|GLB 소스 아틀라스 4\/4 · 동작 클립 \d+개 활성)$/,
+    "The tactical brief must visibly report that all four direct-renderer source GLBs and their action clips are ready."
   );
   assert.doesNotMatch(
     status,
     /(?:fallback|대체)/iu,
-    "Once the source GLB images load, tactical status must no longer report a Canvas fallback."
+    "Once the direct source GLBs load, tactical status must not report a rendering fallback."
   );
 }
 
@@ -817,6 +824,124 @@ async function startStageOneCampaign(page, { verifyBriefing = false } = {}) {
   await acknowledgeStageOneBriefing(page);
 }
 
+async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  let strictErrors;
+  try {
+    const page = await context.newPage();
+    strictErrors = collectStrictClientErrors(page);
+    const sourceGlbResponses = [];
+    page.on("response", (response) => {
+      if (new URL(response.url()).pathname.startsWith("/assets/models/abyssal-command/")) {
+        sourceGlbResponses.push({
+          path: new URL(response.url()).pathname,
+          status: response.status(),
+          contentType: response.headers()["content-type"] || "",
+          fromServiceWorker: response.fromServiceWorker()
+        });
+      }
+    });
+
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await startStageOneCampaign(page);
+    await enterBattle(page, 1, "Cinder Span");
+
+    const canvas = page.locator("#battle-canvas-3d");
+    await canvas.waitFor({ state: "visible" });
+    await page.waitForFunction(
+      () => document.querySelector("#battle-asset-status")?.dataset.state === "loaded",
+      undefined,
+      { timeout: 30_000 }
+    );
+
+    const surface = await canvas.evaluate((element) => ({
+      active: document.activeElement === element,
+      ariaDescribedBy: element.getAttribute("aria-describedby"),
+      ariaLabel: element.getAttribute("aria-label"),
+      tabIndex: element.tabIndex,
+      width: element.getBoundingClientRect().width,
+      height: element.getBoundingClientRect().height,
+      legacyTargetCount: document.querySelectorAll("#battle-pointer-controls, [data-battle-target]").length,
+      fallbackVisible: document.querySelector("#battle-visual-fallback")?.checkVisibility(),
+    }));
+    assert.equal(surface.ariaLabel, "Direct tactical battlefield", "Stage 1 must expose the primary direct-control battlefield by its accessible name.");
+    assert.equal(surface.ariaDescribedBy, "battle-direct-help", "Stage 1 must connect the battlefield to the public direct-control HUD.");
+    assert.equal(surface.tabIndex, 0, "Stage 1 tactical battlefield must be keyboard-focusable.");
+    assert.ok(surface.width > 0 && surface.height > 0, `Stage 1 direct-control canvas must have a visible surface; observed ${surface.width}×${surface.height}.`);
+    assert.equal(surface.legacyTargetCount, 0, "The direct-control battlefield must replace legacy absolute battle-target buttons.");
+    assert.notEqual(surface.fallbackVisible, true, "Stage 1 must keep the explicit fallback hidden while the WebGL renderer is ready.");
+    const directHelp = await text(page.locator("#battle-direct-help"));
+    assert.match(
+      directHelp,
+      /Focus the field.*hold WASD.*Drag to orbit.*click ground/,
+      "Stage 1 must expose direct movement, camera, and rally controls in its tactical HUD."
+    );
+
+    const assetStatus = await text(page.locator("#battle-asset-status"));
+    assert.match(
+      assetStatus,
+      /^(?:Source GLB atlases 4\/4 · \d+ action clips active|GLB 소스 아틀라스 4\/4 · 동작 클립 \d+개 활성)$/,
+      "The direct renderer must publicly report successful readiness for all four Stage 1 source GLBs."
+    );
+    assert.equal(await page.locator("#battle-asset-status").getAttribute("data-state"), "loaded", "The direct renderer must expose its loaded readiness state.");
+    assert.deepEqual(
+      sourceGlbResponses
+        .filter((response) => response.path === "/assets/models/abyssal-command/terrain/cinder-span.glb")
+        .map(({ path, status, contentType }) => ({ path, status, contentType })),
+      [{
+        path: "/assets/models/abyssal-command/terrain/cinder-span.glb",
+        status: 200,
+        contentType: "model/gltf-binary"
+      }],
+      "The local static HTTP server must serve the actual Stage 1 terrain GLB requested by the direct renderer."
+    );
+
+    await canvas.focus();
+    assert.equal(
+      await canvas.evaluate((element) => document.activeElement === element),
+      true,
+      "The tactical canvas must receive focus before direct keyboard control."
+    );
+    const fieldBox = await canvas.boundingBox();
+    assert.ok(fieldBox, "The direct tactical canvas must expose a pointer-operable bounding box.");
+    const beforeDirectControl = await canvas.screenshot();
+    const centerX = fieldBox.x + fieldBox.width / 2;
+    const centerY = fieldBox.y + fieldBox.height / 2;
+    await page.mouse.move(centerX, centerY);
+    await page.mouse.down();
+    await page.mouse.move(centerX + Math.min(80, fieldBox.width / 5), centerY + Math.min(50, fieldBox.height / 5), { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.down("KeyD");
+    await page.waitForTimeout(900);
+    await page.keyboard.up("KeyD");
+    const afterDirectControl = await canvas.screenshot();
+    assert.equal(
+      beforeDirectControl.equals(afterDirectControl),
+      false,
+      "A pointer orbit plus held movement key on the focused tactical canvas must visibly change the live direct-control renderer."
+    );
+
+    const beforeAction = await campaignSurface(page);
+    await clickEnabledAction(page, "#action-hunt");
+    assert.notDeepEqual(
+      await campaignSurface(page),
+      beforeAction,
+      "A semantic command must remain operable after direct tactical canvas control changes the live presentation."
+    );
+    assert.equal(
+      await page.locator("#battle-asset-status").getAttribute("data-state"),
+      "loaded",
+      "A semantic command must preserve the direct renderer readiness state."
+    );
+    console.log(`PLAYTEST_BROWSER_REALTIME_GLB_RESPONSES ${JSON.stringify(sourceGlbResponses)}`);
+    assertNoStrictClientErrors(strictErrors, "Focused real-time Three Stage 1 battle");
+  } finally {
+    strictErrors?.beginTeardown();
+    await context.close();
+  }
+}
+
 async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   try {
@@ -829,7 +954,7 @@ async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
     await waitForCampaignBoot(page);
     await startStageOneCampaign(page);
     await enterBattle(page, 1, "Cinder Span");
-    await assertGlbCanvasBridgeReadiness(page);
+    await assertDirectSourceGlbReadiness(page);
 
     await clickEnabledAction(page, "#action-hunt");
     assert.equal(
@@ -1078,7 +1203,7 @@ async function chooseRewardAndAdvance(page, rewardId, number, heading) {
 
 async function runStageOne(page) {
   const entryIntegrity = await enterBattle(page, 1, "Cinder Span");
-  await assertGlbCanvasBridgeReadiness(page);
+  await assertDirectSourceGlbReadiness(page);
   await assertBattleCanvasBlankPassThrough(page);
   for (const action of ["materialize", "capture", "assault"]) {
     await assertBattleTargetEnabled(
@@ -1433,6 +1558,11 @@ async function run() {
     if (BRIDGE_ONLY_MODE) {
       await verifyGlbCanvasBridgeOnly(browser, hosting.baseUrl);
       console.log("PLAYTEST_BROWSER_BRIDGE_PASS manifest=45 action-atlases=42 terrain-plates=3 status=loaded action=hunt");
+      return;
+    }
+    if (REALTIME_ONLY_MODE) {
+      await verifyRealtimeThreeBattleOnly(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_REALTIME_PASS stage=Cinder Span renderer=webgl2 glb=terrain/cinder-span.glb readiness=loaded direct-control=changed action=hunt");
       return;
     }
     const campaignFixtures = await createCampaignFixtures();

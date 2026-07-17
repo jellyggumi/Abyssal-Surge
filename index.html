@@ -56,8 +56,26 @@
         </div>
         <div class="cinematic-control">
           <button id="play-cinematic" type="button" aria-controls="campaign-cinematic" data-i18n="lobby.cinematicButton">선택형 캠페인 시네마틱 재생</button>
-          <video id="campaign-cinematic" muted playsinline controls preload="none" hidden aria-label="Optional campaign cinematic"></video>
-          <p id="cinematic-status" class="hint" aria-live="polite">Cinematic is optional and muted by default.</p>
+          <button id="toggle-cinematic-transcript" type="button" aria-controls="cinematic-transcript" aria-expanded="false">시네마틱 시각 설명문 보기</button>
+          <video id="campaign-cinematic" muted playsinline controls preload="none" hidden aria-label="선택형 캠페인 시네마틱">
+            <track kind="captions" srclang="ko" label="한국어 자막" src="assets/video/abyssal-surge-cinematic.ko.vtt" default />
+          </video>
+          <section id="cinematic-transcript" class="cinematic-transcript" aria-labelledby="cinematic-transcript-heading" tabindex="-1" hidden>
+            <h3 id="cinematic-transcript-heading">시네마틱 시각 설명문</h3>
+            <p id="cinematic-transcript-intro" class="hint">시네마틱은 선택 사항입니다. 아래 설명문은 영상과 소리 없이도 캠페인 브리핑을 전달합니다.</p>
+            <p class="hint">고정 내레이션: “심연의 문이 열렸다. 그림자 군주여, 일어나라.” “잿빛 교량, 신더 스팬. 재의 메아리를 사냥하고 영혼을 거두어라.” “장막 성채, 베일 시타델. 빙의의 힘이 깨어난다. 두 거점을 동시에 장악하라.” “메아리 왕좌. 군주의 영역을 펼쳐 게이트 소버린을 무너뜨려라.”</p>
+            <ol>
+              <li><strong>00:00–00:16 · 침투 개막.</strong> 붕괴한 도시 위로 거대한 S급 게이트가 열리고 그림자 군단이 투입되는 모습이 보입니다.</li>
+              <li><strong>00:16–00:29 · 사냥과 재시도.</strong> 게이트 반응과 오프라인 보정 상태창이 짧게 보인 뒤, 첫 영혼 지대와 사냥·추출 루프, 이어지는 결속 명령의 재시도 장면이 이어집니다.</li>
+              <li><strong>00:29–01:04 · 거점 분쟁과 교전 확장.</strong> 거점 전방으로 이동해 소규모 노드를 선점하고, 점령권이 흔들릴 때 소환수를 재배치합니다. 이후 압박 라인을 따라 병력이 확장하고, 교전 실패 뒤에는 짧은 회복과 스냅샷 복귀가 나타납니다.</li>
+              <li><strong>01:04–01:28 · 역전 기동.</strong> 그림자 교환과 영역 스킬이 역전 지점을 열고 반격 타임라인으로 전환되는 모습입니다.</li>
+              <li><strong>01:28–02:02 · 영주 반격과 생존 임계.</strong> 대량 손실과 압박 속에서 철수와 재편성이 반복되며, 심연의 흡수 사용 여부가 교전의 분기점으로 제시됩니다.</li>
+              <li><strong>02:02–02:47 · 보스 정점과 실패 피벗.</strong> S급 본영의 저항선이 흔들리는 보스 정점 구간 뒤, 실패 시 성소 귀환 임펄스로 전환해 다음 라운드를 보류합니다.</li>
+              <li><strong>02:47–03:09 · 귀환과 영속.</strong> 성공 여부와 관계없이 귀환 채널로 수렴하고 영속 성장 보상을 정산하는 장면으로 마무리됩니다.</li>
+            </ol>
+            <p id="cinematic-transcript-brief" class="hint">캠페인 명령: 신더 스팬에서 사냥과 추출을 시작하고, 베일 시타델에서 두 거점을 장악한 뒤, 메아리 왕좌에서 군주의 영역으로 게이트 소버린에 맞섭니다.</p>
+          </section>
+          <p id="cinematic-status" class="hint" aria-live="polite">시네마틱은 선택 사항이며 처음에는 음소거됩니다.</p>
         </div>
         <p id="campaign-description" class="hint" data-i18n="lobby.description">새 캠페인을 시작하면, 확인 후 현재 로컬 진행 상황이 대체됩니다.</p>
         <!-- Campaign Map & Movement Path -->
@@ -206,14 +224,10 @@
 
         <div class="cockpit-main">
           <!-- CENTER: the battlefield IS the screen -->
-          <section id="battle-field" class="panel battle-field-panel" aria-label="2.5D abyss battlefield">
+          <section id="battle-field" class="panel battle-field-panel" aria-label="3D tactical battlefield">
             <div id="canvas-container-3d" class="canvas-container-3d">
-              <canvas id="battle-canvas-3d"></canvas>
-              <div id="battle-pointer-controls" class="battle-pointer-controls" role="group" aria-label="전장 마우스 명령" hidden>
-                <button id="battle-target-materialize" class="battle-pointer-target" data-battle-target="materialize" type="button" aria-label="소환 관문: 그림자 군단 실체화" aria-describedby="battle-mouse-help">소환</button>
-                <button id="battle-target-capture" class="battle-pointer-target" data-battle-target="capture" type="button" aria-label="기술 거점: 점거" aria-describedby="battle-mouse-help">점거</button>
-                <button id="battle-target-assault" class="battle-pointer-target" data-battle-target="assault" type="button" aria-label="보스: 총공격" aria-describedby="battle-mouse-help">총공격</button>
-              </div>
+              <canvas id="battle-canvas-3d" tabindex="0" aria-label="Direct tactical battlefield" aria-describedby="battle-direct-help"></canvas>
+              <canvas id="battle-canvas-fallback" aria-label="Tactical battlefield fallback" hidden></canvas>
               <aside id="battle-visual-fallback" class="battle-visual-fallback" aria-labelledby="battle-fallback-title" hidden>
                 <p class="battle-fallback-kicker">Static tactical briefing</p>
                 <h4 id="battle-fallback-title">Rendering unavailable</h4>
@@ -223,14 +237,10 @@
                   <div><dt>Command</dt><dd id="battle-fallback-ally-label">Dusk Legion</dd></div>
                   <div><dt>Hostile</dt><dd id="battle-fallback-hostile-label">Ashbound Ward</dd></div>
                 </dl>
-                <p class="battle-fallback-note">The interactive tactical renderer is unavailable. The tactical brief and command pad remain active.</p>
+                <p class="battle-fallback-note">The direct renderer is unavailable. The tactical brief and command pad remain active.</p>
               </aside>
-              <div class="combat-overlay-labels" aria-hidden="true">
-                <span id="battle-overlay-ally-label" class="label-camp-ally">Dusk Legion</span>
-                <span id="battle-overlay-hostile-label" class="label-camp-boss">Ashbound Ward</span>
-              </div>
             </div>
-            <p id="battle-mouse-help" class="battle-mouse-help">마우스: 전장의 소환 관문·기술 거점·보스를 클릭해 명령을 내리세요. 그림자는 드래그로 선택한 뒤 지면을 클릭해 이동시킵니다.</p>
+            <p id="battle-direct-help" class="battle-mouse-help">Focus the field, then hold WASD or arrow keys to move the commander; hold Shift to surge. Drag to orbit, wheel to zoom, click ground for a personal rally, right-click ground for shade rally, and click a marked target to request its command.</p>
           </section>
 
           <!-- RIGHT RAIL: every piece of intel, always visible -->
@@ -310,49 +320,49 @@
             <p class="hint command-hint" data-i18n="command.hint">버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요. 행동 마다 고유 쿨타임이 적용됩니다.</p>
           </div>
           <div class="command-grid">
-            <button id="action-hunt" data-action="hunt" type="button">
+            <button id="action-hunt" data-action="hunt" type="button" aria-keyshortcuts="H">
               <img class="action-icon" src="assets/images/ui/action-hunt.png" alt="" />
               <span class="key">H</span>
               <strong data-i18n="command.hunt.name">사냥</strong>
               <small data-i18n="command.hunt.desc">균열 흔적 두 곳을 탐색</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-extract" data-action="extract" type="button">
+            <button id="action-extract" data-action="extract" type="button" aria-keyshortcuts="E">
               <img class="action-icon" src="assets/images/ui/action-extract.png" alt="" />
               <span class="key">E</span>
               <strong data-i18n="command.extract.name">추출</strong>
               <small data-i18n="command.extract.desc">그림자 은닉처를 확보</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-materialize" data-action="materialize" type="button">
+            <button id="action-materialize" data-action="materialize" type="button" aria-keyshortcuts="M">
               <img class="action-icon" src="assets/images/ui/action-materialize.png" alt="" />
               <span class="key">M</span>
               <strong data-i18n="command.materialize.name">실체화</strong>
               <small data-i18n="command.materialize.desc">그림자 군단을 소환</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-capture" data-action="capture" type="button">
+            <button id="action-capture" data-action="capture" type="button" aria-keyshortcuts="C">
               <img class="action-icon" src="assets/images/ui/action-capture.png" alt="" />
               <span class="key">C</span>
               <strong data-i18n="command.capture.name">점거</strong>
               <small data-i18n="command.capture.desc">기술 거점을 고정</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-possess" data-action="possess" type="button">
+            <button id="action-possess" data-action="possess" type="button" aria-keyshortcuts="P">
               <img class="action-icon" src="assets/images/ui/action-possess.png" alt="" />
               <span class="key">P</span>
               <strong data-i18n="command.possess.name">빙의</strong>
               <small data-i18n="command.possess.desc">2단계에서 해금</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-domain" data-action="domain" type="button">
+            <button id="action-domain" data-action="domain" type="button" aria-keyshortcuts="D">
               <img class="action-icon" src="assets/images/ui/action-domain.png" alt="" />
               <span class="key">D</span>
               <strong data-i18n="command.domain.name">군주의 영역</strong>
               <small data-i18n="command.domain.desc">3단계에서 1회 사용</small>
               <div class="cooldown-overlay" hidden><span class="cooldown-timer">0.0s</span></div>
             </button>
-            <button id="action-assault" data-action="assault" type="button">
+            <button id="action-assault" data-action="assault" type="button" aria-keyshortcuts="A">
               <img class="action-icon" src="assets/images/ui/action-assault.png" alt="" />
               <span class="key">A</span>
               <strong data-i18n="command.assault.name">총공격</strong>

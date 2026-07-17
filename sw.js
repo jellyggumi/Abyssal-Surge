@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-surge-static-v15";
+const CACHE_NAME = "abyssal-surge-static-v19";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -6,12 +6,15 @@ const CORE_ASSETS = [
   "./campaign-sync.js",
   "./battle-visualizer.js",
   "./battle-presentation.js",
+  "./battle-realtime-three.js",
   "./iso-math.js",
   "./tilemap-renderer.js",
   "./campaign-state.js",
   "./i18n.js",
   "./liquid-ether.js",
   "./vendor/three.module.min.js",
+  "./vendor/loaders/GLTFLoader.js",
+  "./vendor/utils/BufferGeometryUtils.js",
   "./styles.css",
   "./sw.js",
   "./manifest.json",
@@ -21,6 +24,16 @@ const CORE_ASSETS = [
 
 const GLB_BRIDGE_MANIFEST = "./assets/images/battle/glb/manifest.json";
 const GLB_BRIDGE_PATH_PREFIX = new URL("./assets/images/battle/glb/", self.location.href).pathname;
+const LAZY_SOURCE_BATTLE_PATHS = Object.freeze([
+  "/assets/models/abyssal-command/terrain/cinder-span.glb",
+  "/assets/models/abyssal-command/terrain/veil-citadel.glb",
+  "/assets/models/abyssal-command/terrain/echo-throne-steps.glb",
+  "/assets/models/abyssal-command/units/shade.glb",
+  "/assets/models/abyssal-command/units/scout.glb",
+  "/assets/models/abyssal-command/bosses/cinder-warden.glb",
+  "/assets/models/abyssal-command/bosses/veil-tactician.glb",
+  "/assets/models/abyssal-command/bosses/gate-sovereign.glb",
+]);
 function normalizeGlbBridgeManifestAsset(path) {
   if (typeof path !== "string") return null;
   const rawPath = path.split(/[?#]/, 1)[0];
@@ -101,7 +114,8 @@ const OPTIONAL_MEDIA = [
   "./assets/video/cinder-span.mp4",
   "./assets/video/veil-citadel.mp4",
   "./assets/video/echo-throne.mp4",
-  "./assets/video/abyssal-surge-cinematic.mp4"
+  "./assets/video/abyssal-surge-cinematic.mp4",
+  "./assets/video/abyssal-surge-cinematic.ko.vtt"
 ];
 
 function isSameOriginGet(request) {
@@ -113,11 +127,37 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/battle-visualizer.js", "/battle-realtime-three.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/vendor/loaders/GLTFLoader.js", "/vendor/utils/BufferGeometryUtils.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 function isGlbBridgeRequest(request) {
   return request.method === "GET" && normalizeGlbBridgeManifestAsset(request.url) !== null;
+}
+
+function isLazySourceBattleRequest(request) {
+  if (!isSameOriginGet(request)) return false;
+  const path = new URL(request.url).pathname;
+  return LAZY_SOURCE_BATTLE_PATHS.some((suffix) => path.endsWith(suffix));
+}
+
+async function networkFirstLazySourceBattle(request) {
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (!response.ok) {
+      const cached = await caches.match(request);
+      return cached || response;
+    }
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(request, response.clone());
+    } catch {
+      // Live source assets remain usable when cache storage is unavailable.
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    return cached || Response.error();
+  }
 }
 
 async function networkFirstGlbBridge(request) {
@@ -164,6 +204,11 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (!isSameOriginGet(request)) return;
 
+
+  if (isLazySourceBattleRequest(request)) {
+    event.respondWith(networkFirstLazySourceBattle(request));
+    return;
+  }
 
   if (isGlbBridgeRequest(request)) {
     event.respondWith(networkFirstGlbBridge(request));

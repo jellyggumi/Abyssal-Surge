@@ -14,6 +14,7 @@ import {
   startCampaign
 } from "./campaign-state.js";
 import { BattleVisualizer } from "./battle-visualizer.js";
+import { RealtimeBattle } from "./battle-realtime-three.js";
 import { getBattlePresentation } from "./battle-presentation.js";
 import { CampaignMirror } from "./campaign-sync.js";
 import { currentLang, translations } from "./i18n.js";
@@ -27,11 +28,6 @@ const FALLBACK_KEY = "abyssal-surge-campaign-fallback-v1";
 const MAX_IMPORT_BYTES = 256 * 1024;
 const REWARD_ART_IDS = new Set(["ember-cohort", "rift-lens", "veil-vanguard", "anchor-shard", "throne-echo", "dawnless-crown"]);
 const ACTION_KEYS = Object.freeze({ h: "hunt", e: "extract", m: "materialize", c: "capture", p: "possess", d: "domain", a: "assault" });
-const BATTLE_TARGET_LABELS = Object.freeze({
-  materialize: "소환 관문: 그림자 군단 실체화",
-  capture: "기술 거점: 점거",
-  assault: "보스: 총공격"
-});
 const BATTLE_ACTION_SEMANTICS = Object.freeze({
   hunt: Object.freeze({ source: "portal", target: "extractor", sourceAsset: "shade", clip: "Special" }),
   extract: Object.freeze({ source: "extractor", target: "portal", sourceAsset: "soul-extractor", clip: "Activate" }),
@@ -142,6 +138,32 @@ const IMAGE_BY_STAGE = Object.freeze({
   "echo-throne": "assets/images/echo-throne.png"
 });
 const TACTICAL_SURFACE = "assets/images/ui/concept-tactical-surface.webp";
+const CINEMATIC_COPY = Object.freeze({
+  ko: Object.freeze({
+    transcriptShow: "시네마틱 시각 설명문 보기",
+    transcriptHide: "시네마틱 시각 설명문 닫기",
+    transcriptHeading: "시네마틱 시각 설명문",
+    transcriptIntro: "시네마틱은 선택 사항입니다. 아래 설명문은 영상과 소리 없이도 캠페인 브리핑을 전달합니다.",
+    transcriptBrief: "캠페인 명령: 신더 스팬에서 사냥과 추출을 시작하고, 베일 시타델에서 두 거점을 장악한 뒤, 메아리 왕좌에서 군주의 영역으로 게이트 소버린에 맞섭니다.",
+    optional: "시네마틱은 선택 사항이며 처음에는 음소거됩니다.",
+    loading: "선택형 시네마틱을 불러오는 중입니다…",
+    playing: "시네마틱이 음소거 상태로 재생 중입니다. 소리는 기본 컨트롤에서 켤 수 있습니다.",
+    ready: "시네마틱을 재생할 준비가 되었습니다. 기본 컨트롤에서 재생을 누르세요.",
+    unavailable: "시네마틱을 사용할 수 없습니다. 텍스트 캠페인 브리핑과 시각 설명문은 계속 사용할 수 있습니다."
+  }),
+  en: Object.freeze({
+    transcriptShow: "Show cinematic visual transcript",
+    transcriptHide: "Hide cinematic visual transcript",
+    transcriptHeading: "Cinematic visual transcript",
+    transcriptIntro: "The cinematic is optional. This transcript conveys the campaign briefing without video or sound.",
+    transcriptBrief: "Campaign orders: begin with hunting and extraction at Cinder Span, hold two nodes at Veil Citadel, then face the Gate Sovereign at Echo Throne with the Lord's Domain.",
+    optional: "The cinematic is optional and starts muted.",
+    loading: "Loading optional cinematic…",
+    playing: "Cinematic is playing muted. Use native controls to enable sound.",
+    ready: "Cinematic is ready. Press play in its native controls.",
+    unavailable: "Cinematic unavailable. The text campaign briefing and visual transcript remain available."
+  })
+});
 
 
 class CampaignStorage {
@@ -273,9 +295,8 @@ const elements = Object.freeze({
   statExtraDamage: document.querySelector("#stat-extra-damage"),
   statActiveItems: document.querySelector("#stat-active-items"),
   waveIndicator: document.querySelector("#battle-wave-indicator"),
-  battleCanvas: document.querySelector("#battle-canvas-3d"),
-  battlePointerControls: document.querySelector("#battle-pointer-controls"),
-  battleTargetButtons: [...document.querySelectorAll("[data-battle-target]")],
+  battleCanvas3d: document.querySelector("#battle-canvas-3d"),
+  battleFallbackCanvas: document.querySelector("#battle-canvas-fallback"),
   battleField: document.querySelector("#battle-field"),
   battleBrief: document.querySelector("#battle-tactical-brief"),
   battleOperation: document.querySelector("#battle-operation"),
@@ -289,8 +310,6 @@ const elements = Object.freeze({
   battleFallbackDoctrine: document.querySelector("#battle-fallback-doctrine"),
   battleFallbackAllyLabel: document.querySelector("#battle-fallback-ally-label"),
   battleFallbackHostileLabel: document.querySelector("#battle-fallback-hostile-label"),
-  battleOverlayAllyLabel: document.querySelector("#battle-overlay-ally-label"),
-  battleOverlayHostileLabel: document.querySelector("#battle-overlay-hostile-label"),
   stageNumber: document.querySelector("#stage-number"),
   stageHeading: document.querySelector("#stage-heading"),
   stageRegion: document.querySelector("#stage-region"),
@@ -318,6 +337,11 @@ const elements = Object.freeze({
   narratorAtlas: document.querySelector("#narrator-atlas"),
   cinematic: document.querySelector("#campaign-cinematic"),
   cinematicButton: document.querySelector("#play-cinematic"),
+  cinematicTranscriptToggle: document.querySelector("#toggle-cinematic-transcript"),
+  cinematicTranscript: document.querySelector("#cinematic-transcript"),
+  cinematicTranscriptHeading: document.querySelector("#cinematic-transcript-heading"),
+  cinematicTranscriptIntro: document.querySelector("#cinematic-transcript-intro"),
+  cinematicTranscriptBrief: document.querySelector("#cinematic-transcript-brief"),
   cinematicStatus: document.querySelector("#cinematic-status"),
   narrationLine: document.querySelector("#narration-line"),
   narrationSr: document.querySelector("#narration-sr"),
@@ -335,6 +359,7 @@ let cuePlayer = null;
 let ambiencePlayer = null;
 let narrationPlayer = null;
 let narrationRun = 0;
+let cinematicStatusKey = "optional";
 let liquidEtherBackground = null;
 let liquidEtherLoad = null;
 let particleBackground = null;
@@ -353,6 +378,8 @@ const battleBreachTimers = new Set();
 let battleSessionId = 0;
 let cooldownTimer = 0;
 let battleVisualFallback = false;
+let battleStarting = false;
+let pendingBattleRenderer = null;
 let waveIndex = 0;
 const cooldowns = new Map();
 let resultOverlayOpen = false;
@@ -522,12 +549,11 @@ function renderBattlePresentation(stage) {
     elements.battleFallbackDoctrine.textContent = presentation.doctrine;
     elements.battleFallbackAllyLabel.textContent = presentation.allyLabel;
     elements.battleFallbackHostileLabel.textContent = presentation.hostileLabel;
-    elements.battleOverlayAllyLabel.textContent = presentation.allyLabel;
-    elements.battleOverlayHostileLabel.textContent = presentation.hostileLabel;
   }
 
   const showFallback = battleVisualFallback && !elements.screen.hidden;
-  elements.battleCanvas.hidden = showFallback;
+  elements.battleCanvas3d.hidden = showFallback;
+  elements.battleFallbackCanvas.hidden = !showFallback;
   elements.battleFallback.hidden = !showFallback;
   elements.battleBrief.dataset.presentation = stage.id;
   return presentation;
@@ -564,6 +590,9 @@ function stopBattle() {
   cooldownTimer = 0;
   battleVisualFallback = false;
   cooldowns.clear();
+  pendingBattleRenderer?.destroy();
+  pendingBattleRenderer = null;
+  battleStarting = false;
   visualizer?.destroy();
   visualizer = null;
 }
@@ -614,34 +643,68 @@ function spawnBattleWave(sessionId = battleSessionId) {
   waveTimer = window.setTimeout(() => spawnBattleWave(sessionId), lastWaveOfCycle ? WAVE_LULL_MS : WAVE_GAP_MS);
 }
 
-function startBattle() {
-  if (!campaign || campaign.status !== "active" || visualizer || cooldownTimer) return;
+function activateBattleFallback(stage) {
+  battleVisualFallback = true;
+  renderBattleAssetStatus({ state: "unavailable" });
+  renderBattlePresentation(stage);
+  const fallback = new BattleVisualizer(elements.battleFallbackCanvas, getBattlePresentation(stage.id), {
+    nodeGoal: stage.nodeGoal,
+    onAssetStatus: renderBattleAssetStatus,
+  });
+  try {
+    fallback.init();
+    return fallback;
+  } catch {
+    fallback.destroy();
+    return null;
+  }
+}
+
+async function startBattle() {
+  if (!campaign || campaign.status !== "active" || visualizer || cooldownTimer || battleStarting) return;
+  battleStarting = true;
   const sessionId = ++battleSessionId;
   waveIndex = 0;
   battleVisualFallback = false;
-  let battleVisualizer = null;
-  try {
-    const stage = currentStage();
-    const presentation = renderBattlePresentation(stage);
-    battleVisualizer = new BattleVisualizer(elements.battleCanvas, presentation, {
-      nodeGoal: stage.nodeGoal,
-      onTacticalLayout: positionBattlePointerControls,
-      onAssetStatus: renderBattleAssetStatus,
-    });
-    battleVisualizer.init();
-    visualizer = battleVisualizer;
-    battleVisualizer.onEnemyBreach = () => {
-      // Live-sim breach: a hostile actually crossed the portal line.
-      if (visualizer !== battleVisualizer || sessionId !== battleSessionId) return;
-      if (campaign?.status !== "active") return;
-      void handleBattleBreach();
-    };
-  } catch {
-    battleVisualizer?.destroy();
-    if (visualizer === battleVisualizer) visualizer = null;
-    battleVisualFallback = true;
-    renderBattlePresentation(currentStage());
+  let battleRenderer = null;
+  const stage = currentStage();
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    visualizer = activateBattleFallback(stage);
+    battleStarting = false;
+  } else {
+    try {
+      const presentation = renderBattlePresentation(stage);
+      battleRenderer = new RealtimeBattle(elements.battleCanvas3d, presentation, {
+        nodeGoal: stage.nodeGoal,
+        onAssetStatus: renderBattleAssetStatus,
+        onActionRequest: (action) => void handleAction(action),
+        onRendererFailure: () => {
+          if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
+          visualizer = activateBattleFallback(currentStage());
+        },
+      });
+      pendingBattleRenderer = battleRenderer;
+      await battleRenderer.init();
+      if (sessionId !== battleSessionId || campaign?.status !== "active") {
+        battleRenderer.destroy();
+        return;
+      }
+      visualizer = battleRenderer;
+      if (pendingBattleRenderer === battleRenderer) pendingBattleRenderer = null;
+      battleRenderer.onEnemyBreach = () => {
+        if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
+        void handleBattleBreach();
+      };
+    } catch {
+      battleRenderer?.destroy();
+      if (sessionId !== battleSessionId || campaign?.status !== "active") return;
+      visualizer = activateBattleFallback(currentStage());
+    } finally {
+      if (pendingBattleRenderer === battleRenderer) pendingBattleRenderer = null;
+      if (!pendingBattleRenderer) battleStarting = false;
+    }
   }
+  if (sessionId !== battleSessionId || campaign?.status !== "active") return;
   setBattlePressure(
     battleVisualFallback ? "fallback" : "preparation",
     battleVisualFallback
@@ -735,49 +798,7 @@ function renderCooldown(button, action, available) {
   if (timer) timer.textContent = `${(remaining / 1000).toFixed(1)}s`;
 }
 
-function positionBattlePointerControls(anchors) {
-  for (const button of elements.battleTargetButtons) {
-    const target = anchors?.[button.dataset.battleTarget];
-    button.hidden = !target;
-    if (!target) continue;
-    button.style.left = `${target.x}px`;
-    button.style.top = `${target.y}px`;
-  }
-}
 
-function renderBattlePointerControls(available) {
-  const show = battleUiActive() && !battleVisualFallback && Boolean(visualizer);
-  elements.battlePointerControls.hidden = !show;
-  if (!show) {
-    for (const button of elements.battleTargetButtons) {
-      button.disabled = true;
-      button.setAttribute("aria-disabled", "true");
-    }
-    return;
-  }
-
-  const anchors = visualizer.getTacticalTargetAnchors?.();
-  positionBattlePointerControls(anchors);
-  for (const button of elements.battleTargetButtons) {
-    const action = button.dataset.battleTarget;
-    const target = anchors?.[action];
-    if (!target) {
-      button.disabled = true;
-      button.setAttribute("aria-disabled", "true");
-      continue;
-    }
-    const remaining = remainingCooldown(action);
-    const cooling = remaining > 0;
-    const ready = available.has(action);
-    renderCooldown(button, action, ready);
-    const status = cooling
-      ? `재사용 대기 ${Math.ceil(remaining / 1000)}초`
-      : ready ? "명령 가능" : "아직 사용할 수 없음";
-    button.dataset.state = cooling ? "cooling" : ready ? "ready" : "locked";
-    button.title = `${BATTLE_TARGET_LABELS[action]} · ${status}`;
-    button.setAttribute("aria-label", `${BATTLE_TARGET_LABELS[action]}: ${status}`);
-  }
-}
 
 function render() {
   if (!campaign) return;
@@ -831,7 +852,6 @@ function render() {
     const usable = available.has(action) || (action === "materialize" && canRedeploy);
     renderCooldown(button, action, usable);
   }
-  renderBattlePointerControls(available);
   for (const [index, button] of elements.stageButtons.entries()) {
     const stageNumber = index + 1;
     const active = stageNumber === stage.number && !isComplete;
@@ -1245,17 +1265,45 @@ function toggleBgm() {
 }
 
 
+function cinematicCopy(key) {
+  return CINEMATIC_COPY[currentLang()]?.[key] ?? CINEMATIC_COPY.ko[key];
+}
+
+function setCinematicStatus(key) {
+  cinematicStatusKey = key;
+  elements.cinematicStatus.textContent = cinematicCopy(key);
+}
+
+function syncCinematicCopy() {
+  const transcriptOpen = !elements.cinematicTranscript.hidden;
+  const transcriptToggleLabel = cinematicCopy(transcriptOpen ? "transcriptHide" : "transcriptShow");
+  elements.cinematicTranscriptToggle.textContent = transcriptToggleLabel;
+  elements.cinematicTranscriptToggle.setAttribute("aria-label", transcriptToggleLabel);
+  elements.cinematicTranscriptHeading.textContent = cinematicCopy("transcriptHeading");
+  elements.cinematicTranscriptIntro.textContent = cinematicCopy("transcriptIntro");
+  elements.cinematicTranscriptBrief.textContent = cinematicCopy("transcriptBrief");
+  elements.cinematicStatus.textContent = cinematicCopy(cinematicStatusKey);
+}
+
+function toggleCinematicTranscript() {
+  const open = elements.cinematicTranscript.hidden;
+  elements.cinematicTranscript.hidden = !open;
+  elements.cinematicTranscriptToggle.setAttribute("aria-expanded", String(open));
+  syncCinematicCopy();
+  (open ? elements.cinematicTranscript : elements.cinematicTranscriptToggle).focus();
+}
+
 function playCinematic() {
   const video = elements.cinematic;
   video.hidden = false;
   video.muted = true;
   elements.cinematicButton.disabled = true;
-  elements.cinematicStatus.textContent = "Loading optional cinematic…";
+  setCinematicStatus("loading");
   video.onloadeddata = () => {
     elements.cinematicButton.disabled = false;
-    elements.cinematicStatus.textContent = "Cinematic playing muted. Use native controls to enable sound.";
+    setCinematicStatus("playing");
     video.play().catch(() => {
-      elements.cinematicStatus.textContent = "Cinematic is ready. Press play in its native controls.";
+      setCinematicStatus("ready");
     });
   };
   video.onerror = () => {
@@ -1264,7 +1312,7 @@ function playCinematic() {
     video.removeAttribute("src");
     video.load();
     elements.cinematicButton.disabled = false;
-    elements.cinematicStatus.textContent = "Cinematic unavailable. Text campaign briefing remains complete.";
+    setCinematicStatus("unavailable");
   };
   video.src = "assets/video/abyssal-surge-cinematic.mp4";
   video.load();
@@ -1285,25 +1333,23 @@ function wireControls() {
     elements.startCombat.focus();
   });
   elements.commandButtons.forEach((button) => button.addEventListener("click", () => handleAction(button.dataset.action)));
-  elements.battleTargetButtons.forEach((button) => {
-    button.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || button.disabled) return;
-      event.preventDefault();
-      void handleAction(button.dataset.battleTarget);
-    });
-    button.addEventListener("click", (event) => {
-      if (event.detail === 0) void handleAction(button.dataset.battleTarget);
-    });
-  });
   elements.exportSave.addEventListener("click", exportSave);
   elements.importSave.addEventListener("change", () => importSave(elements.importSave.files?.[0]));
   elements.ambience.addEventListener("click", toggleAmbience);
   elements.bgmToggle?.addEventListener("click", toggleBgm);
   elements.cinematicButton.addEventListener("click", playCinematic);
-  elements.languageToggle?.addEventListener("click", () => window.requestAnimationFrame(updateResumeAffordance));
+  elements.cinematicTranscriptToggle.addEventListener("click", toggleCinematicTranscript);
+  elements.cinematicTranscript.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") toggleCinematicTranscript();
+  });
+  elements.languageToggle?.addEventListener("click", () => window.requestAnimationFrame(() => {
+    updateResumeAffordance();
+    syncCinematicCopy();
+  }));
   window.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
     const target = event.target;
+    if (target === elements.battleCanvas3d) return;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
     const action = ACTION_KEYS[event.key.toLowerCase()];
     if (action && battleUiActive() && !resultOverlayOpen && campaign && getAvailableActions(campaign).includes(action)) {
@@ -1570,6 +1616,7 @@ function initReactBitsEffects() {
 async function initialize() {
   document.documentElement.dataset.rulesVersion = RULES_VERSION;
   document.documentElement.dataset.buildTag = BUILD_TAG;
+  syncCinematicCopy();
   await storage.open();
   const loaded = await storage.load();
   if (loaded.envelope) {

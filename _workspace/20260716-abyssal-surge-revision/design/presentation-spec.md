@@ -36,7 +36,7 @@ The visuals are **original, non-pixel, painterly dark-fantasy concept art**: wet
 | Boss portrait (`BOSS_BY_STAGE`, `BOSS_ART`) | Portrait is decorative next to name, lore, HP, threat and counter information. | Threat personality and stage material are visible in both briefing and battle. | boss name/HP/lore remain authoritative. |
 | Optional campaign cinematic (`playCinematic`) | On load error it explicitly says text campaign briefing remains complete. | It is a supplemental recap, never a gate to start or understand the game. | existing status message and text briefing. |
 
-The configured release target for the current campaign is **`https://jellyggumi.github.io/Abyssal-Command/`**. `https://jellyggumi.github.io/Abyssal-Surge/` currently redirects to a journal and is not a valid playtest URL. This spec does not decide a repository rename or GitHub Pages configuration.
+The current Playwriter/release target is **`https://jellyggumi.github.io/Abyssal-Surge/`**. The 2026-07-17 release reflection records a successful Pages deployment and public campaign response at that endpoint.
 
 ## 3. Korean narration direction and pacing
 
@@ -115,7 +115,7 @@ The validator’s JSON is the required local evidence for codec, dimension, fps,
 
 ### 6.2 Optional motion-video branch: Vox/Atlas
 
-Vox/Atlas is a **conditional experiment**, not a selected dependency. It may be attempted only if all of the following are logged before submitting a generation request:
+The project owner selected **GTI-derived local collage composites -> Vox/Atlas image-to-video** for the optional concept-film branch. It remains a conditional execution route and may be attempted only if all of the following are logged before submitting a generation request:
 
 1. a named owner verifies credentials without committing them, current provider availability, allowed content/use terms, and output ownership/retention;
 2. the source still is an approved GTI key art image from the resource matrix, and the motion prompt contains no third-party character/style reference;
@@ -127,7 +127,7 @@ If any gate is missing or fails, use the FFmpeg baseline. No Atlas credentials w
 
 ## 7. Concrete human / Playwriter recheck rubric
 
-**Run target:** `https://jellyggumi.github.io/Abyssal-Command/` after the relevant implementation is deployed, plus the local Playwriter-served build. Record browser URL, viewport, date, build tag, relevant media response/error, screenshot/video evidence and tester initials. Do not use the redirecting `Abyssal-Surge` URL as evidence.
+**Run target:** `https://jellyggumi.github.io/Abyssal-Surge/` after the relevant implementation is deployed, plus the local Playwriter-served build. Record browser URL, viewport, date, build tag, relevant media response/error, screenshot/video evidence and tester initials.
 
 | Check | Playwriter/human procedure | Pass evidence | Fail condition / corrective action |
 |---|---|---|---|
@@ -147,4 +147,4 @@ A gate passes only when each applicable row has recorded evidence. A passing loc
 
 When media is actually added/replaced, implementation must update the source mapping, media manifest, static deployment allowlist, service-worker optional-media list, and any needed alt/caption/transcript source in the same change. The deterministic rules and browser-local state must not wait for a generated image, video, audio provider, or network response.
 
-Unresolved by design: the selected narration voice/chatbot provider, GTI provider availability at production time, final image byte budgets, Vox/Atlas credential verification, exact cinematic cut list, human art review, Playwriter evidence, caption/transcript files, and release URL rename decision. None is represented as complete here.
+Unresolved by design: the selected narration voice/chatbot provider, GTI provider availability at production time, final image byte budgets, Vox/Atlas credential, terms, and ownership verification for the conditionally selected local-collage-to-I2V route, exact cinematic cut list, human art review, Playwriter evidence, and caption/transcript files. None is represented as complete here.

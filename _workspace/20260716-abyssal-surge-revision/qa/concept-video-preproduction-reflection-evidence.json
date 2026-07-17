@@ -1,0 +1,44 @@
+{
+  "schema": "abyssal-surge.reflection-evidence",
+  "schema_version": "1.0",
+  "record_id": "5f7b00c4-9b44-4fb2-a488-a31e773c7683",
+  "phase": "resources",
+  "source_revision": "f213ee8",
+  "scope": "Vox Director concept-video preproduction: required prerequisites, source-art provenance boundaries, and the 36-second Korean beat map.",
+  "evidence": [
+    {
+      "evidence_id": "EV-VOX-BEATS",
+      "kind": "source",
+      "subject": "Approved-pending 36-second Korean concept-video beat map",
+      "location": "_workspace/20260716-abyssal-surge-revision/production/abyssal-surge-concept-video-beats.json",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The JSON parses successfully and contains six beats, twelve three-second shots, a hook-payoff arc, post-production captions, GTI-only source-art provenance, and strict flat-collage motion constraints."
+    },
+    {
+      "evidence_id": "EV-VOX-CONTRACT",
+      "kind": "source",
+      "subject": "Video generation and accessibility boundary",
+      "location": "_workspace/20260716-abyssal-surge-revision/design/presentation-spec.md",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The contract permits Vox/Atlas only after credential, terms, GTI source still, local MP4 validation, human motion review, caption/transcript, and static fallback gates are met."
+    },
+    {
+      "evidence_id": "EV-VOX-PREREQUISITES",
+      "kind": "command",
+      "subject": "Local Vox assembly dependencies",
+      "location": "_workspace/20260716-abyssal-surge-revision/production/abyssal-surge-concept-video-beats.json",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "ffmpeg and ffprobe are installed at /opt/homebrew/bin; Python can import Pillow 12.2.0. The required Atlas Cloud credential is not exported in this environment, so no billable remote generation request was submitted.",
+      "command": "command -v ffmpeg; command -v ffprobe; python3 -c \"import PIL; print(PIL.__version__)\"; printenv ATLASCLOUD_API_KEY",
+      "exit_code": 1
+    },
+    {
+      "evidence_id": "EV-VOX-SKILL-PACKAGE",
+      "kind": "external_reference",
+      "subject": "Installed Vox Director pipeline package",
+      "location": "skill://vox-director",
+      "observed_at": "2026-07-16T00:00:00Z",
+      "observation": "The installed skill contains workflow guidance and reference documents but does not contain the referenced scripts/keyframes.py, clips.py, audio.py, assemble.py, or style_bakeoff.py; no substitute generator was introduced."
+    }
+  ]
+}

@@ -15,3 +15,6 @@ tmp/
 # Local generation diagnostics and Python bytecode
 .debug-codex-imagegen/
 scripts/__pycache__/
+
+# Derived binary collage posters for Abyssal Surge concept film
+_workspace/20260716-abyssal-surge-revision/production/vox-concept-film/keyframes/

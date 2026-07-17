@@ -142,7 +142,7 @@ Acceptance is concrete: exactly 8 or 16 numbered PNG frames; `duration_ms = fram
 
 **Baseline is fixed:** `python3 scripts/render_stage_video.py render --input <approved-stage.png> --output <stage>.mp4` produces a 960×540, 24 fps, 5-second, H.264/yuv420p, faststart MP4 at CRF 20/medium by default; `validate --input <stage>.mp4` is the local ffprobe-backed proof. The currently observed active stage files are all 960×540, H.264, 24 fps, 5.000 s.
 
-**Optional motion-provider gate:** Vox/Atlas may be evaluated only after a named owner verifies credentials, API availability, permitted use, output ownership, and export of an MP4 that passes the same local validator. Until that evidence exists, Vox/Atlas is **not selected**. It cannot replace GTI still provenance, the FFmpeg baseline, local validation, or the static fallback.
+**Optional motion-provider gate:** The project owner selected **GTI-derived local collage composites -> Vox/Atlas image-to-video** on 2026-07-16. It remains a conditional execution route: a named owner must verify credentials, API availability, permitted use, output ownership, and an MP4 that passes the same local validator before any billable request. It cannot replace GTI still provenance, the FFmpeg baseline, local validation, or the static fallback.
 
 ## 6. Audio and narration import boundary
 

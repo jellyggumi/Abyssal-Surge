@@ -25,7 +25,7 @@
 
 - None of the five observed primary pages describes this exact enemy-to-asset four-state recap; the novelty claim is bounded to this sample.
 - No duration target is inferred from the sample; browser-session pacing remains a QA/playtest question.
-- The correctly configured live game URL is `https://jellyggumi.github.io/Abyssal-Command/`; the requested `https://jellyggumi.github.io/Abyssal-Surge/` URL currently redirects to a journal.
+- **Release target update:** the 2026-07-16 survey/source audit recorded `https://jellyggumi.github.io/Abyssal-Command/` as its live-game baseline. As verified by the 2026-07-17 release reflection, the current Playwriter/release target is `https://jellyggumi.github.io/Abyssal-Surge/`; this presentation survey does not independently assess that endpoint's runtime behavior.
 
 ## Validation
 

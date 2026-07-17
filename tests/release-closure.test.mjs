@@ -63,9 +63,6 @@ function archivePaths(workflow) {
   return new Set(declaration.groups.paths.trim().split(/\s+/).map((path) => `./${path}`));
 }
 
-function artifactIncludes(archive, path) {
-  return [...archive].some((entry) => path === entry || path.startsWith(`${entry}/`));
-}
 
 function optionalMediaPaths(serviceWorker) {
   const declaration = serviceWorker.match(/const OPTIONAL_MEDIA = \[(?<assets>[\s\S]*?)\];/);
@@ -73,6 +70,91 @@ function optionalMediaPaths(serviceWorker) {
 
   return [...declaration.groups.assets.matchAll(/["'](?<path>\.[^"']+)["']/g)]
     .map((match) => match.groups.path);
+}
+function runtimeGlbUrls(source) {
+  const declaration = source.match(/const STAGE_ASSETS = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  assert.ok(declaration, "battle-realtime-three.js must declare STAGE_ASSETS");
+
+  const modelRoot = source.match(/const MODEL_ROOT = "(?<root>\.\/assets\/models\/[^"]+\/)";/);
+  assert.ok(modelRoot, "battle-realtime-three.js must declare MODEL_ROOT");
+
+  const resources = source.match(/const resources = \[(?<entries>[\s\S]*?)\];/);
+  assert.ok(resources, "battle-realtime-three.js must declare its direct model resources");
+
+  const stageAssets = [...declaration.groups.entries.matchAll(/(?:terrain|boss): "(?<asset>[^"]+\.glb)"/g)]
+    .map((match) => match.groups.asset);
+  const directAssets = [...resources.groups.entries.matchAll(/["'](?<asset>[^"']+\.glb)["']/g)]
+    .map((match) => match.groups.asset);
+
+  return [...new Set([...stageAssets, ...directAssets])]
+    .map((asset) => `${modelRoot.groups.root}${asset}`)
+    .sort();
+}
+function glbBridgeManifestPath(serviceWorker, battleVisualizer) {
+  const serviceWorkerDeclaration = serviceWorker.match(
+    /const GLB_BRIDGE_MANIFEST = "(?<path>\.\/assets\/images\/battle\/glb\/manifest\.json)";/,
+  );
+  assert.ok(serviceWorkerDeclaration, "sw.js must declare the GLB bridge manifest");
+
+  const visualizerDeclaration = battleVisualizer.match(
+    /const GLB_BRIDGE_MANIFEST = "(?<path>assets\/images\/battle\/glb\/manifest\.json)";/,
+  );
+  assert.ok(visualizerDeclaration, "battle-visualizer.js must declare the GLB bridge manifest");
+  assert.equal(
+    serviceWorkerDeclaration.groups.path,
+    `./${visualizerDeclaration.groups.path}`,
+    "sw.js and battle-visualizer.js must resolve the same GLB bridge manifest",
+  );
+  return serviceWorkerDeclaration.groups.path;
+}
+
+function directVisualizerImagePaths(battleVisualizer) {
+  const bossArt = battleVisualizer.match(/const BOSS_ART = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  assert.ok(bossArt, "battle-visualizer.js must declare BOSS_ART");
+  const unitAtlas = battleVisualizer.match(
+    /const UNIT_ATLAS = Object\.freeze\(\{\s*src: "(?<path>assets\/images\/[^"]+)"/,
+  );
+  assert.ok(unitAtlas, "battle-visualizer.js must declare UNIT_ATLAS.src");
+
+  const bossImages = [...bossArt.groups.entries.matchAll(/:\s*"(?<path>assets\/images\/[^"]+)"/g)]
+    .map((match) => `./${match.groups.path}`);
+  return [...new Set([...bossImages, `./${unitAtlas.groups.path}`])].sort();
+}
+
+function bridgeOutputPaths(bridgeManifest, bridgeRoot) {
+  assert.ok(Array.isArray(bridgeManifest.records), "GLB bridge manifest must declare records");
+  assert.ok(bridgeManifest.records.length > 0, "GLB bridge manifest must not be empty");
+  const bridgeRootWithoutDot = bridgeRoot.slice(2);
+  const outputs = new Set();
+
+  return bridgeManifest.records.map((record, index) => {
+    assert.ok(record && typeof record === "object", `GLB bridge record ${index} must be metadata`);
+    const output = record.output;
+    assert.ok(output && typeof output === "object", `GLB bridge record ${index} must declare output metadata`);
+    const outputPath = output.path;
+    assert.equal(typeof outputPath, "string", `GLB bridge record ${index} must declare an output path`);
+    assert.ok(
+      outputPath.startsWith(`${bridgeRootWithoutDot}/`),
+      `GLB bridge output ${outputPath} must stay under ${bridgeRoot}`,
+    );
+    assert.ok(
+      outputPath.endsWith(".png") &&
+        !outputPath.includes("\\") &&
+        outputPath.split("/").every((segment) => segment !== "" && segment !== "." && segment !== ".."),
+      `GLB bridge output ${outputPath} must use a safe in-root PNG path`,
+    );
+    assert.ok(!outputs.has(outputPath), `GLB bridge output ${outputPath} must be unique`);
+    outputs.add(outputPath);
+    assert.equal(output.mimeType, "image/png", `GLB bridge output ${outputPath} must be a PNG`);
+    assert.ok(
+      Number.isInteger(output.width) &&
+        output.width > 0 &&
+        Number.isInteger(output.height) &&
+        output.height > 0,
+      `GLB bridge output ${outputPath} must have positive dimensions`,
+    );
+    return `./${outputPath}`;
+  });
 }
 
 function coreAssetPaths(serviceWorker) {
@@ -132,15 +214,6 @@ function lockedNarrationText(catalog, id) {
   return prompt.groups.text;
 }
 
-function elevenLabsNarrationCatalog(source) {
-  const declaration = source.match(/const NARR = \[(?<entries>[\s\S]*?)\];/);
-  assert.ok(declaration, "tmp/generate-audio.mjs must declare the ElevenLabs NARR catalog");
-
-  return Object.fromEntries(
-    [...declaration.groups.entries.matchAll(/\{\s*file:\s*'(?<file>[^']+)',\s*text:\s*'(?<text>[^']+)'\s*\}/g)]
-      .map((match) => [match.groups.file, match.groups.text]),
-  );
-}
 
 test("every static local app module is shipped in the Pages artifact and precached offline", async () => {
   const [workflow, serviceWorker, dependencies] = await Promise.all([
@@ -168,23 +241,78 @@ test("every static local app module is shipped in the Pages artifact and precach
   );
 });
 
+test("campaign rendering supplies the engine stage checklist to the checklist view", async () => {
+  const app = await readProjectFile("app.js");
+
+  assert.match(
+    app,
+    /import\s*\{[\s\S]*?\bgetStageChecklist\b[\s\S]*?\}\s*from\s*["']\.\/campaign-state\.js["'];/,
+    "app.js must import getStageChecklist from the campaign engine",
+  );
+  assert.match(
+    app,
+    /renderChecklist\s*\(\s*getStageChecklist\s*\(\s*campaign\s*\)\s*\)/,
+    "campaign rendering must pass the engine stage checklist to renderChecklist",
+  );
+  assert.doesNotMatch(
+    app,
+    /\bbuildChecklist\s*\(/,
+    "campaign rendering must not invoke the undefined buildChecklist producer",
+  );
+});
+
 test("Pages artifact ships all optional media without publishing inventory or unused videos", async () => {
-  const [workflow, serviceWorker] = await Promise.all([
+  const [workflow, serviceWorker, battleVisualizer] = await Promise.all([
     readProjectFile(".github/workflows/static.yml"),
     readProjectFile("sw.js"),
+    readProjectFile("battle-visualizer.js"),
   ]);
   const pagesArtifact = archivePaths(workflow);
   const optionalMedia = optionalMediaPaths(serviceWorker);
-  const missingOptionalMedia = optionalMedia.filter((path) => !artifactIncludes(pagesArtifact, path));
+  const missingOptionalMediaFiles = (await Promise.all(optionalMedia.map(async (path) => {
+    try {
+      await readProjectFile(path.slice(2));
+      return null;
+    } catch {
+      return path;
+    }
+  }))).filter(Boolean);
+  const missingOptionalMediaAllowlist = optionalMedia.filter((path) => !pagesArtifact.has(path));
+  const optionalImages = optionalMedia.filter((path) => path.startsWith("./assets/images/")).sort();
+  const bridgeManifestPath = glbBridgeManifestPath(serviceWorker, battleVisualizer);
+  const bridgeRoot = bridgeManifestPath.replace(/\/manifest\.json$/, "");
+  const directVisualizerImages = directVisualizerImagePaths(battleVisualizer);
+  const individualRuntimeImageTokens = [...pagesArtifact]
+    .filter((path) => path.startsWith("./assets/images/") && path !== bridgeRoot)
+    .sort();
+  const bridgeManifest = JSON.parse(await readProjectFile(bridgeManifestPath.slice(2)));
+  const bridgeOutputs = bridgeOutputPaths(bridgeManifest, bridgeRoot);
+  const missingBridgeOutputFiles = (await Promise.all(bridgeOutputs.map(async (path) => {
+    try {
+      await readProjectFile(path.slice(2));
+      return null;
+    } catch {
+      return path;
+    }
+  }))).filter(Boolean);
+  const bridgeDeclarations = [...pagesArtifact]
+    .filter((path) => path === bridgeRoot || path.startsWith(`${bridgeRoot}/`))
+    .sort();
   const runtimeVideos = [...pagesArtifact]
-    .filter((path) => path.startsWith("./assets/video/"))
+    .filter((path) => path.startsWith("./assets/video/") && path.endsWith(".mp4"))
     .sort();
 
   assert.ok(optionalMedia.length > 0, "service worker must retain optional media for offline caching");
   assert.deepEqual(
-    missingOptionalMedia,
+    missingOptionalMediaFiles,
     [],
-    `OPTIONAL_MEDIA paths missing from Pages artifact: ${missingOptionalMedia.join(", ")}`,
+    `OPTIONAL_MEDIA files missing from the repository: ${missingOptionalMediaFiles.join(", ")}`,
+  );
+  assert.ok(directVisualizerImages.length > 0, "battle visualizer must retain direct runtime image paths");
+  assert.deepEqual(
+    missingOptionalMediaAllowlist,
+    [],
+    `OPTIONAL_MEDIA paths must be individually allowlisted by Pages: ${missingOptionalMediaAllowlist.join(", ")}`,
   );
   assert.equal(
     pagesArtifact.has("./assets"),
@@ -196,6 +324,31 @@ test("Pages artifact ships all optional media without publishing inventory or un
     false,
     "Pages artifact must not publish the media inventory manifest",
   );
+  assert.equal(
+    pagesArtifact.has("./assets/images"),
+    false,
+    "Pages artifact must not include the broad assets/images directory",
+  );
+  assert.equal(
+    pagesArtifact.has("./assets/images/battle"),
+    false,
+    "Pages artifact must not include the broad assets/images/battle directory",
+  );
+  assert.deepEqual(
+    individualRuntimeImageTokens,
+    [...new Set([...optionalImages, ...directVisualizerImages])].sort(),
+    "Pages artifact must individually declare only optional and direct visualizer images",
+  );
+  assert.deepEqual(
+    bridgeDeclarations,
+    [bridgeRoot],
+    "Pages artifact must declare exactly the narrow GLB bridge root",
+  );
+  assert.deepEqual(
+    missingBridgeOutputFiles,
+    [],
+    `GLB bridge output files missing from the repository: ${missingBridgeOutputFiles.join(", ")}`,
+  );
   assert.deepEqual(
     runtimeVideos,
     [
@@ -205,6 +358,94 @@ test("Pages artifact ships all optional media without publishing inventory or un
       "./assets/video/veil-citadel.mp4",
     ],
     "Pages artifact must allowlist exactly the supported runtime videos",
+  );
+});
+test("cinematic captions and transcript release surfaces are explicitly published", async () => {
+  const [workflow, index] = await Promise.all([
+    readProjectFile(".github/workflows/static.yml"),
+    readProjectFile("index.html"),
+  ]);
+  const pagesArtifact = archivePaths(workflow);
+  const cinematic = index.match(/<video id="campaign-cinematic"(?<attributes>[^>]*)>(?<content>[\s\S]*?)<\/video>/);
+  assert.ok(cinematic, "index.html must declare the campaign cinematic video element");
+
+  const captions = cinematic.groups.content.match(
+    /<track\b(?=[^>]*\bkind="captions")(?=[^>]*\bsrclang="ko")(?=[^>]*\blabel="한국어 자막")(?=[^>]*\bsrc="(?<source>assets\/video\/[^"]+\.vtt)")(?=[^>]*\bdefault\b)[^>]*>/,
+  );
+  assert.ok(captions, "campaign cinematic must declare default Korean captions");
+  assert.equal(
+    captions.groups.source,
+    "assets/video/abyssal-surge-cinematic.ko.vtt",
+    "campaign cinematic must declare its committed Korean captions asset",
+  );
+
+  const transcriptToggle = index.match(/<button id="toggle-cinematic-transcript"(?<attributes>[^>]*)>/);
+  assert.ok(transcriptToggle, "index.html must provide a cinematic transcript toggle");
+  assert.match(
+    transcriptToggle.groups.attributes,
+    /\baria-controls="cinematic-transcript"/,
+    "cinematic transcript toggle must control the transcript surface",
+  );
+  assert.match(
+    transcriptToggle.groups.attributes,
+    /\baria-expanded="false"/,
+    "cinematic transcript toggle must expose its initial collapsed state",
+  );
+
+  const transcript = index.match(
+    /<section id="cinematic-transcript"(?<attributes>[^>]*)>(?<content>[\s\S]*?)<\/section>/,
+  );
+  assert.ok(transcript, "index.html must include an accessible cinematic transcript surface");
+  assert.match(
+    transcript.groups.attributes,
+    /\bhidden\b/,
+    "cinematic transcript must begin hidden until the toggle requests it",
+  );
+  const transcriptLabel = transcript.groups.attributes.match(/\baria-labelledby="(?<id>[^"]+)"/);
+  assert.ok(transcriptLabel, "cinematic transcript must have an accessible label");
+  assert.match(
+    transcript.groups.content,
+    new RegExp(`<h[1-6]\\s+id="${transcriptLabel.groups.id}"`),
+    "cinematic transcript must include its referenced heading",
+  );
+
+  const captionsPath = `./${captions.groups.source}`;
+  await readProjectFile(captions.groups.source);
+  assert.equal(
+    pagesArtifact.has(captionsPath),
+    true,
+    `Cinematic captions must be individually allowlisted by Pages: ${captionsPath}`,
+  );
+  assert.equal(
+    pagesArtifact.has("./index.html"),
+    true,
+    "Pages artifact must include the cinematic transcript document",
+  );
+});
+test("Pages artifact explicitly allowlists the complete runtime GLB surface", async () => {
+  const [workflow, battleRuntime] = await Promise.all([
+    readProjectFile(".github/workflows/static.yml"),
+    readProjectFile("battle-realtime-three.js"),
+  ]);
+  const pagesArtifact = archivePaths(workflow);
+  const runtimeGlbs = runtimeGlbUrls(battleRuntime);
+  const publishedModels = [...pagesArtifact].filter((path) => path.startsWith("./assets/models/")).sort();
+
+  assert.ok(runtimeGlbs.length > 0, "runtime battle resources must include direct GLB URLs");
+  assert.equal(
+    pagesArtifact.has("./assets/models"),
+    false,
+    "Pages artifact must not include the broad assets/models directory",
+  );
+  assert.equal(
+    pagesArtifact.has("./assets/models/abyssal-command"),
+    false,
+    "Pages artifact must not include the broad Abyssal Command model directory",
+  );
+  assert.deepEqual(
+    publishedModels,
+    runtimeGlbs,
+    "Pages artifact must individually allowlist exactly the complete direct runtime GLB set",
   );
 });
 
@@ -341,32 +582,27 @@ test("runtime narration preserves the locked spoken lines and timing", async () 
   });
 });
 
-test("changed narration stays synchronized across runtime and generator catalogs", async () => {
-  const [app, lockedCatalog, elevenLabsSource, manifestSource] = await Promise.all([
+test("changed narration stays synchronized across runtime, committed generator, and manifest", async () => {
+  const [app, lockedCatalog, manifestSource] = await Promise.all([
     readProjectFile("app.js"),
     readProjectFile("scripts/generate_game_audio.py"),
-    readProjectFile("tmp/generate-audio.mjs"),
     readProjectFile("assets/media-manifest.json"),
   ]);
   const runtimeNarration = runtimeNarrationEntries(app);
   const runtimeAudioPaths = runtimeNarrationAudioCatalog(app);
-  const elevenLabsNarration = elevenLabsNarrationCatalog(elevenLabsSource);
   const declaredAssets = new Set(JSON.parse(manifestSource).assets.map((asset) => asset.filename));
   const canonicalNarration = {
     intro: {
       lines: ["심연의 문이 열렸다.", "그림자 군주여, 일어나라."],
       audio: "assets/audio/narr-intro.mp3",
-      elevenLabsFile: "narr-intro.mp3",
     },
     victory: {
       lines: ["침묵한 문 앞에서,", "그림자 군단이 왕좌에 오른다."],
       audio: "assets/audio/narr-victory.mp3",
-      elevenLabsFile: "narr-victory.mp3",
     },
     defeat: {
       lines: ["군단의 닻이 끊어졌다.", "다시, 일어나라."],
       audio: "assets/audio/narr-defeat.mp3",
-      elevenLabsFile: "narr-defeat.mp3",
     },
   };
 
@@ -379,19 +615,9 @@ test("changed narration stays synchronized across runtime and generator catalogs
       `scripts/generate_game_audio.py narration drifted for ${id}`,
     );
     assert.equal(
-      elevenLabsNarration[expected.elevenLabsFile],
-      expected.lines.join(" "),
-      `tmp/generate-audio.mjs narration drifted for ${id}`,
-    );
-    assert.equal(
       runtimeAudioPaths[id],
       expected.audio,
       `app.js narration audio path drifted for ${id}`,
-    );
-    assert.equal(
-      `assets/audio/${expected.elevenLabsFile}`,
-      expected.audio,
-      `tmp/generate-audio.mjs audio path drifted for ${id}`,
     );
     assert.ok(
       declaredAssets.has(expected.audio),

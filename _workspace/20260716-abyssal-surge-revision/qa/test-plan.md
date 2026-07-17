@@ -4,7 +4,7 @@
 
 ## Scope and gate rules
 
-Campaign contract: **Cinder Span → Veil Citadel → Echo Throne**, preserving `hunt → extract → materialize → capture → assault`; Possession begins in Stage 2 and one-use Lord's Domain begins in Stage 3. The known live game target is `https://jellyggumi.github.io/Abyssal-Command/`. `https://jellyggumi.github.io/Abyssal-Surge/` currently redirects to a journal and is a deployment defect, not a valid test target.
+Campaign contract: **Cinder Span → Veil Citadel → Echo Throne**, preserving `hunt → extract → materialize → capture → assault`; Possession begins in Stage 2 and one-use Lord's Domain begins in Stage 3. The current Playwriter/release target is `https://jellyggumi.github.io/Abyssal-Surge/`, verified by the 2026-07-17 release reflection. The 2026-07-16 `https://jellyggumi.github.io/Abyssal-Command/` source-packet URL is a historical baseline only and must not replace the current test target.
 
 | Gate | Required evidence this plan collects | Pass threshold | Current state |
 |---|---|---|---|
@@ -72,7 +72,7 @@ verdict: PASS | FAIL | BLOCKED | NOT-RUN
 
 | ID | Archetype | Setup and Playwriter actions | Observable expectation and threshold | Required capture | Gate evidence |
 |---|---|---|---|---|---|
-| **PW-00 Target identity** | A1 | Open local candidate and configured live URL in separate runs; record final URL after navigation. | Local candidate identifies itself/build; live campaign target is `…/Abyssal-Command/`; the requested `…/Abyssal-Surge/` must not be treated as a passing game target while it redirects. | First snapshot, URL, title, redirect chain if visible. | G1, G6 |
+| **PW-00 Target identity** | A1 | Open local candidate and current live URL in separate runs; record final URL after navigation. | Local candidate identifies itself/build; live campaign target is `…/Abyssal-Surge/`. The 2026-07-16 `…/Abyssal-Command/` source-packet URL may be recorded only as a historical baseline, never as the current passing game target. | First snapshot, URL, title, redirect chain if visible. | G1, G6 |
 | **PW-01 First play / Stage 1 start** | A1 | Fresh browser storage or no existing envelope; snapshot lobby, activate Start, snapshot scenario and battle. | Cinder Span, Cinder Warden, objective, and active checklist are present; focus moves to the current stage heading/view. | Lobby and stage snapshots; focus target; errors. | G1, G4, G7 |
 | **PW-02 Stage 1 core chain** | A1/A3 | Activate `H`, `E`, `M`, `C`, then legal `A` presses one at a time, waiting for each enabled state/cooldown. | Hunt → Extract → Materialize → Capture opens assault; no command silently succeeds or fails; Stage 1 uses one capture goal and boss HP 8. | Snapshot after every action; visible feedback timestamps; error log. | G1, G4, G6, G7 |
 | **PW-03 Stage 1 gated commands and reward** | A2/A3 | Before/after required setup, attempt `P` and `D`; clear Stage 1, inspect all rewards, select exactly one, advance. | Possess and Domain are unavailable/rejected before their stages; reward set contains four choices and exactly one selection advances to Veil Citadel with carry text. | Disabled/rejection and reward snapshots; selected reward ID. | G1, G4, G7 |

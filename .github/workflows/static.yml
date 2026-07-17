@@ -30,12 +30,40 @@ jobs:
       PAGES_ARTIFACT_DIR: .pages-artifact
       PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
       PAGES_RUNTIME_PATHS: >-
-        index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js
+        index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js
         campaign-state.js campaign-sync.js i18n.js liquid-ether.js
-        vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico
-        assets/audio assets/icons assets/images
+        vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js
+        styles.css privacy.html sw.js manifest.json icon.svg favicon.ico
+        assets/icons/icon-192.png assets/icons/icon-512.png
+        assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3
+        assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3
+        assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3
+        assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3
+        assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png
+        assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg
+        assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg
+        assets/images/storyboard/scene_07_return_ui_v01.jpg
+        assets/images/ui/action-hunt.png assets/images/ui/action-extract.png assets/images/ui/action-materialize.png
+        assets/images/ui/action-capture.png assets/images/ui/action-possess.png assets/images/ui/action-domain.png
+        assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png
+        assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png
+        assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png
+        assets/images/ui/concept-tactical-surface.webp assets/images/ui/boss-veil-tactician.png
+        assets/images/ui/boss-gate-sovereign.png assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png
+        assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png
+        assets/images/ui/emblem-gate-sovereign.jpg assets/images/characters/dusk-legion-atlas.png
+        assets/images/battle/sovereign-atlas.png assets/images/battle/glb
         assets/video/cinder-span.mp4 assets/video/veil-citadel.mp4
         assets/video/echo-throne.mp4 assets/video/abyssal-surge-cinematic.mp4
+        assets/video/abyssal-surge-cinematic.ko.vtt
+        assets/models/abyssal-command/terrain/cinder-span.glb
+        assets/models/abyssal-command/terrain/veil-citadel.glb
+        assets/models/abyssal-command/terrain/echo-throne-steps.glb
+        assets/models/abyssal-command/units/shade.glb
+        assets/models/abyssal-command/units/scout.glb
+        assets/models/abyssal-command/bosses/cinder-warden.glb
+        assets/models/abyssal-command/bosses/veil-tactician.glb
+        assets/models/abyssal-command/bosses/gate-sovereign.glb
     steps:
       - name: Checkout requested committed revision
         uses: actions/checkout@v4
@@ -59,12 +87,46 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
+          for file in \
+            index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js \
+            campaign-state.js campaign-sync.js i18n.js liquid-ether.js \
+            vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js \
+            styles.css privacy.html sw.js manifest.json icon.svg favicon.ico \
+            assets/icons/icon-192.png assets/icons/icon-512.png \
+            assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3 \
+            assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3 \
+            assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3 \
+            assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3 \
+            assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png \
+            assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg \
+            assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg \
+            assets/images/storyboard/scene_07_return_ui_v01.jpg \
+            assets/images/ui/action-hunt.png assets/images/ui/action-extract.png assets/images/ui/action-materialize.png \
+            assets/images/ui/action-capture.png assets/images/ui/action-possess.png assets/images/ui/action-domain.png \
+            assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png \
+            assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png \
+            assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png \
+            assets/images/characters/dusk-legion-atlas.png assets/images/ui/concept-tactical-surface.webp \
+            assets/images/ui/boss-veil-tactician.png assets/images/ui/boss-gate-sovereign.png \
+            assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png \
+            assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png \
+            assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png assets/images/ui/emblem-gate-sovereign.jpg \
+            assets/images/battle/sovereign-atlas.png assets/images/battle/glb/manifest.json assets/images/battle/glb/*.png \
+            assets/video/cinder-span.mp4 assets/video/veil-citadel.mp4 assets/video/echo-throne.mp4 \
+            assets/video/abyssal-surge-cinematic.mp4 assets/video/abyssal-surge-cinematic.ko.vtt \
+            assets/models/abyssal-command/terrain/cinder-span.glb \
+            assets/models/abyssal-command/terrain/veil-citadel.glb \
+            assets/models/abyssal-command/terrain/echo-throne-steps.glb \
+            assets/models/abyssal-command/units/shade.glb assets/models/abyssal-command/units/scout.glb \
+            assets/models/abyssal-command/bosses/cinder-warden.glb \
+            assets/models/abyssal-command/bosses/veil-tactician.glb \
+            assets/models/abyssal-command/bosses/gate-sovereign.glb; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
           node --check app.js
           node --check battle-visualizer.js
+          node --check battle-realtime-three.js
           node --check battle-presentation.js
           node --check iso-math.js
           node --check tilemap-renderer.js
@@ -74,18 +136,21 @@ jobs:
           node --check liquid-ether.js
           node --check vendor/three.module.min.js
           node --check sw.js
+          node --check vendor/loaders/GLTFLoader.js
+          node --check vendor/utils/BufferGeometryUtils.js
           grep -Fq 'href="styles.css"' index.html
           grep -Fq '<script type="module" src="app.js"></script>' index.html
           grep -Fq '<script type="module" src="i18n.js"></script>' index.html
           grep -Fq 'from "./campaign-state.js";' app.js
           grep -Fq 'from "./battle-visualizer.js";' app.js
           grep -Fq 'from "./battle-presentation.js";' app.js
+          grep -Fq 'from "./battle-realtime-three.js";' app.js
           grep -Fq 'from "./campaign-sync.js";' app.js
           # liquid-ether may be statically or dynamically imported (lazy load)
           grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
 
           # reject literal edit-tool markers that previously shipped a broken bundle
-          if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; then
+          if grep -n "≔" index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; then
             echo "stray edit markers found in shippable files" >&2
             exit 1
           fi

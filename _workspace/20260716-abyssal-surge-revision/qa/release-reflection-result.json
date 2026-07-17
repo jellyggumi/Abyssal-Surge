@@ -5,7 +5,7 @@
   "phase": "release",
   "status": "ready_for_human_review",
   "created_at": "2026-07-17T00:09:39Z",
-  "source_revision": "62ab111c2ba7caee3834e9657795f99e3a152080",
+  "source_revision": "765081ea4a707e75a22664027c362f19a7ede06f",
   "scope": "Release reflection for the committed Abyssal Surge static client, its Pages artifact, compressed cinematic, and browser-facing campaign controls.",
   "evidence": [
     {
@@ -59,6 +59,27 @@
       "command": null,
       "exit_code": null,
       "source_url": "https://jellyggumi.github.io/Abyssal-Surge/"
+    },
+    {
+      "evidence_id": "EV-RELEASE-20260717-CLOSURE",
+      "kind": "command",
+      "subject": "Current release closure and runtime-media contract.",
+      "location": "tests/release-closure.test.mjs",
+      "observed_at": "2026-07-17T08:18:47Z",
+      "observation": "All 11 release-closure tests passed against the current checkout: static module/PWA closure, engine checklist wiring, Pages media allowlist, reward assets, canonical launch URLs, cache guidance, and locked narration source/media synchronization.",
+      "command": "node --test tests/release-closure.test.mjs",
+      "exit_code": 0
+    },
+    {
+      "evidence_id": "EV-RELEASE-20260717-PAGES",
+      "kind": "external_reference",
+      "subject": "Current GitHub Pages deployment and live first-stage mission flow.",
+      "location": "https://jellyggumi.github.io/Abyssal-Surge/",
+      "observed_at": "2026-07-17T08:18:47Z",
+      "observation": "GitHub Actions run 29560322725 succeeded for commit 765081ea4a707e75a22664027c362f19a7ede06f. In an isolated Playwriter session, the live site opened at the canonical Pages URL, showed the Stage 1 mission briefing, transitioned through Start Combat, exposed the explicit first order, initialized 45/45 GLB source atlases with 42 action clips, and emitted no page-console errors during observed interactions.",
+      "command": "gh run list --workflow static.yml --branch main --limit 3 --json databaseId,headSha,status,conclusion,url,displayTitle; Playwriter observe -> start campaign -> observe briefing -> start combat -> observe command surface",
+      "exit_code": 0,
+      "source_url": "https://github.com/jellyggumi/Abyssal-Surge/actions/runs/29560322725"
     }
   ],
   "findings": [],
@@ -66,6 +87,6 @@
   "next_stage_decision": {
     "decision": "route_to_human_review",
     "rationale": "The release evidence validates the selected local behavior, Pages artifact, public URL, and compressed cinematic. The remaining decision is human review of presentation, narration tone, and provider-generated art quality rather than an unverified release defect.",
-    "evidence_ids": ["EV-RELEASE-TESTS", "EV-RELEASE-VIDEO", "EV-RELEASE-PLAYWRITER", "EV-RELEASE-ACTION", "EV-RELEASE-PUBLIC"]
+    "evidence_ids": ["EV-RELEASE-TESTS", "EV-RELEASE-VIDEO", "EV-RELEASE-PLAYWRITER", "EV-RELEASE-ACTION", "EV-RELEASE-PUBLIC", "EV-RELEASE-20260717-CLOSURE", "EV-RELEASE-20260717-PAGES"]
   }
 }
