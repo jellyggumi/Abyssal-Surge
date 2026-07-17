@@ -1448,6 +1448,10 @@ async function verifyStageOneEncounter(browser, baseUrl) {
     assert.equal(desktopLayout.horizontalOverflow, false, "Desktop Stage 1 must not create horizontal campaign overflow.");
     assert.equal(desktopLayout.campaignScroll, false, "Desktop Stage 1 must not create document-level campaign scrolling.");
 
+    // The declared Scout wave clock only arms once the preparation legion is
+    // fielded, so issue the Hunt/Extract/Materialize commands before awaiting it.
+    await materializeStageOneAllies(page, "Stage 1 tactical encounter");
+
     await page.waitForFunction(
       () => /SCOUT · 2 HOSTILES/.test(document.querySelector("#battle-hostile-label")?.textContent || ""),
       undefined,
