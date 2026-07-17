@@ -138,6 +138,7 @@ async function text(locator) {
   return (await locator.textContent() || "").trim();
 }
 
+
 async function assertStage(page, number, heading) {
   assert.equal(await text(page.locator("#stage-number")), `Stage ${number} of 3`, `Stage ${number} number must be visible.`);
   assert.equal(await text(page.locator("#stage-heading")), heading, `Stage ${number} heading must be visible.`);
@@ -205,12 +206,40 @@ async function clickEnabledAction(page, selector) {
       await page.waitForTimeout(100);
       continue;
     }
-    try {
-      await action.click({ timeout: 1_000 });
-    } catch (error) {
-      lastError = error;
-      await page.waitForTimeout(100);
-      continue;
+    if (selector.includes("[data-battle-target")) {
+      const targetPoint = await action.evaluate((target) => {
+        const rect = target.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        const style = getComputedStyle(target);
+        const centerElement = document.elementFromPoint(x, y);
+        const canvas = document.querySelector("#battle-canvas-3d");
+        const canvasRect = canvas?.getBoundingClientRect();
+        return {
+          visible: !target.hidden && rect.width > 0 && rect.height > 0 && style.visibility !== "hidden",
+          x,
+          y,
+          targetRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+          centerElementId: centerElement?.id || null,
+          centerElements: document.elementsFromPoint(x, y).map((element) => `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}`),
+          canvasRect: canvasRect ? { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height } : null,
+          scrollTop: Object.fromEntries(
+            ["#view-battle", "#battle-field", "#command-panel"].map((target) => [target, document.querySelector(target)?.scrollTop ?? null])
+          ),
+          receivesCenterClick: centerElement === target
+        };
+      });
+      assert.equal(targetPoint.visible, true, `${selector} must remain visibly targetable for its physical mouse click.`);
+      assert.equal(targetPoint.receivesCenterClick, true, `${selector} must own its center hit-test point before the physical mouse click. Target-center diagnostic: ${JSON.stringify({ targetRect: targetPoint.targetRect, centerElementId: targetPoint.centerElementId, centerElements: targetPoint.centerElements, canvasRect: targetPoint.canvasRect, scrollTop: targetPoint.scrollTop })}`);
+      await page.mouse.click(targetPoint.x, targetPoint.y);
+    } else {
+      try {
+        await action.click({ timeout: 1_000 });
+      } catch (error) {
+        lastError = error;
+        await page.waitForTimeout(100);
+        continue;
+      }
     }
     const disabledAt = Date.now() + 5_000;
     while (await action.isEnabled()) {

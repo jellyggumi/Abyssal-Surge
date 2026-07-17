@@ -29,6 +29,13 @@ jobs:
     env:
       PAGES_ARTIFACT_DIR: .pages-artifact
       PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
+      PAGES_RUNTIME_PATHS: >-
+        index.html app.js battle-visualizer.js battle-presentation.js iso-math.js
+        campaign-state.js campaign-sync.js i18n.js liquid-ether.js
+        vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico
+        assets/audio assets/icons assets/images
+        assets/video/cinder-span.mp4 assets/video/veil-citadel.mp4
+        assets/video/echo-throne.mp4 assets/video/abyssal-surge-cinematic.mp4
     steps:
       - name: Checkout requested committed revision
         uses: actions/checkout@v4
@@ -52,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
+          for file in index.html app.js battle-visualizer.js battle-presentation.js iso-math.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor/three.module.min.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
@@ -60,7 +67,6 @@ jobs:
           node --check battle-visualizer.js
           node --check battle-presentation.js
           node --check iso-math.js
-          node --check game-core.js
           node --check campaign-state.js
           node --check campaign-sync.js
           node --check i18n.js
@@ -78,7 +84,7 @@ jobs:
           grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
 
           # reject literal edit-tool markers that previously shipped a broken bundle
-          if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js game-core.js campaign-state.js i18n.js liquid-ether.js styles.css sw.js; then
+          if grep -n "≔" index.html app.js battle-visualizer.js battle-presentation.js campaign-state.js i18n.js liquid-ether.js styles.css sw.js; then
             echo "stray edit markers found in shippable files" >&2
             exit 1
           fi
@@ -88,8 +94,9 @@ jobs:
           set -euo pipefail
           rm -rf "$PAGES_ARTIFACT_DIR"
           mkdir -p "$PAGES_ARTIFACT_DIR"
-          git archive --format=tar "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | tar -x -C "$PAGES_ARTIFACT_DIR"
-          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- index.html app.js battle-visualizer.js battle-presentation.js iso-math.js game-core.js campaign-state.js campaign-sync.js i18n.js liquid-ether.js vendor styles.css privacy.html sw.js manifest.json icon.svg favicon.ico assets | sort)"
+          read -r -a pages_runtime_paths <<< "$PAGES_RUNTIME_PATHS"
+          git archive --format=tar "$PAGES_REVISION" -- "${pages_runtime_paths[@]}" | tar -x -C "$PAGES_ARTIFACT_DIR"
+          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- "${pages_runtime_paths[@]}" | sort)"
 
           actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^${PAGES_ARTIFACT_DIR}/##" | sort)"
           test "$actual" = "$expected"

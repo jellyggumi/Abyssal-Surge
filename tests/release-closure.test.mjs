@@ -11,22 +11,68 @@ async function readProjectFile(path) {
   return readFile(new URL(path, SOURCE_ROOT), "utf8");
 }
 
-function eagerRelativeImports(source) {
+function staticRelativeImports(source) {
   const imports = new Set();
-  const statement = /^import\s+(?:[\s\S]*?\sfrom\s+)?["'](?<specifier>\.[^"']+)["']\s*;?/gm;
+  const statement = /^\s*import\s+(?:[\s\S]*?\sfrom\s+)?["'](?<specifier>\.\/[^"']+)["']\s*;?/gm;
 
   for (const match of source.matchAll(statement)) {
     imports.add(match.groups.specifier);
   }
 
-  return [...imports].sort();
+  return imports;
+}
+
+function projectRelativePath(moduleUrl) {
+  assert.ok(
+    moduleUrl.href.startsWith(SOURCE_ROOT.href),
+    `local ESM imports must remain within the repository: ${moduleUrl.href}`,
+  );
+
+  return `./${decodeURIComponent(moduleUrl.pathname.slice(SOURCE_ROOT.pathname.length))}`;
+}
+
+async function localModuleClosure(entryPath) {
+  const visited = new Set();
+  const entryUrl = new URL(entryPath, SOURCE_ROOT);
+  const entryModule = projectRelativePath(entryUrl);
+
+  async function visit(moduleUrl) {
+    const modulePath = projectRelativePath(moduleUrl);
+    if (visited.has(modulePath)) {
+      return;
+    }
+
+    visited.add(modulePath);
+    const source = await readFile(moduleUrl, "utf8");
+    await Promise.all(
+      [...staticRelativeImports(source)].map((specifier) => visit(new URL(specifier, moduleUrl))),
+    );
+  }
+
+  await visit(entryUrl);
+  visited.delete(entryModule);
+  return [...visited].sort();
 }
 
 function archivePaths(workflow) {
-  const archive = workflow.match(/git archive --format=tar "\$\{?PAGES_REVISION\}?" -- (?<paths>[^\n|]+) \| tar -x/);
-  assert.ok(archive, "static Pages workflow must define its git archive artifact list");
+  const declaration = workflow.match(
+    /^ {6}PAGES_RUNTIME_PATHS: >-\n(?<paths>(?: {8}[^\n]*(?:\n|$))+)/m,
+  );
+  assert.ok(declaration, "static Pages workflow must define PAGES_RUNTIME_PATHS as a folded scalar");
 
-  return new Set(archive.groups.paths.trim().split(/\s+/).map((path) => `./${path}`));
+  return new Set(declaration.groups.paths.trim().split(/\s+/).map((path) => `./${path}`));
+}
+
+function artifactIncludes(archive, path) {
+  return [...archive].some((entry) => path === entry || path.startsWith(`${entry}/`));
+}
+
+function optionalMediaPaths(serviceWorker) {
+  const declaration = serviceWorker.match(/const OPTIONAL_MEDIA = \[(?<assets>[\s\S]*?)\];/);
+  assert.ok(declaration, "service worker must declare OPTIONAL_MEDIA");
+
+  return [...declaration.groups.assets.matchAll(/["'](?<path>\.[^"']+)["']/g)]
+    .map((match) => match.groups.path);
 }
 
 function coreAssetPaths(serviceWorker) {
@@ -96,15 +142,14 @@ function elevenLabsNarrationCatalog(source) {
   );
 }
 
-test("every eager app module is shipped in the Pages artifact and precached offline", async () => {
-  const [app, workflow, serviceWorker] = await Promise.all([
-    readProjectFile("app.js"),
+test("every static local app module is shipped in the Pages artifact and precached offline", async () => {
+  const [workflow, serviceWorker, dependencies] = await Promise.all([
     readProjectFile(".github/workflows/static.yml"),
     readProjectFile("sw.js"),
+    localModuleClosure("app.js"),
   ]);
-  const dependencies = eagerRelativeImports(app);
 
-  assert.ok(dependencies.length > 0, "app.js must retain at least one eager relative ESM import");
+  assert.ok(dependencies.length > 0, "app.js must retain at least one static local ESM import");
 
   const pagesArtifact = archivePaths(workflow);
   const serviceWorkerCore = coreAssetPaths(serviceWorker);
@@ -114,12 +159,52 @@ test("every eager app module is shipped in the Pages artifact and precached offl
   assert.deepEqual(
     missingFromArtifact,
     [],
-    `Eager app modules missing from Pages git archive: ${missingFromArtifact.join(", ")}`,
+    `Static local app module closure missing from Pages git archive: ${missingFromArtifact.join(", ")}`,
   );
   assert.deepEqual(
     missingFromServiceWorker,
     [],
-    `Eager app modules missing from service-worker CORE_ASSETS: ${missingFromServiceWorker.join(", ")}`,
+    `Static local app module closure missing from service-worker CORE_ASSETS: ${missingFromServiceWorker.join(", ")}`,
+  );
+});
+
+test("Pages artifact ships all optional media without publishing inventory or unused videos", async () => {
+  const [workflow, serviceWorker] = await Promise.all([
+    readProjectFile(".github/workflows/static.yml"),
+    readProjectFile("sw.js"),
+  ]);
+  const pagesArtifact = archivePaths(workflow);
+  const optionalMedia = optionalMediaPaths(serviceWorker);
+  const missingOptionalMedia = optionalMedia.filter((path) => !artifactIncludes(pagesArtifact, path));
+  const runtimeVideos = [...pagesArtifact]
+    .filter((path) => path.startsWith("./assets/video/"))
+    .sort();
+
+  assert.ok(optionalMedia.length > 0, "service worker must retain optional media for offline caching");
+  assert.deepEqual(
+    missingOptionalMedia,
+    [],
+    `OPTIONAL_MEDIA paths missing from Pages artifact: ${missingOptionalMedia.join(", ")}`,
+  );
+  assert.equal(
+    pagesArtifact.has("./assets"),
+    false,
+    "Pages artifact must not include the broad assets directory",
+  );
+  assert.equal(
+    pagesArtifact.has("./assets/media-manifest.json"),
+    false,
+    "Pages artifact must not publish the media inventory manifest",
+  );
+  assert.deepEqual(
+    runtimeVideos,
+    [
+      "./assets/video/abyssal-surge-cinematic.mp4",
+      "./assets/video/cinder-span.mp4",
+      "./assets/video/echo-throne.mp4",
+      "./assets/video/veil-citadel.mp4",
+    ],
+    "Pages artifact must allowlist exactly the supported runtime videos",
   );
 });
 

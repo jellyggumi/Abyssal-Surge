@@ -325,7 +325,6 @@ let waveIndex = 0;
 const cooldowns = new Map();
 let pendingNextScenario = false;
 let campaignMirror = null;
-let mirrorStatusText = "";
 
 function currentStage() {
   return STAGES[campaign.stageIndex];
@@ -335,11 +334,6 @@ function setSaveStatus(message) {
   elements.saveStatus.textContent = message;
 }
 
-function setMirrorStatus(message) {
-  if (mirrorStatusText === message) return;
-  mirrorStatusText = message;
-  elements.mirrorStatus.textContent = message;
-}
 
 function renderChecklist() {
   elements.checklist.replaceChildren();
@@ -1414,11 +1408,9 @@ async function initialize() {
   }
   campaignMirror = new CampaignMirror({ onState: applyMirroredCampaign });
   const mirrorAvailability = campaignMirror.start(storedCampaign ? createSaveEnvelope(storedCampaign) : null);
-  setMirrorStatus(
-    mirrorAvailability.available
-      ? "다른 탭과 이 브라우저에서만 로컬 동기화 중입니다. 인터넷 멀티플레이는 아닙니다."
-      : "탭 간 로컬 동기화를 사용할 수 없습니다. 이 기기 저장은 계속됩니다."
-  );
+  elements.mirrorStatus.textContent = mirrorAvailability.available
+    ? "다른 탭과 이 브라우저에서만 로컬 동기화 중입니다. 인터넷 멀티플레이는 아닙니다."
+    : "탭 간 로컬 동기화를 사용할 수 없습니다. 이 기기 저장은 계속됩니다.";
   window.addEventListener("pagehide", () => campaignMirror?.close(), { once: true });
   wireControls();
   particleBackground = initReactBitsEffects();

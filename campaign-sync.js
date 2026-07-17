@@ -139,7 +139,7 @@ export class CampaignMirror {
     this.originId = randomOriginId();
     this.latestStamp = readStamp(storage);
     this.revision = Math.max(readRevision(storage), this.latestStamp?.revision ?? 0);
-    this.storageMode = writeValue(storage, REVISION_KEY, String(this.revision)) ? "sessionStorage" : "memory";
+    writeValue(storage, REVISION_KEY, String(this.revision));
     this.channel = null;
     this.latestEnvelope = null;
     this.availability = Object.freeze({ available: false, reason: "BroadcastChannel unavailable" });
