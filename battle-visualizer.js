@@ -177,8 +177,14 @@ export class BattleVisualizer {
   }
 
   elevationAt(fx, fy) {
-    const h = this.heightAt(Math.round(fx), Math.round(fy));
+    const h = this.heightAt(Math.floor(fx), Math.floor(fy));
     return h < 0 ? 0 : h;
+  }
+
+  sortRootAt(fx, fy) {
+    const x = Math.floor(fx);
+    const y = Math.floor(fy);
+    return { x: x + 0.5, y: y + 0.5, z: this.elevationAt(fx, fy) };
   }
 
   // --- lifecycle -------------------------------------------------------
@@ -293,6 +299,7 @@ export class BattleVisualizer {
           x,
           y,
           z,
+          sortRoot: { x: x + 0.5, y: y + 0.5, z },
           layer: z > 0 ? "prop" : "ground",
           kind: z > 0 ? "occluder" : "floor",
         };
@@ -943,21 +950,25 @@ export class BattleVisualizer {
     const records = [
       {
         id: "ally-portal", x: ALLY_SPAWN.x, y: ALLY_SPAWN.y, z: 0,
+        sortRoot: this.sortRootAt(ALLY_SPAWN.x, ALLY_SPAWN.y),
         layer: "prop", render: "portal", color: this.palette.ally,
       },
       {
         id: "boss-portal", x: BOSS_TILE.x, y: BOSS_TILE.y, z: 0,
+        sortRoot: this.sortRootAt(BOSS_TILE.x, BOSS_TILE.y),
         layer: "prop", render: "portal", color: this.palette.enemy,
       },
       {
         id: "boss", x: BOSS_TILE.x + 0.4, y: BOSS_TILE.y + 0.4, z: 0,
+        sortRoot: this.sortRootAt(BOSS_TILE.x + 0.4, BOSS_TILE.y + 0.4),
         layer: "actor", render: "boss",
       },
     ];
     for (let index = 1; index <= this.nodeGoal; index++) {
       const node = this.nodePosition(index);
       records.push({
-        id: `node-${index}`, x: node.x, y: node.y, z: 0, layer: "prop",
+        id: `node-${index}`, x: node.x, y: node.y, z: 0,
+        sortRoot: this.sortRootAt(node.x, node.y), layer: "prop",
         render: "node", node, captured: index <= this.nodes.length,
       });
     }
@@ -965,7 +976,7 @@ export class BattleVisualizer {
       const unit = this.allies[index];
       records.push({
         id: `ally-${index}`, x: unit.x, y: unit.y, z: this.elevationAt(unit.x, unit.y),
-        layer: "actor", render: "unit", unit,
+        sortRoot: this.sortRootAt(unit.x, unit.y), layer: "actor", render: "unit", unit,
         kind: unit.isPossessed ? "possessed" : "ally",
       });
     }
@@ -973,7 +984,7 @@ export class BattleVisualizer {
       const unit = this.enemies[index];
       records.push({
         id: `enemy-${index}`, x: unit.x, y: unit.y, z: this.elevationAt(unit.x, unit.y),
-        layer: "actor", render: "unit", unit, kind: "enemy",
+        sortRoot: this.sortRootAt(unit.x, unit.y), layer: "actor", render: "unit", unit, kind: "enemy",
       });
     }
     for (let index = 0; index < this.particles.length; index++) {
@@ -1054,7 +1065,7 @@ export class BattleVisualizer {
 
   drawPortal(fx, fy, color) {
     const ctx = this.ctx;
-    const p = this.project(fx, fy, 0);
+    const p = this.project(fx, fy, this.elevationAt(fx, fy));
     const s = this.view.scale;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
@@ -1071,7 +1082,7 @@ export class BattleVisualizer {
 
   drawNode(node, captured) {
     const ctx = this.ctx;
-    const base = this.project(node.x, node.y, 0);
+    const base = this.project(node.x, node.y, this.elevationAt(node.x, node.y));
     const s = this.view.scale;
     const h = 26 * s;
     const color = captured ? this.palette.node : "#71829b";
@@ -1089,7 +1100,7 @@ export class BattleVisualizer {
 
   drawBoss() {
     const ctx = this.ctx;
-    const p = this.project(BOSS_TILE.x, BOSS_TILE.y, 0);
+    const p = this.project(BOSS_TILE.x, BOSS_TILE.y, this.elevationAt(BOSS_TILE.x, BOSS_TILE.y));
     const s = this.view.scale;
     if (this.bossImage) {
       const w = 72 * s;

@@ -36,6 +36,19 @@
       <section id="campaign-lobby" class="panel lobby-panel" aria-labelledby="campaign-title">
         <p class="eyebrow" data-i18n="lobby.eyebrow">3단계 캠페인</p>
         <h2 id="campaign-title" data-i18n="lobby.title">가라앉은 문을 차지하라</h2>
+        <div id="campaign-resume-summary" class="campaign-resume-summary" hidden aria-live="polite">
+          <p class="campaign-resume-summary-heading" data-i18n="lobby.activeRun">진행 중인 로컬 캠페인</p>
+          <dl>
+            <div>
+              <dt data-i18n="lobby.resumeStageLabel">스테이지</dt>
+              <dd id="campaign-resume-stage"></dd>
+            </div>
+            <div>
+              <dt data-i18n="lobby.resumeStatusLabel">상태</dt>
+              <dd id="campaign-resume-status"></dd>
+            </div>
+          </dl>
+        </div>
         <p class="lede" data-i18n="lobby.lede">신더 스팬, 베일 시타델, 메아리 왕좌를 가로질러 그림자 군단을 지휘하라. 모든 행동은 결정론적이며 터치와 키보드 모두로 조작할 수 있고, 기록은 이 기기에만 남는다.</p>
         <div class="button-row">
           <button id="start-campaign" class="primary" type="button" aria-describedby="campaign-description" data-i18n="lobby.startButton">새 캠페인 시작</button>
@@ -159,7 +172,10 @@
             <h2 id="stage-heading" tabindex="-1" class="shiny-text">Cinder Span</h2>
             <p id="stage-region" class="muted"></p>
           </div>
-          <button id="retry-stage" type="button" aria-label="Retry current stage" data-i18n="screen.retryButton">스테이지 재시도</button>
+          <div class="campaign-heading-actions">
+            <button id="retry-stage" type="button" aria-label="Retry current stage" data-i18n="screen.retryButton">스테이지 재시도</button>
+            <button id="return-to-lobby" type="button" data-i18n="screen.returnButton">사령부로 돌아가기</button>
+          </div>
         </div>
 
         <nav id="stage-selector" class="stage-selector" aria-label="Campaign stage progression">

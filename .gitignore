@@ -11,3 +11,7 @@ node_modules/
 
 # Scratch outputs
 tmp/
+
+# Local generation diagnostics and Python bytecode
+.debug-codex-imagegen/
+scripts/__pycache__/

@@ -96,3 +96,20 @@ The top section of the battle screen uses a Canvas 2D dimetric (2:1) battlefield
   - Lord's Domain: A large dome shield covering the Ally camp when activated.
 - **Canvas initialization fallback**: If Canvas initialization fails, the app displays a static tactical briefing while the command pad and logical timed-wave rules remain active.
 - **Reduced motion**: The Canvas updates as static, event-driven state changes rather than through continuous animation.
+
+### 3.1 Sprite Bake, Atlas, and Painter Contract
+
+- **Current browser asset boundary:** Blender meshes, rigs, and generated material maps remain source-production artifacts. The shipped static client has no 3D runtime: it renders standalone pre-rendered boss PNGs and deterministic procedural unit silhouettes. A future 8-direction, 16 fps conceptual-style atlas package must be registered and validated before it replaces those silhouettes.
+- **Atlas admission rule:** `validateSpriteAtlasManifest` enforces exclusive frame rectangles with a 1-pixel gutter, rejecting duplicates, partial overlaps, and edge-sharing frames. It is a production admission check today; atlas selection/loading is deliberately not claimed until an approved atlas asset is supplied.
+- **Static first:** Opaque, non-occluding ground is painted into 16×16 cached chunks. This layer never enters the per-frame queue.
+- **Shared depth queue:** Raised terrain, portals, nodes, units, and alpha VFX share the painter queue. Terrain uses the center of its visual tile as `sortRoot`; a mobile actor uses the center/elevation of its occupied tile. The invariant is `northwest actor < raised tile < southeast actor`, while an actor on a raised tile remains above that tile through the existing layer bias.
+- **Explicit local order:** `orderInLayer` is an integer tie-breaker only after the geometric depth key. It must not replace world depth or be used as an arbitrary sorting fudge.
+- **Particle roots and blend phase:** Every effect records a stable `sortRoot` at creation. Simulated particle positions never change its depth root. Additive particles draw in a final additive pass after ordinary alpha/world records; additive siblings remain ordered by their root depth and `orderInLayer`.
+- **Viewport calibration:** The dimetric view derives a single scale from the current canvas bounds and projected map bounds. Camera movement, when added, must keep a continuous logical target and calibrate only the presentation transform to device pixels; it must not integer-round gameplay coordinates.
+
+### 3.2 Per-Stage Production Review
+
+1. Validate source provenance, atlas geometry (when an atlas is supplied), narration source text, and the current asset inventory before release registration.
+2. Validate tile role assignment: floor chunks are static; only raised occluders and dynamic entities enter the shared depth queue.
+3. Execute a browser playtest with a live Canvas renderer and record zero unexpected page errors plus a non-empty rendered battlefield.
+4. Treat Blender, image generation, audio generation, compression, and multiplayer services as external production tools. A static GitHub Pages client may consume their exported artifacts, but must not pretend to execute them at runtime.

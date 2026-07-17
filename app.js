@@ -16,6 +16,7 @@ import {
 import { BattleVisualizer } from "./battle-visualizer.js";
 import { getBattlePresentation } from "./battle-presentation.js";
 import { CampaignMirror } from "./campaign-sync.js";
+import { currentLang, translations } from "./i18n.js";
 
 const BUILD_TAG = "abyssal-surge-static-v1";
 const DB_NAME = "abyssal-surge-campaign";
@@ -39,6 +40,13 @@ const COOLDOWN_SECONDS = Object.freeze({
   possess: 10,
   domain: 15,
   assault: 3
+});
+const RESUME_STATUS_KEYS = Object.freeze({
+  briefing: "lobby.resumeStatus.briefing",
+  active: "lobby.resumeStatus.active",
+  reward: "lobby.resumeStatus.reward",
+  defeat: "lobby.resumeStatus.defeat",
+  "campaign-complete": "lobby.resumeStatus.campaignComplete"
 });
 const BATTLE_PREPARATION_MS = 25_000;
 // Simulated-mode breach pacing (reduced-motion / renderer fallback ONLY).
@@ -222,8 +230,12 @@ const elements = Object.freeze({
   screen: document.querySelector("#campaign-screen"),
   start: document.querySelector("#start-campaign"),
   resume: document.querySelector("#resume-campaign"),
+  resumeSummary: document.querySelector("#campaign-resume-summary"),
+  resumeStage: document.querySelector("#campaign-resume-stage"),
+  resumeStatus: document.querySelector("#campaign-resume-status"),
   restart: document.querySelector("#restart-campaign"),
   retry: document.querySelector("#retry-stage"),
+  returnToLobby: document.querySelector("#return-to-lobby"),
   views: Object.freeze({
     scenario: document.querySelector("#view-scenario"),
     bossSpec: document.querySelector("#view-boss-spec"),
@@ -298,7 +310,8 @@ const elements = Object.freeze({
   commandButtons: [...document.querySelectorAll("[data-action]")],
   stageButtons: [1, 2, 3].map((number) => document.querySelector(`#stage-select-${number}`)),
   bgmToggle: document.querySelector("#bgm-toggle"),
-  bgmPlayer: document.querySelector("#bgm-player")
+  bgmPlayer: document.querySelector("#bgm-player"),
+  languageToggle: document.querySelector("#lang-toggle")
 });
 
 let campaign = null;
@@ -332,6 +345,25 @@ function currentStage() {
 
 function setSaveStatus(message) {
   elements.saveStatus.textContent = message;
+}
+
+function translatedResumeText(key, fallback) {
+  return translations[currentLang()]?.[key] ?? fallback;
+}
+
+function updateResumeAffordance() {
+  const resumableCampaign = storedCampaign;
+  const hasResumableCampaign = Boolean(resumableCampaign);
+  elements.resume.hidden = !hasResumableCampaign;
+  elements.resume.classList.toggle("primary", hasResumableCampaign);
+  elements.start.classList.toggle("primary", !hasResumableCampaign);
+  elements.resumeSummary.hidden = !hasResumableCampaign;
+  if (!hasResumableCampaign) return;
+
+  const stage = STAGES[resumableCampaign.stageIndex];
+  elements.resumeStage.textContent = `${stage.number} / ${STAGES.length} · ${stage.title}`;
+  const statusKey = RESUME_STATUS_KEYS[resumableCampaign.status];
+  elements.resumeStatus.textContent = translatedResumeText(statusKey, resumableCampaign.status);
 }
 
 
@@ -731,9 +763,25 @@ function render() {
   syncNarration();
 }
 
+async function resumeCampaign() {
+  const resumableCampaign = campaign ?? storedCampaign;
+  if (!resumableCampaign) return;
+  if (resumableCampaign.status === "briefing") {
+    await beginNewCampaign();
+    return;
+  }
+  stopBattle();
+  campaign = resumableCampaign;
+  storedCampaign = resumableCampaign;
+  pendingNextScenario = false;
+  updateResumeAffordance();
+  revealCampaign();
+}
+
 function revealCampaign() {
   elements.lobby.hidden = true;
   elements.screen.hidden = false;
+  updateResumeAffordance();
   const terminal = ["reward", "defeat", "campaign-complete"].includes(campaign.status);
   showView(terminal ? "result" : "scenario");
   window.requestAnimationFrame(() => (terminal ? elements.resultTitle : elements.stageHeading).focus());
@@ -838,6 +886,8 @@ function flashEffect(effect) {
 async function persistCampaign(context = "Campaign saved") {
   if (!campaign) return;
   const envelope = createSaveEnvelope(campaign);
+  storedCampaign = campaign;
+  updateResumeAffordance();
   const savedTo = await storage.save(envelope);
   campaignMirror?.publish(envelope);
   setSaveStatus(`${context} in ${savedTo}.`);
@@ -847,7 +897,7 @@ async function applyMirroredCampaign(envelope) {
   try {
     const mirroredCampaign = restoreSaveEnvelope(envelope);
     storedCampaign = mirroredCampaign;
-    elements.resume.hidden = false;
+    updateResumeAffordance();
     await storage.save(envelope);
     if (campaign) {
       stopBattle();
@@ -967,7 +1017,8 @@ async function beginNewCampaign() {
   stopBattle();
   const result = startCampaign(createCampaign());
   campaign = result.state;
-  storedCampaign = null;
+  storedCampaign = campaign;
+  updateResumeAffordance();
   pendingNextScenario = false;
   activeView = "scenario";
   narratedStageId = STAGES[campaign.stageIndex].id;
@@ -976,6 +1027,20 @@ async function beginNewCampaign() {
   flashEffect("awaken");
   playNarration("intro");
   await persistCampaign("New campaign saved");
+}
+
+async function returnToLobby() {
+  if (!campaign) return;
+  stopBattle();
+  storedCampaign = campaign;
+  pendingNextScenario = false;
+  await persistCampaign("Campaign returned to command lobby");
+  activeView = "scenario";
+  elements.screen.hidden = true;
+  elements.lobby.hidden = false;
+  syncBackgroundEffects();
+  updateResumeAffordance();
+  window.requestAnimationFrame(() => elements.resume.focus());
 }
 
 async function handleRetry() {
@@ -1015,6 +1080,7 @@ async function importSave(file) {
     const envelope = JSON.parse(await file.text());
     campaign = restoreSaveEnvelope(envelope);
     storedCampaign = campaign;
+    updateResumeAffordance();
     revealCampaign();
     await persistCampaign("Imported campaign saved");
     flashEffect("reward");
@@ -1098,12 +1164,8 @@ function playCinematic() {
 function wireControls() {
   elements.start.addEventListener("click", beginNewCampaign);
   elements.restart.addEventListener("click", beginNewCampaign);
-  elements.resume.addEventListener("click", () => {
-    stopBattle();
-    campaign = storedCampaign;
-    pendingNextScenario = false;
-    revealCampaign();
-  });
+  elements.resume.addEventListener("click", () => void resumeCampaign().catch(() => undefined));
+  elements.returnToLobby.addEventListener("click", () => void returnToLobby());
   elements.retry.addEventListener("click", handleRetry);
   elements.goToBossSpec.addEventListener("click", () => {
     if (campaign?.status === "active") showView("bossSpec");
@@ -1133,6 +1195,7 @@ function wireControls() {
   elements.ambience.addEventListener("click", toggleAmbience);
   elements.bgmToggle?.addEventListener("click", toggleBgm);
   elements.cinematicButton.addEventListener("click", playCinematic);
+  elements.languageToggle?.addEventListener("click", () => window.requestAnimationFrame(updateResumeAffordance));
   window.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
     const target = event.target;
@@ -1407,7 +1470,7 @@ async function initialize() {
   if (loaded.envelope) {
     try {
       storedCampaign = restoreSaveEnvelope(loaded.envelope);
-      elements.resume.hidden = false;
+      updateResumeAffordance();
       setSaveStatus(`A compatible campaign is available from ${loaded.source}.`);
     } catch {
       setSaveStatus("A local save was found but is incompatible. Start a new campaign or import a valid save.");

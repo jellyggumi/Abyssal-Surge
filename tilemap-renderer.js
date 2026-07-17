@@ -190,10 +190,20 @@ function assertAtlasNumber(value, name, { allowZero = true } = {}) {
   }
 }
 
+const ATLAS_GUTTER_PX = 1;
+
+function atlasRectsConflict(a, b) {
+  return (
+    a.x - ATLAS_GUTTER_PX < b.x + b.width &&
+    a.x + a.width + ATLAS_GUTTER_PX > b.x &&
+    a.y - ATLAS_GUTTER_PX < b.y + b.height &&
+    a.y + a.height + ATLAS_GUTTER_PX > b.y
+  );
+}
+
 /**
- * Validates a single-page atlas package. Source rectangles are exclusive: a
- * rect is owned by one frame ID only, preventing accidental cross-texture
- * sampling and bleeding in a packed tile set.
+ * Validates a single-page atlas package. Frames require a one-pixel isolation
+ * gutter so scaled Canvas sampling cannot bleed a neighbour's texels.
  */
 export function validateSpriteAtlasManifest(manifest) {
   if (!manifest || typeof manifest !== "object") {
@@ -212,7 +222,8 @@ export function validateSpriteAtlasManifest(manifest) {
     throw new TypeError("atlas frames must be an object keyed by frame id");
   }
 
-  const usedRects = new Set();
+  const usedRectKeys = new Set();
+  const usedRects = [];
   for (const [id, frame] of Object.entries(manifest.frames)) {
     if (!id) throw new TypeError("atlas frame id must be non-empty");
     if (!frame || typeof frame !== "object") throw new TypeError(`atlas frame ${id} must be an object`);
@@ -228,9 +239,15 @@ export function validateSpriteAtlasManifest(manifest) {
     if (frame.pivotX > frame.width || frame.pivotY > frame.height) {
       throw new RangeError(`atlas frame ${id} pivot must remain within frame bounds`);
     }
-    const rect = `${frame.x},${frame.y},${frame.width},${frame.height}`;
-    if (usedRects.has(rect)) throw new RangeError(`duplicate atlas rectangle claimed by ${id}`);
-    usedRects.add(rect);
+    const rectKey = `${frame.x},${frame.y},${frame.width},${frame.height}`;
+    if (usedRectKeys.has(rectKey)) throw new RangeError(`duplicate atlas rectangle claimed by ${id}`);
+    for (const used of usedRects) {
+      if (atlasRectsConflict(frame, used.frame)) {
+        throw new RangeError(`atlas frame ${id} lacks a ${ATLAS_GUTTER_PX}px isolation gutter from ${used.id}`);
+      }
+    }
+    usedRects.push({ id, frame });
+    usedRectKeys.add(rectKey);
   }
   return true;
 }

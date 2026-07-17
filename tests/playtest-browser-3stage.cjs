@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 let playwright;
 try {
@@ -356,15 +357,109 @@ async function configureBattleParityContext(context, { failCanvas = false, audit
   }, { failCanvas, auditAnimationFrames });
 }
 
-async function campaignTrace(page) {
+async function exportCampaignEnvelope(page) {
   const downloadReady = page.waitForEvent("download");
   await page.locator("#export-save").click();
   const download = await downloadReady;
   const downloadPath = await download.path();
   assert.ok(downloadPath, "The public save export must provide a readable download.");
   const envelope = JSON.parse(fs.readFileSync(downloadPath, "utf8"));
+  assert.equal(typeof envelope.schema, "string", "The public campaign save export must expose its schema.");
   assert.ok(Array.isArray(envelope.trace), "The public campaign save export must expose a versioned trace.");
-  return envelope.trace;
+  return envelope;
+}
+
+async function campaignTrace(page) {
+  return (await exportCampaignEnvelope(page)).trace;
+}
+
+function trackMainFrameNavigations(page) {
+  let count = 0;
+  const onFrameNavigated = (frame) => {
+    if (frame === page.mainFrame()) count += 1;
+  };
+  page.on("framenavigated", onFrameNavigated);
+  return {
+    count: () => count,
+    reset: () => {
+      count = 0;
+    },
+    dispose: () => page.off("framenavigated", onFrameNavigated)
+  };
+}
+
+async function waitForCampaignBoot(page) {
+  await page.waitForFunction(() => document.querySelector("#save-status")?.textContent !== "Preparing local save…");
+}
+
+async function importCampaignEnvelope(page, envelope, name) {
+  await page.locator("#import-save").setInputFiles({
+    name,
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(envelope), "utf8")
+  });
+  await page.locator("#campaign-screen").waitFor({ state: "visible" });
+  await page.waitForFunction(
+    () => document.querySelector("#save-status")?.textContent.startsWith("Imported campaign saved in "),
+    undefined,
+    { timeout: 10_000 }
+  );
+}
+
+function acceptedCampaignTransition(result, label) {
+  assert.equal(result.accepted, true, label ?? result.message);
+  return result.state;
+}
+
+async function createCampaignFixtures() {
+  const {
+    applyAction,
+    applyBattleBreach,
+    chooseReward,
+    createCampaign,
+    createSaveEnvelope,
+    startCampaign
+  } = await import(pathToFileURL(path.join(ROOT, "campaign-state.js")).href);
+
+  const commands = (state, actions) => actions.reduce(
+    (next, action) => acceptedCampaignTransition(applyAction(next, action), `Campaign fixture action ${action} must be accepted.`),
+    state
+  );
+  const start = () => acceptedCampaignTransition(startCampaign(createCampaign()), "Campaign fixture must start from briefing.");
+  const stageOneVictory = ["hunt", "hunt", "extract", "materialize", "materialize", "capture", "assault", "assault", "assault"];
+  const stageTwoVictory = ["hunt", "hunt", "extract", "materialize", "materialize", "capture", "capture", "possess", "assault", "assault"];
+  const stageThreeVictory = ["capture", "domain", "possess", "assault", "assault"];
+
+  const briefing = createCampaign();
+  const reward = commands(start(), stageOneVictory);
+
+  let defeat = start();
+  while (defeat.status === "active") {
+    defeat = acceptedCampaignTransition(applyBattleBreach(defeat), "Campaign fixture battle breach must be accepted.");
+  }
+
+  let completed = acceptedCampaignTransition(chooseReward(reward, "rift-lens"), "Stage 1 fixture reward must be accepted.");
+  completed = acceptedCampaignTransition(
+    chooseReward(commands(completed, stageTwoVictory), "veil-vanguard"),
+    "Stage 2 fixture reward must be accepted."
+  );
+  completed = acceptedCampaignTransition(
+    chooseReward(commands(completed, stageThreeVictory), "throne-echo"),
+    "Stage 3 fixture reward must be accepted."
+  );
+
+  assert.equal(briefing.status, "briefing", "Briefing fixture must retain an empty trace.");
+  assert.deepEqual(briefing.trace, [], "Briefing fixture must contain no campaign progress.");
+  assert.equal(reward.status, "reward", "Reward fixture must await a reward selection.");
+  assert.equal(defeat.status, "defeat", "Defeat fixture must end in defeat.");
+  assert.equal(completed.status, "campaign-complete", "Completed fixture must end in campaign completion.");
+
+  return Object.freeze({
+    briefing: createSaveEnvelope(briefing),
+    reward: createSaveEnvelope(reward),
+    defeat: createSaveEnvelope(defeat),
+    completed: createSaveEnvelope(completed)
+  });
 }
 
 async function awaitTimedBattleBreachBatch(page, entryIntegrity) {
@@ -785,6 +880,162 @@ async function verifyWorker(page, baseUrl) {
   return { ...worker, cacheName: campaignCaches[0] };
 }
 
+async function verifyLobbyCampaignRoundTrip(browser, baseUrl) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  let navigation;
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    navigation = trackMainFrameNavigations(page);
+    assert.equal(
+      await page.locator("#campaign-resume-summary").isHidden(),
+      true,
+      "A clean lobby must hide the active-run summary before starting a campaign."
+    );
+
+    const acceptStartConfirmation = (dialog) => dialog.accept();
+    page.once("dialog", acceptStartConfirmation);
+    await page.locator("#start-campaign").click();
+    page.off("dialog", acceptStartConfirmation);
+
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    await assertStage(page, 1, "Cinder Span");
+    await enterBattle(page, 1, "Cinder Span");
+    const beforeReturnEnvelope = await exportCampaignEnvelope(page);
+    const campaignUrl = page.url();
+
+    await page.locator("#return-to-lobby").click();
+    await page.locator("#campaign-lobby").waitFor({ state: "visible" });
+    await page.locator("#campaign-screen").waitFor({ state: "hidden" });
+    await page.locator("#campaign-resume-summary").waitFor({ state: "visible" });
+    await page.locator("#resume-campaign").waitFor({ state: "visible" });
+    assert.equal(page.url(), campaignUrl, "Returning to the lobby must retain the campaign document URL.");
+    assert.equal(navigation.count(), 0, "Returning from an active battle must not navigate the main frame.");
+    await page.waitForTimeout(250);
+    assert.equal(await page.locator("#campaign-screen").isHidden(), true, "The campaign screen must remain hidden while the returned lobby idles.");
+    assert.equal(navigation.count(), 0, "The returned lobby must remain in the same main-frame document while idle.");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    assert.equal(navigation.count(), 1, "The intentional post-return reload must be the only observed main-frame navigation.");
+    navigation.reset();
+
+    await page.locator("#resume-campaign").waitFor({ state: "visible" });
+    await page.locator("#resume-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    await assertStage(page, 1, "Cinder Span");
+    assert.equal(page.url(), campaignUrl, "Resuming the campaign must retain the campaign document URL.");
+    assert.equal(navigation.count(), 0, "Resuming an active battle return must not navigate the main frame.");
+    const afterResumeEnvelope = await exportCampaignEnvelope(page);
+    assert.deepEqual(
+      afterResumeEnvelope,
+      beforeReturnEnvelope,
+      "The public exported replay envelope and trace must survive Return, reload, and Resume unchanged."
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const stageSelector = page.locator("#stage-selector");
+    await stageSelector.waitFor({ state: "visible" });
+    const { clientWidth, scrollWidth } = await stageSelector.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth
+    }));
+    assert.ok(
+      scrollWidth <= clientWidth,
+      `The 390px stage selector must not overflow horizontally; observed scrollWidth=${scrollWidth}, clientWidth=${clientWidth}.`
+    );
+  } finally {
+    navigation?.dispose();
+    await context.close();
+  }
+}
+
+async function verifyTerminalImportRoundTrip(browser, baseUrl, { fixtureName, envelope, assertResult }) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  let navigation;
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    navigation = trackMainFrameNavigations(page);
+
+    await importCampaignEnvelope(page, envelope, `abyssal-surge-${fixtureName}.json`);
+    await page.locator("#view-result").waitFor({ state: "visible" });
+    assert.equal(navigation.count(), 0, `Public ${fixtureName} import must not navigate the main frame.`);
+
+    const campaignUrl = page.url();
+    await page.locator("#return-to-lobby").click();
+    await page.locator("#campaign-lobby").waitFor({ state: "visible" });
+    await page.locator("#campaign-screen").waitFor({ state: "hidden" });
+    assert.equal(page.url(), campaignUrl, `Returning ${fixtureName} to the lobby must retain the campaign document URL.`);
+    assert.equal(navigation.count(), 0, `Returning ${fixtureName} to the lobby must not navigate the main frame.`);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    assert.equal(navigation.count(), 1, `The explicit ${fixtureName} reload must be the only main-frame navigation.`);
+    navigation.reset();
+
+    await page.locator("#resume-campaign").waitFor({ state: "visible" });
+    await page.locator("#resume-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.locator("#view-result").waitFor({ state: "visible" });
+    assert.equal(page.url(), campaignUrl, `Resuming ${fixtureName} must retain the campaign document URL.`);
+    assert.equal(navigation.count(), 0, `Resuming ${fixtureName} must not navigate the main frame.`);
+    await assertResult(page);
+  } finally {
+    navigation?.dispose();
+    await context.close();
+  }
+}
+
+async function verifyBriefingImportResume(browser, baseUrl, envelope) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  let navigation;
+  let page;
+  let noStartConfirmation;
+  try {
+    page = await context.newPage();
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    navigation = trackMainFrameNavigations(page);
+
+    await importCampaignEnvelope(page, envelope, "abyssal-surge-briefing.json");
+    await page.locator("#return-to-lobby").click();
+    await page.locator("#campaign-lobby").waitFor({ state: "visible" });
+    await page.locator("#campaign-resume-summary").waitFor({ state: "visible" });
+    assert.equal(await text(page.locator("#campaign-resume-status")), "작전 브리핑", "A Korean lobby must localize the empty-trace briefing resume summary.");
+    assert.equal(navigation.count(), 0, "Returning an imported briefing to the lobby must not navigate the main frame.");
+
+    let startConfirmationCount = 0;
+    noStartConfirmation = (dialog) => {
+      startConfirmationCount += 1;
+      dialog.dismiss();
+    };
+    page.on("dialog", noStartConfirmation);
+    await page.locator("#resume-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    page.off("dialog", noStartConfirmation);
+    noStartConfirmation = undefined;
+
+    assert.equal(startConfirmationCount, 0, "Resuming an empty-trace briefing must begin a fresh run without confirmation.");
+    await assertStage(page, 1, "Cinder Span");
+    assert.equal(navigation.count(), 0, "Resuming an imported briefing must not navigate the main frame.");
+    assert.deepEqual(
+      (await exportCampaignEnvelope(page)).trace,
+      [{ kind: "start" }],
+      "Resuming an imported briefing must publicly export the fresh Stage 1 start transition."
+    );
+  } finally {
+    if (page && noStartConfirmation) page.off("dialog", noStartConfirmation);
+    navigation?.dispose();
+    await context.close();
+  }
+}
+
 async function run() {
   let server;
   let browser;
@@ -796,9 +1047,37 @@ async function run() {
     const hosting = await startServer();
     server = hosting.server;
     browser = await playwright.chromium.launch({ headless: true });
+    const campaignFixtures = await createCampaignFixtures();
     await verifyRendererIndependentBattleBreach(browser, hosting.baseUrl);
     await verifyReducedMotionBattlePresentation(browser, hosting.baseUrl);
     await verifyShortViewportBattleTargetReachability(browser, hosting.baseUrl);
+    await verifyLobbyCampaignRoundTrip(browser, hosting.baseUrl);
+    await verifyBriefingImportResume(browser, hosting.baseUrl, campaignFixtures.briefing);
+    await verifyTerminalImportRoundTrip(browser, hosting.baseUrl, {
+      fixtureName: "reward-pending",
+      envelope: campaignFixtures.reward,
+      assertResult: async (fixturePage) => {
+        await fixturePage.locator("#reward-panel").waitFor({ state: "visible" });
+        assert.ok(
+          await fixturePage.locator("#reward-options button").count() > 0,
+          "A resumed reward-pending campaign must expose one or more reward options."
+        );
+      }
+    });
+    await verifyTerminalImportRoundTrip(browser, hosting.baseUrl, {
+      fixtureName: "defeat",
+      envelope: campaignFixtures.defeat,
+      assertResult: async (fixturePage) => {
+        await fixturePage.locator("#retry-from-result").waitFor({ state: "visible" });
+      }
+    });
+    await verifyTerminalImportRoundTrip(browser, hosting.baseUrl, {
+      fixtureName: "campaign-complete",
+      envelope: campaignFixtures.completed,
+      assertResult: async (fixturePage) => {
+        await fixturePage.locator("#campaign-complete").waitFor({ state: "visible" });
+      }
+    });
 
     context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     page = await context.newPage();

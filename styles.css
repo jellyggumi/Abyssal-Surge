@@ -233,12 +233,13 @@ main {
   grid-template-areas:
     "eyebrow cinematic"
     "title cinematic"
+    "resume cinematic"
     "lede cinematic"
     "actions cinematic"
     "description cinematic"
     "map storyboard"
     "map features";
-  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) minmax(0, 0.95fr);
+  grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr) minmax(0, 0.95fr);
   gap: .65rem 1rem;
 }
 .lobby-panel > .eyebrow { grid-area: eyebrow; margin-bottom: 0; }
@@ -253,6 +254,23 @@ main {
   overflow: hidden;
 }
 .lobby-panel > .button-row { grid-area: actions; margin: 0; }
+.campaign-resume-summary {
+  grid-area: resume;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .8rem;
+  padding: .45rem .6rem;
+  border: 1px solid rgb(112 229 208 / 28%);
+  border-radius: .65rem;
+  background: rgb(7 12 25 / 32%);
+}
+.campaign-resume-summary[hidden] { display: none !important; }
+.campaign-resume-summary-heading { margin: 0; color: var(--aqua); font-size: .78rem; font-weight: 700; }
+.campaign-resume-summary dl { display: flex; flex-wrap: wrap; gap: .3rem .75rem; margin: 0; }
+.campaign-resume-summary dl div { display: flex; gap: .3rem; min-width: 0; }
+.campaign-resume-summary dt { color: var(--muted); font-size: .72rem; }
+.campaign-resume-summary dd { min-width: 0; margin: 0; font-size: .78rem; overflow-wrap: anywhere; }
 .lobby-panel > .cinematic-control {
   grid-area: cinematic;
   display: grid;
@@ -335,9 +353,11 @@ main {
 .campaign-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: .4rem 0; flex-shrink: 0; }
 .campaign-heading h2 { margin-bottom: .1rem; font-size: clamp(1.2rem, 4vw, 1.8rem); }
 .campaign-heading .muted { margin-bottom: 0; font-size: .85rem; }
-.stage-selector { overflow-x: auto; margin: 0 0 .45rem; padding: .1rem; flex-shrink: 0; }
-.stage-selector ol { display: grid; grid-template-columns: repeat(3, minmax(8.7rem, 1fr)); gap: .5rem; min-width: 28rem; margin: 0; padding: 0; list-style: none; }
-.stage-selector button { width: 100%; min-height: 2.8rem; color: var(--muted); text-align: left; padding: .3rem .6rem; }
+.campaign-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; flex-shrink: 0; }
+.campaign-heading-actions button { white-space: normal; }
+.stage-selector { max-width: 100%; margin: 0 0 .45rem; padding: .1rem; overflow-x: clip; flex-shrink: 0; }
+.stage-selector ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.stage-selector button { width: 100%; min-height: 2.8rem; padding: .3rem .45rem; color: var(--muted); overflow-wrap: anywhere; text-align: left; }
 .stage-selector button span { display: block; color: var(--cinder); font-size: .72rem; }
 .stage-selector button.active { border-color: var(--aqua); color: var(--ink); background: #244158; opacity: 1; }
 .stage-selector button.cleared { border-color: rgb(112 229 208 / 42%); color: var(--aqua); opacity: .85; }
@@ -436,7 +456,8 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   .site-header { align-items: flex-start; flex-direction: column; }
   .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .status-grid div:last-child { grid-column: span 2; }
-  .section-heading, .stage-transition-copy { align-items: stretch; flex-direction: column; }
+  .section-heading, .stage-transition-copy, .campaign-heading { align-items: stretch; flex-direction: column; }
+  .campaign-heading-actions { justify-content: flex-start; }
   .status-message { text-align: left; }
 }
 @media (max-width: 25rem) {
@@ -444,6 +465,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   .site-header, main { width: min(100% - 1rem, 72rem); }
   .command-grid, .reward-options { grid-template-columns: 1fr; }
   .campaign-heading { align-items: stretch; flex-direction: column; }
+  .campaign-heading-actions button { flex: 1 1 10rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
@@ -1055,6 +1077,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
     grid-template-areas:
       "eyebrow"
       "title"
+      "resume"
       "lede"
       "actions"
       "cinematic"
@@ -1062,7 +1085,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
       "storyboard"
       "features"
       "description";
-    grid-template-rows: auto auto auto auto minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto;
+    grid-template-rows: auto auto auto auto auto minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto;
   }
 
   #campaign-lobby .campaign-map-grid,

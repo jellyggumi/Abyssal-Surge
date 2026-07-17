@@ -117,6 +117,56 @@ test("buildIndividualDrawQueue interleaves occluder tiles with actors instead of
   );
 });
 
+test("buildIndividualDrawQueue sorts a wall from its center sortRoot between northwest and southeast units", () => {
+  const queue = buildIndividualDrawQueue(
+    [{
+      id: "wall",
+      x: 5,
+      y: 5,
+      z: 1,
+      kind: "occluder",
+      sortRoot: { x: 5.5, y: 5.5, z: 1 },
+    }],
+    [
+      { id: "northwest-unit", x: 5.5, y: 4.5, z: 1, layer: "actor" },
+      { id: "southeast-unit", x: 5.5, y: 6.5, z: 1, layer: "actor" },
+    ],
+  );
+
+  assert.deepEqual(
+    queue.map(({ id }) => id),
+    ["northwest-unit", "wall", "southeast-unit"],
+    "a wall's center sortRoot must let it occlude the northwest unit but remain behind the southeast unit",
+  );
+});
+
+test("buildIndividualDrawQueue keeps a unit above a walkable raised tile at the same center and elevation", () => {
+  const queue = buildIndividualDrawQueue(
+    [{
+      id: "raised-tile",
+      x: 5,
+      y: 5,
+      z: 1,
+      layer: "prop",
+      sortRoot: { x: 5.5, y: 5.5, z: 1 },
+    }],
+    [{
+      id: "unit-on-top",
+      x: 5.5,
+      y: 5.5,
+      z: 1,
+      layer: "actor",
+      sortRoot: { x: 5.5, y: 5.5, z: 1 },
+    }],
+  );
+
+  assert.deepEqual(
+    queue.map(({ id }) => id),
+    ["raised-tile", "unit-on-top"],
+    "layer bias must keep a unit in front of walkable raised geometry at the same depth root",
+  );
+});
+
 test("buildIndividualDrawQueue uses orderInLayer only after geometric depth and makes higher ties frontmost", () => {
   const queue = buildIndividualDrawQueue([], [
     { id: "far-order-but-behind", x: 1, y: 0, z: 0, layer: "actor", orderInLayer: 99 },
@@ -257,5 +307,25 @@ test("validateSpriteAtlasManifest accepts a single in-page frame and rejects dup
     () => validateSpriteAtlasManifest(oversizedPivot),
     /pivot/i,
     "a pivot coordinate beyond its frame bounds must be rejected",
+  );
+});
+
+test("validateSpriteAtlasManifest rejects partially overlapping atlas frame rectangles", () => {
+  const overlappingFrames = validManifest();
+  overlappingFrames.frames.water = frame(16, 0);
+
+  assert.throws(
+    () => validateSpriteAtlasManifest(overlappingFrames),
+    "frames that overlap by any area must not share atlas texels",
+  );
+});
+
+test("validateSpriteAtlasManifest requires a one-pixel gutter between atlas frame edges", () => {
+  const edgeSharingFrames = validManifest();
+  edgeSharingFrames.frames.water = frame(32, 0);
+
+  assert.throws(
+    () => validateSpriteAtlasManifest(edgeSharingFrames),
+    "frames that share an edge must leave at least one pixel of gutter",
   );
 });
