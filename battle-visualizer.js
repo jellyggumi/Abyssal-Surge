@@ -72,7 +72,19 @@ function paletteFromPresentation(presentation) {
 const BOSS_ART = Object.freeze({
   1: "assets/images/ui/boss-cinder-warden.png",
   2: "assets/images/ui/boss-veil-tactician.png",
-  3: "assets/images/ui/boss-gate-sovereign.png"
+  // Stage 3: Blender-rendered throned Gate Sovereign statue (256x256) -
+  // a field piece reads better in the dimetric world than a flat portrait.
+  3: "assets/images/battle/sovereign-atlas.png"
+});
+
+// Conceptual 2D character atlas: 8 facing directions × 2 idle-light phases.
+// Coordinates mirror assets/images/characters/dusk-legion-atlas.json.
+const UNIT_ATLAS = Object.freeze({
+  src: "assets/images/characters/dusk-legion-atlas.png",
+  framePx: 256,
+  padding: 2,
+  stride: 260,
+  fps: 16
 });
 
 // Per-stage heightfields (16×8, integers; -1 = chasm/unwalkable).
@@ -149,7 +161,7 @@ export class BattleVisualizer {
     this.staticChunks = new Map();
     this.terrainTiles = [];
     this.occluderTiles = [];
-    this.spriteCache = new Map();
+    this.unitAtlas = null;
     this.bossImage = null;
 
     this.selection = new Set();
@@ -195,6 +207,7 @@ export class BattleVisualizer {
     this.computeView();
     this.buildStaticLayer();
     this.loadBossArt();
+    this.loadUnitAtlas();
     this.attachPointerHandlers();
 
     this.resizeHandler = () => {
@@ -416,48 +429,6 @@ export class BattleVisualizer {
 
   // --- sprites (pre-rendered offscreen, per archetype) --------------------
 
-  unitSprite(kind) {
-    let sprite = this.spriteCache.get(kind);
-    if (sprite) return sprite;
-    const size = 48;
-    const c = document.createElement("canvas");
-    c.width = size;
-    c.height = size;
-    const ctx = c.getContext("2d");
-    const color = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
-    // grounding shadow
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
-    ctx.beginPath();
-    ctx.ellipse(size / 2, size * 0.78, size * 0.28, size * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // body orb with vertical gradient (painterly silhouette)
-    const grad = ctx.createLinearGradient(0, size * 0.15, 0, size * 0.8);
-    grad.addColorStop(0, color);
-    grad.addColorStop(1, "#0a0d18");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    if (kind === "enemy") {
-      // enemies: angular silhouette for readability contrast (G4)
-      ctx.moveTo(size / 2, size * 0.12);
-      ctx.lineTo(size * 0.78, size * 0.62);
-      ctx.lineTo(size / 2, size * 0.8);
-      ctx.lineTo(size * 0.22, size * 0.62);
-    } else {
-      ctx.arc(size / 2, size * 0.45, size * 0.28, 0, Math.PI * 2);
-      ctx.moveTo(size / 2 - size * 0.16, size * 0.5);
-      ctx.lineTo(size / 2, size * 0.82);
-      ctx.lineTo(size / 2 + size * 0.16, size * 0.5);
-    }
-    ctx.closePath();
-    ctx.fill();
-    // rim light
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    sprite = c;
-    this.spriteCache.set(kind, sprite);
-    return sprite;
-  }
 
   loadBossArt() {
     const src = BOSS_ART[this.stageNumber];
@@ -470,6 +441,33 @@ export class BattleVisualizer {
     };
     img.onerror = () => undefined;
     img.src = src;
+  }
+
+  // 8-direction unit atlases (Blender-rendered dimetric sprites). Each strip
+  // is 8x 128px frames, dir0 = facing the camera (screen S), CCW yaw steps.
+  // Fallback: the procedural orb sprites remain if a file never loads.
+  loadUnitAtlas() {
+    const img = new Image();
+    img.onload = () => {
+      if (this.destroyed) return;
+      this.unitAtlas = img;
+      this.render();
+    };
+    img.onerror = () => undefined;
+    img.src = UNIT_ATLAS.src;
+  }
+
+  // World-facing sector (directionIndex: 0 = +x world = screen SE, CCW) ->
+  // conceptual atlas facing. The rings differ by a quarter-plus-eighth turn.
+  atlasFacing(facing) {
+    return (7 - (facing ?? 0)) % 8;
+  }
+
+  // World-facing sector (directionIndex: 0 = +x world = screen SE, CCW) ->
+  // atlas frame (0 = screen S, CCW). Both rings are CCW; they differ by a
+  // constant quarter-plus-eighth turn: frame = 7 - facing.
+  atlasFrame(facing) {
+    return (7 - (facing ?? 0)) % 8;
   }
 
   // --- audio (virtual listener at screen ground focus) --------------------
@@ -1126,8 +1124,6 @@ export class BattleVisualizer {
     const z = this.elevationAt(unit.x, unit.y);
     const p = this.project(unit.x, unit.y, z);
     const s = this.view.scale;
-    const sprite = this.unitSprite(kind);
-    const size = 48 * s * (kind === "enemy" && unit.archetype === "reinforce" ? 1.2 : 1);
 
     if (this.selection.has(unit)) {
       ctx.strokeStyle = "#f4f7ff";
@@ -1136,11 +1132,34 @@ export class BattleVisualizer {
       ctx.ellipse(p.x, p.y + 2 * s, 15 * s, 7.5 * s, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
-    ctx.drawImage(sprite, p.x - size / 2, p.y - size * 0.8, size, size);
 
-    // facing tick (8-direction indicator standing in for directional sheets)
+    const atlas = this.unitAtlas;
+    if (!atlas) return;
+
+    const size = 64 * s * (kind === "enemy" && unit.archetype === "reinforce" ? 1.18 : 1);
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 3 * s, size * 0.2, size * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const phase = this.reducedMotion ? 0 : Math.floor(this.lastTime / (1000 / UNIT_ATLAS.fps)) % 2;
+    const frame = this.atlasFacing(unit.facing) * 2 + phase;
+    const sourceX = UNIT_ATLAS.padding + (frame % 4) * UNIT_ATLAS.stride;
+    const sourceY = UNIT_ATLAS.padding + Math.floor(frame / 4) * UNIT_ATLAS.stride;
+    const left = p.x - size / 2;
+    const top = p.y - size * 0.86;
+    ctx.drawImage(atlas, sourceX, sourceY, UNIT_ATLAS.framePx, UNIT_ATLAS.framePx, left, top, size, size);
+
+    const tint = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = tint;
+    ctx.fillRect(left, top, size, size);
+    ctx.restore();
+
     const angle = -unit.facing * (Math.PI / 4);
-    ctx.strokeStyle = kind === "enemy" ? this.palette.enemy : this.palette.ally;
+    ctx.strokeStyle = tint;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(p.x, p.y - 14 * s);
@@ -1256,7 +1275,7 @@ export class BattleVisualizer {
     this.particles = [];
     this.nodes = [];
     this.selection.clear();
-    this.spriteCache.clear();
+    this.unitAtlas = null;
     this.staticChunks.clear();
     this.terrainTiles = [];
     this.occluderTiles = [];

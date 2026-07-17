@@ -304,14 +304,16 @@ async function assertBattleCanvasBlankPassThrough(page) {
 }
 
 async function enterBattle(page, number, heading) {
+  // Single-screen cockpit: the battlefield, intel rail, and command pad are
+  // all live the moment the stage is active - no scenario/boss-spec clicks.
   await assertStage(page, number, heading);
-  await page.locator("#view-scenario").waitFor({ state: "visible" });
-  await page.locator("#go-to-boss-spec").click();
-  await page.locator("#view-boss-spec").waitFor({ state: "visible" });
-  assert.equal(await page.locator("#view-scenario").isHidden(), true, `Stage ${number} scenario view must close after confronting the boss.`);
-  await page.locator("#go-to-battle").click();
-  await page.locator("#view-battle").waitFor({ state: "visible" });
-  assert.equal(await page.locator("#view-boss-spec").isHidden(), true, `Stage ${number} boss specification view must close after entering battle.`);
+  await page.locator("#battle-field").waitFor({ state: "visible" });
+  await page.locator("#command-panel").waitFor({ state: "visible" });
+  assert.equal(
+    await page.locator("#view-result").isHidden(),
+    true,
+    `Stage ${number} result overlay must be closed while the stage battle runs.`
+  );
   await assertBattleVisualizationStatus(page, number);
   await assertBattlePresentation(page, number);
   return text(page.locator("#integrity-value"));
@@ -707,10 +709,10 @@ async function assertPreparationIntegrity(page, number, entryIntegrity) {
 }
 
 async function advanceToNextScenario(page, number, heading) {
-  await page.locator("#view-result").waitFor({ state: "visible" });
-  await page.locator("#go-to-next-scenario").waitFor({ state: "visible" });
-  await page.locator("#go-to-next-scenario").click();
-  await page.locator("#view-scenario").waitFor({ state: "visible" });
+  // Choosing a reward returns the engine to "active": the overlay closes
+  // itself and the next stage battle relaunches on the same cockpit screen.
+  await page.locator("#view-result").waitFor({ state: "hidden" });
+  await page.locator("#battle-field").waitFor({ state: "visible" });
   await assertStage(page, number, heading);
 }
 
@@ -900,7 +902,7 @@ async function verifyLobbyCampaignRoundTrip(browser, baseUrl) {
     page.off("dialog", acceptStartConfirmation);
 
     await page.locator("#campaign-screen").waitFor({ state: "visible" });
-    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    await page.locator("#battle-field").waitFor({ state: "visible" });
     await assertStage(page, 1, "Cinder Span");
     await enterBattle(page, 1, "Cinder Span");
     const beforeReturnEnvelope = await exportCampaignEnvelope(page);
@@ -925,7 +927,7 @@ async function verifyLobbyCampaignRoundTrip(browser, baseUrl) {
     await page.locator("#resume-campaign").waitFor({ state: "visible" });
     await page.locator("#resume-campaign").click();
     await page.locator("#campaign-screen").waitFor({ state: "visible" });
-    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    await page.locator("#battle-field").waitFor({ state: "visible" });
     await assertStage(page, 1, "Cinder Span");
     assert.equal(page.url(), campaignUrl, "Resuming the campaign must retain the campaign document URL.");
     assert.equal(navigation.count(), 0, "Resuming an active battle return must not navigate the main frame.");
@@ -1017,7 +1019,7 @@ async function verifyBriefingImportResume(browser, baseUrl, envelope) {
     page.on("dialog", noStartConfirmation);
     await page.locator("#resume-campaign").click();
     await page.locator("#campaign-screen").waitFor({ state: "visible" });
-    await page.locator("#view-scenario").waitFor({ state: "visible" });
+    await page.locator("#battle-field").waitFor({ state: "visible" });
     page.off("dialog", noStartConfirmation);
     noStartConfirmation = undefined;
 

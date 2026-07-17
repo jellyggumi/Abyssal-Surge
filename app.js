@@ -236,15 +236,7 @@ const elements = Object.freeze({
   restart: document.querySelector("#restart-campaign"),
   retry: document.querySelector("#retry-stage"),
   returnToLobby: document.querySelector("#return-to-lobby"),
-  views: Object.freeze({
-    scenario: document.querySelector("#view-scenario"),
-    bossSpec: document.querySelector("#view-boss-spec"),
-    battle: document.querySelector("#view-battle"),
-    result: document.querySelector("#view-result")
-  }),
-  goToBossSpec: document.querySelector("#go-to-boss-spec"),
-  goToBattle: document.querySelector("#go-to-battle"),
-  goToNextScenario: document.querySelector("#go-to-next-scenario"),
+  resultOverlay: document.querySelector("#view-result"),
   retryFromResult: document.querySelector("#retry-from-result"),
   resultTitle: document.querySelector("#result-title"),
   resultText: document.querySelector("#result-text"),
@@ -326,7 +318,10 @@ let liquidEtherLoad = null;
 let particleBackground = null;
 let narratedStageId = null;
 let narratedOutcome = null;
-let activeView = "scenario";
+// Single-screen cockpit: the battlefield, intel rail, and command pad are
+// always visible while a campaign runs. `battleUiActive()` (a live battle
+// session exists) replaces the old activeView === "battle" checks; the
+// result overlay is derived from campaign.status in render().
 let visualizer = null;
 let waveTimer = 0;
 let wavePreparationTimer = 0;
@@ -336,7 +331,7 @@ let cooldownTimer = 0;
 let battleVisualFallback = false;
 let waveIndex = 0;
 const cooldowns = new Map();
-let pendingNextScenario = false;
+let resultOverlayOpen = false;
 let campaignMirror = null;
 
 function currentStage() {
@@ -490,7 +485,7 @@ function renderBattlePresentation(stage) {
     elements.battleOverlayHostileLabel.textContent = presentation.hostileLabel;
   }
 
-  const showFallback = activeView === "battle" && battleVisualFallback;
+  const showFallback = battleVisualFallback && !elements.screen.hidden;
   elements.battleCanvas.hidden = showFallback;
   elements.battleFallback.hidden = !showFallback;
   elements.battleBrief.dataset.presentation = stage.id;
@@ -524,7 +519,7 @@ function scheduleBattleBreaches(enemyCount, sessionId) {
   for (let enemyIndex = 0; enemyIndex < breaches; enemyIndex += 1) {
     const timer = window.setTimeout(() => {
       battleBreachTimers.delete(timer);
-      if (activeView !== "battle" || campaign?.status !== "active" || sessionId !== battleSessionId) return;
+      if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
       void handleBattleBreach();
     }, BATTLE_BREACH_DELAY_MS);
     battleBreachTimers.add(timer);
@@ -532,7 +527,7 @@ function scheduleBattleBreaches(enemyCount, sessionId) {
 }
 
 function spawnBattleWave(sessionId = battleSessionId) {
-  if (activeView !== "battle" || campaign?.status !== "active" || sessionId !== battleSessionId) return;
+  if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
   const stage = currentStage();
   const waveNames = ["SCOUT", "GUARD", "BOSS REINFORCEMENT"];
   // Sized against the defense economy: one hunt->extract->materialize loop
@@ -551,7 +546,7 @@ function spawnBattleWave(sessionId = battleSessionId) {
   if (lastWaveOfCycle) {
     const lullLabel = window.setTimeout(() => {
       battleBreachTimers.delete(lullLabel);
-      if (activeView !== "battle" || campaign?.status !== "active" || sessionId !== battleSessionId) return;
+      if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
       setBattlePressure("preparation", "LULL · REINFORCE THE PICKET LINE");
     }, WAVE_GAP_MS);
     battleBreachTimers.add(lullLabel);
@@ -577,7 +572,7 @@ function startBattle() {
     battleVisualizer.onEnemyBreach = () => {
       // Live-sim breach: a hostile actually crossed the portal line.
       if (visualizer !== battleVisualizer || sessionId !== battleSessionId) return;
-      if (activeView !== "battle" || campaign?.status !== "active") return;
+      if (campaign?.status !== "active") return;
       void handleBattleBreach();
     };
   } catch {
@@ -593,7 +588,7 @@ function startBattle() {
       : "PREPARATION · WAVE 1/3 · SCOUT INBOUND"
   );
   wavePreparationTimer = window.setTimeout(() => {
-    if (activeView !== "battle" || campaign?.status !== "active" || sessionId !== battleSessionId) return;
+    if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
     wavePreparationTimer = 0;
     spawnBattleWave(sessionId);
   }, BATTLE_PREPARATION_MS);
@@ -601,15 +596,31 @@ function startBattle() {
 }
 
 
-function showView(view) {
-  if (!elements.views[view] || !campaign) return;
-  if (view === "battle" && campaign.status !== "active") return;
-  if (activeView === "battle" && view !== "battle") stopBattle();
-  activeView = view;
-  syncBackgroundEffects();
-  for (const [name, node] of Object.entries(elements.views)) node.hidden = name !== view;
-  if (view === "battle") startBattle();
-  render();
+function battleUiActive() {
+  return cooldownTimer !== 0;
+}
+
+// The cockpit has ONE screen. The result overlay opens whenever the engine
+// leaves "active" (reward / defeat / campaign-complete); the battle session
+// starts and stops as a side effect of the same status sync.
+function syncCockpit() {
+  if (!campaign || elements.screen.hidden) return;
+  const overlayShould = campaign.status !== "active";
+  if (overlayShould !== resultOverlayOpen) {
+    resultOverlayOpen = overlayShould;
+    elements.resultOverlay.hidden = !overlayShould;
+    if (overlayShould) {
+      stopBattle();
+      window.requestAnimationFrame(() => {
+        (campaign.status === "reward"
+          ? elements.rewardOptions.querySelector("button")
+          : campaign.status === "campaign-complete"
+            ? document.querySelector("#completion-heading")
+            : elements.retryFromResult)?.focus();
+      });
+    }
+  }
+  if (campaign.status === "active" && !visualizer && !cooldownTimer) startBattle();
 }
 
 function renderBossSpec(stage, state, benefits) {
@@ -636,18 +647,17 @@ function renderBossSpec(stage, state, benefits) {
 function renderResult(isComplete) {
   const isDefeat = campaign.status === "defeat";
   const awaitingReward = campaign.status === "reward";
-  const rewardClaimed = pendingNextScenario && campaign.status === "active";
-  elements.resultTitle.textContent = isDefeat ? "Anchor Lost" : isComplete ? "Campaign Complete" : awaitingReward ? "Ward Broken" : "Reward Claimed";
+  elements.resultTitle.textContent = isDefeat ? "Anchor Lost" : isComplete ? "Campaign Complete" : "Ward Broken";
   elements.resultText.textContent = isDefeat ? "DEFEAT" : "VICTORY";
   elements.resultText.className = `result-text ${isDefeat ? "defeat" : "victory"}`;
-  elements.goToNextScenario.hidden = !rewardClaimed;
+  elements.rewardPanel.hidden = !awaitingReward;
   elements.retryFromResult.hidden = !isDefeat;
 }
 
 function renderCooldown(button, action, available) {
   const remaining = remainingCooldown(action);
   const cooling = remaining > 0;
-  const enabled = activeView === "battle" && available && !cooling;
+  const enabled = battleUiActive() && available && !cooling;
   button.disabled = !enabled;
   button.setAttribute("aria-disabled", String(!enabled));
   const overlay = button.querySelector(".cooldown-overlay");
@@ -667,7 +677,7 @@ function positionBattlePointerControls(anchors) {
 }
 
 function renderBattlePointerControls(available) {
-  const show = activeView === "battle" && !battleVisualFallback && Boolean(visualizer);
+  const show = battleUiActive() && !battleVisualFallback && Boolean(visualizer);
   elements.battlePointerControls.hidden = !show;
   if (!show) return;
 
@@ -707,7 +717,7 @@ function render() {
   elements.stageHeading.textContent = stage.title;
   elements.stageRegion.textContent = stage.region;
   elements.stageObjective.textContent = stage.objective;
-  elements.status.textContent = battleVisualFallback && activeView === "battle"
+  elements.status.textContent = battleVisualFallback && battleUiActive()
     ? "Battle visualization is unavailable; command rules remain ready."
     : campaign.lastMessage;
   elements.souls.textContent = String(state.souls);
@@ -717,11 +727,11 @@ function render() {
   elements.bossLabel.textContent = `${stage.bossName} ward`;
   elements.boss.textContent = `${state.bossHealth} / ${stage.bossHealth}`;
   elements.retry.disabled = campaign.status === "reward" || isComplete;
-  elements.rewardPanel.hidden = campaign.status !== "reward";
   elements.complete.hidden = !isComplete;
   elements.completionSummary.textContent = isComplete ? campaign.lastMessage : "";
   renderBossSpec(stage, state, benefits);
   renderResult(isComplete);
+  syncCockpit();
 
   // Mirror engine numbers onto the battle canvas HUD - the battlefield must
   // be readable without glancing at the side panel.
@@ -773,7 +783,6 @@ async function resumeCampaign() {
   stopBattle();
   campaign = resumableCampaign;
   storedCampaign = resumableCampaign;
-  pendingNextScenario = false;
   updateResumeAffordance();
   revealCampaign();
 }
@@ -782,8 +791,9 @@ function revealCampaign() {
   elements.lobby.hidden = true;
   elements.screen.hidden = false;
   updateResumeAffordance();
+  syncBackgroundEffects();
   const terminal = ["reward", "defeat", "campaign-complete"].includes(campaign.status);
-  showView(terminal ? "result" : "scenario");
+  render();
   window.requestAnimationFrame(() => (terminal ? elements.resultTitle : elements.stageHeading).focus());
 }
 
@@ -902,10 +912,9 @@ async function applyMirroredCampaign(envelope) {
     if (campaign) {
       stopBattle();
       campaign = mirroredCampaign;
-      pendingNextScenario = false;
       narratedStageId = null;
       narratedOutcome = null;
-      showView(["reward", "defeat", "campaign-complete"].includes(campaign.status) ? "result" : "scenario");
+      render();
     }
     setSaveStatus("다른 탭의 로컬 캠페인을 반영했습니다.");
   } catch {
@@ -933,7 +942,7 @@ function startActionCooldown(action) {
 }
 
 async function handleAction(action) {
-  if (!campaign || activeView !== "battle" || remainingCooldown(action) > 0) return;
+  if (!campaign || !battleUiActive() || resultOverlayOpen || remainingCooldown(action) > 0) return;
   if (!getAvailableActions(campaign).includes(action)) {
     // Presentation-only redeploy: the engine refuses materialize at full
     // legion capacity, but the VISUAL field may have lost its shades to
@@ -971,31 +980,20 @@ async function handleAction(action) {
   playCue(result.effect);
   render();
   await persistCampaign("Campaign saved");
-  if (campaign.status === "reward") {
-    showView("result");
-    elements.rewardOptions.querySelector("button")?.focus();
-  } else if (campaign.status === "defeat") {
-    showView("result");
-    elements.retryFromResult.focus();
-  }
 }
 
 async function handleBattleBreach() {
-  if (!campaign || activeView !== "battle") return;
+  if (!campaign || !battleUiActive()) return;
   const result = applyBattleBreach(campaign);
   campaign = result.state;
   if (!result.accepted) return;
   flashEffect("assault");
   await persistCampaign("Battle breach saved");
   render();
-  if (campaign.status === "defeat") {
-    showView("result");
-    elements.retryFromResult.focus();
-  }
 }
 
 async function handleReward(rewardId) {
-  if (!campaign || activeView !== "result") return;
+  if (!campaign || !resultOverlayOpen) return;
   const result = chooseReward(campaign, rewardId);
   campaign = result.state;
   render();
@@ -1007,9 +1005,10 @@ async function handleReward(rewardId) {
     document.querySelector("#completion-heading")?.focus();
     return;
   }
-  pendingNextScenario = true;
+  // Reward accepted -> engine is "active" on the next stage. render() closes
+  // the overlay and relaunches the battle; aim focus at the new stage.
   render();
-  elements.goToNextScenario.focus();
+  window.requestAnimationFrame(() => elements.stageHeading.focus());
 }
 
 async function beginNewCampaign() {
@@ -1019,8 +1018,6 @@ async function beginNewCampaign() {
   campaign = result.state;
   storedCampaign = campaign;
   updateResumeAffordance();
-  pendingNextScenario = false;
-  activeView = "scenario";
   narratedStageId = STAGES[campaign.stageIndex].id;
   narratedOutcome = null;
   revealCampaign();
@@ -1033,9 +1030,9 @@ async function returnToLobby() {
   if (!campaign) return;
   stopBattle();
   storedCampaign = campaign;
-  pendingNextScenario = false;
+  resultOverlayOpen = false;
+  elements.resultOverlay.hidden = true;
   await persistCampaign("Campaign returned to command lobby");
-  activeView = "scenario";
   elements.screen.hidden = true;
   elements.lobby.hidden = false;
   syncBackgroundEffects();
@@ -1051,10 +1048,12 @@ async function handleRetry() {
     render();
     return;
   }
-  pendingNextScenario = false;
   flashEffect("retry");
   await persistCampaign("Stage retry saved");
-  showView("scenario");
+  // Engine is back to "active": render() closes the overlay and restarts
+  // the battle session on the same cockpit screen.
+  render();
+  window.requestAnimationFrame(() => elements.stageHeading.focus());
 }
 
 function exportSave() {
@@ -1167,17 +1166,6 @@ function wireControls() {
   elements.resume.addEventListener("click", () => void resumeCampaign().catch(() => undefined));
   elements.returnToLobby.addEventListener("click", () => void returnToLobby());
   elements.retry.addEventListener("click", handleRetry);
-  elements.goToBossSpec.addEventListener("click", () => {
-    if (campaign?.status === "active") showView("bossSpec");
-  });
-  elements.goToBattle.addEventListener("click", () => {
-    if (campaign?.status === "active") showView("battle");
-  });
-  elements.goToNextScenario.addEventListener("click", () => {
-    if (campaign?.status !== "active" || !pendingNextScenario) return;
-    pendingNextScenario = false;
-    showView("scenario");
-  });
   elements.retryFromResult.addEventListener("click", handleRetry);
   elements.commandButtons.forEach((button) => button.addEventListener("click", () => handleAction(button.dataset.action)));
   elements.battleTargetButtons.forEach((button) => {
@@ -1201,7 +1189,7 @@ function wireControls() {
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
     const action = ACTION_KEYS[event.key.toLowerCase()];
-    if (action && activeView === "battle" && campaign && getAvailableActions(campaign).includes(action)) {
+    if (action && battleUiActive() && !resultOverlayOpen && campaign && getAvailableActions(campaign).includes(action)) {
       event.preventDefault();
       void handleAction(action);
     }
@@ -1209,13 +1197,13 @@ function wireControls() {
 }
 
 function startLiquidEtherBackground() {
-  if (activeView === "battle" || liquidEtherBackground || liquidEtherLoad) return;
+  if (!elements.screen.hidden || liquidEtherBackground || liquidEtherLoad) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const container = document.querySelector("#liquid-ether-bg");
   if (!container) return;
   liquidEtherLoad = import("./liquid-ether.js")
     .then(({ createLiquidEther }) => {
-      if (activeView === "battle" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      if (!elements.screen.hidden || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       liquidEtherBackground = createLiquidEther(container, {
         colors: ["#6F2969", "#B32B2B", "#395781"],
         mouseForce: 20,
@@ -1245,7 +1233,7 @@ function startLiquidEtherBackground() {
 
 function syncBackgroundEffects() {
   const liquidContainer = document.querySelector("#liquid-ether-bg");
-  if (activeView === "battle") {
+  if (!elements.screen.hidden) {
     if (liquidContainer) liquidContainer.hidden = true;
     liquidEtherBackground?.pause();
     particleBackground?.pause();

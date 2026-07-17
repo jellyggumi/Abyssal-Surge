@@ -64,6 +64,50 @@ aegis > 0 이면 counter 무효, aegis -= 1
 | `abyssal-banner` | S2 | S3 aegis 1, Materialize마다 +1 그림자 | Legion / defense: Cohort와 L5를 만들고 Domain 후 총 aegis 3 |
 | `throne-echo` / `dawnless-crown` | S3 | 기록용 종결 보상 | 전투 수치에는 영향 없음 |
 
+## 방어 전투 (defended battle) — 2026-07-17, 커밋 `2f3833c`
+
+전투 뷰의 웨이브 방어는 실시간 페이싱 레이어지만, **breach만은 엔진 전이**(`campaign-state.js` `applyBattleBreach`: aegis 우선 소모 → integrity −1 → 0이면 defeat, 세이브 트레이스 `battle-breach` 이벤트로 기록·리플레이 보존)다. 방치하면 웨이브 압박이 integrity를 출혈시켜 죽는다 — **경제 정지 = 죽음**은 의도된 설계다.
+
+### 웨이브·breach 페이싱 (`app.js`)
+
+| Knob | 값 | 의미 |
+|---|---:|---|
+| `BATTLE_PREPARATION_MS` | **25 s** | 스테이지 진입 후 첫 웨이브까지 준비 시간 |
+| `WAVE_GAP_MS` | **9 s** | 사이클 내 웨이브 간격 (3웨이브: SCOUT → GUARD → BOSS REINFORCEMENT) |
+| `WAVE_LULL_MS` | **14 s** | 3웨이브 후 소강("LULL · REINFORCE THE PICKET LINE") — 경제 루프를 돌리는 창 |
+| `enemyCounts` | **[2, 2+stage, 3+stage]** | 웨이브별 적 수. S1 사이클 = 2+3+4 = 9기 (2HP 증원 포함 13스윙) |
+| `BATTLE_BREACH_DELAY_MS` | **20 s** | *폴백 전용* — reduced-motion/렌더러 폴백에서 타이머 breach 퓨즈 |
+| `SIMULATED_BREACH_RATIO` | **0.5** | *폴백 전용* — 웨이브당 `⌈적 수 × 0.5⌉`건만 breach로 전환 (타이머는 방어 불가라 관대하게) |
+
+라이브 심에서는 타이머가 아니라 **적이 Dusk Portal에 시각적으로 도달**(`battle-visualizer.js` `BREACH_X=1.2` → `onEnemyBreach`)해야 breach가 발동한다 — 즉 방어로 저지할 수 있다.
+
+### 피켓 방어·교전 수치 (`battle-visualizer.js`)
+
+| Knob | 값 | 의미 |
+|---|---:|---|
+| `PICKET_X` | **5.5** | 아군 기본 대기 방어선 (거점 전방) |
+| `INTERCEPT_RANGE` | **3** | 요격 반경 — 이 거리 내 적을 자동 추격 |
+| `GOAL_X` | **13.8** | Assault 시에만 전군 돌격 목표 (속도 5.2) |
+| `CLASH_TICK_S` | **0.55 s** | 교전 스윙 틱 — 유닛당 틱마다 최대 1스윙, `engagedT` 잠금으로 교전 중 이동 정지 |
+| 내구도 | 셰이드 **2HP** (빙의 **4HP**) / Scout **1HP** / Guard **1HP** / Reinforce **2HP** | 2HP 셰이드가 1HP 정찰 둘을 가시적으로 버팀 |
+| 속도 | 셰이드 1.4–1.9 / Scout 1.5–1.9 / Guard·Reinforce 0.9–1.3 | Scout은 측면 차선으로 우회 |
+
+### 표현 전용 재배치 (`app.js` handleAction)
+
+엔진 legion 만석으로 materialize가 거부되어도, 시각 필드 아군이 교전으로 소모되었다면 M이 **시각 필드만** 재충원한다: `min(2+summonBonus, legion − 필드 아군 수)`. 엔진 전이·세이브 이벤트 없음(리플레이 무영향), 쿨타임은 동일 시작.
+
+### 검증된 플레이 라인 (2026-07-17 라이브 실측)
+
+| 라인 | 결과 |
+|---|---|
+| S1 러시 | 14 s 클리어 |
+| S2 빙의→총공격 | 23 s 클리어 |
+| S3 신중 (풀 군단+Domain) | 20 s 클리어 |
+| S3 러시 | 9 s 사망 (얇은 군단 처벌 — 의도) |
+| S2 지속 방어 | 재배치 순환 150 s 유지 (integrity 6/10) |
+
+경계 검증 라인이며 TTK 목표(하단 표, 인간 페이스)의 대체가 아니다.
+
 ## Hard invariants (유지)
 
 | Rule | Value | Verification owner |

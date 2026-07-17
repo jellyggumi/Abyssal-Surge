@@ -345,11 +345,6 @@ main {
   padding: .35rem 0 .75rem;
   overflow: visible;
 }
-.sub-view {
-  flex: 1;
-  min-height: 0;
-  overflow: visible;
-}
 .campaign-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: .4rem 0; flex-shrink: 0; }
 .campaign-heading h2 { margin-bottom: .1rem; font-size: clamp(1.2rem, 4vw, 1.8rem); }
 .campaign-heading .muted { margin-bottom: 0; font-size: .85rem; }
@@ -592,65 +587,8 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .storyboard-card:hover img {
   transform: scale(1.05);
 }
-/* SPA Sub-Views and 2.5D Battle Styles */
-.sub-view[hidden] {
-  display: none !important;
-}
-
-#view-scenario {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-#view-boss-spec,
-#view-result {
-  display: flex;
-}
-
-#view-boss-spec > .panel,
-#view-result > .panel {
-  flex: 1;
-  min-height: 0;
-  margin-top: 0;
-}
-
-#view-battle {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(19rem, 0.9fr);
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "battle status"
-    "battle commands";
-  gap: .5rem;
-  align-content: stretch;
-  min-height: 0;
-  overflow: clip;
-}
-
-#battle-field {
-  grid-area: battle;
-  margin-top: 0;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-}
-
-#view-battle .campaign-status {
-  grid-area: status;
-  margin-top: 0;
-  min-height: 0;
-  overflow: auto;
-}
-
-#view-battle .command-panel {
-  grid-area: commands;
-  margin-top: 0;
-  min-height: 0;
-  overflow: auto;
-}
+/* Legacy sub-view rules removed: the campaign screen is a single cockpit
+   (see "Single-screen RTS cockpit" section at the end of this sheet). */
 
 #campaign-screen > .save-panel {
   flex-shrink: 0;
@@ -1138,3 +1076,155 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   .canvas-container-3d { height: clamp(11rem, 27vh, 16rem); }
   .result-text { font-size: clamp(2rem, 5vw, 2.6rem); }
 }
+
+/* ============================================================
+   Single-screen RTS cockpit
+   One screen carries everything a commander needs: battlefield
+   center, intel rail right, command pad bottom - PC RTS layout.
+   ============================================================ */
+.cockpit {
+  gap: .5rem;
+}
+
+.cockpit-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem 1rem;
+  flex-shrink: 0;
+}
+.cockpit-top .cockpit-stage-id { min-width: 12rem; }
+.cockpit-top .campaign-heading-actions { margin-left: auto; }
+.cockpit-top .stage-selector { flex: 1 1 18rem; margin: 0; }
+.cockpit-top .wave-badge { align-self: center; }
+
+.cockpit-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 21rem);
+  gap: .5rem;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.cockpit-main .battle-field-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+}
+.cockpit-main .canvas-container-3d {
+  flex: 1;
+  height: auto;
+  min-height: clamp(16rem, 44vh, 30rem);
+  margin-top: 0;
+}
+
+.cockpit-rail {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  min-width: 0;
+  max-height: clamp(20rem, 58vh, 38rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.rail-panel { margin: 0; padding: .65rem .8rem; }
+.rail-panel .section-heading { margin-bottom: .25rem; }
+.rail-doctrine { margin: .2rem 0 .4rem; color: var(--muted); font-size: .8rem; }
+.rail-lore { margin: .35rem 0; font-size: .74rem; line-height: 1.4; }
+
+.rail-boss-head { display: flex; gap: .6rem; align-items: flex-start; }
+.boss-portrait-rail {
+  width: 3.4rem;
+  height: 3.4rem;
+  object-fit: cover;
+  border-radius: .6rem;
+  border: 1px solid rgb(255 127 121 / 45%);
+  flex-shrink: 0;
+}
+.spec-list-compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .15rem .6rem; margin: .3rem 0 0; }
+.spec-list-compact div { display: flex; gap: .35rem; justify-content: space-between; }
+.spec-list-compact dt { color: var(--muted); font-size: .7rem; }
+.spec-list-compact dd { margin: 0; font-size: .72rem; font-weight: 700; color: var(--ink); }
+.stats-list-compact { margin: .3rem 0 0; padding: 0; list-style: none; display: grid; gap: .15rem; }
+.stats-list-compact li { display: flex; justify-content: space-between; gap: .5rem; font-size: .72rem; }
+
+.stage-transition-rail { min-height: 3.2rem; margin-bottom: 0; }
+.stage-transition-rail .stage-transition-copy { padding: .5rem .6rem; }
+.rail-intel { padding: 0; overflow: hidden; }
+
+.cockpit-commands { margin-top: 0; }
+.cockpit-commands .section-heading { align-items: baseline; }
+.cockpit-commands .status-message { display: block; margin-top: .15rem; }
+.command-hint { max-width: 34ch; text-align: right; }
+
+.save-dock { margin-top: 0; margin-bottom: .5rem; }
+
+/* Result overlay: verdict floats above the cockpit, field stays visible */
+.result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(4 6 12 / 72%);
+  backdrop-filter: blur(6px);
+}
+.result-overlay[hidden] { display: none !important; }
+.result-overlay .result-panel {
+  width: min(34rem, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  margin: 0;
+  border-color: var(--aqua);
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+
+/* Desktop-wide: give the field more room */
+@media (min-width: 1100px) {
+  .cockpit-main { grid-template-columns: minmax(0, 1fr) 22rem; }
+  .cockpit-main .canvas-container-3d { min-height: clamp(20rem, 52vh, 34rem); }
+  .command-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .command-grid button:last-child { grid-column: auto; }
+  .command-grid button { grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; min-height: 4.6rem; }
+  .command-grid button small { grid-column: 1 / -1; }
+}
+
+/* Tablet/mobile: rail drops below the field, commands stay thumb-reachable */
+@media (max-width: 899px) {
+  .cockpit-main { grid-template-columns: 1fr; }
+  .cockpit-rail { max-height: none; overflow-y: visible; flex-direction: row; flex-wrap: wrap; }
+  .cockpit-rail .rail-panel { flex: 1 1 16rem; }
+  .command-hint { text-align: left; max-width: none; }
+}
+
+/* One-screen fit: while the cockpit is live, shrink global chrome so the
+   field + rail + command pad share a single viewport (PC RTS rule). */
+body:has(#campaign-screen:not([hidden])) .site-header { padding: .35rem 0 .25rem; }
+body:has(#campaign-screen:not([hidden])) .site-header h1 { font-size: clamp(1.05rem, 2.4vw, 1.5rem); }
+body:has(#campaign-screen:not([hidden])) .site-header .subtitle,
+body:has(#campaign-screen:not([hidden])) .site-header .eyebrow { display: none; }
+.cockpit-top h2 { font-size: clamp(1.05rem, 2.2vw, 1.45rem); margin: 0; }
+.cockpit-top .eyebrow { margin-bottom: .1rem; }
+.cockpit-top .muted { display: none; }
+.cockpit .save-dock { padding: .45rem .8rem; }
+.cockpit .save-dock .hint:last-child { display: none; }
+
+/* Rail status: label-left / value-right rows read instantly at a glance,
+   unlike 5 shrunken columns squeezed into a 21rem rail. */
+.cockpit-rail .status-body { grid-template-columns: 1fr; gap: .4rem; }
+.cockpit-rail .boss-portrait { width: 3.6rem; }
+.cockpit-rail .status-grid { grid-template-columns: 1fr; gap: .25rem; margin: .25rem 0; }
+.cockpit-rail .status-grid div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .3rem .5rem;
+}
+.cockpit-rail .status-grid dt { font-size: .72rem; }
+.cockpit-rail .status-grid dd { margin: 0; font-size: .82rem; font-weight: 800; }
+.cockpit-rail .objective-checklist { margin: .35rem 0 0; font-size: .74rem; }
+.cockpit-top .wave-badge { order: 2; }
