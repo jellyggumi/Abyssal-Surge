@@ -4,22 +4,26 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const vm = require("node:vm");
 
+const BRIDGE_CACHE_BOUNDARY_MODE = process.argv.includes("--bridge-cache-boundary");
+const BRIDGE_ONLY_MODE = process.argv.includes("--bridge-only");
 let playwright;
-try {
-  playwright = require("playwright");
-} catch (error) {
-  if (error && error.code === "MODULE_NOT_FOUND" && /['\"]playwright['\"]/.test(error.message)) {
-    console.error('PLAYWRIGHT_MISSING: require("playwright") could not resolve from tests/playtest-browser-3stage.cjs.');
-    process.exitCode = 1;
-  } else {
-    console.error(`PLAYWRIGHT_LOAD_FAILED: ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
+if (!BRIDGE_CACHE_BOUNDARY_MODE) {
+  try {
+    playwright = require("playwright");
+  } catch (error) {
+    if (error && error.code === "MODULE_NOT_FOUND" && /['\"]playwright['\"]/.test(error.message)) {
+      console.error('PLAYWRIGHT_MISSING: require("playwright") could not resolve from tests/playtest-browser-3stage.cjs.');
+      process.exitCode = 1;
+    } else {
+      console.error(`PLAYWRIGHT_LOAD_FAILED: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    }
   }
 }
 
 const ROOT = path.resolve(__dirname, "..");
-const BRIDGE_ONLY_MODE = process.argv.includes("--bridge-only");
 const MIME_TYPES = Object.freeze({
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -33,6 +37,155 @@ const MIME_TYPES = Object.freeze({
   ".png": "image/png",
   ".svg": "image/svg+xml"
 });
+
+function createBridgeCacheBoundaryFixture({ manifest, jsonError } = {}) {
+  const origin = "https://abyssal-surge.test";
+  const manifestPath = "./assets/images/battle/glb/manifest.json";
+  const cacheAdds = [];
+  const cachePuts = [];
+  const fetchRecords = [];
+  const response = {
+    ok: true,
+    clone() {
+      return { source: "bridge-manifest" };
+    },
+    async json() {
+      if (jsonError) throw jsonError;
+      return manifest;
+    }
+  };
+  const cache = {
+    async put(request, cachedResponse) {
+      cachePuts.push({ request, cachedResponse });
+    },
+    async add(request) {
+      cacheAdds.push(new URL(String(request), origin).href);
+    }
+  };
+  const worker = {
+    location: new URL(`${origin}/sw.js`),
+    addEventListener() {},
+    async skipWaiting() {},
+    clients: { async claim() {} }
+  };
+  const context = vm.createContext({
+    URL,
+    Promise,
+    self: worker,
+    caches: {
+      async open() {
+        return cache;
+      },
+      async match() {
+        return undefined;
+      },
+      async keys() {
+        return [];
+      },
+      async delete() {
+        return false;
+      }
+    },
+    async fetch(request, options) {
+      fetchRecords.push({ request, options });
+      return response;
+    }
+  });
+  const workerSource = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
+  vm.runInContext(`${workerSource}\nglobalThis.__cacheGlbBattleBridge = cacheGlbBattleBridge;\nglobalThis.__isGlbBridgeRequest = isGlbBridgeRequest;`, context, { filename: "sw.js" });
+
+  return {
+    cache,
+    cacheAdds,
+    cachePuts,
+    fetchRecords,
+    isBridgeRequest: (url, method = "GET") => context.__isGlbBridgeRequest({ method, url }),
+    prewarm: () => context.__cacheGlbBattleBridge(cache)
+  };
+}
+
+async function verifyBridgeCacheBoundary() {
+  const origin = "https://abyssal-surge.test";
+  const manifestPath = "./assets/images/battle/glb/manifest.json";
+  const expectedBridgeAsset = `${origin}/assets/images/battle/glb/action-atlas.glb`;
+  const fixture = createBridgeCacheBoundaryFixture({
+    manifest: {
+      records: [
+        { output: { path: "/assets/images/battle/glb/action-atlas.glb" } },
+        { output: { path: "/assets/images/battle/glb/../outside-bridge.glb" } },
+        { output: { path: "/assets/images/battle/glb/%2e%2e/outside-encoded-dot.glb" } },
+        { output: { path: "/assets/images/battle/glb/%2e%2e%2foutside-encoded-dot-separator.glb" } },
+        { output: { path: "/assets/images/battle/glb/%2e%2e%5coutside-encoded-dot-backslash.glb" } },
+        { output: { path: "/assets/images/battle/glb/%2f..%2foutside-encoded-separator-dot.glb" } },
+        { output: { path: "https://untrusted.example/assets/images/battle/glb/foreign-bridge.glb" } },
+        { output: { path: "https://[malformed-host" } },
+        { output: { path: 42 } },
+        { output: {} },
+        { output: null },
+        {},
+        null
+      ]
+    }
+  });
+
+  await fixture.prewarm();
+
+  assert.equal(fixture.fetchRecords.length, 1, "Bridge cache prewarming must fetch exactly one manifest.");
+  assert.equal(fixture.fetchRecords[0].request, manifestPath, "Bridge cache prewarming must fetch the bridge manifest.");
+  assert.equal(fixture.fetchRecords[0].options?.cache, "no-store", "Bridge manifest prewarming must bypass the HTTP cache.");
+  assert.equal(fixture.cachePuts.length, 1, "Bridge manifest must be retained in the cache.");
+  assert.equal(fixture.cachePuts[0].request, manifestPath, "Only the bridge manifest request may be stored directly.");
+  assert.deepEqual(
+    fixture.cacheAdds,
+    [expectedBridgeAsset],
+    "Bridge cache prewarming must admit the canonical bridge output and reject every malicious or malformed manifest candidate."
+  );
+  assert.equal(
+    fixture.isBridgeRequest(expectedBridgeAsset),
+    true,
+    "Fetch classification must retain the canonical bridge output."
+  );
+  for (const maliciousPath of [
+    `${origin}/assets/images/battle/glb/../outside-bridge.glb`,
+    `${origin}/assets/images/battle/glb/%2E%2E/outside-encoded-dot.glb`,
+    `${origin}/assets/images/battle/glb/%2E%2E%2Foutside-encoded-dot-separator.glb`,
+    `${origin}/assets/images/battle/glb/%2E%2E%5Coutside-encoded-dot-backslash.glb`,
+    `${origin}/assets/images/battle/glb/%2F..%2Foutside-encoded-separator-dot.glb`,
+    "https://[malformed-host"
+  ]) {
+    assert.equal(
+      fixture.isBridgeRequest(maliciousPath),
+      false,
+      `Fetch classification must reject the unsafe bridge candidate: ${maliciousPath}`
+    );
+  }
+
+  const malformedManifestFixture = createBridgeCacheBoundaryFixture({
+    manifest: { records: { output: { path: "/assets/images/battle/glb/action-atlas.glb" } } }
+  });
+  await malformedManifestFixture.prewarm();
+  assert.equal(malformedManifestFixture.cachePuts.length, 1, "A malformed manifest shape must still retain the fetched manifest.");
+  assert.deepEqual(
+    malformedManifestFixture.cacheAdds,
+    [],
+    "A malformed non-array manifest must not queue any bridge asset for cache.add."
+  );
+
+  const rejectedManifestFixture = createBridgeCacheBoundaryFixture({
+    jsonError: new Error("bridge manifest JSON rejected")
+  });
+  await assert.rejects(
+    rejectedManifestFixture.prewarm,
+    /bridge manifest JSON rejected/,
+    "JSON rejection must surface to the install handler, which preserves its existing catch-and-continue fallback."
+  );
+  assert.equal(rejectedManifestFixture.cachePuts.length, 1, "A JSON-rejected manifest must still be retained before the worker fallback runs.");
+  assert.deepEqual(
+    rejectedManifestFixture.cacheAdds,
+    [],
+    "A JSON-rejected manifest must not queue any bridge asset for cache.add."
+  );
+}
 
 function resolveRequestPath(requestUrl) {
   let pathname;
@@ -1400,4 +1553,13 @@ async function run() {
   }
 }
 
-if (playwright) run();
+if (BRIDGE_CACHE_BOUNDARY_MODE) {
+  verifyBridgeCacheBoundary()
+    .then(() => console.log("PLAYTEST_BRIDGE_CACHE_BOUNDARY_PASS cached=1 rejected=traversal,cross-origin"))
+    .catch((error) => {
+      console.error(`PLAYTEST_BRIDGE_CACHE_BOUNDARY_FAIL: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+      process.exitCode = 1;
+    });
+} else if (playwright) {
+  run();
+}

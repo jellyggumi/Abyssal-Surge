@@ -20,8 +20,21 @@ const CORE_ASSETS = [
 ];
 
 const GLB_BRIDGE_MANIFEST = "./assets/images/battle/glb/manifest.json";
-const GLB_BRIDGE_MANIFEST_PATH = new URL(GLB_BRIDGE_MANIFEST, self.location.href).pathname;
 const GLB_BRIDGE_PATH_PREFIX = new URL("./assets/images/battle/glb/", self.location.href).pathname;
+function normalizeGlbBridgeManifestAsset(path) {
+  if (typeof path !== "string") return null;
+  const rawPath = path.split(/[?#]/, 1)[0];
+  if (/(?:^|[\\/])(?:\.|%2e){1,2}(?=[\\/]|$)|%2f|%5c|\\/i.test(rawPath)) return null;
+  try {
+    const url = new URL(path, self.location.href);
+    return url.origin === self.location.origin && url.pathname.startsWith(GLB_BRIDGE_PATH_PREFIX)
+      ? url
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 
 async function cacheGlbBattleBridge(cache) {
   const response = await fetch(GLB_BRIDGE_MANIFEST, { cache: "no-store" });
@@ -30,10 +43,10 @@ async function cacheGlbBattleBridge(cache) {
   const manifest = await response.json();
   const bridgeAssets = Array.isArray(manifest?.records)
     ? manifest.records
-      .map((record) => record?.output?.path)
-      .filter((path) => typeof path === "string" && path.startsWith("assets/images/battle/glb/"))
+      .map((record) => normalizeGlbBridgeManifestAsset(record?.output?.path))
+      .filter(Boolean)
     : [];
-  await Promise.allSettled(bridgeAssets.map((path) => cache.add(`./${path}`)));
+  await Promise.allSettled(bridgeAssets.map((url) => cache.add(url)));
 }
 
 const OPTIONAL_MEDIA = [
@@ -104,9 +117,7 @@ function isCoreRequest(request) {
 }
 
 function isGlbBridgeRequest(request) {
-  if (!isSameOriginGet(request)) return false;
-  const path = new URL(request.url).pathname;
-  return path === GLB_BRIDGE_MANIFEST_PATH || path.startsWith(GLB_BRIDGE_PATH_PREFIX);
+  return request.method === "GET" && normalizeGlbBridgeManifestAsset(request.url) !== null;
 }
 
 async function networkFirstGlbBridge(request) {
