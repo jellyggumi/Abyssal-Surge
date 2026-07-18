@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#0a0d18" />
     <title>Abyssal Command — Original Offline Campaign</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="battle-field-command-overlay.css" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
@@ -34,7 +35,7 @@
 
     <main id="game-root" tabindex="-1">
       <section id="campaign-lobby" class="panel lobby-panel" aria-labelledby="campaign-title">
-        <p class="eyebrow" data-i18n="lobby.eyebrow">3단계 캠페인</p>
+        <p class="eyebrow" data-i18n="lobby.eyebrow">10단계 캠페인</p>
         <h2 id="campaign-title" data-i18n="lobby.title">가라앉은 문을 차지하라</h2>
         <div id="campaign-resume-summary" class="campaign-resume-summary" hidden aria-live="polite">
           <p class="campaign-resume-summary-heading" data-i18n="lobby.activeRun">진행 중인 로컬 캠페인</p>
@@ -49,7 +50,7 @@
             </div>
           </dl>
         </div>
-        <p class="lede" data-i18n="lobby.lede">신더 스팬, 베일 시타델, 메아리 왕좌를 가로질러 그림자 군단을 지휘하라. 모든 행동은 결정론적이며 터치와 키보드 모두로 조작할 수 있고, 기록은 이 기기에만 남는다.</p>
+        <p class="lede" data-i18n="lobby.lede">신더 스팬부터 게이트 제니스까지 열 개 전장을 가로질러 그림자 군단을 지휘하라. 모든 행동은 결정론적이며 터치와 키보드 모두로 조작할 수 있고, 기록은 이 기기에만 남는다.</p>
         <div class="button-row">
           <button id="start-campaign" class="primary" type="button" aria-describedby="campaign-description" data-i18n="lobby.startButton">새 캠페인 시작</button>
           <button id="resume-campaign" type="button" hidden data-i18n="lobby.resumeButton">로컬 캠페인 이어하기</button>
@@ -434,5 +435,6 @@
     <noscript><p class="noscript" data-i18n="noscript">Abyssal Command 캠페인을 지휘하려면 JavaScript가 필요합니다.</p></noscript>
     <script type="module" src="i18n.js"></script>
     <script type="module" src="app.js"></script>
+    <script type="module" src="battle-field-command-overlay.js"></script>
   </body>
 </html>

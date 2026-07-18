@@ -30,13 +30,13 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/cinder-span.glb",
-        "sha256": "cf23dd804c7b7111c86b08e64c1630557e0419fb1e55c57e67995540bf7385a3",
+        "sha256": "5ee9dcba288e2a60a8cd029f24a73f2389fb08f5ee0003506c62529e0223bbce",
         "root": "cinder-span-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-span.png",
-        "sha256": "13cc9c4b9c9b4844da6564eebc16285ff745a900cdab78a6528605a984b0c150",
-        "bytes": 6042,
+        "sha256": "252f275e0f8064d6048a121aaecb42d4c63c7b028754f09caac15e287961307d",
+        "bytes": 7756,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
@@ -65,13 +65,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "6f25f74dfa30fe970ce810cc4e7390488c436b82b5d13c288486f2baa457fdad",
+        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Attack.png",
-        "sha256": "f40f6f4f0ec396ce5fee7c062a87eeda4e5e9bac672f933f84b566ae979aa5ab",
-        "bytes": 250832,
+        "sha256": "d81f74e99faa9d33abd5902794be81a36191bdf2202f69e91757bae4561bfcdc",
+        "bytes": 296829,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -104,7 +104,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 6.258072
+        "orthoScale": 5.777393
       }
     },
     {
@@ -113,13 +113,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "6f25f74dfa30fe970ce810cc4e7390488c436b82b5d13c288486f2baa457fdad",
+        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Defeat.png",
-        "sha256": "1edc084f8a745cdae204481e66f7a9aa0c25bb0d39e49148e7c108a5beeb755c",
-        "bytes": 217160,
+        "sha256": "aea86a03d6abe008cdd5d47f244f898c1e724affb2dd1b479fac11eaf891b43d",
+        "bytes": 247894,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -152,7 +152,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 7.688977
+        "orthoScale": 7.21469
       }
     },
     {
@@ -161,13 +161,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "6f25f74dfa30fe970ce810cc4e7390488c436b82b5d13c288486f2baa457fdad",
+        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Idle.png",
-        "sha256": "f50d1aab8751c0552da37b41004d51a13f5fdbd67067e9e22f323b09a4d7d9c2",
-        "bytes": 258150,
+        "sha256": "83ab94ffb7551f68fa4da090867cabc042c0dc607b97c502cee4a93801f9fec3",
+        "bytes": 304010,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -200,7 +200,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 6.034125
+        "orthoScale": 5.569977
       }
     },
     {
@@ -209,13 +209,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/command-obelisk.glb",
-        "sha256": "40931777ac4c016961b238c160cb1e8329a45c18c0b820073cbef2c1b26335db",
+        "sha256": "a60e4f348395c6e6c045d34ae3d63fa1e23c72af7c10e31fa7e94d162969c1c1",
         "root": "command-obelisk-root"
       },
       "output": {
         "path": "assets/images/battle/glb/command-obelisk__Activate.png",
-        "sha256": "7c2fdd6328555885777f1d53d07de77ed5cbb4e5f1795a09a69eab2a740b7fee",
-        "bytes": 192759,
+        "sha256": "0505ca6b77a766d21121c7ab44f1f3d9756dbf9ba2caf15dfc5489bea15d9c53",
+        "bytes": 227746,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -257,13 +257,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/command-obelisk.glb",
-        "sha256": "40931777ac4c016961b238c160cb1e8329a45c18c0b820073cbef2c1b26335db",
+        "sha256": "a60e4f348395c6e6c045d34ae3d63fa1e23c72af7c10e31fa7e94d162969c1c1",
         "root": "command-obelisk-root"
       },
       "output": {
         "path": "assets/images/battle/glb/command-obelisk__Idle.png",
-        "sha256": "18c7385c5087aff9567461b294c3b3886aa674381c40ab6ac2b640e5c76f957f",
-        "bytes": 200735,
+        "sha256": "238516ee56349847153953c23f12b25ce0aa42d663e98754ad0e38cace282d9f",
+        "bytes": 233897,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -305,13 +305,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/echo-throne.glb",
-        "sha256": "8af461d906a3e8141fab1448c63f4202565a6dd1adc3876375ecf757b5362647",
+        "sha256": "9a86ac8bc093bcbf4478419f09ea0c1d1a797dd3298ece457a036dfa0c0f8e99",
         "root": "echo-throne-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne__Activate.png",
-        "sha256": "4c58ca85c6c88c9ed18861cdd739c69acc9672717240aef433db0abcfc208932",
-        "bytes": 256904,
+        "sha256": "67d5bf6ebadbfe48234b40ff840672fda147299698ad043d32571262a5e2d28d",
+        "bytes": 313677,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -344,7 +344,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.283486
+        "orthoScale": 4.528111
       }
     },
     {
@@ -353,13 +353,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/echo-throne.glb",
-        "sha256": "8af461d906a3e8141fab1448c63f4202565a6dd1adc3876375ecf757b5362647",
+        "sha256": "9a86ac8bc093bcbf4478419f09ea0c1d1a797dd3298ece457a036dfa0c0f8e99",
         "root": "echo-throne-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne__Idle.png",
-        "sha256": "4511a53762136849ebee9784f4862e523f50bb6438f8e556e9b74aa92582ad00",
-        "bytes": 263385,
+        "sha256": "ce2ffda4568d85ccb4b8d8b52f8d1ae327448df8b2dd36074edeea0b1b43f4a7",
+        "bytes": 323033,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -392,7 +392,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.950372
+        "orthoScale": 4.236116
       }
     },
     {
@@ -401,13 +401,13 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/echo-throne-steps.glb",
-        "sha256": "98d31eae501a9425eaea2256739bea29c78e23ccfeb85e77c76074d39c385bd8",
+        "sha256": "321c0695a20c0dff0b8e6012b7a6f6cbc7950139a509a74f85f66892678c6faa",
         "root": "echo-throne-steps-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne-steps.png",
-        "sha256": "196d8ce5cbf70fd5407ba524b8ee630de1c1a9871f60c803939514ce757656a0",
-        "bytes": 8289,
+        "sha256": "cb60afd16b47fa257e4ca51ce2de3219a1e82e246b7c689ded8595e8cb23b49f",
+        "bytes": 6825,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
@@ -436,13 +436,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ea1b210c076fa00a4f88b1ac308004d53cabb106cd010cfddb6e323c69780807",
+        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Attack.png",
-        "sha256": "7af3f9982a9b27e97d93acdaeeaf2b2bfd8d5b10d764524a76c60a90ad45360d",
-        "bytes": 244754,
+        "sha256": "4d8f1f66eea7c8454aa32cca706b2f5ce6b733eb485022c104250e6cd80bf642",
+        "bytes": 272999,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -484,13 +484,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ea1b210c076fa00a4f88b1ac308004d53cabb106cd010cfddb6e323c69780807",
+        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Defeat.png",
-        "sha256": "22723547e841cdcb30af34dfffc0a4d15ec1709ae8a1aaa5459ae5b365c60d73",
-        "bytes": 225255,
+        "sha256": "3e38e53e33c0d26e0c266dda85b61b30a9c2c4ef7ec5235ca65d44e9d7ea5874",
+        "bytes": 267361,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -523,7 +523,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 7.404806
+        "orthoScale": 6.887227
       }
     },
     {
@@ -532,13 +532,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ea1b210c076fa00a4f88b1ac308004d53cabb106cd010cfddb6e323c69780807",
+        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Idle.png",
-        "sha256": "36d6ec12ea47b79af11444cf047e063b06ec7399b9a8f7f6c921fde21916728d",
-        "bytes": 249643,
+        "sha256": "3b6650ef036a1e3c3283be965d557248c872489e566556284ee1eb69eb73d638",
+        "bytes": 278479,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -580,13 +580,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "7c2e6192d911f51029cd53bd3b901f841ddd3b5b547da947f75e20c999e02c45",
+        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Defeat.png",
-        "sha256": "abce104730d5f79c432fcf5de4b9493f2545171ddd816f09c0568daa3cd34046",
-        "bytes": 200119,
+        "sha256": "c326ec9b458f003b6911dd48912b51dc84741ee48ede7f208d49919c4e350aee",
+        "bytes": 226481,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -619,7 +619,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.599398
+        "orthoScale": 4.396922
       }
     },
     {
@@ -628,13 +628,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "7c2e6192d911f51029cd53bd3b901f841ddd3b5b547da947f75e20c999e02c45",
+        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Idle.png",
-        "sha256": "e8d4340ddda0b5cbd53ccc5e64aca450c4b7ce43d87b4a4fb5358031f9d5e959",
-        "bytes": 223572,
+        "sha256": "910455481eabe7e8e51ca9fb15c3199dadb952f8848b0e3ad487bf1a7628d930",
+        "bytes": 256611,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -667,7 +667,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.8075
+        "orthoScale": 3.619262
       }
     },
     {
@@ -676,13 +676,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "7c2e6192d911f51029cd53bd3b901f841ddd3b5b547da947f75e20c999e02c45",
+        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Move.png",
-        "sha256": "45025d3b7c267eab7245f3aafbbe57d91efdc783b370078b4dd6d977a58138e0",
-        "bytes": 225661,
+        "sha256": "d6bdd1b53bcbfc9851bc612e7ce9569d2f5106f5c30d03bfa5fa8612fcc62100",
+        "bytes": 255471,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -715,7 +715,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.761453
+        "orthoScale": 3.575716
       }
     },
     {
@@ -724,13 +724,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "7c2e6192d911f51029cd53bd3b901f841ddd3b5b547da947f75e20c999e02c45",
+        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Special.png",
-        "sha256": "6a56f477dc4f61e709799709262864027fbb633946a99f99a4d96652af6d0562",
-        "bytes": 208200,
+        "sha256": "10b2fbc84a55e7dbfdeb49f298bbe34d01879c75a455103545d16d47c8cada99",
+        "bytes": 234492,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -763,7 +763,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.339168
+        "orthoScale": 4.126756
       }
     },
     {
@@ -772,13 +772,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "7c2e6192d911f51029cd53bd3b901f841ddd3b5b547da947f75e20c999e02c45",
+        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Strike.png",
-        "sha256": "5d191552d4d34e96e9815f55f6021e1ffffb2aaa918404d1869aa8ef22f77773",
-        "bytes": 219173,
+        "sha256": "3f1d691b89198b459f0f7f46dd75256303da22c3ec6220275f18b8d02128e6df",
+        "bytes": 247537,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -811,7 +811,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.955746
+        "orthoScale": 3.760767
       }
     },
     {
@@ -820,13 +820,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "4697618ea112ec7ecec2edc44bb3757d866d42707d157c0ca459a28b5c80fe27",
+        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Defeat.png",
-        "sha256": "31ba35ac431ab1ba7c798beaed75964f7a00e40d1fb2b398aeaccb1120a5b725",
-        "bytes": 209616,
+        "sha256": "f33c230599b2c6450de0e50994bcda6c9bda953a7fd9e86cc584a72f0c0a79e8",
+        "bytes": 226646,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -859,7 +859,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.054877
+        "orthoScale": 5.032065
       }
     },
     {
@@ -868,13 +868,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "4697618ea112ec7ecec2edc44bb3757d866d42707d157c0ca459a28b5c80fe27",
+        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Idle.png",
-        "sha256": "ff64b639c7e39d959fc54f3f04781c77918913e8a3ca2ac76c8548725d2cd32c",
-        "bytes": 234815,
+        "sha256": "fb61c2a4081e85cb342e31114f8d666b135692c2b63285ebe4e5ccae538b23fe",
+        "bytes": 257213,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -916,13 +916,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "4697618ea112ec7ecec2edc44bb3757d866d42707d157c0ca459a28b5c80fe27",
+        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Move.png",
-        "sha256": "50482ae94f5b4f37d989a66e4495119292aa16d146f116e3173f9421a041c010",
-        "bytes": 235582,
+        "sha256": "461ff4abcd408137055b9f68c7a47bbc98aa79baf22d1b66507ff15dfcdcf0bf",
+        "bytes": 257111,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -964,13 +964,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "4697618ea112ec7ecec2edc44bb3757d866d42707d157c0ca459a28b5c80fe27",
+        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Special.png",
-        "sha256": "173b81271e5db593698fc0f4fb6d77278022623a96ea0d7cd869bc7160b14809",
-        "bytes": 212423,
+        "sha256": "5c4f0b0806b5a99f4a965863a9015c245049111b9b19b838e6a0a3fe706fec0d",
+        "bytes": 238873,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1012,13 +1012,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "4697618ea112ec7ecec2edc44bb3757d866d42707d157c0ca459a28b5c80fe27",
+        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Strike.png",
-        "sha256": "fe212eca29a4877e9a015e7fde9a8001216e6d3c4a71dede71de48bff313fdd5",
-        "bytes": 229423,
+        "sha256": "782bbf9ad12ffa18624bc4d92ca9edc3097c59c416e3f37bce59fad44fa906ee",
+        "bytes": 252597,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1060,13 +1060,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "90c8559a7356c5e764360871407ffc993d5e893f35b614807b53bc004def0b0a",
+        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Defeat.png",
-        "sha256": "81593268649ac97f5fe49ebc7d66052ce590b03828a042f295f7fea760cee55f",
-        "bytes": 214826,
+        "sha256": "dd49ba540c6648564ff39b73113e3e65d2d70dc0b1b2f6d7cc4376f3ef99761d",
+        "bytes": 237559,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1099,7 +1099,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.976017
+        "orthoScale": 5.529763
       }
     },
     {
@@ -1108,13 +1108,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "90c8559a7356c5e764360871407ffc993d5e893f35b614807b53bc004def0b0a",
+        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Idle.png",
-        "sha256": "c46e652fc3ce6227ea16bb404142a072203e1971eb4411bc75e6dc8f914750e4",
-        "bytes": 244945,
+        "sha256": "79aa85aa9c1ba61a162c4d4005dc2f129dbc0f4557b9adf94218319e4d0ccc58",
+        "bytes": 282122,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1147,7 +1147,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.669086
+        "orthoScale": 4.232711
       }
     },
     {
@@ -1156,13 +1156,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "90c8559a7356c5e764360871407ffc993d5e893f35b614807b53bc004def0b0a",
+        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Move.png",
-        "sha256": "4039d57f90f55f7fd06d78f0905e924ea1a92e651cd05ef6dba6bfb8e5453508",
-        "bytes": 245675,
+        "sha256": "5c581f4b06c7cb4da95235df1f1f764ea7ef180efbc869405727f6286a1cc4bd",
+        "bytes": 281544,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1195,7 +1195,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.610816
+        "orthoScale": 4.180238
       }
     },
     {
@@ -1204,13 +1204,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "90c8559a7356c5e764360871407ffc993d5e893f35b614807b53bc004def0b0a",
+        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Special.png",
-        "sha256": "a9ab13a43396ecee14308f454bde1e7e1486e7f1f088466946e43c56671233f2",
-        "bytes": 226899,
+        "sha256": "478be8016dfc603ea1491bb01de674ec92ed8f844442a93cffab4ef1639192bf",
+        "bytes": 260873,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1243,7 +1243,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.30408
+        "orthoScale": 4.811666
       }
     },
     {
@@ -1252,13 +1252,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "90c8559a7356c5e764360871407ffc993d5e893f35b614807b53bc004def0b0a",
+        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Strike.png",
-        "sha256": "fc81f4321d0e2b342778f0f408a650a76fd7f641624bbcb1f35b128cf7599006",
-        "bytes": 237052,
+        "sha256": "fe9b5e0396b07d18560ae073f5b0f1400bd4febc80c362572a44a0e804467581",
+        "bytes": 275601,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1291,7 +1291,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.846142
+        "orthoScale": 4.394141
       }
     },
     {
@@ -1300,13 +1300,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/rift-portal.glb",
-        "sha256": "2b17b471d5c22aba919b6016ebcf9a9bc89e9b3b145131dd2ec9a4a60b113b54",
+        "sha256": "fcdd63974c3982641555effc75d0fc443a6b7a0e5c58ba992f9b30d8cc26dfe3",
         "root": "rift-portal-root"
       },
       "output": {
         "path": "assets/images/battle/glb/rift-portal__Activate.png",
-        "sha256": "0310365100c789569c2c6e8aa23b1a905397fddffc9972ca3ca288266fe4f057",
-        "bytes": 252704,
+        "sha256": "13a4c6f30427da6cb47a7846c379a8cebbcde6a88c835bbd57c4e098863c3d26",
+        "bytes": 300696,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1339,7 +1339,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.336823
+        "orthoScale": 5.315847
       }
     },
     {
@@ -1348,13 +1348,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/rift-portal.glb",
-        "sha256": "2b17b471d5c22aba919b6016ebcf9a9bc89e9b3b145131dd2ec9a4a60b113b54",
+        "sha256": "fcdd63974c3982641555effc75d0fc443a6b7a0e5c58ba992f9b30d8cc26dfe3",
         "root": "rift-portal-root"
       },
       "output": {
         "path": "assets/images/battle/glb/rift-portal__Idle.png",
-        "sha256": "8a4561107a831ec0d04e45d7182b90bcc6a535c02d9657b29aff80f344caafc2",
-        "bytes": 259777,
+        "sha256": "8affc63ca667e4790a2ab822c772f2ea928416fcb5cb9ac42597c00e485615fd",
+        "bytes": 307779,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1387,7 +1387,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.04528
+        "orthoScale": 5.025445
       }
     },
     {
@@ -1396,13 +1396,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "97ba2318bda7b7673a23d6657b261ae0b6618d191d5f035eba975e0f434f67ca",
+        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Defeat.png",
-        "sha256": "a592fd153d5371d13a7ddf0816ba5f2ae23e634de3f8e099906d570a8394308d",
-        "bytes": 199039,
+        "sha256": "59c8db4118a6d7b19c993a3f4a7dde3bcc99dc3cb461d9b8708175211171fba6",
+        "bytes": 216326,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1435,7 +1435,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.350615
+        "orthoScale": 4.330796
       }
     },
     {
@@ -1444,13 +1444,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "97ba2318bda7b7673a23d6657b261ae0b6618d191d5f035eba975e0f434f67ca",
+        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Idle.png",
-        "sha256": "6bd179c6abdfb3788a16db361c9c548bb35a9d9be03a28f9122033fc1d9cf2b4",
-        "bytes": 208097,
+        "sha256": "756d5e7c762e0ab4b2fd30135afda5a97e481f9c38b93aaaa4474a1ef41d3d55",
+        "bytes": 229512,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1483,7 +1483,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.7273
+        "orthoScale": 3.718435
       }
     },
     {
@@ -1492,13 +1492,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "97ba2318bda7b7673a23d6657b261ae0b6618d191d5f035eba975e0f434f67ca",
+        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Move.png",
-        "sha256": "95038f6a3c5027adc21e60ade02b8811f69db331fe21c022f0da621ae7c29de2",
-        "bytes": 209753,
+        "sha256": "29a5fc13d1eceb08ba6765ee9e97bca4531d9ce1a5d243130903304fcabbbdd5",
+        "bytes": 229165,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1531,7 +1531,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.677889
+        "orthoScale": 3.669174
       }
     },
     {
@@ -1540,13 +1540,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "97ba2318bda7b7673a23d6657b261ae0b6618d191d5f035eba975e0f434f67ca",
+        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Special.png",
-        "sha256": "7870f4bc018162cee0c037ad1716e245d7228d487370904a0edddebd5228fa8e",
-        "bytes": 194742,
+        "sha256": "bfed3a26979490121f449558b75c0ac4921fcec9366dce5aba2dc4f0116eecd4",
+        "bytes": 215085,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1579,7 +1579,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.206971
+        "orthoScale": 4.197264
       }
     },
     {
@@ -1588,13 +1588,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "97ba2318bda7b7673a23d6657b261ae0b6618d191d5f035eba975e0f434f67ca",
+        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Strike.png",
-        "sha256": "98e8f229d95e027be65f973c1b530ae08d2a4fe0cb62857e01cdc9d96a3fc1b1",
-        "bytes": 202755,
+        "sha256": "e948cc4c7921ce4400c5f8d8a37a417c5d37bfcdb86b75c31a2faf7dafceffe4",
+        "bytes": 224641,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1627,7 +1627,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.861047
+        "orthoScale": 3.851947
       }
     },
     {
@@ -1636,13 +1636,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "64ccf7167371016a2371a7e1199372f6ac21993596d1e1b95125e747a6f7fb08",
+        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Defeat.png",
-        "sha256": "50d793cd9a9900107d0b6e653da977ddafa9d506534a25e2c7cf91dbc5c84e71",
-        "bytes": 200153,
+        "sha256": "c05b180089da12723e918bfcb588e7f4a744f5e7b19846458eebb822447f60e0",
+        "bytes": 222451,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1675,7 +1675,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.035877
+        "orthoScale": 5.01443
       }
     },
     {
@@ -1684,13 +1684,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "64ccf7167371016a2371a7e1199372f6ac21993596d1e1b95125e747a6f7fb08",
+        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Idle.png",
-        "sha256": "b3e63a0ba34bc6c50600141787f2cbb4b19fbba2d2ed95769e59c8909ee8876f",
-        "bytes": 237715,
+        "sha256": "351910ad8aaccc37ef57136721fad6a3169449588ee4e96db2109b8bdbb8bc82",
+        "bytes": 251233,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1732,13 +1732,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "64ccf7167371016a2371a7e1199372f6ac21993596d1e1b95125e747a6f7fb08",
+        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Move.png",
-        "sha256": "23c81c39c224113c36d4bff5e681aae061de1040239508d8f69337e2b7136f1c",
-        "bytes": 238089,
+        "sha256": "5d8a3907bfd593f77e93f251b3f598e01c6d025dc78fb4f34e1ed8907c553077",
+        "bytes": 252075,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1780,13 +1780,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "64ccf7167371016a2371a7e1199372f6ac21993596d1e1b95125e747a6f7fb08",
+        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Special.png",
-        "sha256": "ebd0b3519cb78e2e574bd96a32c366ade4ff29a7a17cfc61a5407e773f1e10c7",
-        "bytes": 212640,
+        "sha256": "7985ce34718ec4d161e9500f57048e794ec8e1317f4890f52ddfcf2cff9379f3",
+        "bytes": 234900,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1828,13 +1828,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "64ccf7167371016a2371a7e1199372f6ac21993596d1e1b95125e747a6f7fb08",
+        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Strike.png",
-        "sha256": "03d4c5983f4b22624998a3fc27fe3f90da46dc27020bdcaf7e9ff4149615599e",
-        "bytes": 230532,
+        "sha256": "57179301672a48250810a86ef0a41b9491b7705844f7e92d19d31963a1f144a9",
+        "bytes": 244697,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1876,13 +1876,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/soul-extractor.glb",
-        "sha256": "f9c8e885ffde8e873ec7d6bd047964db782e743dd981c719a785b63625548822",
+        "sha256": "922bb25c2aad10f02a9650b84aa61581caf220db616d7a79827c46c8518770a5",
         "root": "soul-extractor-root"
       },
       "output": {
         "path": "assets/images/battle/glb/soul-extractor__Activate.png",
-        "sha256": "b2c1635ffe1849ea23a8f9ebcd207522bc53e72947284d1d115dbacde1f5bc8c",
-        "bytes": 221478,
+        "sha256": "3326274bd0a0ce0d3634f0d236136e8e2436f8567935a9cbfa028a9248391e39",
+        "bytes": 252343,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1924,13 +1924,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/soul-extractor.glb",
-        "sha256": "f9c8e885ffde8e873ec7d6bd047964db782e743dd981c719a785b63625548822",
+        "sha256": "922bb25c2aad10f02a9650b84aa61581caf220db616d7a79827c46c8518770a5",
         "root": "soul-extractor-root"
       },
       "output": {
         "path": "assets/images/battle/glb/soul-extractor__Idle.png",
-        "sha256": "139095f8fd725c9b902423fe5e89788a2b783264f4a403897330a615596a15c2",
-        "bytes": 298973,
+        "sha256": "afd14e02682b4ec66622e57e257e31d5ec1e22bb1e1443006cfb52d452985a70",
+        "bytes": 329498,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -1972,13 +1972,13 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/veil-citadel.glb",
-        "sha256": "403ab14dbe78e94637e1efc411787b44bd49cb2eef2ea0dbcb5f5712a6fa18f1",
+        "sha256": "b0fa5cfb141d408db274579b5560be29cfbcd7c9af71040a2f3aa8b8c5c67c29",
         "root": "veil-citadel-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-citadel.png",
-        "sha256": "cda7bd7aa6a9a5ddbd1f87dd79aafb5c522303a76ab334f48ec43d5e3070be17",
-        "bytes": 6780,
+        "sha256": "5009203ff88caade24eda65afd45403731b329720a33ea618bc5060081fb83dc",
+        "bytes": 9075,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
@@ -2007,13 +2007,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "b274a8a8ffdfb48b2e38173f691cce81ee970920e37e438c20bbd136e5c3d926",
+        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Attack.png",
-        "sha256": "c8c8210485f771f56a03c2e048aa254910e9cc9bd41c26eac055491431983ae7",
-        "bytes": 237575,
+        "sha256": "85ddc51bb6b54f97f6164e67cfab2fe1e9d3633c458ba2e7de56e29bd57e21d3",
+        "bytes": 276541,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -2055,13 +2055,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "b274a8a8ffdfb48b2e38173f691cce81ee970920e37e438c20bbd136e5c3d926",
+        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Defeat.png",
-        "sha256": "f6918498401fe556fa7ef4cb87907e7cfa80ee606a9430cf424cb6d9f7e7e994",
-        "bytes": 222898,
+        "sha256": "de485b6bdf822fca88303d4031ee396ab519c221d4c684d7171c8e8e82c4791a",
+        "bytes": 239942,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
@@ -2094,7 +2094,7 @@
           315
         ],
         "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 7.316629
+        "orthoScale": 7.288319
       }
     },
     {
@@ -2103,13 +2103,13 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "b274a8a8ffdfb48b2e38173f691cce81ee970920e37e438c20bbd136e5c3d926",
+        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Idle.png",
-        "sha256": "af8dc89d7a5d892037e4f5eea8774f1ef48bb7f972620ab5fd012c2b04f9e801",
-        "bytes": 245288,
+        "sha256": "e1a211c61bcc501f74dbda2a95bae9ce796fdeeced0f42438705c48c6615f20b",
+        "bytes": 280862,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"

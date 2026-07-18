@@ -1,0 +1,25 @@
+topic: Medieval-first tactical UI for a browser RTS-RPG battle cockpit
+scope: >-
+  Replace dashboard-like battle composition with a world-first medieval command
+  screen while preserving the existing deterministic rules and desktop/touch parity.
+time_range: Unlimited; prioritize durable primary sources available through 2026-07-18.
+items:
+  - name: Stronghold
+    category: Medieval RTS
+    description: Official main-screen and objective-management structure for a medieval siege game.
+  - name: Age of Empires IV
+    category: Cross-input RTS
+    description: Official console adaptation and accessibility patterns for semantic command parity.
+  - name: Warcraft III Reforged
+    category: RTS feedback hierarchy
+    description: Official HUD defaults, health/cooldown visibility, and scalable tactical telemetry.
+  - name: Against the Storm
+    category: Source-linked alerts
+    description: Official alert, progress, blocked-state, and direct-navigation patterns.
+  - name: Web-game accessibility
+    category: Universal interaction constraints
+    description: Input parity, touch target, contrast, text scale, and reduced-motion requirements.
+execution:
+  batch_size: 5
+  items_per_agent: 1
+  output_dir: ./results

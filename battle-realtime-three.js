@@ -7,9 +7,11 @@ import {
   createStageNavigation,
 } from "./stage-navigation.js";
 
-// Stages 4-10 reuse the three shipped GLB sets; per-stage identity comes from
-// the presentation palette, heightfield, and 2D boss portraits. Dedicated
-// models can replace these entries later without touching the runtime.
+// Stages 4-10 reuse the three shipped GLB terrain/boss sets (resource-budget
+// compromise; dedicated models are a future upgrade). To keep each boss
+// visually distinct despite the shared mesh, createBattleObjects() applies a
+// per-stage emissive/base-color tint from presentation.palette.hostile on
+// top of the reused materials. Terrain reuse carries no identity claim.
 const STAGE_ASSETS = Object.freeze({
   1: Object.freeze({ terrain: "terrain/cinder-span.glb", boss: "bosses/cinder-warden.glb" }),
   2: Object.freeze({ terrain: "terrain/veil-citadel.glb", boss: "bosses/veil-tactician.glb" }),
@@ -51,11 +53,220 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+const PARTICLE_CAPACITY = 360;
+const AUDIO_ROOT = "./assets/audio/";
+
+// Pooled point-sprite particle field for combat VFX (strike sparks, defeat
+// ash, boss impacts, action bursts). One field per battle instance; all
+// emitters share the same fixed-capacity buffer (additive-blended points),
+// so cost is a single draw call regardless of how many effects are live.
+class ParticleField {
+  constructor(scene) {
+    this.capacity = PARTICLE_CAPACITY;
+    this.cursor = 0;
+    this.alive = new Uint8Array(this.capacity);
+    this.life = new Float32Array(this.capacity);
+    this.maxLife = new Float32Array(this.capacity);
+    this.velocity = new Float32Array(this.capacity * 3);
+    this.gravity = new Float32Array(this.capacity);
+    this.baseColor = new Float32Array(this.capacity * 3);
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(this.capacity * 3), 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(this.capacity * 3), 3));
+    const material = new THREE.PointsMaterial({
+      size: 0.16,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(geometry, material);
+    this.points.frustumCulled = false;
+    scene.add(this.points);
+  }
+
+  // Emits `count` particles from (x, y, z) with the given color, spreading
+  // outward at speeds in [speedMin, speedMax], living `life` seconds, pulled
+  // down by `gravity` (world units/s^2; 0 = no fall, for rising wisps use a
+  // negative value).
+  emit(x, y, z, color, count, { speedMin = 0.8, speedMax = 2.4, life = 0.6, gravity = 2.2, upBias = 0.6 } = {}) {
+    const c = color instanceof THREE.Color ? color : new THREE.Color(color);
+    const position = this.points.geometry.attributes.position;
+    const colors = this.points.geometry.attributes.color;
+    for (let n = 0; n < count; n += 1) {
+      const i = this.cursor;
+      this.cursor = (this.cursor + 1) % this.capacity;
+      this.alive[i] = 1;
+      const lifeSpan = life * (0.7 + Math.random() * 0.6);
+      this.life[i] = lifeSpan;
+      this.maxLife[i] = lifeSpan;
+      this.gravity[i] = gravity;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = speedMin + Math.random() * (speedMax - speedMin);
+      const spread = Math.random();
+      this.velocity[i * 3] = Math.cos(angle) * speed * spread;
+      this.velocity[i * 3 + 1] = speed * upBias + Math.random() * speed * 0.5;
+      this.velocity[i * 3 + 2] = Math.sin(angle) * speed * spread;
+      this.baseColor[i * 3] = c.r;
+      this.baseColor[i * 3 + 1] = c.g;
+      this.baseColor[i * 3 + 2] = c.b;
+      position.setXYZ(i, x, y, z);
+      colors.setXYZ(i, c.r, c.g, c.b);
+    }
+    position.needsUpdate = true;
+    colors.needsUpdate = true;
+  }
+
+  update(dt) {
+    const position = this.points.geometry.attributes.position;
+    const color = this.points.geometry.attributes.color;
+    let anyAlive = false;
+    for (let i = 0; i < this.capacity; i += 1) {
+      if (!this.alive[i]) continue;
+      this.life[i] -= dt;
+      if (this.life[i] <= 0) {
+        this.alive[i] = 0;
+        color.setXYZ(i, 0, 0, 0);
+        continue;
+      }
+      anyAlive = true;
+      this.velocity[i * 3 + 1] -= this.gravity[i] * dt;
+      const px = position.getX(i) + this.velocity[i * 3] * dt;
+      const py = Math.max(0, position.getY(i) + this.velocity[i * 3 + 1] * dt);
+      const pz = position.getZ(i) + this.velocity[i * 3 + 2] * dt;
+      position.setXYZ(i, px, py, pz);
+      const fade = Math.max(0, this.life[i] / this.maxLife[i]);
+      color.setXYZ(i, this.baseColor[i * 3] * fade, this.baseColor[i * 3 + 1] * fade, this.baseColor[i * 3 + 2] * fade);
+    }
+    position.needsUpdate = true;
+    color.needsUpdate = true;
+    return anyAlive;
+  }
+
+  dispose() {
+    this.points.removeFromParent();
+    this.points.geometry.dispose();
+    this.points.material.dispose();
+  }
+}
+
+// Real 3D positional audio for combat events: shipped action-cue mp3s panned
+// by PannerNode for materialize/capture/possess/domain/hunt/extract/assault,
+// plus short procedural oscillator hits (no new audio assets needed) for
+// continuous per-frame combat events that have no authored cue: strike
+// clash, boss impact, defeat, breach, wave-cleared. Listener follows the
+// camera every frame so panning/distance stays correct as the player orbits.
+class SpatialAudio {
+  constructor() {
+    const AudioCtx = typeof window !== "undefined" ? (window.AudioContext || window.webkitAudioContext) : null;
+    this.ctx = AudioCtx ? new AudioCtx() : null;
+    this.buffers = new Map();
+    this.master = null;
+    if (this.ctx) {
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.85;
+      this.master.connect(this.ctx.destination);
+    }
+  }
+
+  async loadSample(name) {
+    if (!this.ctx) return null;
+    if (this.buffers.has(name)) return this.buffers.get(name);
+    const promise = fetch(`${AUDIO_ROOT}${name}.mp3`)
+      .then((response) => (response.ok ? response.arrayBuffer() : null))
+      .then((data) => (data ? this.ctx.decodeAudioData(data) : null))
+      .catch(() => null);
+    this.buffers.set(name, promise);
+    return promise;
+  }
+
+  updateListener(camera) {
+    if (!this.ctx) return;
+    const listener = this.ctx.listener;
+    const p = camera.position;
+    if (listener.positionX) {
+      listener.positionX.value = p.x;
+      listener.positionY.value = p.y;
+      listener.positionZ.value = p.z;
+    } else if (listener.setPosition) {
+      listener.setPosition(p.x, p.y, p.z);
+    }
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    if (listener.forwardX) {
+      listener.forwardX.value = forward.x;
+      listener.forwardY.value = forward.y;
+      listener.forwardZ.value = forward.z;
+      listener.upX.value = 0;
+      listener.upY.value = 1;
+      listener.upZ.value = 0;
+    } else if (listener.setOrientation) {
+      listener.setOrientation(forward.x, forward.y, forward.z, 0, 1, 0);
+    }
+  }
+
+  makePanner(x, y, z) {
+    const panner = this.ctx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = 4;
+    panner.maxDistance = 40;
+    panner.rolloffFactor = 1.1;
+    panner.positionX ? panner.positionX.value = x : panner.setPosition(x, y, z);
+    if (panner.positionX) { panner.positionY.value = y; panner.positionZ.value = z; }
+    return panner;
+  }
+
+  // Plays a shipped mp3 (hunt/extract/materialize/capture/possess/domain/assault)
+  // positioned at world (x, y, z).
+  async playSample(name, x, y, z, gain = 0.8) {
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => undefined);
+    const buffer = await this.loadSample(name);
+    if (!buffer || this.ctx.state === "closed") return;
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.value = gain;
+    const panner = this.makePanner(x, y, z);
+    source.connect(gainNode).connect(panner).connect(this.master);
+    source.start();
+  }
+
+  // Short procedural blip (no audio file) for high-frequency combat events:
+  // strike clash, boss impact, defeat, breach. Same technique already
+  // proven in the Canvas 2D fallback's playSpatial(); ported to real 3D
+  // panning here instead of virtual-listener 2D math.
+  playTone(x, y, z, { freq = 320, endFreq = freq, duration = 0.18, type = "triangle", gain = 0.7 } = {}) {
+    if (!this.ctx) return;
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => undefined);
+    if (this.ctx.state === "closed") return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(gain, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    const panner = this.makePanner(x, y, z);
+    osc.connect(gainNode).connect(panner).connect(this.master);
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  dispose() {
+    if (this.ctx && this.ctx.state !== "closed") this.ctx.close().catch(() => undefined);
+  }
+}
+
 export class RealtimeBattle {
   constructor(canvas, presentation, options = {}) {
     this.canvas = canvas;
     this.presentation = presentation;
-    this.stageNumber = Math.max(1, Math.min(3, Number(presentation?.stageNumber) || 1));
+    this.stageNumber = Math.max(1, Math.min(10, Number(presentation?.stageNumber) || 1));
     this.nodeGoal = Math.max(1, Number(options.nodeGoal) || 1);
     this.requestAction = typeof options.onActionRequest === "function" ? options.onActionRequest : null;
     this.onAssetStatus = typeof options.onAssetStatus === "function" ? options.onAssetStatus : null;
@@ -105,6 +316,17 @@ export class RealtimeBattle {
     this.zoom = 18;
     this.enemySerial = 0;
     this.actionClips = 0;
+    this.particles = null;
+    this.audio = new SpatialAudio();
+    this.shakeTime = 0;
+    this.shakeMagnitude = 0;
+    this.shakeDuration = 0;
+    this.shakeSeed = Math.random() * 1000;
+    this.hitStopTime = 0;
+    this.footstepTimer = 0;
+    this.ambientEmitTimer = 0;
+    this.nodePulse = 0;
+    this.portalPulse = 0;
     this.bound = {
       resize: () => this.resize(),
       visibility: () => this.onVisibility(),
@@ -142,6 +364,7 @@ export class RealtimeBattle {
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.userData.ground = true;
     this.scene.add(this.ground);
+    this.particles = new ParticleField(this.scene);
     this.attachEvents();
     this.resize();
     await this.loadStageAssets();
@@ -232,6 +455,7 @@ export class RealtimeBattle {
     const bossPosition = this.gridToWorld(STAGE_TACTICAL_ANCHORS.boss.x, STAGE_TACTICAL_ANCHORS.boss.y);
     this.setGroundedPosition(boss, bossPosition.x, bossPosition.z);
     boss.root.userData.pickRoot = boss.root;
+    this.applyBossIdentityTint(boss.root);
     this.scene.add(boss.root);
     this.boss = boss;
     this.registerStaticBlocker(boss.root, 1.18, true, () => boss.root.visible);
@@ -246,6 +470,32 @@ export class RealtimeBattle {
     this.scene.add(commander.root);
     this.commander = commander;
     this.play(commander, "Idle");
+  }
+
+  // Stages 4-10 reuse a Stage 1-3 boss mesh (see STAGE_ASSETS comment). Tint
+  // the reused materials with this stage's own hostile palette color so two
+  // narratively distinct bosses never render as visually identical; stages
+  // 1-3 keep their authored material untouched.
+  applyBossIdentityTint(root) {
+    if (this.stageNumber <= 3) return;
+    const hex = this.presentation?.palette?.hostile;
+    if (!hex) return;
+    const tint = new THREE.Color(hex);
+    root.traverse((node) => {
+      if (!node.isMesh) return;
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      const tinted = materials.map((material) => {
+        if (!material) return material;
+        const clone = material.clone();
+        if (clone.color) clone.color.lerp(tint, 0.55);
+        if ("emissive" in clone) {
+          clone.emissive = tint.clone();
+          clone.emissiveIntensity = 0.35;
+        }
+        return clone;
+      });
+      node.material = tinted.length === 1 ? tinted[0] : tinted;
+    });
   }
 
   makeMarker(color, x, z, semantic) {
@@ -312,6 +562,7 @@ export class RealtimeBattle {
   }
 
   play(instance, name, once = false) {
+    if (!instance?.clips) return;
     const clip = clipFor(instance.clips, name);
     if (!clip) return;
     let action = instance.actions.get(clip.name);
@@ -335,9 +586,27 @@ export class RealtimeBattle {
     }
     const elapsed = Math.min(0.05, Math.max(0, (time - this.lastTime) / 1000));
     this.lastTime = time;
-    this.update(elapsed);
+    let dt = elapsed;
+    if (this.hitStopTime > 0) {
+      // Brief near-freeze on heavy impacts (boss hits, breaches): real time
+      // still elapses for the countdown, simulated time nearly stalls for
+      // a punchy single-frame "hit stop" beat.
+      this.hitStopTime = Math.max(0, this.hitStopTime - elapsed);
+      dt = elapsed * 0.06;
+    }
+    this.update(dt);
     this.renderer.render(this.scene, this.camera);
     this.raf = requestAnimationFrame((nextTime) => this.frame(nextTime));
+  }
+
+  triggerHitStop(duration = 0.09) {
+    this.hitStopTime = Math.max(this.hitStopTime, duration);
+  }
+
+  shakeCamera(magnitude, duration = 0.25) {
+    this.shakeMagnitude = Math.max(this.shakeMagnitude, magnitude);
+    this.shakeTime = Math.max(this.shakeTime, duration);
+    this.shakeDuration = this.shakeTime;
   }
 
   update(dt) {
@@ -351,9 +620,39 @@ export class RealtimeBattle {
     for (const mixer of this.mixers) mixer.update(dt);
     this.portal.rotation.y += dt * 0.8;
     this.node.rotation.y -= dt * 0.5;
-    this.updateCamera();
+    this.updateMarkerPulses(dt);
+    this.updateAmbience(dt);
+    this.particles.update(dt);
+    this.audio.updateListener(this.camera);
+    this.updateCamera(dt);
     this.publishRuntimeState();
   }
+
+  // Node/portal emissive spikes on capture/hunt/extract, then eases back to
+  // its resting glow instead of staying pinned at the flash value forever.
+  updateMarkerPulses(dt) {
+    this.nodePulse = Math.max(0.8, this.nodePulse - dt * 3.2);
+    this.node.material.emissiveIntensity = this.nodePulse;
+    this.portalPulse = Math.max(0.8, this.portalPulse - dt * 3.2);
+    this.portal.material.emissiveIntensity = this.portalPulse;
+  }
+
+  // Slow drifting embers/motes in the stage's accent color — cheap
+  // atmospheric depth that reads as "the battlefield is alive" without new
+  // terrain geometry per elevation tier.
+  updateAmbience(dt) {
+    this.ambientEmitTimer -= dt;
+    if (this.ambientEmitTimer > 0) return;
+    this.ambientEmitTimer = 0.35;
+    const accent = this.presentation?.palette?.accent ?? "#ffb85c";
+    const x = (Math.random() - 0.5) * 16;
+    const z = (Math.random() - 0.5) * 10;
+    const y = 0.2 + Math.random() * 0.3;
+    this.particles?.emit(x, y, z, accent, 1, {
+      speedMin: 0.05, speedMax: 0.25, life: 3.5, gravity: -0.15, upBias: 0.4,
+    });
+  }
+
 
   liveAlly(unit) {
     return this.allies.includes(unit) && !unit.defeated;
@@ -518,10 +817,24 @@ export class RealtimeBattle {
       if (ally.cooldown !== 0) continue;
       ally.cooldown = 0.55;
       enemy.hp -= 1;
+      this.clashEffect(ally.root.position, enemy.root.position);
       this.enemyStrike(enemy, ally);
       this.exchanges += 1;
       if (enemy.hp <= 0) this.defeat(enemy);
     }
+  }
+
+  // Spark burst + clang tone at the midpoint of an ally/enemy melee
+  // exchange — the one combat beat that repeats most often, so it must read
+  // clearly without becoming visual noise (small particle count, short
+  // percussive tone).
+  clashEffect(allyPos, enemyPos) {
+    const mx = (allyPos.x + enemyPos.x) / 2;
+    const mz = (allyPos.z + enemyPos.z) / 2;
+    const my = Math.max(allyPos.y, enemyPos.y) + 0.9;
+    const spark = this.presentation?.palette?.accent ?? "#ffb85c";
+    this.particles?.emit(mx, my, mz, spark, 6, { speedMin: 1.2, speedMax: 2.8, life: 0.28, gravity: 4, upBias: 0.4 });
+    this.audio.playTone(mx, my, mz, { freq: 900, endFreq: 320, duration: 0.09, type: "triangle", gain: 0.35 });
   }
 
   enemyStrike(enemy, target, damage = 1) {
@@ -529,6 +842,13 @@ export class RealtimeBattle {
     this.play(enemy, "Strike");
     target.hp -= damage;
     target.hit = (target.hit ?? 0) + 1;
+    const hostile = this.presentation?.palette?.hostile ?? "#ff7f79";
+    this.particles?.emit(target.root.position.x, target.root.position.y + 0.8, target.root.position.z, hostile, 8, {
+      speedMin: 1.4, speedMax: 3.2, life: 0.32, gravity: 5,
+    });
+    this.audio.playTone(target.root.position.x, target.root.position.y + 0.8, target.root.position.z, {
+      freq: 220, endFreq: 90, duration: 0.14, type: "sawtooth", gain: 0.45,
+    });
     if (target.hp <= 0 || target.hit >= 3) this.defeat(target);
   }
 
@@ -563,8 +883,29 @@ export class RealtimeBattle {
     );
     this.commanderPosition.copy(this.commander.root.position);
     this.commander.root.rotation.y = Math.atan2(x, z);
+    this.emitFootstepTrail(dt, root.position, this.hasSurge());
     this.play(this.commander, "Move");
     if (resolved.blocked && this.commanderOrder) this.commanderOrder = null;
+  }
+
+  // Ground dust while walking; a brighter, more frequent accent-color trail
+  // while surging (Shift). Throttled by a shared timer so this never spams
+  // the particle pool during sustained movement.
+  emitFootstepTrail(dt, position, surging) {
+    this.footstepTimer -= dt;
+    if (this.footstepTimer > 0) return;
+    if (surging) {
+      this.footstepTimer = 0.05;
+      const accent = this.presentation?.palette?.accent ?? "#ffb85c";
+      this.particles?.emit(position.x, position.y + 0.15, position.z, accent, 2, {
+        speedMin: 0.2, speedMax: 0.6, life: 0.3, gravity: 0.5, upBias: 0.2,
+      });
+    } else {
+      this.footstepTimer = 0.22;
+      this.particles?.emit(position.x, position.y + 0.05, position.z, "#8a8578", 3, {
+        speedMin: 0.15, speedMax: 0.45, life: 0.4, gravity: 1.8, upBias: 0.15,
+      });
+    }
   }
 
   updateAllies(dt) {
@@ -619,11 +960,22 @@ export class RealtimeBattle {
       if (enemy.root.position.x <= PORTAL_X) {
         enemy.breachVisualized = true;
         this.clearEngagement(enemy);
+        this.particles?.emit(enemy.root.position.x, enemy.root.position.y + 0.6, enemy.root.position.z, "#ff3b3b", 16, {
+          speedMin: 1.5, speedMax: 3.4, life: 0.5, gravity: 3,
+        });
+        this.audio.playTone(enemy.root.position.x, enemy.root.position.y + 0.6, enemy.root.position.z, {
+          freq: 140, endFreq: 60, duration: 0.35, type: "square", gain: 0.75,
+        });
+        this.shakeCamera(0.14, 0.22);
         this.emitEncounterEvent("breach");
       }
     }
 
     if (this.currentWaveId && this.enemies.length > 0 && this.enemies.every((enemy) => enemy.defeated)) {
+      const p = this.gridToWorld(STAGE_TACTICAL_ANCHORS.node.x, STAGE_TACTICAL_ANCHORS.node.y);
+      const ally = this.presentation?.palette?.ally ?? "#70e5d0";
+      this.particles?.emit(p.x, 0.5, p.z, ally, 20, { speedMin: 1.6, speedMax: 3.4, life: 0.9, gravity: 1.4, upBias: 1 });
+      this.audio.playTone(p.x, 0.5, p.z, { freq: 440, endFreq: 880, duration: 0.4, type: "sine", gain: 0.6 });
       this.emitEncounterEvent("wave-cleared");
     }
   }
@@ -633,10 +985,27 @@ export class RealtimeBattle {
     unit.defeated = true;
     this.clearEngagement(unit);
     this.play(unit, "Defeat", true);
+    const isAlly = this.allies.includes(unit);
+    const isBoss = unit === this.boss;
+    const color = isBoss || !isAlly
+      ? (this.presentation?.palette?.hostile ?? "#ff7f79")
+      : (this.presentation?.palette?.ally ?? "#70e5d0");
+    const pos = unit.root.position;
+    const count = isBoss ? 48 : 14;
+    this.particles?.emit(pos.x, pos.y + 1, pos.z, color, count, {
+      speedMin: isBoss ? 2.2 : 1, speedMax: isBoss ? 5 : 2.6, life: isBoss ? 1.1 : 0.65, gravity: 1.6, upBias: 0.8,
+    });
+    if (isBoss) {
+      this.audio.playTone(pos.x, pos.y + 1, pos.z, { freq: 160, endFreq: 40, duration: 0.9, type: "sawtooth", gain: 0.9 });
+      this.shakeCamera(0.35, 0.5);
+      this.triggerHitStop(0.12);
+    } else {
+      this.audio.playTone(pos.x, pos.y + 1, pos.z, { freq: 260, endFreq: 70, duration: 0.4, type: "sine", gain: 0.5 });
+    }
   }
 
 
-  updateCamera() {
+  updateCamera(dt = 0) {
     this.cameraTarget.lerp(this.commanderPosition, 0.12);
     const horizontal = Math.cos(this.orbitElevation) * this.zoom;
     this.cameraOffset.set(
@@ -645,6 +1014,15 @@ export class RealtimeBattle {
       Math.sin(this.orbitAzimuth) * horizontal,
     );
     this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
+    if (this.shakeTime > 0) {
+      this.shakeTime = Math.max(0, this.shakeTime - dt);
+      const strength = this.shakeMagnitude * (this.shakeDuration > 0 ? this.shakeTime / this.shakeDuration : 0);
+      const t = performance.now() * 0.001;
+      this.camera.position.x += Math.sin((t + this.shakeSeed) * 47) * strength;
+      this.camera.position.y += Math.sin((t + this.shakeSeed) * 61) * strength * 0.6;
+      this.camera.position.z += Math.cos((t + this.shakeSeed) * 53) * strength;
+      if (this.shakeTime === 0) this.shakeMagnitude = 0;
+    }
     this.lookTarget.copy(this.cameraTarget);
     this.camera.lookAt(this.lookTarget);
   }
@@ -939,38 +1317,98 @@ export class RealtimeBattle {
 
   // Compatibility wrapper: visual effects must not establish or remove encounter units.
   spawnEnemy() {
-    this.playActionEffect({ action: "hunt" });
+    this.playActionEffect({ action: "hunt", source: "portal", target: "extractor" });
   }
 
-  triggerMaterialize(count) {
-    if (!this.running) return;
-    if (Number.isInteger(this.authoritativeLegion)) {
-      this.reconcileAllies(this.authoritativeLegion);
-    } else {
-      const additions = Math.max(0, Number(count) || 0);
-      for (let index = 0; index < additions; index += 1) this.createAlly();
+  // Action feedback is renderer-local: it communicates a command that
+  // campaign-state.js has already accepted, but never establishes units,
+  // encounters, rewards, damage, or player orders.
+  actionFeedbackPoint(point) {
+    if (point === "portal") return this.portal?.position ?? this.commanderPosition;
+    if (point === "extractor") {
+      const position = this.gridToWorld(6, 3.5);
+      return { x: position.x, y: this.navigationAt(position.x, position.z).elevation * TERRAIN_ELEVATION_SCALE, z: position.z };
     }
-    this.publishRuntimeState();
+    if (point === "node") return this.node?.position ?? this.commanderPosition;
+    if (point === "ally") return this.allies.find((candidate) => this.liveAlly(candidate))?.root?.position ?? this.commanderPosition;
+    if (point === "boss") return this.boss?.root?.position ?? this.commanderPosition;
+    return this.commander?.root?.position ?? this.commanderPosition;
   }
+  actionFeedbackActor(actor) {
+    if (actor === "ally") return this.allies.find((candidate) => this.liveAlly(candidate)) ?? this.commander;
+    if (actor === "boss") return this.boss;
+    return this.commander;
+  }
+
+  pulseActionMarker(point) {
+    if (point === "portal") this.portalPulse = Math.max(this.portalPulse, 2.15);
+    if (point === "node") this.nodePulse = Math.max(this.nodePulse, 2.15);
+  }
+
+
+  actionFeedbackProfile(action) {
+    const palette = this.presentation?.palette ?? {};
+    const ally = palette.ally ?? "#70e5d0";
+    const accent = palette.accent ?? "#ffb85c";
+    const hostile = palette.hostile ?? "#ff7f79";
+    const profile = {
+      hunt: { color: accent, count: 12, gain: 0.52, pulse: "portal" },
+      extract: { color: ally, count: 14, gain: 0.58, pulse: "portal" },
+      materialize: { color: ally, count: 20, gain: 0.7, pulse: "portal" },
+      capture: { color: accent, count: 18, gain: 0.66, pulse: "node" },
+      possess: { color: accent, count: 16, gain: 0.62 },
+      domain: { color: accent, count: 24, gain: 0.74 },
+      assault: { color: hostile, count: 28, gain: 0.78 },
+    }[action];
+    return profile ? { action, ...profile } : null;
+  }
+
+  emitActionFeedback(semantic = {}) {
+    const profile = this.actionFeedbackProfile(semantic.action);
+    if (!profile) return null;
+    const source = this.actionFeedbackPoint(semantic.source);
+    const target = this.actionFeedbackPoint(semantic.target);
+    const { action, color, count, gain, pulse } = profile;
+    this.pulseActionMarker(semantic.source);
+    this.pulseActionMarker(semantic.target);
+    if (pulse === "portal") this.portalPulse = Math.max(this.portalPulse, 2.15);
+    if (pulse === "node") this.nodePulse = Math.max(this.nodePulse, 2.15);
+    const sourceCount = Math.max(4, Math.floor(count * 0.42));
+    const emit = (position, amount) => this.particles?.emit(position.x, position.y + 0.72, position.z, color, amount, {
+      speedMin: 0.8,
+      speedMax: action === "assault" ? 4.4 : 2.9,
+      life: action === "domain" ? 0.9 : 0.58,
+      gravity: action === "domain" ? -0.45 : 2.4,
+      upBias: action === "assault" ? 0.45 : 0.9,
+    });
+    emit(source, sourceCount);
+    if (source.x !== target.x || source.y !== target.y || source.z !== target.z) emit(target, count);
+    else emit(target, count - sourceCount);
+    this.audio.playSample(action, source.x, source.y + 0.72, source.z, gain);
+    if (source.x !== target.x || source.y !== target.y || source.z !== target.z) {
+      this.audio.playTone?.(target.x, target.y + 0.72, target.z, {
+        freq: action === "assault" ? 170 : 420,
+        endFreq: action === "assault" ? 90 : 760,
+        duration: 0.16,
+        type: action === "assault" ? "sawtooth" : "sine",
+        gain: gain * 0.4,
+      });
+    }
+    if (action === "assault") {
+      this.shakeCamera(0.12, 0.18);
+      this.triggerHitStop(0.06);
+    }
+    return { action, source, target };
+  }
+
 
   playActionEffect(semantic = {}) {
     const action = semantic?.action;
     if (!action || this.destroyed) return;
-    if (action === "materialize") {
-      this.triggerMaterialize(semantic.count);
-      return;
-    }
-    if (action === "assault") {
-      this.play(this.commander, "Strike", true);
-      if (this.bossExposed) this.play(this.boss, "Attack", true);
-      return;
-    }
-    if (action === "capture") {
-      this.node.material.emissiveIntensity = 2;
-      return;
-    }
-    if (action === "possess" || action === "domain") this.rally.copy(this.commanderPosition);
-    this.play(this.commander, semantic.clip ?? "Special", true);
+    this.emitActionFeedback(semantic);
+    const actor = this.actionFeedbackActor(semantic.actor);
+    if (actor) this.play(actor, semantic.actorClip ?? semantic.clip ?? "Special", true);
+    if (action === "assault" && this.bossExposed) this.play(this.boss, "Attack", true);
   }
 
   triggerAction(semantic) {
@@ -1026,6 +1464,8 @@ export class RealtimeBattle {
     this.mixers.length = 0;
     this.staticBlockers.length = 0;
     this.renderer?.dispose();
+    this.particles?.dispose();
+    this.audio?.dispose();
     this.templates.clear();
   }
 }

@@ -76,7 +76,17 @@ const BOSS_ART = Object.freeze({
   2: "assets/images/ui/boss-veil-tactician.png",
   // Stage 3: Blender-rendered throned Gate Sovereign statue (256x256) -
   // a field piece reads better in the dimetric world than a flat portrait.
-  3: "assets/images/battle/sovereign-atlas.png"
+  3: "assets/images/battle/sovereign-atlas.png",
+  // Stages 4-10: dedicated field atlases are unbudgeted this cycle, so the
+  // fallback renderer uses each stage's own shipped boss portrait instead of
+  // a reused Stage 1-3 field piece, keeping boss identity G1-consistent.
+  4: "assets/images/ui/boss-tide-warden.png",
+  5: "assets/images/ui/boss-pack-herald.png",
+  6: "assets/images/ui/boss-requiem-choir.png",
+  7: "assets/images/ui/boss-lantern-tyrant.png",
+  8: "assets/images/ui/boss-bridge-colossus.png",
+  9: "assets/images/ui/boss-veiled-concordat.png",
+  10: "assets/images/ui/boss-abyss-regent.png"
 });
 
 // Conceptual 2D character atlas: 8 facing directions × 2 idle-light phases.
@@ -93,7 +103,15 @@ const UNIT_ATLAS = Object.freeze({
 // external dependency enters the Canvas renderer. The manifest is the sole
 // contract between the generator and this bridge.
 const GLB_BRIDGE_MANIFEST = "assets/images/battle/glb/manifest.json";
-const BRIDGE_STAGE_TERRAIN = Object.freeze({ 1: "cinder-span", 2: "veil-citadel", 3: "echo-throne-steps" });
+// Stages 4-10 reuse a Stage 1-3 terrain plate (matches STAGE_ASSETS terrain
+// reuse in battle-realtime-three.js so both renderers agree on ground art;
+// terrain reuse carries no boss-identity claim). See BOSS_ART above for the
+// per-stage boss art that keeps identity distinct.
+const BRIDGE_STAGE_TERRAIN = Object.freeze({
+  1: "cinder-span", 2: "veil-citadel", 3: "echo-throne-steps",
+  4: "veil-citadel", 5: "cinder-span", 6: "veil-citadel",
+  7: "cinder-span", 8: "echo-throne-steps", 9: "veil-citadel", 10: "echo-throne-steps"
+});
 const BRIDGE_STAGE_BOSS = Object.freeze({ 1: "cinder-warden", 2: "veil-tactician", 3: "gate-sovereign" });
 const BRIDGE_ACTION_AUDIO = Object.freeze({
   hunt: { type: "triangle", source: 320, target: 760, duration: 0.18, gain: 0.48 },
@@ -150,10 +168,7 @@ export class BattleVisualizer {
     this.nodeGoal = Math.max(1, Number.isInteger(options.nodeGoal) ? options.nodeGoal : 1);
     this.onTacticalLayout = typeof options.onTacticalLayout === "function" ? options.onTacticalLayout : null;
     this.orderFlag = null;  // {x, y, life}
-    this.domainLife = 0;
     this.waveCounter = 0;
-    this.isAssaulting = false;
-    this.assaultTimer = 0;
     this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
     this.onRuntimeState = typeof options.onRuntimeState === "function" ? options.onRuntimeState : null;
     this.onEnemyBreach = null; // Legacy callback; encounter events take precedence.
@@ -187,6 +202,7 @@ export class BattleVisualizer {
     this.bridgeGeneration = 0;
     this.onAssetStatus = typeof options.onAssetStatus === "function" ? options.onAssetStatus : null;
     this.actionFx = [];
+    this.actionFeedbackTimer = null;
 
     this.selection = new Set();
     this.dragRect = null;     // {x0,y0,x1,y1} in canvas px
@@ -706,43 +722,50 @@ export class BattleVisualizer {
   // sources are softened and low-passed (atmospheric distance).
   playSpatial(fx, fy, { freq = 320, endFreq = freq, duration = 0.18, delay = 0, type = "triangle", gain = 1 } = {}) {
     const audio = this.ensureAudio();
-    if (!audio || audio.ctx.state === "suspended") return;
-    const p = this.project(fx, fy, this.elevationAt(fx, fy));
-    const cx = this.view.width / 2;
-    const focusY = this.view.height * 0.42; // biased above center per the report
-    const pan = Math.max(-1, Math.min(1, (p.x - cx) / (this.view.width / 2)));
-    const vertical = (p.y - focusY) / this.view.height; // <0 above focus, >0 below
-    const proximity = Math.max(0.25, Math.min(1.2, 1 + vertical * 0.9));
-
-    const t = audio.ctx.currentTime + delay;
-    const osc = audio.ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.setValueAtTime(Math.max(1, freq), t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFreq), t + duration * 0.78);
-    const env = audio.ctx.createGain();
-    env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(0.28 * gain * proximity, t + 0.015);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-    const panner = audio.ctx.createStereoPanner ? audio.ctx.createStereoPanner() : null;
-    let tail = env;
-    if (vertical < -0.05) {
-      // above focus: distant — low-pass filter (psychoacoustic damping)
-      const lp = audio.ctx.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 900 + 2200 * Math.max(0, 1 + vertical);
-      env.connect(lp);
-      tail = lp;
+    if (!audio || audio.ctx.state === "closed") return;
+    const play = () => {
+      if (this.destroyed || this.audio !== audio || audio.ctx.state !== "running") return;
+      const p = this.project(fx, fy, this.elevationAt(fx, fy));
+      const cx = this.view.width / 2;
+      const focusY = this.view.height * 0.42; // biased above center per the report
+      const pan = Math.max(-1, Math.min(1, (p.x - cx) / (this.view.width / 2)));
+      const vertical = (p.y - focusY) / this.view.height; // <0 above focus, >0 below
+      const proximity = Math.max(0.25, Math.min(1.2, 1 + vertical * 0.9));
+      const t = audio.ctx.currentTime + delay;
+      const osc = audio.ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(Math.max(1, freq), t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFreq), t + duration * 0.78);
+      const env = audio.ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(0.28 * gain * proximity, t + 0.015);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      const panner = audio.ctx.createStereoPanner ? audio.ctx.createStereoPanner() : null;
+      let tail = env;
+      if (vertical < -0.05) {
+        // Above focus: distant — low-pass filter (psychoacoustic damping).
+        const lowPass = audio.ctx.createBiquadFilter();
+        lowPass.type = "lowpass";
+        lowPass.frequency.value = 900 + 2200 * Math.max(0, 1 + vertical);
+        env.connect(lowPass);
+        tail = lowPass;
+      }
+      if (panner) {
+        panner.pan.value = pan;
+        tail.connect(panner);
+        panner.connect(audio.master);
+      } else {
+        tail.connect(audio.master);
+      }
+      osc.connect(env);
+      osc.start(t);
+      osc.stop(t + duration + 0.02);
+    };
+    if (audio.ctx.state === "suspended") {
+      audio.ctx.resume().then(play).catch(() => undefined);
+      return;
     }
-    if (panner) {
-      panner.pan.value = pan;
-      tail.connect(panner);
-      panner.connect(this.audio.master);
-    } else {
-      tail.connect(this.audio.master);
-    }
-    osc.connect(env);
-    osc.start(t);
-    osc.stop(t + duration + 0.02);
+    play();
   }
 
   // --- selection & orders (screen-space filter loop) ----------------------
@@ -1038,19 +1061,25 @@ export class BattleVisualizer {
     const target = this.actionPoint(semantic.target);
     const sourceAvailable = this.hasBridgeAtlas(semantic.sourceAsset, semantic.clip);
     this.playActionGesture(action, source, target);
-    if (sourceAvailable && !this.reducedMotion) {
-      this.actionFx.push({ action, source, target, sourceAsset: semantic.sourceAsset, clip: semantic.clip, life: 0.8, duration: 0.8 });
+    const effect = { action, source, target, sourceAsset: semantic.sourceAsset, clip: semantic.clip, life: 0.8, duration: 0.8 };
+    if (this.reducedMotion) {
+      this.actionFx = [effect];
+      const clear = window.clearTimeout ?? globalThis.clearTimeout;
+      if (this.actionFeedbackTimer !== null) clear(this.actionFeedbackTimer);
+      const schedule = window.setTimeout ?? globalThis.setTimeout;
+      this.actionFeedbackTimer = schedule(() => {
+        if (this.destroyed) return;
+        this.actionFx = [];
+        this.actionFeedbackTimer = null;
+        this.render();
+      }, 700);
+    } else {
+      this.actionFx.push(effect);
     }
-    if (action === "hunt") this.triggerHunt();
-    else if (action === "extract") this.triggerExtract();
-    else if (action === "materialize") this.triggerMaterialize(semantic.count);
-    else if (action === "capture") this.triggerCapture(semantic.nodes, semantic.nodeGoal);
-    else if (action === "possess") this.triggerPossess();
-    else if (action === "domain") this.triggerDomain();
-    else if (action === "assault" && this.bossExposed) this.triggerAssault();
     if (sourceAvailable) this.setBridgeClip(semantic.sourceAsset, semantic.clip);
     this.publishRuntimeState();
     this.renderStatic();
+    if (this.reducedMotion) this.render();
   }
 
   triggerAction(semantic) {
@@ -1059,97 +1088,9 @@ export class BattleVisualizer {
 
   // Compatibility wrapper: visual effects must not establish encounter units.
   spawnEnemy() {
-    this.playActionEffect({ action: "hunt" });
+    this.playActionEffect({ action: "hunt", source: "portal", target: "extractor" });
   }
 
-  triggerHunt() {
-    const fx = 3 + this.rng() * 8;
-    const fy = 1.5 + this.rng() * 4.5;
-    if (this.reducedMotion) {
-      this.orderFlag = { x: fx, y: fy, life: 1 };
-      this.renderStatic();
-      return;
-    }
-    this.burst(fx, fy, 20, this.palette.spark);
-    this.playSpatial(fx, fy, { freq: 400, type: "sine", duration: 0.25, gain: 0.7 });
-  }
-
-  triggerMaterialize(count = 2) {
-    if (Number.isInteger(this.authoritativeLegion)) {
-      this.reconcileAllies(this.authoritativeLegion);
-    } else {
-      this.spawnAlly(count);
-    }
-  }
-
-  triggerPossess() {
-    const ally = this.allies[0];
-    if (ally) {
-      ally.isPossessed = true;
-      ally.hp = Math.max(ally.hp, 3);
-      this.burst(ally.x, ally.y, 18, this.palette.allyPossessed);
-      this.playSpatial(ally.x, ally.y, { freq: 640, type: "sine", duration: 0.3 });
-    }
-    this.renderStatic();
-  }
-
-  triggerExtract() {
-    if (this.reducedMotion) {
-      this.orderFlag = { x: 6, y: 3.5, life: 1 };
-      this.renderStatic();
-      return;
-    }
-    for (let i = 0; i < 14; i++) {
-      const fx = 4 + this.rng() * 6;
-      const fy = 1.5 + this.rng() * 4.5;
-      this.particles.push({
-        x: fx, y: fy, z: 0.2,
-        sortRoot: { x: 6, y: 3.5, z: 0 },
-        vx: -3.2 - this.rng() * 1.6, vy: (this.rng() - 0.5) * 0.6, vz: 0.6 + this.rng(),
-        color: this.palette.ally, life: 1.1, decay: 0.9
-      });
-    }
-    this.playSpatial(6, 3.5, { freq: 300, type: "sine", duration: 0.3, gain: 0.7 });
-  }
-
-  triggerCapture(nodeIndex, maxNodes) {
-    this.nodeGoal = Math.max(1, maxNodes);
-    this.nodes = [];
-    for (let i = 1; i <= nodeIndex; i++) {
-      const node = this.nodePosition(i);
-      this.nodes.push(node);
-      this.burst(node.x, node.y, 14, this.palette.node);
-    }
-    const capturedNode = this.nodePosition(nodeIndex);
-    this.playSpatial(capturedNode.x, capturedNode.y, { freq: 210, type: "square", duration: 0.35, gain: 0.9 });
-    this.notifyTacticalLayout();
-    this.renderStatic();
-  }
-
-  triggerDomain() {
-    this.domainLife = 4.0;
-    this.burst(ALLY_SPAWN.x + 1, ALLY_SPAWN.y, 26, this.palette.domain);
-    this.playSpatial(ALLY_SPAWN.x, ALLY_SPAWN.y, { freq: 140, type: "sine", duration: 0.6, gain: 1.1 });
-    this.renderStatic();
-  }
-
-  triggerAssault() {
-    this.isAssaulting = true;
-    if (this.reducedMotion) {
-      this.orderFlag = { x: BOSS_TILE.x, y: BOSS_TILE.y, life: 1 };
-      this.isAssaulting = false;
-      this.renderStatic();
-      return;
-    }
-    window.clearTimeout(this.assaultTimer);
-    this.assaultTimer = window.setTimeout(() => {
-      if (!this.destroyed) {
-        this.burst(BOSS_TILE.x, BOSS_TILE.y, 40, this.palette.enemy);
-        this.playSpatial(BOSS_TILE.x, BOSS_TILE.y, { freq: 90, type: "sawtooth", duration: 0.5, gain: 1.2 });
-      }
-      this.isAssaulting = false;
-    }, 1200);
-  }
 
   burst(fx, fy, count, color) {
     if (this.destroyed || this.reducedMotion) return;
@@ -1396,7 +1337,6 @@ export class BattleVisualizer {
       this.actionFx[i].life -= dt;
       if (this.actionFx[i].life <= 0) this.actionFx.splice(i, 1);
     }
-    if (this.domainLife > 0) this.domainLife -= dt;
     if (this.orderFlag) {
       this.orderFlag.life -= dt;
       if (this.orderFlag.life <= 0) this.orderFlag = null;
@@ -1432,7 +1372,6 @@ export class BattleVisualizer {
     const queue = buildIndividualDrawQueue(terrain, this.buildDynamicDrawRecords());
     for (const item of queue) this.drawQueuedItem(item, bridgeTerrain);
 
-    if (this.domainLife > 0) this.drawDomain();
     for (const effect of this.actionFx) this.drawActionFx(effect);
     if (this.orderFlag) this.drawOrderFlag();
     if (this.dragRect) this.drawDragRect();
@@ -1655,7 +1594,7 @@ export class BattleVisualizer {
     ctx.fill();
     const bridgeDrawn = this.drawBridgeAtlas(
       BRIDGE_STAGE_BOSS[this.stageNumber],
-      this.isAssaulting ? "Attack" : "Idle",
+      "Idle",
       4,
       p,
       82 * s,
@@ -1703,7 +1642,7 @@ export class BattleVisualizer {
       ? unit.bridgeClip
       : this.engagements.has(unit)
         ? "Strike"
-        : (unit.path?.length || (kind !== "enemy" && this.isAssaulting))
+        : unit.path?.length
           ? "Move"
           : "Idle";
     const bridgeDrawn = this.drawBridgeAtlas(bridgeAsset, clip, unit.facing, p, size);
@@ -1757,22 +1696,6 @@ export class BattleVisualizer {
     ctx.restore();
   }
 
-  drawDomain() {
-    const ctx = this.ctx;
-    const p = this.project(ALLY_SPAWN.x + 1, ALLY_SPAWN.y, 0);
-    const s = this.view.scale;
-    const r = (this.reducedMotion ? 1.2 : 1.2 + Math.sin(performance.now() / 300) * 0.08) * TILE_W * s;
-    ctx.strokeStyle = this.palette.domain;
-    ctx.globalAlpha = Math.min(0.7, this.domainLife / 2);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(p.x, p.y, r, r * 0.5, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(p.x, p.y - ELEV_H * s, r * 0.8, r * 0.4, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
 
   drawOrderFlag() {
     const ctx = this.ctx;
@@ -1846,7 +1769,7 @@ export class BattleVisualizer {
       this.canvas?.removeEventListener("pointerup", this.pointerHandlers.up);
       this.canvas?.removeEventListener("pointercancel", this.pointerHandlers.cancel);
     }
-    window.clearTimeout(this.assaultTimer);
+    if (this.actionFeedbackTimer !== null) (window.clearTimeout ?? globalThis.clearTimeout)(this.actionFeedbackTimer);
     if (this.animationFrameId !== null) cancelAnimationFrame(this.animationFrameId);
     this.audio?.ctx?.close?.().catch?.(() => undefined);
 
@@ -1865,7 +1788,7 @@ export class BattleVisualizer {
     this.bridge.images.clear();
     this.pointerHandlers = null;
     this.resizeHandler = null;
-    this.assaultTimer = 0;
+    this.actionFeedbackTimer = null;
     this.animationFrameId = null;
     this.audio = null;
     this.ctx = null;

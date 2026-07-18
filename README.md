@@ -49,17 +49,16 @@
 
 ## 전장 리소스 파이프라인
 
-- 제작한 Blender GLB 리소스 15개를 빌드 시 결정론적으로 래스터화합니다. 결과물은 8방향·4프레임 액션 아틀라스 42개와 스테이지별 지형 플레이트 3개이며, 소스 GLB와 출력 PNG의 연결은 `assets/images/battle/glb/manifest.json`에 남습니다.
-- Canvas 2D 런타임은 이 래스터 출력만 불러옵니다. 브라우저에서 GLB를 직접 로드하거나 네이티브 WebGL/GLB 재생을 제공하지 않습니다.
-- 알려진 전투 액션은 소스에 연결된 아틀라스 애니메이션·시각 효과와 오디오 큐로 제시됩니다. 서비스 워커는 브리지 출력에 network-first 캐시를 적용해, 오프라인에서는 마지막으로 유효했던 매니페스트와 래스터 출력을 유지합니다.
+- `RealtimeBattle`가 WebGL에서 전장 지형·보스 GLB를 직접 불러오는 기본 런타임입니다. 제작한 Blender GLB 리소스 15개와 스테이지별 자산 대응은 `assets/images/battle/glb/manifest.json`에 남습니다.
+- Canvas 2D는 reduced-motion 환경 또는 WebGL/GLB 초기화 실패 시에만 쓰는 대체 렌더러입니다.
+- 알려진 전투 액션은 GLB 런타임과 대체 Canvas 모두에서 소스에 연결된 아틀라스 애니메이션·시각 효과와 오디오 큐로 제시됩니다. 서비스 워커는 브리지 출력에 network-first 캐시를 적용해, 오프라인에서는 마지막으로 유효했던 매니페스트와 래스터 출력을 유지합니다.
 
 ### 2026-07-17 검증 증거
 
-- `node --test tests/abyssal-command-assets.test.mjs tests/battle-realtime-three.test.mjs`는 12/12 통과했습니다. 임베디드 텍스처 소스 GLB, 런타임 액션 클립, normal-map/tangent 속성, Echo Throne의 얇은 높이 계단, 16×8 공용 이동·충돌 규칙을 검증합니다.
-- `node --test tests/release-closure.test.mjs`는 15/15 통과했습니다. 런타임 미디어 URL은 Pages allowlist와 서비스 워커 캐시 정책에 모두 닫히며, `ffprobe`로 측정한 6개 내레이션 MP3보다 런타임 자막 노출 시간이 씬마다 최소 50ms 더 깁니다.
-- Playwriter headless 세션으로 `http://127.0.0.1:4173/`을 확인했습니다. 새 캠페인 → Stage 1의 사냥·추출·실체화·점거 → scout/guard/reinforcement 웨이브 → Cinder Warden 처치 → 보상 선택 → Stage 2 브리핑 전이가 정상 동작했습니다. Stage 1의 렌더 증거는 `/tmp/abyssal-stage1-narration-recheck.png`에 보관됩니다.
+- `node --test tests/*.test.mjs`는 136/136 통과했습니다. 임베디드 텍스처 소스 GLB, 액션 클립, stage 4–10 3D/Canvas 자원 대응, core asset의 no-store 캐시, 렌더러 부재 시 명령 피드백, 내레이션 자막 여유 시간, 내레이션 아틀라스·런타임·CSS 계약을 검증합니다.
+- `time node --test tests/playtest-browser-3stage.cjs`는 1/1 통과했습니다(294.2초). 390px 뷰포트의 10개 스테이지 선택기, Stage 1–3 전투·보상·저장 왕복, Stage 4 브리핑 전이를 검증합니다.
+- Playwriter headless 세션으로 `http://127.0.0.1:4173/`을 확인했습니다. 새 캠페인 → Stage 1의 사냥·추출·실체화·점거 → scout/guard/reinforcement 웨이브 → Cinder Warden 처치 → 보상 선택 → Stage 2 브리핑 전이가 정상 동작했습니다. 390px에서는 10개 선택기의 `clientWidth`와 `scrollWidth`가 모두 374px이고 문서 폭은 390px입니다. 렌더 증거는 [Stage 1](_workspace/20260716-shadow-lord-rts-rpg/qa/stage1-narration-playtest-20260717.png)과 [모바일 선택기](_workspace/20260716-shadow-lord-rts-rpg/qa/mobile-stage-selector-playtest-20260717.png)에 보관합니다.
 - 내레이션은 저역 남성 Daniel 보이스, 짧은 실내 폐허 잔향이라는 톤 계약을 유지합니다. 측정 길이와 자막 동기 계산은 [narration scripts](_workspace/20260716-shadow-lord-rts-rpg/design/narration-scripts.md)에 기록합니다.
-
 
 ## 프로젝트 구조
 
@@ -93,8 +92,6 @@ python3 -m http.server 8000
 
 ## 검증 상태와 패키징 범위
 
-**0.1.0 릴리스 후보:** 이 후보는 GLB-to-Canvas 브리지를 포함하며, 확인 범위는 3단계 캠페인 브라우저 회귀에 한정됩니다. GitHub Pages 배포 성공이나 G1–G8 전체 통과를 의미하지 않습니다.
-
-G1–G8은 개별 증거가 있는 경우에만 해당 원장에서 상태를 확인할 수 있습니다. 이 README는 어떤 게이트의 통과를 주장하지 않습니다.
+**v0.2.1 릴리스:** RealtimeBattle WebGL/GLB 경로가 기본이며 Canvas는 대체 경로입니다. 규칙 엔진과 유닛 커버리지는 10개 스테이지에 걸칩니다. 브라우저 검증은 Stage 1–3 전투·보상·저장 왕복과 Stage 4 브리핑 전이까지 실제로 실행했으며, 10개 스테이지 전체를 브라우저에서 완료했다고 주장하지 않습니다.
 
 APK는 향후 선택 가능한 패키징 경로이며, 이 저장소는 APK 산출물이나 설치 가능한 Android 빌드를 제공한다고 주장하지 않습니다.

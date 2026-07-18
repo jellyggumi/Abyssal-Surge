@@ -29,13 +29,13 @@ const MAX_IMPORT_BYTES = 256 * 1024;
 const REWARD_ART_IDS = new Set(["ember-cohort", "rift-lens", "veil-vanguard", "anchor-shard", "throne-echo", "dawnless-crown"]);
 const ACTION_KEYS = Object.freeze({ h: "hunt", e: "extract", m: "materialize", c: "capture", p: "possess", d: "domain", a: "assault" });
 const BATTLE_ACTION_SEMANTICS = Object.freeze({
-  hunt: Object.freeze({ source: "portal", target: "extractor", sourceAsset: "shade", clip: "Special" }),
-  extract: Object.freeze({ source: "extractor", target: "portal", sourceAsset: "soul-extractor", clip: "Activate" }),
-  materialize: Object.freeze({ source: "portal", target: "portal", sourceAsset: "rift-portal", clip: "Activate" }),
-  capture: Object.freeze({ source: "portal", target: "node", sourceAsset: "command-obelisk", clip: "Activate" }),
-  possess: Object.freeze({ source: "portal", target: "ally", sourceAsset: "possessed", clip: "Special" }),
-  domain: Object.freeze({ source: "portal", target: "portal", sourceAsset: "echo-throne", clip: "Activate" }),
-  assault: Object.freeze({ source: "ally", target: "boss", sourceAsset: "shade", clip: "Strike" }),
+  hunt: Object.freeze({ source: "portal", target: "extractor", actor: "commander", actorClip: "Special", sourceAsset: "shade", clip: "Special" }),
+  extract: Object.freeze({ source: "extractor", target: "portal", actor: "commander", actorClip: "Special", sourceAsset: "soul-extractor", clip: "Activate" }),
+  materialize: Object.freeze({ source: "portal", target: "portal", actor: "commander", actorClip: "Special", sourceAsset: "rift-portal", clip: "Activate" }),
+  capture: Object.freeze({ source: "portal", target: "node", actor: "commander", actorClip: "Special", sourceAsset: "command-obelisk", clip: "Activate" }),
+  possess: Object.freeze({ source: "portal", target: "ally", actor: "commander", actorClip: "Special", sourceAsset: "possessed", clip: "Special" }),
+  domain: Object.freeze({ source: "portal", target: "portal", actor: "commander", actorClip: "Special", sourceAsset: "echo-throne", clip: "Activate" }),
+  assault: Object.freeze({ source: "ally", target: "boss", actor: "commander", actorClip: "Strike", sourceAsset: "shade", clip: "Strike" }),
 });
 const COOLDOWN_SECONDS = Object.freeze({
   hunt: 4,
@@ -1045,10 +1045,16 @@ function render() {
   renderResult(isComplete);
   syncCockpit();
 
+  const checklist = getStageChecklist(campaign);
+  const nextObjectiveAction = checklist.find((item) => !item.complete)?.id;
   projectBattleRuntime();
   for (const button of elements.commandButtons) {
     const action = button.dataset.action;
+    const isCurrentObjective = action === nextObjectiveAction;
     renderCooldown(button, action, available.has(action));
+    button.classList.toggle("current-objective", isCurrentObjective);
+    if (isCurrentObjective) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
   }
   for (const button of elements.stageButtons) {
     const stageNumber = Number(button.dataset.stageNumber);
@@ -1066,7 +1072,7 @@ function render() {
     if (active) button.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "smooth" });
   }
 
-  renderChecklist(getStageChecklist(campaign));
+  renderChecklist(checklist);
   if (campaign.status === "reward") renderRewards(stage);
   renderStageMedia(stage);
   syncNarration();
@@ -1245,10 +1251,15 @@ async function applyMirroredCampaign(envelope) {
 }
 
 function triggerBattleVisual(action, details = {}) {
-  if (!visualizer || !campaign) return;
+  if (!campaign) return;
   const semantic = BATTLE_ACTION_SEMANTICS[action];
   if (!semantic) return;
-  visualizer.playActionEffect({ ...semantic, action, ...details });
+  if (visualizer) {
+    visualizer.playActionEffect({ ...semantic, action, ...details });
+    return;
+  }
+  flashEffect(action);
+  playCue(action);
 }
 
 function startActionCooldown(action) {
@@ -1282,9 +1293,6 @@ async function handleAction(action) {
   synchronizeBattleRenderer();
   armEncounterWhenPrepared();
   triggerBattleVisual(action, action === "materialize" ? { count: materializeCount } : {});
-  const effect = action === "assault" ? "assault" : result.effect;
-  flashEffect(effect);
-  playCue(effect);
   render();
   await persistCampaign("Campaign saved");
 }

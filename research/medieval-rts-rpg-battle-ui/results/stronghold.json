@@ -1,0 +1,10 @@
+{
+  "source_url": "https://store.steampowered.com/manual/2140020",
+  "source_type": "Official Firefly/Steam manual",
+  "verified_claim": "Stronghold documents a central playfield, a named Castle Management Panel, and separate quick views for objectives and goods. Its siege mode separates pure combat from community-management modes.",
+  "applicability": "World-first composition and one continuously discoverable objective are universal; Stronghold's castle/scribe framing is title-specific.",
+  "battle_screen_implication": "Keep the tactical field central. Make the current objective, progress, and loss condition persist at the edge; keep inventory, lore, and non-combat systems transient. Use original iron-standard, parchment-chronicle, and siege-landmark framing rather than Stronghold art.",
+  "anti_pattern": "A permanent resource/build queue or a full-page illustrated dashboard in resource-free battle mode.",
+  "acceptance_criterion": "A first-glance Stage 1 screen shows the tactical field, current objective, its progress, and the next legal command without opening a brief.",
+  "uncertain": []
+}

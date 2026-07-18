@@ -1,0 +1,10 @@
+{
+  "source_url": "https://gameaccessibilityguidelines.com/ensure-that-all-areas-of-the-user-interface-can-be-accessed-using-the-same-input-method-as-the-gameplay/",
+  "source_type": "Game Accessibility Guidelines; collaborative specialist reference",
+  "verified_claim": "All UI areas must be reachable with the same input method as gameplay. Complementary evidence: Android recommends 48dp touch targets for interactive elements, AoE IV supports HUD text scaling and contrast, and WCAG requires controls for non-essential persistent motion.",
+  "applicability": "Input parity, reachable focus/activation/back behavior, touch target size, contrast, text scale, and reduced-motion support are universal web-game constraints.",
+  "battle_screen_implication": "Keep semantic buttons and visible labels for every actionable heraldic icon. Ensure keyboard focus, Enter/Space, Escape/back, touch targets of at least 48dp, high-contrast text, and a static reduced-motion reading path for all tactical state.",
+  "anti_pattern": "Decorative icon-only actions, right-click-only group orders, low-contrast parchment text, or indefinite glows/shakes carrying unique game state.",
+  "acceptance_criterion": "Keyboard-only and touch-only test passes can perform every current battle command and dismiss transient UI; all persistent tactical state remains readable when reduced motion is enabled.",
+  "uncertain": []
+}

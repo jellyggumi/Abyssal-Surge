@@ -13,7 +13,6 @@ const SOURCE_CACHE_ADMISSION_MODE = process.argv.includes("--source-cache-admiss
 const STAGE_ONE_ENCOUNTER_MODE = process.argv.includes("--stage-one-encounter");
 const SHORT_VIEWPORT_MODE = process.argv.includes("--short-viewport");
 const RENDERER_PARITY_MODE = process.argv.includes("--renderer-parity");
-const STATIC_CACHE_NAME = "abyssal-surge-static-v25";
 let playwright;
 if (!BRIDGE_CACHE_BOUNDARY_MODE && !SOURCE_CACHE_ADMISSION_MODE) {
   try {
@@ -674,7 +673,8 @@ async function campaignSurface(page) {
 
 
 async function assertStage(page, number, heading) {
-  assert.equal(await text(page.locator("#stage-number")), `Stage ${number} of 3`, `Stage ${number} number must be visible.`);
+  const availableStageCount = await page.locator("[id^='stage-select-']").count();
+  assert.equal(await text(page.locator("#stage-number")), `Stage ${number} of ${availableStageCount}`, `Stage ${number} number must be visible.`);
   assert.equal(await text(page.locator("#stage-heading")), heading, `Stage ${number} heading must be visible.`);
   assert.equal(await page.locator(`#stage-select-${number}`).getAttribute("aria-current"), "step", `Stage ${number} selector must identify the active stage.`);
 }
@@ -745,34 +745,56 @@ async function assertDirectSourceGlbReadiness(page) {
 }
 
 
+async function waitForActionEnabledAndReachable(page, selector) {
+  await page.waitForFunction(
+    (actionSelector) => {
+      const action = document.querySelector(actionSelector);
+      if (!(action instanceof HTMLButtonElement) || action.disabled) return false;
+      const bounds = action.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) return false;
+      const target = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+      return target === action || action.contains(target);
+    },
+    selector,
+    { timeout: 30_000 }
+  );
+}
+
 async function clickEnabledAction(page, selector, { assertCampaignSurface = true } = {}) {
   const action = page.locator(selector);
-  const timeoutAt = Date.now() + 30_000;
   await action.waitFor({ state: "visible" });
-  while (Date.now() < timeoutAt) {
-    if (!(await action.isEnabled())) {
-      await page.waitForTimeout(100);
-      continue;
-    }
-    const beforeAction = assertCampaignSurface ? await campaignSurface(page) : undefined;
-    await action.click({ timeout: 5_000, noWaitAfter: true });
-    const disabledAt = Date.now() + 5_000;
-    while (await action.isEnabled()) {
-      if (Date.now() >= disabledAt) {
-        assert.fail(`${selector} did not enter its visible cooldown after being clicked.`);
-      }
-      await page.waitForTimeout(25);
-    }
-    if (assertCampaignSurface) {
-      assert.notDeepEqual(
-        await campaignSurface(page),
-        beforeAction,
-        `${selector} must visibly advance campaign state after its click.`,
-      );
-    }
-    return;
+  await waitForActionEnabledAndReachable(page, selector);
+  const beforeAction = assertCampaignSurface ? await campaignSurface(page) : undefined;
+  await action.click({ timeout: 30_000, noWaitAfter: true });
+  await page.waitForFunction(
+    (actionSelector) => document.querySelector(actionSelector) instanceof HTMLButtonElement
+      && document.querySelector(actionSelector).disabled,
+    selector,
+    { timeout: 30_000 }
+  );
+  if (assertCampaignSurface) {
+    await page.waitForFunction(
+      (before) => JSON.stringify([
+        "#campaign-status",
+        "#souls-value",
+        "#legion-value",
+        "#nodes-value",
+        "#integrity-value",
+        "#boss-value",
+        "#objective-checklist",
+      ].map((actionSelector) => {
+        const element = document.querySelector(actionSelector);
+        return [actionSelector, actionSelector === "#objective-checklist" ? element?.innerHTML : element?.textContent?.trim()];
+      })) !== JSON.stringify(before),
+      beforeAction,
+      { timeout: 30_000 }
+    );
+    assert.notDeepEqual(
+      await campaignSurface(page),
+      beforeAction,
+      `${selector} must visibly advance campaign state after its click.`,
+    );
   }
-  assert.fail(`${selector} did not become stably enabled before its visible cooldown expired.`);
 }
 
 async function runActions(page, selectors) {
@@ -780,6 +802,25 @@ async function runActions(page, selectors) {
     await clickEnabledAction(page, selector);
   }
 }
+async function assertCurrentObjectiveCommand(page, expectedAction, context) {
+  const markedCommands = await page.locator("#command-panel [data-action]").evaluateAll((buttons) => buttons
+    .map((button) => ({
+      action: button.dataset.action,
+      currentObjective: button.classList.contains("current-objective"),
+      ariaCurrent: button.getAttribute("aria-current")
+    }))
+    .filter((button) => button.currentObjective || button.ariaCurrent !== null)
+  );
+  const expectedMarkers = expectedAction
+    ? [{ action: expectedAction, currentObjective: true, ariaCurrent: "step" }]
+    : [];
+  assert.deepEqual(
+    markedCommands,
+    expectedMarkers,
+    `${context} must ${expectedAction ? `mark only the ${expectedAction} command as the current objective with static styling and aria-current="step"` : "not mark a command when the current objective is an encounter"}.`
+  );
+}
+
 
 
 async function assertBattleCanvasBlankPassThrough(page) {
@@ -946,6 +987,7 @@ function acceptedCampaignTransition(result, label) {
 
 async function createCampaignFixtures() {
   const {
+    STAGES,
     applyAction,
     applyEncounterEvent,
     chooseReward,
@@ -973,8 +1015,40 @@ async function createCampaignFixtures() {
     { type: "wave-cleared", waveId: "reinforcement" },
   ];
   const stageOneVictory = ["hunt", "hunt", "extract", "materialize", "materialize", "capture", ...stageOneEncounter, "assault", "assault", "assault"];
-  const stageTwoVictory = ["hunt", "hunt", "extract", "materialize", "materialize", "capture", "capture", "possess", "assault", "assault"];
-  const stageThreeVictory = ["capture", "domain", "possess", "assault", "assault"];
+  const terminalRewardByStageId = new Map([
+    ["cinder-span", "shadebreaker-brand"],
+    ["veil-citadel", "abyssal-banner"],
+    ["echo-throne", "dawnless-crown"],
+    ["sunken-bastion", "coral-aegis"],
+    ["howling-sprawl", "pack-banner"],
+    ["glass-necropolis", "necropolis-plate"],
+    ["starless-canal", "tyrant-chain"],
+    ["shattered-causeway", "colossus-plate"],
+    ["abyss-chancel", "chancel-veil"],
+    ["gate-zenith", "zenith-crown"],
+  ]);
+  const completeStage = (state, stage) => {
+    const actions = [
+      "hunt",
+      "hunt",
+      "extract",
+      "materialize",
+      "materialize",
+      ...Array.from({ length: stage.nodeGoal }, () => "capture"),
+      ...(stage.commands.possess ? ["possess"] : []),
+      ...(stage.commands.domain ? ["domain"] : []),
+      ...(stage.encounter?.waves ?? []).flatMap((wave) => [
+        { type: "start-wave", waveId: wave.id },
+        { type: "wave-cleared", waveId: wave.id },
+      ]),
+    ];
+    let victory = commands(state, actions);
+    while (victory.status === "active") {
+      victory = commands(victory, ["assault"]);
+    }
+    assert.equal(victory.status, "reward", `${stage.title} fixture must reach its reward state.`);
+    return victory;
+  };
 
   const briefing = createCampaign();
   const reward = commands(start(), stageOneVictory);
@@ -987,15 +1061,14 @@ async function createCampaignFixtures() {
     );
   }
 
-  let completed = acceptedCampaignTransition(chooseReward(reward, "rift-lens"), "Stage 1 fixture reward must be accepted.");
-  completed = acceptedCampaignTransition(
-    chooseReward(commands(completed, stageTwoVictory), "veil-vanguard"),
-    "Stage 2 fixture reward must be accepted."
-  );
-  completed = acceptedCampaignTransition(
-    chooseReward(commands(completed, stageThreeVictory), "throne-echo"),
-    "Stage 3 fixture reward must be accepted."
-  );
+  let completed = start();
+  for (const stage of STAGES) {
+    completed = completeStage(completed, stage);
+    completed = acceptedCampaignTransition(
+      chooseReward(completed, terminalRewardByStageId.get(stage.id)),
+      `${stage.title} fixture reward must be accepted.`,
+    );
+  }
 
   assert.equal(briefing.status, "briefing", "Briefing fixture must retain an empty trace.");
   assert.deepEqual(briefing.trace, [], "Briefing fixture must contain no campaign progress.");
@@ -1035,7 +1108,10 @@ async function awaitTimedBattleBreachBatch(page, entryIntegrity) {
 }
 
 async function materializeStageOneAllies(page, context) {
-  await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract", "#action-materialize"]);
+  await runActions(page, ["#action-hunt", "#action-hunt"]);
+  await assertCurrentObjectiveCommand(page, "extract", `${context} after two Hunts`);
+  await runActions(page, ["#action-extract", "#action-materialize"]);
+
   assert.equal(
     await text(page.locator("#legion-value")),
     "2 / 10",
@@ -1123,6 +1199,14 @@ const STAGE_TRANSITION_BRIEFINGS = Object.freeze({
     operation: "Operation: Thronefall",
     doctrine: "Secure the throne node, invoke the Domain, and break the Sovereign's gate.",
     boss: "Gate Sovereign"
+  }),
+  4: Object.freeze({
+    stage: "Stage 4 · Sunken Bastion",
+    region: "A drowned breakwater fortress reclaimed by the tide",
+    objective: "Raise the legion above the waterline, hold the flood node, weather four tide waves, and drown the Tide Warden's claim.",
+    operation: "Operation: Breakwater",
+    doctrine: "Hold the causeway above the flood; drown nothing you cannot recall.",
+    boss: "Tide Warden"
   })
 });
 
@@ -1393,6 +1477,8 @@ async function verifyStageOneEncounter(browser, baseUrl) {
       throw error;
     }
     await enterBattle(page, 1, "Cinder Span");
+    await assertCurrentObjectiveCommand(page, "hunt", "Initial Stage 1 tactical encounter focus");
+
     await assertDirectSourceGlbReadiness(page);
     await assertBattleCanvasBlankPassThrough(page);
 
@@ -1449,14 +1535,17 @@ async function verifyStageOneEncounter(browser, baseUrl) {
     assert.equal(desktopLayout.campaignScroll, false, "Desktop Stage 1 must not create document-level campaign scrolling.");
 
     // The declared Scout wave clock only arms once the preparation legion is
-    // fielded, so issue the Hunt/Extract/Materialize commands before awaiting it.
+    // fielded. Claim the forge node too, so the first incomplete checklist
+    // objective is the Scout encounter rather than another command.
     await materializeStageOneAllies(page, "Stage 1 tactical encounter");
+    await clickEnabledAction(page, "#action-capture");
 
     await page.waitForFunction(
       () => /SCOUT · 2 HOSTILES/.test(document.querySelector("#battle-hostile-label")?.textContent || ""),
       undefined,
       { timeout: 15_000 },
     );
+    await assertCurrentObjectiveCommand(page, null, "Live Stage 1 Scout encounter");
     const elapsed = Date.now() - activatedAt;
     assert.ok(elapsed >= 7_000, `Stage 1 Scout wave must honor the declared 8-second preparation window; it appeared after ${elapsed}ms.`);
     assert.equal(
@@ -1758,6 +1847,8 @@ async function chooseRewardAndAdvance(page, rewardId, number, heading) {
 
 async function runStageOne(page) {
   const entryIntegrity = await enterBattle(page, 1, "Cinder Span");
+  await assertCurrentObjectiveCommand(page, "hunt", "Initial Stage 1 checklist focus");
+
   await assertDirectSourceGlbReadiness(page);
   await assertBattleCanvasBlankPassThrough(page);
   for (const action of ["materialize", "capture", "assault"]) {
@@ -1768,7 +1859,10 @@ async function runStageOne(page) {
     );
   }
 
-  await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract"]);
+  await runActions(page, ["#action-hunt", "#action-hunt"]);
+  await assertCurrentObjectiveCommand(page, "extract", "Completing two Stage 1 Hunts");
+  await runActions(page, ["#action-extract"]);
+
   assert.equal(await page.locator("#action-materialize").isEnabled(), true, "Stage 1 Materialize must unlock after Hunt twice and Extract.");
   assert.equal(await page.locator("#action-capture").isEnabled(), false, "Stage 1 Capture must remain disabled until a legion materializes.");
   assert.equal(await page.locator("#action-assault").isEnabled(), false, "Stage 1 Assault must remain disabled until the forge node is captured.");
@@ -1788,6 +1882,7 @@ async function runStageOne(page) {
   assert.equal(await page.locator("#action-assault").isEnabled(), false, "Stage 1 Assault must remain blocked after Capture until all declared waves clear.");
   await clickEnabledAction(page, "#action-materialize");
   assert.equal(await text(page.locator("#legion-value")), "4 / 10", "A second Stage 1 Materialize command must field a four-shade wave-clearing legion.");
+  await assertCurrentObjectiveCommand(page, null, "Stage 1 encounter objective");
   await assertPreparationIntegrity(page, 1, entryIntegrity);
   const preparationEncounterTrace = (await campaignTrace(page)).filter((event) => event.kind === "encounter");
   assert.equal(
@@ -1892,22 +1987,28 @@ async function runStageThree(page) {
   assert.deepEqual(
     await rewards.evaluateAll((buttons) => buttons.map((button) => button.dataset.rewardId)),
     ["throne-echo", "dawnless-crown"],
-    "Stage 3 must offer its current two terminal reward choices."
+    "Stage 3 must offer its current two reward choices."
   );
-  await page.locator('[data-reward-id="throne-echo"]').click();
-  await page.locator("#campaign-complete").waitFor({ state: "visible" });
-  assert.equal(await text(page.locator("#completion-heading")), "가라앉은 문이 침묵하다", "Terminal completion heading must be visible.");
-  assert.match(await text(page.locator("#completion-summary")), /Throne Echo is claimed\. The Gate Sovereign is gone, and Abyssal Command endures\./, "Terminal completion summary must confirm the final reward and victory.");
-  assert.equal(await page.locator("#reward-panel").isHidden(), true, "No reward chooser may remain after the terminal selection.");
+  await chooseRewardAndAdvance(page, "throne-echo", 4, "Sunken Bastion");
+  assert.match(
+    await text(page.locator("#campaign-status")),
+    /Throne Echo carries into Sunken Bastion\./,
+    "Claiming Throne Echo must progress the campaign into Stage 4."
+  );
   for (const number of [1, 2, 3]) {
     const label = await page.locator(`#stage-select-${number}`).getAttribute("aria-label") || "";
-    assert.match(label, /cleared/, `Stage ${number} must be marked cleared at completion.`);
+    assert.match(label, /cleared/, `Stage ${number} must be marked cleared after Stage 3 reward selection.`);
   }
+  assert.equal(await page.locator("#stage-select-4").getAttribute("aria-current"), "step", "Stage 4 must be the active campaign selection after the Stage 3 reward.");
+  assert.equal(await page.locator("#stage-select-4").getAttribute("aria-label"), "Sunken Bastion: current stage", "Stage 4 must be available as the current campaign selection.");
+  assert.equal(await page.locator("#stage-select-5").getAttribute("aria-label"), "Howling Sprawl: locked", "Stage 5 must remain locked after the Stage 3 reward.");
 }
 
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v28";
+
 function currentWorkerCacheName() {
   let serviceWorkerSource;
   try {
@@ -1926,8 +2027,8 @@ function currentWorkerCacheName() {
   const cacheName = declaration[1] || declaration[2];
   assert.equal(
     cacheName,
-    STATIC_CACHE_NAME,
-    "sw.js must declare the v25 static cache revision that atomically precaches the current campaign modules."
+    CURRENT_STATIC_CACHE,
+    "sw.js must retain the v28 static cache revision required by the browser cache assertion.",
   );
   return cacheName;
 }
@@ -1975,7 +2076,7 @@ async function verifyWorker(page, baseUrl) {
   assert.deepEqual(
     worker.cachedCoreModules,
     ["/app.js", "/campaign-state.js", "/stage-navigation.js"],
-    "The v25 worker cache must atomically precache the application entry, campaign-state, and stage-navigation modules."
+    "The current worker cache must atomically precache the application entry, campaign-state, and stage-navigation modules."
   );
 
   return { ...worker, cacheName: campaignCaches[0] };

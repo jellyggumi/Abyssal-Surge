@@ -1,0 +1,10 @@
+{
+  "source_url": "https://news.blizzard.com/en-us/article/24167122/warcraft-iii-reforged-patch-notes-patch-2-0-0",
+  "source_type": "Official Blizzard patch notes",
+  "verified_claim": "Warcraft III: Reforged 2.0 makes health bars and cooldown numbers always-on by default while retaining lower-priority telemetry as optional and provides HUD scaling.",
+  "applicability": "Persistent fight-critical health/readiness/progress with optional diagnostic telemetry is universal; Warcraft's unit art and race vocabulary are title-specific.",
+  "battle_screen_implication": "Keep loss condition, current threat, objective progress, selected force order, and command readiness persistent. Move verbose operation diagnostics and asset status into an optional detail view; support readable enlarged/high-contrast text independently of surface texture.",
+  "anti_pattern": "Forcing the player to read a side rail or open details to learn the active threat, objective, or next command.",
+  "acceptance_criterion": "At both desktop and mobile widths, a player can identify the loss condition, active threat, current objective, and next legal command without opening operational detail.",
+  "uncertain": []
+}

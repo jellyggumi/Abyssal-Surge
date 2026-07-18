@@ -1,0 +1,10 @@
+{
+  "source_url": "https://store.steampowered.com/news/app/1336490/view/677376450273219167",
+  "source_type": "Official Eremite Games Steam update",
+  "verified_claim": "Against the Storm added nearby-source entries with remaining-charge indicators, source-linked navigation, and overlay progress to clarify state and location. A related official update keeps blocked orders visible with an explanation.",
+  "applicability": "An alert must identify its source, compact state/progress, and direct route to response; the game's resource vocabulary and Orders styling are title-specific.",
+  "battle_screen_implication": "Name and mark the current objective, enemy ingress, command post, rally destination, and capture/boss state in the field. Keep blocked objectives visible and explain their prerequisite at the point of attention; clicking/tapping a named target invokes the matching existing action.",
+  "anti_pattern": "A generic red wave warning, a silent unavailable action, or a progress value with no location or response path.",
+  "acceptance_criterion": "Each active alert shows the affected landmark or lane, compact state/progress, and a direct pointer/touch route to the matching action or camera focus.",
+  "uncertain": []
+}

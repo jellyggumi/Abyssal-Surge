@@ -1,8 +1,9 @@
-const CACHE_NAME = "abyssal-surge-static-v26";
+const CACHE_NAME = "abyssal-surge-static-v28";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./app.js",
+  "./battle-field-command-overlay.js",
   "./campaign-sync.js",
   "./stage-navigation.js",
   "./battle-visualizer.js",
@@ -17,6 +18,7 @@ const CORE_ASSETS = [
   "./vendor/loaders/GLTFLoader.js",
   "./vendor/utils/BufferGeometryUtils.js",
   "./styles.css",
+  "./battle-field-command-overlay.css",
   "./sw.js",
   "./manifest.json",
   "./icon.svg",
@@ -52,7 +54,9 @@ function normalizeGlbBridgeManifestAsset(path) {
 
 async function cacheGlbBattleBridge(cache) {
   const response = await fetch(GLB_BRIDGE_MANIFEST, { cache: "no-store" });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error(`Bridge manifest pre-cache failed: ${GLB_BRIDGE_MANIFEST}`);
+  }
   await cache.put(GLB_BRIDGE_MANIFEST, response.clone());
   const manifest = await response.json();
   const bridgeAssets = Array.isArray(manifest?.records)
@@ -60,7 +64,13 @@ async function cacheGlbBattleBridge(cache) {
       .map((record) => normalizeGlbBridgeManifestAsset(record?.output?.path))
       .filter(Boolean)
     : [];
-  await Promise.allSettled(bridgeAssets.map((url) => cache.add(url)));
+  await Promise.all(bridgeAssets.map(async (url) => {
+    const assetResponse = await fetch(url, { cache: "no-store" });
+    if (!assetResponse.ok) {
+      throw new Error(`Bridge pre-cache failed: ${url}`);
+    }
+    await cache.put(url, assetResponse);
+  }));
 }
 
 const OPTIONAL_MEDIA = [
@@ -142,7 +152,7 @@ function isSameOriginGet(request) {
 function isCoreRequest(request) {
   if (!isSameOriginGet(request)) return false;
   const path = new URL(request.url).pathname;
-  return path.endsWith("/") || ["/index.html", "/app.js", "/campaign-sync.js", "/stage-navigation.js", "/battle-visualizer.js", "/battle-realtime-three.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/vendor/loaders/GLTFLoader.js", "/vendor/utils/BufferGeometryUtils.js", "/styles.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
+  return path.endsWith("/") || ["/index.html", "/app.js", "/battle-field-command-overlay.js", "/campaign-sync.js", "/stage-navigation.js", "/battle-visualizer.js", "/battle-realtime-three.js", "/battle-presentation.js", "/iso-math.js", "/tilemap-renderer.js", "/campaign-state.js", "/i18n.js", "/liquid-ether.js", "/vendor/three.module.min.js", "/vendor/loaders/GLTFLoader.js", "/vendor/utils/BufferGeometryUtils.js", "/styles.css", "/battle-field-command-overlay.css", "/sw.js"].some((suffix) => path.endsWith(suffix));
 }
 
 function isGlbBridgeRequest(request) {
@@ -220,7 +230,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(async (cache) => {
-        await cache.addAll(CORE_ASSETS);
+        // Explicit no-store bypass: addAll()'s implicit fetch mode can still
+        // serve heuristically-cached HTTP responses for changed core JS, so
+        // every core asset is fetched fresh before being cached under the
+        // bumped CACHE_NAME.
+        await Promise.all(CORE_ASSETS.map(async (asset) => {
+          const response = await fetch(asset, { cache: "no-store" });
+          if (!response.ok) throw new Error(`Core asset ${asset} responded ${response.status}`);
+          await cache.put(asset, response);
+        }));
         await Promise.allSettled(OPTIONAL_MEDIA.map((asset) => cache.add(asset)));
         await cacheGlbBattleBridge(cache).catch(() => undefined);
       })
@@ -251,7 +269,7 @@ self.addEventListener("fetch", (event) => {
   }
   if (isCoreRequest(request)) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then((response) => {
           if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone())).catch(() => undefined);
           return response;

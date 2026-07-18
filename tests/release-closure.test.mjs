@@ -334,8 +334,8 @@ test("campaign rendering supplies the engine stage checklist to the checklist vi
   );
   assert.match(
     app,
-    /renderChecklist\s*\(\s*getStageChecklist\s*\(\s*campaign\s*\)\s*\)/,
-    "campaign rendering must pass the engine stage checklist to renderChecklist",
+    /const checklist\s*=\s*getStageChecklist\s*\(\s*campaign\s*\);[\s\S]*?renderChecklist\s*\(\s*checklist\s*\);/,
+    "campaign rendering must pass the engine-produced stage checklist to renderChecklist",
   );
   assert.doesNotMatch(
     app,
@@ -529,6 +529,89 @@ test("Pages artifact explicitly allowlists the complete runtime GLB surface", as
     publishedModels,
     runtimeGlbs,
     "Pages artifact must individually allowlist exactly the complete direct runtime GLB set",
+  );
+});
+
+test("Canvas fallback stage 4–10 terrain and boss art agree with declared stage resources", async () => {
+  const [battleRuntime, battleVisualizer, app] = await Promise.all([
+    readProjectFile("battle-realtime-three.js"),
+    readProjectFile("battle-visualizer.js"),
+    readProjectFile("app.js"),
+  ]);
+  const stageAssets = battleRuntime.match(/const STAGE_ASSETS = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  const bridgeTerrain = battleVisualizer.match(/const BRIDGE_STAGE_TERRAIN = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  const bossArt = battleVisualizer.match(/const BOSS_ART = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+  const campaignBossArt = app.match(/const BOSS_BY_STAGE = Object\.freeze\(\{(?<entries>[\s\S]*?)\}\);/);
+
+  assert.ok(stageAssets, "RealtimeBattle must declare per-stage terrain and boss resources.");
+  assert.ok(bridgeTerrain, "Canvas fallback must declare per-stage bridge terrain.");
+  assert.ok(bossArt, "Canvas fallback must declare per-stage boss art.");
+  assert.ok(campaignBossArt, "Campaign presentation must declare boss art by stage.");
+
+  const realtimeResources = new Map(
+    [...stageAssets.groups.entries.matchAll(/^\s*(?<stage>\d+): Object\.freeze\(\{ terrain: "(?<terrain>[^"]+)", boss: "(?<boss>[^"]+)" \}\),?$/gm)]
+      .map((match) => [Number(match.groups.stage), match.groups]),
+  );
+  const canvasTerrain = new Map(
+    [...bridgeTerrain.groups.entries.matchAll(/(?<stage>\d+): "(?<terrain>[^"]+)"/g)]
+      .map((match) => [Number(match.groups.stage), match.groups.terrain]),
+  );
+  const canvasBossArt = new Map(
+    [...bossArt.groups.entries.matchAll(/(?<stage>\d+): "(?<path>assets\/images\/ui\/boss-[^"]+\.png)"/g)]
+      .map((match) => [Number(match.groups.stage), match.groups.path]),
+  );
+  const campaignBossByStage = new Map(
+    [...campaignBossArt.groups.entries.matchAll(/^\s*"(?<id>[^"]+)": "(?<path>assets\/images\/ui\/boss-[^"]+\.png)",?$/gm)]
+      .map((match) => [match.groups.id, match.groups.path]),
+  );
+
+  for (const stage of STAGES.filter(({ number }) => number >= 4 && number <= 10)) {
+    const resources = realtimeResources.get(stage.number);
+    assert.ok(resources, `RealtimeBattle must retain declared resources for Stage ${stage.number}.`);
+    assert.equal(
+      canvasTerrain.get(stage.number),
+      resources.terrain.replace(/^terrain\//, "").replace(/\.glb$/, ""),
+      `Canvas fallback terrain for Stage ${stage.number} must match the RealtimeBattle terrain resource.`,
+    );
+    assert.equal(
+      canvasBossArt.get(stage.number),
+      campaignBossByStage.get(stage.id),
+      `Canvas fallback boss art for Stage ${stage.number} must match its campaign boss resource.`,
+    );
+  }
+});
+
+test("service worker bypasses HTTP cache on every core asset fetch path", async () => {
+  const serviceWorker = await readProjectFile("sw.js");
+
+  assert.match(
+    serviceWorker,
+    /CORE_ASSETS\.map\(async \(asset\) => \{\s*const response = await fetch\(asset, \{ cache: "no-store" \}\);/s,
+    "install-time precaching must fetch every core asset with cache: no-store.",
+  );
+  assert.match(
+    serviceWorker,
+    /if \(isCoreRequest\(request\)\) \{\s*event\.respondWith\(\s*fetch\(request, \{ cache: "no-store" \}\)/s,
+    "runtime core requests must fetch with cache: no-store before falling back to the worker cache.",
+  );
+});
+
+test("GLB bridge pre-cache refreshes every bridge asset instead of reusing stale atlas responses", async () => {
+  const serviceWorker = await readProjectFile("sw.js");
+  const bridgeCacheFunction = serviceWorker.match(
+    /async function cacheGlbBattleBridge\(cache\) \{(?<body>[\s\S]*?)\n\}/,
+  );
+
+  assert.ok(bridgeCacheFunction, "sw.js must retain the GLB bridge pre-cache helper.");
+  assert.doesNotMatch(
+    bridgeCacheFunction.groups.body,
+    /cache\.add\(/,
+    "GLB bridge assets must not be precached through cache.add, which can reuse stale browser HTTP cache entries.",
+  );
+  assert.match(
+    bridgeCacheFunction.groups.body,
+    /Promise\.all\(bridgeAssets\.map\(async \(url\) => \{\s*const assetResponse = await fetch\(url, \{ cache: "no-store" \}\);\s*if \(!assetResponse\.ok\) \{\s*throw new Error\([^)]*\);\s*\}\s*await cache\.put\(url, assetResponse\);/s,
+    "every GLB bridge asset must bypass HTTP cache, reject a failed fetch, and write the fresh response to the worker cache.",
   );
 });
 
