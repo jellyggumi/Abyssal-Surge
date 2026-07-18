@@ -52,3 +52,63 @@ This is a first-glance remedy, not a claim of renderer-level topology or touch g
 ## Deferred Renderer Seam
 
 Expose either native long-press group-rally or a documented custom event from `battle-realtime-three.js`; only then add a touch Rally mode. World-locked routes, boss/objective picks, and breach markers also belong to that renderer seam.
+
+## Stage 3 Follow-on Cycle — Two Verified Presentation Slices
+
+**Entry stage:** Stage 3 — presentation and play-impact only. The prior overlay subset review does
+not reopen combat balance, progression, save persistence, or renderer authority.
+
+**Cycle bounds:** Both slices must keep `campaign-state.js` and the existing `app.js` action
+handler as the sole owners of accepted actions. They must not add an action, a shortcut, a
+cooldown/reward/ETA claim, a canvas gesture, a world-coordinate contract, or a second animation
+loop. Their only dynamic command facts come from the existing command button and public HUD text.
+
+### Iteration 1 — Order Seal
+
+**Player promise:** After an enabled field proxy invokes its existing command button, the field
+shows one passive, persistent receipt: `Order relayed — {current command name}`. It proves only
+that the proxy relayed its native button activation; it does **not** assert that a cooldown,
+target, encounter, or transition completed.
+
+- The receipt derives its action/name from the same `activeCommand` and command `<strong>` already
+  used by the proxy. It is initially absent and replaces, rather than stacks with, the previous
+  receipt after the next proxy action.
+- It is visible text with `role="status"` / polite live announcement, but is not focusable and
+  has no pointer events. `.ashen-field-command__activate` remains the overlay's only actionable
+  control.
+- The existing `MutationObserver` must still advance the proxy's name, consequence, `data-action`,
+  and accessible name when the engine changes the current objective. The receipt records the
+  issued command while the proxy points at the next command.
+- At 360px the receipt has one readable line without horizontal overflow or a second hit target.
+  Under reduced motion it remains static; no animation may encode its state.
+
+**Acceptance proof:** In the real Stage 1 browser flow, proxy Hunt appends exactly one existing
+`{ kind: "action", action: "hunt" }` trace event and exposes the Hunt receipt. After the normal
+objective changes to Extract, focusing the same proxy and pressing Enter invokes exactly one
+existing Extract command. Canvas input outside the proxy remains canvas-owned.
+
+### Iteration 2 — Compact Consequence
+
+**Player promise:** At 360 CSS pixels, the field keeps a visible one-line consequence from the
+current command's existing `<small>` copy. The hostile/ward/current-objective panels and the
+48px-or-larger proxy remain reachable; the compact view may hide only secondary pressure prose.
+
+- Reuse the current consequence text; do not synthesize a tactical explanation or duplicate a
+  control. If constrained, visual truncation may shorten ornamentation but the proxy's accessible
+  name must retain the full existing command name and consequence.
+- The compact rule changes presentation CSS only. It neither calls the renderer nor changes
+  campaign state, action availability, the public save trace, or fallback behavior.
+- In reduced-motion mode, objective, hostile, ward/integrity, visible consequence, and proxy
+  accessible name remain nonempty with no overlay animation or transition.
+
+**Acceptance proof:** A fresh 360px Stage 1 browser context proves the proxy is visible, owns its
+center hit-test point, measures at least 48px on both axes, and leaves a sampled blank battlefield
+point owned by `#battle-canvas-3d`. A reduced-motion context proves the same critical field copy
+without a continuous overlay frame loop or browser errors.
+
+### Evidence and gate discipline
+
+Each iteration requires its own test result, real-browser observation, and scoped G1/G4/G6 verdict
+in `qa/gate-measurements.md`; a later slice cannot borrow earlier evidence for new behavior.
+Full G1, G4, and G6 remain **NOT SCORED** unless a whole-game worldview trace, human immersion /
+latency evidence, and telemetry/rollback/performance-soak evidence are actually collected.

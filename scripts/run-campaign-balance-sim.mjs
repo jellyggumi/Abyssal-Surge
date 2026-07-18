@@ -84,7 +84,10 @@ function hasPendingEncounter(state) {
 function readyForBossAssault(state) {
   const stage = STAGES[state.stageIndex];
   const assault = stage.commands.assault;
-  return state.stage.nodes >= stage.nodeGoal && (!assault.requiresPossessed || state.stage.possessed);
+  const preparationLegion = Math.max(2, stage.encounter?.preparationLegion ?? 2);
+  return state.stage.nodes >= stage.nodeGoal
+    && state.stage.legion >= preparationLegion
+    && (!assault.requiresPossessed || state.stage.possessed);
 }
 function resolveDeclaredEncounter(state) {
   const stage = STAGES[state.stageIndex];
@@ -421,7 +424,8 @@ function contractProbes() {
     return { status: state.status, stage: STAGES[state.stageIndex].id, applied, encounterEvents };
   };
   const thinLine = ["hunt", "hunt", "extract", "materialize"];
-  const s1 = [...thinLine, "capture", "assault", "assault", "assault"];
+  const stageOnePreparedLine = [...thinLine, "materialize"];
+  const s1 = [...stageOnePreparedLine, "capture", "assault", "assault", "assault"];
   const s2 = [...thinLine, "capture", "capture", "possess", "assault", "assault"];
   const rusherS3 = [...thinLine, "capture", "assault"];
   const comebackS3 = [...thinLine, "capture", "domain", "possess", "assault", "assault"];

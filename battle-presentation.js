@@ -96,6 +96,9 @@ export const BATTLE_PRESENTATIONS = Object.freeze({
     stageNumber: 1,
     operation: "Operation: Ember Break",
     doctrine: "Open the forge lane, raise shades, then sever the Warden's hold.",
+    objectiveKey: "onboarding.stage1.objective",
+    operationKey: "battle.cinderSpan.operation",
+    doctrineKey: "battle.cinderSpan.doctrine",
     allyLabel: "Dusk Legion",
     hostileLabel: "Ashbound Ward",
     palette: PALETTE.ember

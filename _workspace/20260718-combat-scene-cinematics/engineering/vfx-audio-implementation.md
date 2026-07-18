@@ -31,7 +31,7 @@ Primary WebGL renderer (`battle-realtime-three.js`, class `RealtimeBattle`) prev
 | Ambient (`updateAmbience`, per-frame) | slow drifting motes in stage accent color | — | — |
 
 ## Camera feel
-- `shakeCamera(magnitude, duration)` — additive positional jitter (mulberry32-seeded, deterministic per battle instance) decaying linearly over `duration`; composes with existing orbit/zoom camera math without replacing it.
+- `shakeCamera(magnitude, duration)` — additive positional jitter (wall-clock-driven `performance.now()`, intentionally unseeded/non-deterministic — cosmetic-only, unlike the Canvas 2D fallback's mulberry32 presentation RNG) decaying via a peak-hold-and-hold-until-weaker-pulse envelope over `duration`; composes with existing orbit/zoom camera math without replacing it. A new pulse only re-arms the decay envelope when its initial strength would exceed the currently-decaying strength, preventing a weaker/shorter pulse from causing an amplitude spike in an in-progress stronger shake.
 - `triggerHitStop(duration)` — briefly clamps frame `dt` near zero on heavy impacts (boss defeat, boss-exposed assault) for a readable "impact frame" without pausing the render loop itself.
 
 ## Performance verification
@@ -42,4 +42,4 @@ Measured via prototype-patched `RealtimeBattle.prototype.update` timing over ~3s
 - Both negligible against the 16.7ms (60fps) frame budget; no `frame > 16.7ms` outliers attributable to particles/audio in the sampled window (baseline headless-renderer overhead — ANGLE/SwiftShader software path — dominates, not a regression from this work).
 
 ## Test coverage added
-`tests/battle-realtime-three.test.mjs`: `ParticleField`/`SpatialAudio` construction safety in non-browser environment, particle pool bounds, no-crash guarantee for every action/combat-event call site pre-`init()` (this was the actual bug the Node test suite caught: `this.particles?.emit(...)` needed the optional-chaining guard because tests construct `RealtimeBattle(null, {...})` without ever calling `init()`).
+`tests/battle-realtime-three.test.mjs`: no-crash guarantee for every action/combat-event call site pre-`init()` is covered (this was the actual bug the Node test suite caught: `this.particles?.emit(...)` needed the optional-chaining guard because tests construct `RealtimeBattle(null, {...})` without ever calling `init()`). NOT covered by any test: direct `ParticleField`/`SpatialAudio` class construction, particle pool recycling under >360-particle load, or real `AudioContext`/WebGL2 buffer allocation — that surface is exercised only by manual/production use and the browser E2E playtest.

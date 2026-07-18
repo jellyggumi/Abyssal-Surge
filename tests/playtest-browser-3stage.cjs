@@ -17,6 +17,8 @@ const STAGE_RAIL_SCROLL_MODE = process.argv.includes("--stage-rail-scroll");
 const FALLBACK_TARGET_PARITY_MODE = process.argv.includes("--fallback-target-parity");
 const COMPACT_CONTROL_JOURNEY_MODE = process.argv.includes("--compact-control-journey");
 const COMPACT_FIELD_OVERLAY_MODE = process.argv.includes("--compact-field-overlay");
+const STAGE_THREE_CHECKLIST_MODE = process.argv.includes("--stage-three-checklist");
+const MOBILE_SAVE_CONTROLS_MODE = process.argv.includes("--mobile-save-controls");
 let playwright;
 if (!BRIDGE_CACHE_BOUNDARY_MODE && !SOURCE_CACHE_ADMISSION_MODE) {
   try {
@@ -38,6 +40,8 @@ const CAMPAIGN_SOURCE_CONTRACT = import(pathToFileURL(path.join(ROOT, "campaign-
     rulesVersion: RULES_VERSION,
     schemaVersion: SAVE_SCHEMA_VERSION,
   }));
+const TRANSLATIONS_SOURCE_CONTRACT = import(pathToFileURL(path.join(ROOT, "i18n.js")).href)
+  .then(({ translations }) => translations);
 const MIME_TYPES = Object.freeze({
   ".css": "text/css; charset=utf-8",
   ".glb": "model/gltf-binary",
@@ -686,38 +690,89 @@ async function campaignSurface(page) {
 
 async function assertStage(page, number, heading) {
   const availableStageCount = await page.locator("[id^='stage-select-']").count();
-  assert.equal(await text(page.locator("#stage-number")), `Stage ${number} of ${availableStageCount}`, `Stage ${number} number must be visible.`);
-  assert.equal(await text(page.locator("#stage-heading")), heading, `Stage ${number} heading must be visible.`);
+  const lang = await page.locator("html").getAttribute("lang");
+  assert.ok(lang === "ko" || lang === "en", `Stage ${number} requires a supported document locale; received ${String(lang)}.`);
+  const expectedStageNumber = lang === "ko"
+    ? `${availableStageCount}단계 중 ${number}단계`
+    : `Stage ${number} of ${availableStageCount}`;
+  assert.equal(await text(page.locator("#stage-number")), expectedStageNumber, `Stage ${number} number must match the ${lang} contract.`);
+  const expectedHeading = lang === "en"
+    ? heading
+    : await text(page.locator(`#stage-select-${number} span`).last());
+  assert.equal(await text(page.locator("#stage-heading")), expectedHeading, `Stage ${number} heading must match its localized active-selector identity.`);
   assert.equal(await page.locator(`#stage-select-${number}`).getAttribute("aria-current"), "step", `Stage ${number} selector must identify the active stage.`);
 }
 async function assertBattleVisualizationStatus(page, number) {
+  const fallback = page.locator("#battle-visual-fallback");
+  if (!(await fallback.isVisible())) return;
+
+  const language = await page.locator("html").getAttribute("lang");
+  const fallbackPresentation = BATTLE_FALLBACK_PRESENTATIONS[language];
+  assert.ok(fallbackPresentation, `Stage ${number} fallback status requires a supported document locale; received ${String(language)}.`);
+  const acceptedStatuses = [fallbackPresentation.notice];
+  if (number === 1) acceptedStatuses.push(STAGE_ONE_FIRST_ORDERS[language]);
   const status = await text(page.locator("#campaign-status"));
-  if (status.includes("Battle visualization is unavailable")) {
-    assert.equal(
-      status,
-      "Battle visualization is unavailable; command rules remain ready.",
-      `Stage ${number} must expose the explicit visualizer fallback while retaining command controls.`
-    );
-  }
+  assert.ok(
+    acceptedStatuses.includes(status),
+    `Stage ${number} ${language} fallback must retain an exact rendering notice or acknowledged first-order status; observed ${JSON.stringify(status)}.`
+  );
 }
 const BATTLE_PRESENTATIONS = Object.freeze({
   1: Object.freeze({
-    operation: "Operation: Ember Break",
-    doctrine: "Open the forge lane, raise shades, then sever the Warden's hold."
+    ko: Object.freeze({
+      operation: "작전: 잿불 돌파",
+      doctrine: "제련소 길을 열고 그림자를 일으켜 워든의 지배를 끊으십시오."
+    }),
+    en: Object.freeze({
+      operation: "Operation: Ember Break",
+      doctrine: "Open the forge lane, raise shades, then sever the Warden's hold."
+    })
   }),
   2: Object.freeze({
-    operation: "Operation: Veil Breach",
-    doctrine: "Hold both signal nodes before the Tactician closes the listening routes."
+    ko: Object.freeze({
+      operation: "작전: 베일 돌파",
+      doctrine: "전술가가 경청 수로를 차단하기 전에 두 신호 거점을 모두 점거하십시오."
+    }),
+    en: Object.freeze({
+      operation: "Operation: Veil Breach",
+      doctrine: "Hold both signal nodes before the Tactician closes the listening routes."
+    })
   }),
   3: Object.freeze({
-    operation: "Operation: Thronefall",
-    doctrine: "Secure the throne node, invoke the Domain, and break the Sovereign's gate."
+    ko: Object.freeze({
+      operation: "작전: 왕좌 함락",
+      doctrine: "왕좌 거점을 확보하고 군주의 영역을 발동하여 소버린의 관문을 부수십시오."
+    }),
+    en: Object.freeze({
+      operation: "Operation: Thronefall",
+      doctrine: "Secure the throne node, invoke the Domain, and break the Sovereign's gate."
+    })
   })
 });
+const BATTLE_FALLBACK_PRESENTATIONS = Object.freeze({
+  ko: Object.freeze({
+    kicker: "정적 전술 브리핑",
+    pressure: "정적 전술 모드: 렌더링이 불가하지만 명령 규칙은 활성 상태로 유지됩니다.",
+    notice: "전투 시각화가 비활성화되었습니다. 명령 시스템은 준비 완료되었습니다.",
+    waveIndicator: "정적 전술 브리핑 · 명령 스케줄 활성화됨",
+  }),
+  en: Object.freeze({
+    kicker: "Static tactical briefing",
+    pressure: "Static tactical fallback: rendering is unavailable, but command rules remain active.",
+    notice: "Battle visualization is unavailable; command rules remain ready.",
+    waveIndicator: "STATIC TACTICAL BRIEFING · COMMAND SCHEDULE ACTIVE",
+  }),
+});
+
 
 async function assertBattlePresentation(page, number) {
-  const presentation = BATTLE_PRESENTATIONS[number];
-  assert.ok(presentation, `Stage ${number} must have a player-facing battle presentation.`);
+  const stagePresentation = BATTLE_PRESENTATIONS[number];
+  assert.ok(stagePresentation, `Stage ${number} must have a player-facing battle presentation.`);
+  const language = await page.locator("html").getAttribute("lang");
+  const presentation = stagePresentation[language];
+  assert.ok(presentation, `Stage ${number} must have a player-facing battle presentation for html[lang=${language}].`);
+  const fallbackPresentation = BATTLE_FALLBACK_PRESENTATIONS[language];
+  assert.ok(fallbackPresentation, `Stage ${number} fallback requires a supported document locale; received ${String(language)}.`);
 
   const brief = page.locator("#battle-tactical-brief");
   await brief.waitFor({ state: "visible" });
@@ -728,15 +783,15 @@ async function assertBattlePresentation(page, number) {
   if (await fallback.isVisible()) {
     assert.equal(
       await text(fallback.locator(".battle-fallback-kicker")),
-      "Static tactical briefing",
-      `Stage ${number} fallback must describe a static tactical briefing, not a map.`
+      fallbackPresentation.kicker,
+      `Stage ${number} fallback must expose the exact ${language} static tactical briefing label, not a map.`
     );
     assert.equal(await text(page.locator("#battle-fallback-operation")), presentation.operation, `Stage ${number} fallback must retain the current operation.`);
     assert.equal(await text(page.locator("#battle-fallback-doctrine")), presentation.doctrine, `Stage ${number} fallback must retain the current doctrine.`);
     assert.equal(
       await text(page.locator("#battle-pressure")),
-      "Static tactical fallback: rendering is unavailable, but command rules remain active.",
-      `Stage ${number} fallback must truthfully report static rendering rather than active visual animation.`
+      fallbackPresentation.pressure,
+      `Stage ${number} fallback must expose the exact ${language} static-rendering status while command rules remain active.`
     );
   }
 }
@@ -985,7 +1040,7 @@ async function enterBattle(page, number, heading) {
   return text(page.locator("#integrity-value"));
 }
 
-const BATTLE_BREACH_TIMEOUT_MS = 50_000;
+const BATTLE_RESOLUTION_TIMEOUT_MS = 50_000;
 const STAGE_ONE_ENGAGEMENT_TIMEOUT_MS = 20_000;
 const COMMAND_COOLDOWN_TIMEOUT_MS = 7_000;
 
@@ -1081,9 +1136,27 @@ async function importCampaignEnvelope(page, envelope, name) {
     buffer: Buffer.from(JSON.stringify(envelope), "utf8")
   });
   await page.locator("#campaign-screen").waitFor({ state: "visible" });
+  const language = await page.locator("html").getAttribute("lang");
+  const importedCampaignSavedShapes = Object.freeze({
+    ko: Object.freeze({
+      prefix: "가져온 캠페인 저장 완료 (",
+      suffix: "에 저장됨)",
+    }),
+    en: Object.freeze({
+      prefix: "Imported campaign saved in ",
+      suffix: ".",
+    }),
+  });
+  const expectedStatusShape = importedCampaignSavedShapes[language];
+  assert.ok(expectedStatusShape, `Imported campaign persistence requires a supported document locale; received html[lang=${String(language)}].`);
   await page.waitForFunction(
-    () => document.querySelector("#save-status")?.textContent.startsWith("Imported campaign saved in "),
-    undefined,
+    ({ prefix, suffix }) => {
+      const status = document.querySelector("#save-status")?.textContent ?? "";
+      return status.startsWith(prefix)
+        && status.endsWith(suffix)
+        && status.length > prefix.length + suffix.length;
+    },
+    expectedStatusShape,
     { timeout: 10_000 }
   );
 }
@@ -1101,6 +1174,7 @@ async function createCampaignFixtures() {
     chooseReward,
     createCampaign,
     createSaveEnvelope,
+    restoreSaveEnvelope,
     startCampaign
   } = await import(pathToFileURL(path.join(ROOT, "campaign-state.js")).href);
 
@@ -1114,6 +1188,36 @@ async function createCampaignFixtures() {
     state
   );
   const start = () => acceptedCampaignTransition(startCampaign(createCampaign()), "Campaign fixture must start from briefing.");
+  const assertScoutStartRejected = (state, label) => {
+    const stateBeforeStart = JSON.parse(JSON.stringify(state));
+    const scoutStart = { type: "start-wave", stageId: state.stageId, waveId: "scout" };
+    const direct = applyEncounterEvent(state, scoutStart);
+    assert.equal(direct.accepted, false, `${label} direct Scout start must reject until Cinder Span has 4 Legion and 1 Node.`);
+    assert.deepEqual(direct.state, stateBeforeStart, `${label} rejected direct Scout start must leave the full campaign state unchanged.`);
+    assert.equal(
+      direct.state.trace.filter((event) => event.kind === "encounter").length,
+      0,
+      `${label} rejected direct Scout start must preserve a zero encounter trace.`,
+    );
+
+    const replay = createSaveEnvelope(state);
+    replay.trace.push({ kind: "encounter", event: scoutStart });
+    assert.throws(
+      () => restoreSaveEnvelope(replay),
+      /impossible transition/,
+      `${label} replayed Scout start must reject until Cinder Span has 4 Legion and 1 Node.`,
+    );
+  };
+  const twoLegionForgeReady = commands(start(), ["hunt", "hunt", "extract", "materialize", "capture"]);
+  assert.equal(twoLegionForgeReady.stage.legion, 2, "The Cinder Span direct/replay Scout fixture must field only two Legion allies.");
+  assert.equal(twoLegionForgeReady.stage.nodes, 1, "The Cinder Span direct/replay Scout fixture must claim its forge node.");
+  assertScoutStartRejected(twoLegionForgeReady, "Two-Legion forge-ready");
+
+  const fourLegionNoForge = commands(start(), ["hunt", "hunt", "extract", "materialize", "materialize"]);
+  assert.equal(fourLegionNoForge.stage.legion, 4, "The Cinder Span direct/replay Scout fixture must field four Legion allies.");
+  assert.equal(fourLegionNoForge.stage.nodes, 0, "The Cinder Span direct/replay Scout fixture must leave its forge node unclaimed.");
+  assertScoutStartRejected(fourLegionNoForge, "Four-Legion forge-unclaimed");
+
   const stageOneEncounter = [
     { type: "start-wave", waveId: "scout" },
     { type: "wave-cleared", waveId: "scout" },
@@ -1161,8 +1265,23 @@ async function createCampaignFixtures() {
   const briefing = createCampaign();
   const reward = commands(start(), stageOneVictory);
   const exposed = commands(start(), ["hunt", "hunt", "extract", "materialize", "materialize", "capture", ...stageOneEncounter]);
+  const stageTwo = acceptedCampaignTransition(
+    chooseReward(reward, "rift-lens"),
+    "Focused Stage 3 fixture must carry Rift Lens into Veil Citadel.",
+  );
+  const stageTwoReward = completeStage(stageTwo, STAGES[1]);
+  const stageThree = acceptedCampaignTransition(
+    chooseReward(stageTwoReward, "veil-vanguard"),
+    "Focused Stage 3 fixture must carry Veil Vanguard into Echo Throne.",
+  );
+  const stageThreePrepared = commands(
+    stageThree,
+    ["hunt", "hunt", "extract", "materialize", "materialize", "capture"],
+  );
+  assert.equal(stageThreePrepared.stageId, "echo-throne", "Focused Stage 3 fixture must remain in Echo Throne.");
+  assert.equal(stageThreePrepared.status, "active", "Focused Stage 3 fixture must remain active before optional commands or Assault.");
 
-  let defeat = commands(start(), [{ type: "start-wave", waveId: "scout" }]);
+  let defeat = commands(start(), ["hunt", "hunt", "extract", "materialize", "materialize", "capture", { type: "start-wave", waveId: "scout" }]);
   while (defeat.status === "active") {
     defeat = acceptedCampaignTransition(
       applyEncounterEvent(defeat, { type: "breach", stageId: defeat.stageId, waveId: defeat.stage.encounter.activeWaveId }),
@@ -1190,6 +1309,7 @@ async function createCampaignFixtures() {
     reward: createSaveEnvelope(reward),
     exposed: createSaveEnvelope(exposed),
     defeat: createSaveEnvelope(defeat),
+    stageThreePrepared: createSaveEnvelope(stageThreePrepared),
     completed: createSaveEnvelope(completed)
   });
 }
@@ -1197,22 +1317,52 @@ async function createCampaignFixtures() {
 function isSerializedEncounterBreach(event) {
   return event?.kind === "encounter" && event.event?.type === "breach";
 }
+function isSerializedEncounterResolution(event) {
+  return event?.kind === "encounter"
+    && (event.event?.type === "breach" || event.event?.type === "wave-cleared");
+}
 
-async function awaitTimedBattleBreachBatch(page, entryIntegrity) {
+function isSerializedScoutStart(event) {
+  return event?.kind === "encounter"
+    && event.event?.type === "start-wave"
+    && event.event?.stageId === "cinder-span"
+    && event.event?.waveId === "scout";
+}
+
+
+async function awaitTimedBattleResolution(page, entryIntegrity, resolvedCountBefore) {
   await page.waitForFunction(
-    (initialIntegrity) => Number.parseInt(document.querySelector("#integrity-value")?.textContent || "", 10) < initialIntegrity,
-    entryIntegrity,
-    { polling: 20, timeout: BATTLE_BREACH_TIMEOUT_MS }
+    ({ initialIntegrity, initialResolvedCount }) => {
+      const integrity = Number.parseInt(document.querySelector("#integrity-value")?.textContent || "", 10);
+      const resolvedCount = document.querySelectorAll("#objective-checklist .complete").length;
+      return integrity < initialIntegrity || resolvedCount > initialResolvedCount;
+    },
+    { initialIntegrity: entryIntegrity, initialResolvedCount: resolvedCountBefore },
+    { polling: 20, timeout: BATTLE_RESOLUTION_TIMEOUT_MS }
   );
   await page.waitForTimeout(250);
 
   const trace = await campaignTrace(page);
-  const breaches = trace.filter(isSerializedEncounterBreach);
+  const resolutions = trace.filter(isSerializedEncounterResolution);
   const integrity = Number.parseInt(await text(page.locator("#integrity-value")), 10);
-  assert.ok(breaches.length > 0, "The scheduled battle wave must serialize at least one encounter breach event.");
-  assert.ok(integrity < entryIntegrity, "The rendered battle integrity must drop after a scheduled breach.");
+  const resolvedCount = await page.locator("#objective-checklist .complete").count();
+  assert.ok(
+    resolutions.length > 0,
+    "The scheduled battle wave must serialize at least one exact breach or wave-cleared encounter resolution."
+  );
+  assert.ok(
+    integrity < entryIntegrity || resolvedCount > resolvedCountBefore,
+    "The public campaign surface must expose the serialized encounter resolution through integrity loss or a newly completed objective."
+  );
   return Object.freeze({
     integrity,
+    integrityDelta: entryIntegrity - integrity,
+    outcome: resolutions[0].event.type,
+    resolutionSequence: resolutions.map(({ event }) => ({
+      type: event.type,
+      stageId: event.stageId,
+      waveId: event.waveId,
+    })),
     trace: trace.map((event) => event.kind === "action" ? { kind: event.kind, action: event.action } : event.kind === "encounter" ? { kind: event.kind, event: event.event } : { kind: event.kind })
   });
 }
@@ -1229,6 +1379,34 @@ async function materializeStageOneAllies(page, context, { remainingHunts = 2 } =
   );
 }
 
+const STAGE_ONE_SCOUT_LABELS = Object.freeze({
+  ko: "정찰 · 적 2명",
+  en: "SCOUT · 2 HOSTILES",
+});
+const STAGE_ONE_ENCOUNTER_HUD = Object.freeze({
+  ko: Object.freeze({
+    preparation: Object.freeze({
+      pressure: "준비 시간: 첫 번째 적 웨이브가 전장에 진입하기 전에 명령을 내리십시오.",
+      waveIndicator: "전투 준비 · 웨이브 1/3 · 정찰",
+    }),
+    live: Object.freeze({
+      pressure: "웨이브 진행 중: 적들이 전장을 가로지르는 동안 명령 패널을 활성화하십시오.",
+      waveIndicator: "웨이브 진행 중 · 1/3 · 정찰",
+    }),
+  }),
+  en: Object.freeze({
+    preparation: Object.freeze({
+      pressure: "Preparation window: issue commands before the first hostile wave enters the lane.",
+      waveIndicator: "PREPARATION · WAVE 1/3 · SCOUT",
+    }),
+    live: Object.freeze({
+      pressure: "Live-wave pressure: keep the command pad active while hostiles cross the lane.",
+      waveIndicator: "LIVE WAVE · 1/3 · SCOUT",
+    }),
+  }),
+});
+
+
 async function awaitStageOneScoutEngagementBeforeBreach(page, context) {
   const traceBeforeScout = await campaignTrace(page);
   assert.equal(
@@ -1237,11 +1415,6 @@ async function awaitStageOneScoutEngagementBeforeBreach(page, context) {
     `${context} must not record a campaign breach before the inbound Stage 1 Scout wave reaches allied defenders.`
   );
 
-  await page.waitForFunction(
-    () => /SCOUT · 2 HOSTILES/.test(document.querySelector("#battle-hostile-label")?.textContent || ""),
-    undefined,
-    { timeout: STAGE_ONE_ENGAGEMENT_TIMEOUT_MS }
-  );
   await page.waitForFunction(
     () => {
       const exchanges = Number(document.querySelector("#battle-field")?.dataset.exchanges);
@@ -1260,6 +1433,11 @@ async function awaitStageOneScoutEngagementBeforeBreach(page, context) {
   );
 
   const traceAfterExchange = await campaignTrace(page);
+  assert.equal(
+    traceAfterExchange.some(isSerializedScoutStart),
+    true,
+    `${context} must retain the exact Cinder Span Scout start in the public campaign trace even if the live hostile label has advanced.`
+  );
   assert.equal(
     traceAfterExchange.some(isSerializedEncounterBreach),
     false,
@@ -1289,35 +1467,58 @@ async function verifyCommandCooldown(page) {
     { timeout: COMMAND_COOLDOWN_TIMEOUT_MS }
   );
 }
-const STAGE_ONE_OBJECTIVE = "Hunt the rift spoor, extract its shade, materialize a legion, seize the forge node, clear three assault waves, then break the Cinder Warden.";
-const STAGE_ONE_OPERATION = "Operation: Ember Break";
-const STAGE_ONE_DOCTRINE = "Open the forge lane, raise shades, then sever the Warden's hold.";
-const STAGE_ONE_FIRST_ORDER = "First order: Hunt two rift spoor.";
-const STAGE_TRANSITION_BRIEFINGS = Object.freeze({
-  2: Object.freeze({
-    stage: "Stage 2 · Veil Citadel",
-    region: "A fortress of listening stone",
-    objective: "Carry your first boon, hold both signal nodes, possess a sentinel, and defeat the tactician who commands the veil.",
-    operation: "Operation: Veil Breach",
-    doctrine: "Hold both signal nodes before the Tactician closes the listening routes.",
-    boss: "Veil Tactician"
+const STAGE_ONE_BRIEFING_LOCALES = Object.freeze({
+  ko: Object.freeze({
+    htmlLang: "ko",
+    languageToggle: Object.freeze({
+      label: "EN",
+      pressed: "false",
+      ariaLabel: "English로 전환"
+    }),
+    role: "역할 · 황혼의 감시자로서 그림자 군단을 지휘하십시오.",
+    playerJob: "그림자 군단을 지휘해 현재 목표를 완수하고, 관문 수호 내구도가 0에 이르지 않게 하며, 보스 신더 워든을 처치하십시오.",
+    objective: "스테이지 1 목표 · 사냥 → 추출 → 실체화 → 점거로 제련소 거점을 장악하십시오.",
+    nextOrder: "지금 H 또는 사냥을 눌러 첫 번째 균열 흔적을 찾으십시오.",
+    operation: "작전: 잿불 돌파",
+    doctrine: "제련소 길을 열고 그림자를 일으켜 워든의 지배를 끊으십시오.",
+    boss: "신더 워든",
+    commandLabels: Object.freeze(["사냥", "추출", "실체화", "점거"])
   }),
-  3: Object.freeze({
-    stage: "Stage 3 · Echo Throne",
-    region: "The gate above the last remembered sea",
-    objective: "Carry both boons, secure the throne node, invoke the one-use Lord's Domain comeback, and unmake the Gate Sovereign.",
-    operation: "Operation: Thronefall",
-    doctrine: "Secure the throne node, invoke the Domain, and break the Sovereign's gate.",
-    boss: "Gate Sovereign"
-  }),
-  4: Object.freeze({
-    stage: "Stage 4 · Sunken Bastion",
-    region: "A drowned breakwater fortress reclaimed by the tide",
-    objective: "Raise the legion above the waterline, hold the flood node, weather four tide waves, and drown the Tide Warden's claim.",
-    operation: "Operation: Breakwater",
-    doctrine: "Hold the causeway above the flood; drown nothing you cannot recall.",
-    boss: "Tide Warden"
+  en: Object.freeze({
+    htmlLang: "en",
+    languageToggle: Object.freeze({
+      label: "한국어",
+      pressed: "true",
+      ariaLabel: "Switch to Korean"
+    }),
+    role: "Role · Command the Dusk Legion as the Twilight Watcher.",
+    playerJob: "Command the Dusk Legion, complete the current objective, keep Gate ward integrity above zero, and defeat Cinder Warden.",
+    objective: "Stage 1 objective · Hunt → Extract → Materialize → Capture the forge node.",
+    nextOrder: "Now press H or Hunt to find the first rift spoor.",
+    operation: "Operation: Ember Break",
+    doctrine: "Open the forge lane, raise shades, then sever the Warden's hold.",
+    boss: "Cinder Warden",
+    commandLabels: Object.freeze(["Hunt", "Extract", "Materialize", "Capture"])
   })
+});
+const STAGE_ONE_FIRST_ORDERS = Object.freeze({
+  ko: "첫 명령: 균열 흔적을 두 번 사냥하십시오.",
+  en: "First order: Hunt two rift spoor.",
+});
+const REALTIME_SURFACE_LOCALES = Object.freeze({
+  ko: Object.freeze({
+    ariaLabel: "실시간 전술 전장",
+    directHelp: "조작: WASD나 방향키로 이동, Shift로 돌진, 지면 클릭 또는 탭으로 소집, 드래그로 회전, 휠로 확대·축소합니다.",
+  }),
+  en: Object.freeze({
+    ariaLabel: "Realtime tactical battlefield",
+    directHelp: "Controls: move with WASD or arrows, dash with Shift, click or tap ground to rally, drag to rotate, and use the wheel to zoom.",
+  }),
+});
+const STAGE_TRANSITION_BRIEFINGS = Object.freeze({
+  2: Object.freeze({ number: 2, stageId: "veil-citadel" }),
+  3: Object.freeze({ number: 3, stageId: "echo-throne" }),
+  4: Object.freeze({ number: 4, stageId: "sunken-bastion" }),
 });
 
 async function assertCockpitCommandDock(page, context) {
@@ -1356,15 +1557,44 @@ async function assertBriefingCommandGate(page, context) {
   assert.equal(gate.commandsDisabled, true, `${context} must keep every gameplay command unavailable until combat is acknowledged.`);
 }
 
-async function assertStageTransitionBriefing(page, facts, context) {
+async function assertStageTransitionBriefing(page, metadata, context) {
   const briefing = page.locator("#stage-briefing");
   await briefing.waitFor({ state: "visible" });
-  assert.equal(await text(page.locator("#briefing-stage")), facts.stage, `${context} must identify the next stage.`);
-  assert.equal(await text(page.locator("#briefing-region")), facts.region, `${context} must state the next stage region.`);
-  assert.equal(await text(page.locator("#briefing-objective")), facts.objective, `${context} must state the next stage objective.`);
-  assert.equal(await text(page.locator("#briefing-operation")), facts.operation, `${context} must state the next stage operation.`);
-  assert.equal(await text(page.locator("#briefing-doctrine")), facts.doctrine, `${context} must state the next stage doctrine.`);
-  assert.equal(await text(page.locator("#briefing-boss")), facts.boss, `${context} must identify the next stage target.`);
+
+  const language = await page.locator("html").getAttribute("lang");
+  const translations = await TRANSLATIONS_SOURCE_CONTRACT;
+  const dictionary = translations[language];
+  assert.ok(dictionary, `${context} requires a supported translation dictionary for html[lang=${String(language)}].`);
+  const keys = Object.freeze({
+    title: `stage.${metadata.stageId}.title`,
+    region: `stage.${metadata.stageId}.region`,
+    objective: `stage.${metadata.stageId}.objective`,
+    boss: `stage.${metadata.stageId}.bossName`,
+    operation: `presentation.${metadata.stageId}.operation`,
+    doctrine: `presentation.${metadata.stageId}.doctrine`,
+  });
+  const copy = {};
+  for (const [fact, key] of Object.entries(keys)) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(dictionary, key),
+      true,
+      `${context} ${language} dictionary must own the ${fact} key ${key}.`
+    );
+    assert.equal(
+      typeof dictionary[key],
+      "string",
+      `${context} ${language} dictionary key ${key} must provide exact visible copy.`
+    );
+    copy[fact] = dictionary[key];
+  }
+
+  const expectedStage = `${language === "ko" ? "스테이지" : "Stage"} ${metadata.number} · ${copy.title}`;
+  assert.equal(await text(page.locator("#briefing-stage")), expectedStage, `${context} must identify the localized next stage.`);
+  assert.equal(await text(page.locator("#briefing-region")), copy.region, `${context} must state the localized next stage region.`);
+  assert.equal(await text(page.locator("#briefing-objective")), copy.objective, `${context} must state the localized next stage objective.`);
+  assert.equal(await text(page.locator("#briefing-operation")), copy.operation, `${context} must state the localized next stage operation.`);
+  assert.equal(await text(page.locator("#briefing-doctrine")), copy.doctrine, `${context} must state the localized next stage doctrine.`);
+  assert.equal(await text(page.locator("#briefing-boss")), copy.boss, `${context} must identify the localized next stage target.`);
   assert.equal(await page.locator("#start-combat").isEnabled(), true, `${context} must provide an enabled combat acknowledgement.`);
   await assertBriefingCommandGate(page, context);
 }
@@ -1403,19 +1633,37 @@ async function acknowledgeStageBriefing(page, { stageNumber, firstOrder = null }
   return activatedAt;
 }
 
-async function assertStageOneBriefing(page) {
+async function assertStageOneBriefing(page, expectedLocale) {
   const briefing = page.locator("#stage-briefing");
+  const locale = STAGE_ONE_BRIEFING_LOCALES[expectedLocale];
+  const languageToggle = page.locator("#lang-toggle");
+  const commandLabels = page.locator("#action-hunt strong, #action-extract strong, #action-materialize strong, #action-capture strong");
+  assert.ok(locale, `Stage 1 briefing locale must be "ko" or "en"; received ${String(expectedLocale)}.`);
   await briefing.waitFor({ state: "visible" });
-  assert.equal(await text(page.locator("#briefing-objective")), STAGE_ONE_OBJECTIVE, "The first-run briefing must state the full Stage 1 objective.");
-  assert.equal(await text(page.locator("#briefing-operation")), STAGE_ONE_OPERATION, "The first-run briefing must name Operation: Ember Break.");
-  assert.equal(await text(page.locator("#briefing-doctrine")), STAGE_ONE_DOCTRINE, "The first-run briefing must state the Stage 1 doctrine.");
-  assert.equal(await text(page.locator("#briefing-boss")), "Cinder Warden", "The first-run briefing must identify the Cinder Warden as the target.");
-  assert.match(
-    await text(briefing),
-    /(?:황혼의 감시자|Twilight Watcher)/,
-    "The first-run briefing must show the player's commander identity."
+
+  assert.equal(await page.locator("html").getAttribute("lang"), locale.htmlLang, `The Stage 1 briefing must use the expected ${expectedLocale} locale.`);
+  assert.equal(await text(languageToggle), locale.languageToggle.label, `The ${expectedLocale} Stage 1 briefing must expose the matching public language toggle.`);
+  assert.equal(await languageToggle.getAttribute("aria-pressed"), locale.languageToggle.pressed, `The ${expectedLocale} Stage 1 briefing must expose the matching language-toggle state.`);
+  assert.equal(await languageToggle.getAttribute("aria-label"), locale.languageToggle.ariaLabel, `The ${expectedLocale} Stage 1 briefing must expose the matching language-toggle label.`);
+  assert.equal(
+    await languageToggle.evaluate((toggle) => toggle.inert),
+    true,
+    `The ${expectedLocale} Stage 1 briefing must make the cockpit language toggle inert while the modal owns interaction.`
   );
-  assert.equal(await page.locator("#start-combat").isEnabled(), true, "The first-run briefing must provide an enabled combat acknowledgement.");
+  assert.equal(await text(briefing.locator(".commander-identity")), locale.role, `The ${expectedLocale} Stage 1 briefing must state the player's role.`);
+  assert.equal(
+    await text(page.locator("#briefing-player-job")),
+    locale.playerJob,
+    `The ${expectedLocale} Stage 1 briefing must tell the player to command the legion, finish the current objective, protect Gate ward integrity, and defeat the localized stage target.`,
+  );
+  assert.equal(await text(page.locator("#briefing-objective")), locale.objective, `The ${expectedLocale} Stage 1 briefing must state the four-command objective.`);
+  assert.equal(await text(briefing.locator(".mission-briefing-next")), locale.nextOrder, `The ${expectedLocale} Stage 1 briefing must state the immediate first command.`);
+  assert.equal(await text(page.locator("#briefing-operation")), locale.operation, `The ${expectedLocale} Stage 1 briefing must name the operation.`);
+  assert.equal(await text(page.locator("#briefing-doctrine")), locale.doctrine, `The ${expectedLocale} Stage 1 briefing must state the doctrine.`);
+  assert.deepEqual(await commandLabels.allTextContents(), locale.commandLabels, `The ${expectedLocale} Stage 1 briefing must retain the ordered Hunt, Extract, Materialize, and Capture command labels.`);
+  assert.equal(await text(page.locator("#briefing-boss")), locale.boss, `The ${expectedLocale} Stage 1 briefing must identify the localized stage target.`);
+
+  assert.equal(await page.locator("#start-combat").isEnabled(), true, "The Stage 1 briefing must provide an enabled combat acknowledgement.");
   await page.locator("#start-combat").focus();
   await page.keyboard.press("Tab");
   assert.equal(
@@ -1423,23 +1671,53 @@ async function assertStageOneBriefing(page) {
     true,
     "Tabbing from the briefing acknowledgement must remain trapped in the modal rather than reaching an inert cockpit control."
   );
-  await assertBriefingCommandGate(page, "The first-run briefing");
+  await assertBriefingCommandGate(page, `The ${expectedLocale} Stage 1 briefing`);
+}
+async function assertStageOneActiveCockpitLanguageTogglePreservesCampaignEnvelope(page) {
+  const korean = STAGE_ONE_BRIEFING_LOCALES.ko;
+  const english = STAGE_ONE_BRIEFING_LOCALES.en;
+  const languageToggle = page.locator("#lang-toggle");
+  const commandLabels = page.locator("#action-hunt strong, #action-extract strong, #action-materialize strong, #action-capture strong");
+  const envelopeBeforeLocaleChange = await exportCampaignEnvelope(page);
+
+  assert.equal(await page.locator("html").getAttribute("lang"), english.htmlLang, "Acknowledging the English Stage 1 briefing must return to an English active cockpit.");
+  await languageToggle.click();
+  await page.waitForFunction((lang) => document.documentElement.lang === lang, korean.htmlLang);
+  await page.waitForFunction(
+    (operation) => document.querySelector("#battle-operation")?.textContent?.trim() === operation,
+    BATTLE_PRESENTATIONS[1].ko.operation
+  );
+
+  assert.equal(await text(page.locator("#battle-operation")), BATTLE_PRESENTATIONS[1].ko.operation, "The active Stage 1 cockpit language toggle must project the Korean battle operation.");
+  assert.equal(await text(page.locator("#battle-doctrine")), BATTLE_PRESENTATIONS[1].ko.doctrine, "The active Stage 1 cockpit language toggle must project the Korean battle doctrine.");
+  assert.deepEqual(await commandLabels.allTextContents(), korean.commandLabels, "The active Stage 1 cockpit language toggle must project the ordered Korean Hunt, Extract, Materialize, and Capture command labels.");
+  assert.deepEqual(
+    await exportCampaignEnvelope(page),
+    envelopeBeforeLocaleChange,
+    "The active-cockpit public language toggle must not mutate the parsed campaign save envelope."
+  );
 }
 
+
 async function acknowledgeStageOneBriefing(page) {
+  const lang = await page.locator("html").getAttribute("lang");
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(STAGE_ONE_FIRST_ORDERS, lang),
+    `Stage 1 briefing acknowledgement requires a supported document locale; received ${String(lang)}.`,
+  );
   return acknowledgeStageBriefing(page, {
     stageNumber: 1,
-    firstOrder: STAGE_ONE_FIRST_ORDER
+    firstOrder: STAGE_ONE_FIRST_ORDERS[lang],
   });
 }
 
-async function startStageOneCampaign(page, { verifyBriefing = false } = {}) {
+async function startStageOneCampaign(page, { verifyBriefing = false, briefingLocale } = {}) {
   const acceptRestart = (dialog) => dialog.accept();
   page.once("dialog", acceptRestart);
   await page.waitForTimeout(50);
   await page.locator("#start-campaign").click();
   await page.locator("#campaign-screen").waitFor({ state: "visible" });
-  if (verifyBriefing) await assertStageOneBriefing(page);
+  if (verifyBriefing) await assertStageOneBriefing(page, briefingLocale);
   else await page.locator("#stage-briefing").waitFor({ state: "visible" });
   return acknowledgeStageOneBriefing(page);
 }
@@ -1465,6 +1743,9 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
       { timeout: 30_000 }
     );
 
+    const lang = await page.locator("html").getAttribute("lang");
+    const realtimeLocale = REALTIME_SURFACE_LOCALES[lang];
+    assert.ok(realtimeLocale, `Realtime Stage 1 requires a supported document locale; received ${String(lang)}.`);
     const surface = await canvas.evaluate((element) => ({
       active: document.activeElement === element,
       ariaDescribedBy: element.getAttribute("aria-describedby"),
@@ -1475,17 +1756,16 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
       legacyTargetCount: document.querySelectorAll("#battle-pointer-controls, [data-battle-target]").length,
       fallbackVisible: document.querySelector("#battle-visual-fallback")?.checkVisibility(),
     }));
-    assert.equal(surface.ariaLabel, "Direct tactical battlefield", "Stage 1 must expose the primary direct-control battlefield by its accessible name.");
+    assert.equal(surface.ariaLabel, realtimeLocale.ariaLabel, `Stage 1 must expose the ${lang} direct-control battlefield name.`);
     assert.equal(surface.ariaDescribedBy, "battle-direct-help", "Stage 1 must connect the battlefield to the public direct-control HUD.");
     assert.equal(surface.tabIndex, 0, "Stage 1 tactical battlefield must be keyboard-focusable.");
     assert.ok(surface.width > 0 && surface.height > 0, `Stage 1 direct-control canvas must have a visible surface; observed ${surface.width}×${surface.height}.`);
     assert.equal(surface.legacyTargetCount, 0, "The direct-control battlefield must replace legacy absolute battle-target buttons.");
     assert.notEqual(surface.fallbackVisible, true, "Stage 1 must keep the explicit fallback hidden while the WebGL renderer is ready.");
-    const directHelp = await text(page.locator("#battle-direct-help"));
-    assert.match(
-      directHelp,
-      /Focus the field.*hold WASD.*Drag to orbit.*click ground/,
-      "Stage 1 must expose direct movement, camera, and rally controls in its tactical HUD."
+    assert.equal(
+      await text(page.locator("#battle-direct-help")),
+      realtimeLocale.directHelp,
+      `Stage 1 must expose the exact ${lang} movement, camera, and rally instructions.`,
     );
 
     const assetStatus = await text(page.locator("#battle-asset-status"));
@@ -1552,7 +1832,6 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
       "loaded",
       "Semantic commands must preserve the direct renderer readiness state."
     );
-    await awaitStageOneScoutEngagementBeforeBreach(page, "Focused real-time Three Stage 1 battle");
     console.log(`PLAYTEST_BROWSER_REALTIME_GLB_RESPONSES ${JSON.stringify(sourceGlbTrace.records)}`);
     assertObservedSourceGlbPaths(sourceGlbTrace, STAGE_ONE_SOURCE_GLB_PATHS, "Focused real-time Three Stage 1 battle");
     assertNoStrictClientErrors(strictErrors, "Focused real-time Three Stage 1 battle");
@@ -1713,7 +1992,139 @@ async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
   }
 }
 
+async function assertCompactStageOneBriefing(page) {
+  const surface = await page.evaluate(() => {
+    const playerJob = document.querySelector("#briefing-player-job");
+    const startCombat = document.querySelector("#start-combat");
+    const visibleAndInBounds = (element) => {
+      const rect = element?.getBoundingClientRect();
+      const style = element && getComputedStyle(element);
+      return Boolean(
+        rect
+        && rect.width > 0
+        && rect.height > 0
+        && style?.display !== "none"
+        && style?.visibility !== "hidden"
+        && rect.left >= 0
+        && rect.top >= 0
+        && rect.right <= window.innerWidth
+        && rect.bottom <= window.innerHeight,
+      );
+    };
+    return {
+      playerJob: {
+        text: playerJob?.textContent?.trim() ?? "",
+        visibleAndInBounds: visibleAndInBounds(playerJob),
+      },
+      startCombat: {
+        text: startCombat?.textContent?.trim() ?? "",
+        visibleAndInBounds: visibleAndInBounds(startCombat),
+      },
+      horizontalOverflow: {
+        documentElement: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+        viewport: window.innerWidth,
+      },
+    };
+  });
+
+  assert.ok(
+    surface.horizontalOverflow.documentElement <= surface.horizontalOverflow.viewport
+      && surface.horizontalOverflow.body <= surface.horizontalOverflow.viewport,
+    `At 320×568, the Stage 1 briefing must not overflow horizontally; document=${surface.horizontalOverflow.documentElement}, body=${surface.horizontalOverflow.body}, viewport=${surface.horizontalOverflow.viewport}.`,
+  );
+  assert.notEqual(surface.playerJob.text, "", "At 320×568, the Stage 1 briefing must state the player's complete job before combat.");
+  assert.equal(surface.playerJob.visibleAndInBounds, true, "At 320×568, the Stage 1 player-job sentence must remain visible and fully in bounds before combat.");
+  assert.notEqual(surface.startCombat.text, "", "At 320×568, the Stage 1 briefing must retain a Start battle acknowledgement.");
+  assert.equal(surface.startCombat.visibleAndInBounds, true, "At 320×568, the Start battle acknowledgement must remain visible and fully in bounds.");
+}
+async function verifyCompactLobbyCampaignMap(browser, baseUrl) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    const surface = await page.evaluate(() => {
+      const section = document.querySelector(".campaign-map-section");
+      const heading = section?.querySelector("h3");
+      const hint = section?.querySelector(".hint");
+      const firstCard = section?.querySelector(".map-node");
+      const rail = section?.querySelector(".campaign-map-grid");
+      const describe = (element) => {
+        const rect = element?.getBoundingClientRect();
+        return {
+          present: Boolean(rect && rect.width > 0 && rect.height > 0),
+          rect: rect && {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+          },
+        };
+      };
+      const elements = {
+        heading: describe(heading),
+        hint: describe(hint),
+        firstCard: describe(firstCard),
+      };
+      const intersections = [];
+      const entries = Object.entries(elements);
+      for (let index = 0; index < entries.length; index += 1) {
+        const [name, first] = entries[index];
+        for (const [otherName, second] of entries.slice(index + 1)) {
+          if (
+            first.rect
+            && second.rect
+            && first.rect.left < second.rect.right
+            && first.rect.right > second.rect.left
+            && first.rect.top < second.rect.bottom
+            && first.rect.bottom > second.rect.top
+          ) {
+            intersections.push(`${name}/${otherName}`);
+          }
+        }
+      }
+      const railStyle = rail && getComputedStyle(rail);
+      return {
+        elements,
+        intersections,
+        railScrollable: Boolean(rail && rail.scrollWidth > rail.clientWidth),
+        railOverflowX: railStyle?.overflowX ?? "",
+        documentScrollable: document.documentElement.scrollHeight > window.innerHeight,
+        horizontalOverflow: {
+          documentElement: document.documentElement.scrollWidth,
+          body: document.body.scrollWidth,
+          viewport: window.innerWidth,
+        },
+      };
+    });
+
+    for (const [name, element] of Object.entries(surface.elements)) {
+      assert.equal(element.present, true, `At 390×844, the campaign map ${name} must remain normal rendered content.`);
+    }
+    assert.deepEqual(
+      surface.intersections,
+      [],
+      `At 390×844, campaign map heading, hint, and first card must not overlap; intersections=${surface.intersections.join(",") || "none"}.`,
+    );
+    assert.equal(surface.documentScrollable, true, "At 390×844, the campaign lobby must remain normal vertically scrollable content.");
+    assert.ok(
+      ["auto", "scroll"].includes(surface.railOverflowX) && surface.railScrollable,
+      `At 390×844, the campaign map rail must remain horizontally scrollable; overflow-x=${surface.railOverflowX}, scrollable=${surface.railScrollable}.`,
+    );
+    assert.ok(
+      surface.horizontalOverflow.documentElement <= surface.horizontalOverflow.viewport
+        && surface.horizontalOverflow.body <= surface.horizontalOverflow.viewport,
+      `At 390×844, campaign-map content must not create document horizontal overflow; document=${surface.horizontalOverflow.documentElement}, body=${surface.horizontalOverflow.body}, viewport=${surface.horizontalOverflow.viewport}.`,
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+
 async function verifyCompactControlJourney(browser, baseUrl) {
+  await verifyCompactLobbyCampaignMap(browser, baseUrl);
   const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 320, height: 568 } });
   let strictErrors;
   try {
@@ -1721,12 +2132,60 @@ async function verifyCompactControlJourney(browser, baseUrl) {
     strictErrors = collectStrictClientErrors(page);
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
     await waitForCampaignBoot(page);
-    await startStageOneCampaign(page);
+    const acceptRestart = (dialog) => dialog.accept();
+    page.once("dialog", acceptRestart);
+    await page.waitForTimeout(50);
+    await page.locator("#start-campaign").click();
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.locator("#stage-briefing").waitFor({ state: "visible" });
+    await assertCompactStageOneBriefing(page);
+    await acknowledgeStageOneBriefing(page);
     await enterBattle(page, 1, "Cinder Span");
 
     const canvas = page.locator("#battle-canvas-3d");
     await canvas.waitFor({ state: "visible" });
     await page.waitForFunction(() => document.querySelector("#battle-asset-status")?.dataset.state === "loaded", undefined, { timeout: 30_000 });
+    const stageSelector = page.locator("#stage-selector");
+    await stageSelector.waitFor({ state: "hidden" });
+    const initialCompactLayout = await page.evaluate(() => {
+      const canvasElement = document.querySelector("#battle-canvas-3d");
+      const selectorElement = document.querySelector("#stage-selector");
+      const stageNumber = document.querySelector("#stage-number");
+      const canvasRect = canvasElement?.getBoundingClientRect();
+      const stageNumberRect = stageNumber?.getBoundingClientRect();
+      return {
+        documentScrollWidth: document.documentElement.scrollWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        viewportWidth: window.innerWidth,
+        canvasFitsViewport: Boolean(
+          canvasRect
+          && canvasRect.left >= 0
+          && canvasRect.top >= 0
+          && canvasRect.right <= window.innerWidth
+          && canvasRect.bottom <= window.innerHeight,
+        ),
+        selectorHidden: selectorElement ? getComputedStyle(selectorElement).display === "none" : false,
+        stageIdentity: stageNumber?.textContent?.trim() ?? "",
+        stageIdentityRendered: Boolean(stageNumberRect && stageNumberRect.width > 0 && stageNumberRect.height > 0),
+      };
+    });
+    assert.ok(
+      initialCompactLayout.documentScrollWidth <= initialCompactLayout.viewportWidth
+        && initialCompactLayout.bodyScrollWidth <= initialCompactLayout.viewportWidth,
+      `At 320×568, the document and body must not overflow horizontally; observed document=${initialCompactLayout.documentScrollWidth}, body=${initialCompactLayout.bodyScrollWidth}, viewport=${initialCompactLayout.viewportWidth}.`,
+    );
+    assert.equal(
+      initialCompactLayout.canvasFitsViewport,
+      true,
+      "At 320×568 before scrolling, the complete battlefield canvas must fit inside the viewport.",
+    );
+    assert.equal(
+      initialCompactLayout.selectorHidden,
+      true,
+      "At 320×568, the ten-stage selector must be hidden so it cannot displace the realtime field.",
+    );
+    assert.notEqual(initialCompactLayout.stageIdentity, "", "Compact combat must retain the current stage identity without the selector rail.");
+    assert.equal(initialCompactLayout.stageIdentityRendered, true, "Compact combat must visibly render the current stage identity.");
     const canvasCenterTarget = await canvas.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.id ?? null;
@@ -1831,7 +2290,7 @@ async function openFreshStageOneFieldOverlay(context, baseUrl, observePage = nul
   await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
   await waitForCampaignBoot(page);
   await startP2StageOne(page);
-  await page.locator(".ashen-field-command").waitFor({ state: "visible" });
+  await page.locator(".ashen-field-command").waitFor({ state: "attached" });
   await page.locator("#battle-canvas-3d").waitFor({ state: "visible" });
   return page;
 }
@@ -1839,121 +2298,178 @@ async function openFreshStageOneFieldOverlay(context, baseUrl, observePage = nul
 async function inspectCompactFieldOverlay(page) {
   return page.evaluate(() => {
     const overlay = document.querySelector(".ashen-field-command");
-    const proxy = overlay?.querySelector(".ashen-field-command__activate");
-    const consequence = overlay?.querySelector(".ashen-field-command__activate-note");
-    const activeCommand = document.querySelector('#command-panel [data-action][aria-current="step"]');
-    const canvas = document.querySelector("#battle-canvas-3d");
-    const rect = consequence?.getBoundingClientRect();
-    const proxyRect = proxy?.getBoundingClientRect();
-    const consequenceStyle = consequence && getComputedStyle(consequence);
-    const computedLineHeight = consequenceStyle?.lineHeight === "normal"
-      ? Number.parseFloat(consequenceStyle.fontSize) * 1.2
-      : Number.parseFloat(consequenceStyle?.lineHeight);
-    let blankCanvasTarget = null;
+    const canvasCandidates = [
+      document.querySelector("#battle-canvas-3d"),
+      document.querySelector("#battle-canvas-fallback"),
+    ];
+    const missionGuide = document.querySelector("#battle-mission-guide");
+    const missionCurrent = document.querySelector("#battle-mission-current");
+    const missionWhy = document.querySelector("#battle-mission-why");
+    const commandPanel = document.querySelector("#command-panel");
+    const commandControls = [...document.querySelectorAll("#command-panel [data-action]")];
+    const saveDock = document.querySelector("#save-dock");
+    const saveControls = [
+      document.querySelector("#export-save"),
+      document.querySelector('label[for="import-save"]'),
+    ].filter(Boolean);
+    const isRendered = (element) => {
+      if (!element) return false;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0
+        && rect.height > 0
+        && style.display !== "none"
+        && style.visibility !== "hidden";
+    };
+    const canvas = canvasCandidates.find(isRendered) ?? null;
 
-    if (canvas) {
-      const canvasRect = canvas.getBoundingClientRect();
-      const step = Math.max(24, Math.floor(Math.min(canvasRect.width, canvasRect.height) / 6));
-      for (let y = canvasRect.top + 12; y < canvasRect.bottom - 12 && !blankCanvasTarget; y += step) {
-        for (let x = canvasRect.left + 12; x < canvasRect.right - 12; x += step) {
-          if (document.elementFromPoint(x, y) === canvas) {
-            blankCanvasTarget = "battle-canvas-3d";
-            break;
-          }
-        }
-      }
-    }
+    canvas?.scrollIntoView({ block: "center", inline: "nearest" });
+    const canvasRect = canvas?.getBoundingClientRect();
+    const samplePoints = canvasRect
+      ? [
+          [0.25, 0.25],
+          [0.5, 0.25],
+          [0.75, 0.25],
+          [0.25, 0.5],
+          [0.5, 0.5],
+          [0.75, 0.5],
+          [0.25, 0.75],
+          [0.5, 0.75],
+          [0.75, 0.75],
+        ].map(([xRatio, yRatio]) => ({
+          x: canvasRect.left + canvasRect.width * xRatio,
+          y: canvasRect.top + canvasRect.height * yRatio,
+        })).filter(({ x, y }) => x >= 0 && x < innerWidth && y >= 0 && y < innerHeight)
+      : [];
+    const sampledOwners = samplePoints.map(({ x, y }) => document.elementFromPoint(x, y));
+    const overlayBounds = overlay?.getBoundingClientRect();
+    const overlayStyle = overlay && getComputedStyle(overlay);
 
-    const visible = (element, bounds) => Boolean(
-      element
-      && bounds
-      && bounds.width > 0
-      && bounds.height > 0
-      && getComputedStyle(element).visibility !== "hidden"
-      && getComputedStyle(element).display !== "none"
-      && bounds.right > 0
-      && bounds.left < window.innerWidth
-      && bounds.bottom > 0
-      && bounds.top < window.innerHeight
-    );
+    const controls = commandControls.map((control) => {
+      control.scrollIntoView({ block: "center", inline: "nearest" });
+      const rect = control.getBoundingClientRect();
+      const owner = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      return {
+        action: control.dataset.action ?? "",
+        text: control.textContent?.trim() ?? "",
+        rendered: isRendered(control),
+        ownsCenter: control === owner || control.contains(owner),
+      };
+    });
+    const saveTargets = saveControls.map((control) => {
+      control.scrollIntoView({ block: "center", inline: "nearest" });
+      const rect = control.getBoundingClientRect();
+      const owner = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      return {
+        id: control.id || control.getAttribute("for") || "",
+        text: control.textContent?.trim() ?? "",
+        rendered: isRendered(control),
+        width: rect.width,
+        height: rect.height,
+        ownsCenter: control === owner || control.contains(owner),
+        centerOwnerSaveDock: owner?.closest("#save-dock") === saveDock,
+        belongsToBattlefield: Boolean(control.closest("#battle-field")),
+        belongsToCommandPanel: Boolean(control.closest("#command-panel")),
+      };
+    });
 
     return {
-      activeCommandCount: document.querySelectorAll('#command-panel [data-action][aria-current="step"]').length,
-      activeCommandDetail: activeCommand?.querySelector("small")?.textContent?.trim() ?? "",
-      activeCommandName: activeCommand?.querySelector("strong")?.textContent?.trim() ?? "",
-      consequenceText: consequence?.textContent?.trim() ?? "",
-      consequenceVisible: visible(consequence, rect),
-      consequenceClientHeight: consequence?.clientHeight ?? 0,
-      consequenceLineHeight: computedLineHeight,
-      consequenceVisualHeight: rect?.height ?? 0,
-      proxyVisible: visible(proxy, proxyRect),
-      proxyWidth: proxyRect?.width ?? 0,
-      proxyHeight: proxyRect?.height ?? 0,
-      proxyOwnsCenter: Boolean(
-        proxy
-        && proxyRect
-        && proxy.contains(document.elementFromPoint(proxyRect.left + proxyRect.width / 2, proxyRect.top + proxyRect.height / 2))
+      overlayPresent: Boolean(overlay),
+      overlayDisplay: overlayStyle?.display ?? null,
+      overlayWidth: overlayBounds?.width ?? 0,
+      overlayHeight: overlayBounds?.height ?? 0,
+      overlayCanvasHitCount: sampledOwners.filter((owner) => overlay && (owner === overlay || overlay.contains(owner))).length,
+      canvasId: canvas?.id ?? null,
+      canvasRendered: isRendered(canvas),
+      canvasSampleCount: sampledOwners.length,
+      canvasOwnsEverySample: sampledOwners.every((owner) => owner === canvas),
+      canvasWithinViewportWidth: Boolean(
+        canvasRect
+        && canvasRect.left >= 0
+        && canvasRect.right <= innerWidth,
       ),
-      proxyAriaLabel: proxy?.getAttribute("aria-label")?.trim() ?? "",
-      objective: overlay?.querySelector(".ashen-field-command__objective")?.textContent?.trim() ?? "",
-      hostile: overlay?.querySelector(".ashen-field-command__hostile")?.textContent?.trim() ?? "",
-      ward: overlay?.querySelector(".ashen-field-command__ward")?.textContent?.trim() ?? "",
-      integrity: document.querySelector("#integrity-value")?.textContent?.trim() ?? "",
-      blankCanvasTarget,
+      missionGuideRendered: isRendered(missionGuide),
+      missionCurrent: missionCurrent?.textContent?.trim() ?? "",
+      missionWhy: missionWhy?.textContent?.trim() ?? "",
+      commandPanelRendered: isRendered(commandPanel),
+      controls,
+      saveDockRendered: isRendered(saveDock),
+      saveTargets,
       horizontalOverflow: {
         documentElement: document.documentElement.scrollWidth,
         body: document.body.scrollWidth,
-        viewport: window.innerWidth,
+        viewport: innerWidth,
       },
-      overlayInteractiveTargetCount: overlay?.querySelectorAll('button, [role="button"]').length ?? 0,
     };
   });
 }
 
-function assertCompactFieldOverlaySurface(surface, context, { requireCanvasPassThrough = true } = {}) {
-  assert.equal(surface.activeCommandCount, 1, `${context} must expose exactly one current native command.`);
-  assert.notEqual(surface.activeCommandDetail, "", `${context} must derive a nonempty consequence from the current native command <small>.`);
-  assert.notEqual(surface.activeCommandName, "", `${context} must derive the proxy accessible name from a nonempty native command name.`);
-  assert.notEqual(surface.proxyAriaLabel, "", `${context} native-command proxy must expose a nonempty accessible name.`);
-  assert.equal(
-    surface.proxyAriaLabel.includes(surface.activeCommandName),
-    true,
-    `${context} proxy accessible name must contain the dynamic native command name.`,
+function assertCompactSaveControls(surface, context) {
+  assert.equal(surface.saveDockRendered, true, `${context} must keep the save dock rendered during active play.`);
+  assert.deepEqual(
+    surface.saveTargets.map(({ id }) => id),
+    ["export-save", "import-save"],
+    `${context} must expose both export and import hit targets.`,
   );
-  assert.equal(
-    surface.proxyAriaLabel.includes(surface.activeCommandDetail),
-    true,
-    `${context} proxy accessible name must contain the dynamic native command <small> detail.`,
-  );
-  assert.equal(
-    surface.consequenceText,
-    surface.activeCommandDetail,
-    `${context} consequence must be the active native command <small> text, not hard-coded visible copy.`,
-  );
-  assert.equal(surface.consequenceVisible, true, `${context} consequence must visibly render in the compact battlefield overlay.`);
-  assert.ok(
-    surface.consequenceClientHeight <= Math.ceil(surface.consequenceLineHeight) + 1
-      && surface.consequenceVisualHeight <= Math.ceil(surface.consequenceLineHeight) + 1,
-    `${context} consequence must occupy one visual line; clientHeight=${surface.consequenceClientHeight}, visualHeight=${surface.consequenceVisualHeight}, lineHeight=${surface.consequenceLineHeight}.`,
-  );
-  assert.equal(surface.proxyVisible, true, `${context} native-command proxy must remain visible at 360px.`);
-  assert.ok(
-    surface.proxyWidth >= 48 && surface.proxyHeight >= 48,
-    `${context} native-command proxy must provide a >=48×48 CSS-pixel target; observed ${surface.proxyWidth}×${surface.proxyHeight}.`,
-  );
-  assert.equal(surface.proxyOwnsCenter, true, `${context} native-command proxy must own its center hit-test.`);
-  if (requireCanvasPassThrough) {
-    assert.equal(surface.blankCanvasTarget, "battle-canvas-3d", `${context} must leave a blank battlefield point owned by #battle-canvas-3d.`);
+  for (const target of surface.saveTargets) {
+    assert.notEqual(target.text, "", `${context} ${target.id} must retain visible control copy.`);
+    assert.equal(target.rendered, true, `${context} ${target.id} must remain visibly rendered during active play.`);
+    assert.ok(target.width > 0 && target.height > 0, `${context} ${target.id} must expose a non-zero hit target.`);
+    assert.equal(target.ownsCenter, true, `${context} ${target.id} must own its center hit-test point.`);
+    assert.equal(target.centerOwnerSaveDock, true, `${context} ${target.id} center hit must remain owned by the save dock.`);
+    assert.equal(target.belongsToBattlefield, false, `${context} ${target.id} must remain outside tactical-canvas ownership.`);
+    assert.equal(target.belongsToCommandPanel, false, `${context} ${target.id} must remain outside command-panel ownership.`);
   }
+}
+
+function assertCompactFieldOverlaySurface(surface, context, { expectedCanvasId = "battle-canvas-3d" } = {}) {
+  assert.equal(surface.overlayPresent, true, `${context} must retain the overlay DOM for compatibility.`);
+  assert.equal(surface.overlayDisplay, "none", `${context} must presentation-hide the legacy field overlay.`);
+  assert.equal(
+    surface.overlayWidth * surface.overlayHeight,
+    0,
+    `${context} hidden overlay must occupy no rendered area.`,
+  );
+  assert.equal(
+    surface.overlayCanvasHitCount,
+    0,
+    `${context} hidden overlay must not intercept any sampled active-canvas point.`,
+  );
+  assert.equal(surface.canvasId, expectedCanvasId, `${context} must activate the expected battle canvas.`);
+  assert.equal(surface.canvasRendered, true, `${context} must render its active tactical canvas.`);
+  assert.ok(surface.canvasSampleCount > 0, `${context} must expose viewport canvas points for hit-testing.`);
+  assert.equal(
+    surface.canvasOwnsEverySample,
+    true,
+    `${context} sampled tactical-canvas points must remain owned by #${surface.canvasId}.`,
+  );
+  assert.equal(
+    surface.canvasWithinViewportWidth,
+    true,
+    `${context} active canvas must fit the 360px viewport width.`,
+  );
+  assert.equal(surface.missionGuideRendered, true, `${context} must keep the mission guide rendered.`);
+  assert.notEqual(surface.missionCurrent, "", `${context} must expose a concrete current mission.`);
+  assert.notEqual(surface.missionWhy, "", `${context} must explain why the current mission matters.`);
+  assert.equal(surface.commandPanelRendered, true, `${context} must keep the command panel rendered.`);
+  assert.equal(surface.controls.length, 7, `${context} must retain all seven campaign command controls.`);
+  for (const control of surface.controls) {
+    assert.notEqual(control.action, "", `${context} each command must retain its action identity.`);
+    assert.notEqual(control.text, "", `${context} ${control.action} must retain visible command copy.`);
+    assert.equal(control.rendered, true, `${context} ${control.action} must remain rendered and reachable.`);
+    assert.equal(control.ownsCenter, true, `${context} ${control.action} must own its center hit-test point.`);
+  }
+  assertCompactSaveControls(surface, context);
   assert.ok(
     surface.horizontalOverflow.documentElement <= surface.horizontalOverflow.viewport
       && surface.horizontalOverflow.body <= surface.horizontalOverflow.viewport,
     `${context} must not cause document horizontal overflow; documentElement=${surface.horizontalOverflow.documentElement}, body=${surface.horizontalOverflow.body}, viewport=${surface.horizontalOverflow.viewport}.`,
-  );
-  assert.equal(
-    surface.overlayInteractiveTargetCount,
-    1,
-    `${context} must retain only the existing native-command proxy as an interactive overlay target.`,
   );
 }
 
@@ -1985,16 +2501,17 @@ async function verifyCompactFieldOverlay(browser, baseUrl) {
     await waitForCampaignBoot(page);
     await page.evaluate(() => window.__battleAnimationAudit.begin());
     await startP2StageOne(page);
-    await page.locator(".ashen-field-command").waitFor({ state: "visible" });
+    await page.locator(".ashen-field-command").waitFor({ state: "attached" });
+    await page.locator("#battle-canvas-fallback").waitFor({ state: "visible" });
     await page.waitForTimeout(350);
     const animationRequests = await page.evaluate(() => window.__battleAnimationAudit.end());
     const surface = await inspectCompactFieldOverlay(page);
 
-    assertCompactFieldOverlaySurface(surface, "Reduced-motion fresh 360px Stage 1 compact field overlay", { requireCanvasPassThrough: false });
-    assert.notEqual(surface.objective, "", "Reduced-motion field overlay must expose a nonempty objective.");
-    assert.notEqual(surface.hostile, "", "Reduced-motion field overlay must expose a nonempty hostile readout.");
-    assert.notEqual(surface.ward, "", "Reduced-motion field overlay must expose a nonempty ward readout.");
-    assert.notEqual(surface.integrity, "", "Reduced-motion Stage 1 must expose a nonempty integrity value.");
+    assertCompactFieldOverlaySurface(
+      surface,
+      "Reduced-motion fresh 360px Stage 1 compact field overlay",
+      { expectedCanvasId: "battle-canvas-fallback" },
+    );
     assert.ok(
       animationRequests <= 1,
       `Reduced-motion compact field overlay must not schedule a continuous animation-frame loop; observed ${animationRequests} request(s).`,
@@ -2003,6 +2520,22 @@ async function verifyCompactFieldOverlay(browser, baseUrl) {
   } finally {
     reducedStrictErrors?.beginTeardown();
     await reducedMotionContext.close();
+  }
+}
+
+async function verifyMobileSaveControls(browser, baseUrl) {
+  const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
+  let strictErrors;
+  try {
+    const page = await openFreshStageOneFieldOverlay(context, baseUrl, (freshPage) => {
+      strictErrors = collectStrictClientErrors(freshPage);
+    });
+    const surface = await inspectCompactFieldOverlay(page);
+    assertCompactSaveControls(surface, "Focused 360px active-play save controls");
+    assertNoStrictClientErrors(strictErrors, "Focused 360px active-play save controls");
+  } finally {
+    strictErrors?.beginTeardown();
+    await context.close();
   }
 }
 
@@ -2016,11 +2549,10 @@ async function verifyStageOneEncounter(browser, baseUrl) {
     const clientErrors = collectStrictClientErrors(page);
     const moduleResponses = collectCampaignModuleResponses(page, baseUrl);
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-    let activatedAt;
     try {
       await waitForCampaignBoot(page, { baseUrl, responseTrace: moduleResponses, requireStartControlReady: true });
       await verifyWorker(page, baseUrl);
-      activatedAt = await startStageOneCampaign(page);
+      await startStageOneCampaign(page);
     } catch (error) {
       await appendCampaignModuleEvidence(error, page, baseUrl, moduleResponses);
       throw error;
@@ -2030,6 +2562,9 @@ async function verifyStageOneEncounter(browser, baseUrl) {
 
     await assertDirectSourceGlbReadiness(page);
     await assertBattleCanvasBlankPassThrough(page);
+    const lang = await page.locator("html").getAttribute("lang");
+    const hudContract = STAGE_ONE_ENCOUNTER_HUD[lang];
+    assert.ok(hudContract, `Stage 1 encounter requires a supported document locale; received ${String(lang)}.`);
 
     const desktopLayout = await page.evaluate(() => {
       const canvas = document.querySelector("#battle-canvas-3d");
@@ -2038,6 +2573,7 @@ async function verifyStageOneEncounter(browser, baseUrl) {
       const pressure = document.querySelector("#battle-pressure");
       const waveIndicator = document.querySelector("#battle-wave-indicator");
       const controls = [...document.querySelectorAll("#command-panel [data-action]")];
+      const stageControls = [...document.querySelectorAll("#stage-selector button")];
       const rect = (element) => element.getBoundingClientRect();
       return {
         canvas: canvas && { hidden: canvas.hidden, width: rect(canvas).width, height: rect(canvas).height },
@@ -2050,6 +2586,11 @@ async function verifyStageOneEncounter(browser, baseUrl) {
           const y = box.top + box.height / 2;
           return { id: control.id, width: box.width, height: box.height, ownsCenter: control.contains(document.elementFromPoint(x, y)) };
         }),
+        stageSelector: {
+          rendered: getComputedStyle(document.querySelector("#stage-selector")).display !== "none",
+          singleRow: stageControls.length === 10
+            && stageControls.every((control) => Math.abs(rect(control).top - rect(stageControls[0]).top) < 1),
+        },
         waveIndicator: waveIndicator?.textContent?.trim(),
         horizontalOverflow: document.scrollingElement.scrollWidth > window.innerWidth,
         campaignScroll: document.scrollingElement.scrollHeight > window.innerHeight,
@@ -2059,17 +2600,8 @@ async function verifyStageOneEncounter(browser, baseUrl) {
     assert.equal(desktopLayout.canvas?.hidden, false, "Stage 1 must expose the direct tactical canvas rather than only a fallback.");
     assert.ok(desktopLayout.canvas?.width > 0 && desktopLayout.canvas?.height > 0, "Stage 1 direct tactical canvas must have a visible field-sized box.");
     assert.ok(desktopLayout.hud?.width > 0 && desktopLayout.hud?.height > 0, "Stage 1 must expose a visible tactical field HUD.");
-    const sampledHudState = [
-      {
-        pressure: "Preparation window: issue commands before the first hostile wave enters the lane.",
-        waveIndicator: /PREPARATION · WAVE 1\/3 · SCOUT/,
-      },
-      {
-        pressure: "Live-wave pressure: keep the command pad active while hostiles cross the lane.",
-        waveIndicator: /LIVE WAVE · 1\/3 · SCOUT/,
-      },
-    ].find(({ pressure, waveIndicator }) => (
-      desktopLayout.pressure === pressure && waveIndicator.test(desktopLayout.waveIndicator ?? "")
+    const sampledHudState = Object.values(hudContract).find(({ pressure, waveIndicator }) => (
+      desktopLayout.pressure === pressure && desktopLayout.waveIndicator === waveIndicator
     ));
     assert.ok(
       sampledHudState,
@@ -2080,32 +2612,41 @@ async function verifyStageOneEncounter(browser, baseUrl) {
     );
     assert.ok(desktopLayout.controls.length > 0, "Stage 1 must expose command controls beside the tactical field.");
     assert.equal(desktopLayout.controls.every((control) => control.width > 0 && control.height > 0 && control.ownsCenter), true, "Every visible Stage 1 command must own a reachable center hit-test point rather than overlap the canvas.");
+    assert.deepEqual(
+      desktopLayout.stageSelector,
+      { rendered: true, singleRow: true },
+      "Desktop combat must retain all ten stage identities in one visible selector row.",
+    );
     assert.equal(desktopLayout.horizontalOverflow, false, "Desktop Stage 1 must not create horizontal campaign overflow.");
     assert.equal(desktopLayout.campaignScroll, false, "Desktop Stage 1 must not create document-level campaign scrolling.");
 
-    // The declared Scout wave clock only arms once the preparation legion is
-    // fielded. Claim the forge node too, so the first incomplete checklist
-    // objective is the Scout encounter rather than another command.
+    // The declared Scout wave clock arms only when the four-Legion force has
+    // claimed the forge node. Keep the first incomplete checklist objective
+    // at the encounter by satisfying both configured Cinder Span prerequisites.
     await materializeStageOneAllies(page, "Stage 1 tactical encounter");
     await clickEnabledAction(page, "#action-capture");
+    await clickEnabledAction(page, "#action-materialize");
+    assert.equal(await text(page.locator("#legion-value")), "4 / 10", "The focused Stage 1 path must field four Legion allies before awaiting Scout.");
+    assert.equal(await text(page.locator("#nodes-value")), "1 / 1", "The focused Stage 1 path must claim the forge node before awaiting Scout.");
+    const readinessAt = Date.now();
 
     await page.waitForFunction(
-      () => /SCOUT · 2 HOSTILES/.test(document.querySelector("#battle-hostile-label")?.textContent || ""),
-      undefined,
+      (expected) => document.querySelector("#battle-hostile-label")?.textContent?.trim() === expected,
+      STAGE_ONE_SCOUT_LABELS[lang],
       { timeout: 15_000 },
     );
     await assertCurrentObjectiveCommand(page, null, "Live Stage 1 Scout encounter");
-    const elapsed = Date.now() - activatedAt;
-    assert.ok(elapsed >= 7_000, `Stage 1 Scout wave must honor the declared 8-second preparation window; it appeared after ${elapsed}ms.`);
+    const elapsed = Date.now() - readinessAt;
+    assert.ok(elapsed >= 7_000, `Stage 1 Scout wave must honor the declared 8-second preparation window after four Legion and one forge-node readiness; it appeared after ${elapsed}ms.`);
     assert.equal(
       await text(page.locator("#battle-pressure")),
-      "Live-wave pressure: keep the command pad active while hostiles cross the lane.",
-      "The scheduled Stage 1 Scout wave must update the field HUD from preparation to live-wave pressure."
+      hudContract.live.pressure,
+      `The scheduled Stage 1 Scout wave must publish the exact ${lang} live-pressure guidance.`
     );
-    assert.match(
+    assert.equal(
       await text(page.locator("#battle-wave-indicator")),
-      /LIVE WAVE · 1\/3 · SCOUT/,
-      "The scheduled Stage 1 Scout wave must publish its active runtime status through the tactical wave badge."
+      hudContract.live.waveIndicator,
+      `The scheduled Stage 1 Scout wave must publish the exact ${lang} active wave badge.`
     );
     assertNoStrictClientErrors(clientErrors, "Stage 1 tactical encounter");
 
@@ -2171,17 +2712,21 @@ async function runBattleParityPath(browser, baseUrl, { failCanvas = false } = {}
     const clientErrors = collectClientErrors(page);
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => document.querySelector("#save-status")?.textContent !== "Preparing local save…");
-    await startStageOneCampaign(page);
+    await startStageOneCampaign(page, { verifyBriefing: true, briefingLocale: "ko" });
     const entryIntegrity = Number.parseInt(await enterBattle(page, 1, "Cinder Span"), 10);
 
     if (failCanvas) {
       assert.equal(await page.locator("#battle-canvas-3d").isHidden(), true, "A failed WebGL2 direct renderer must reveal the static tactical fallback instead of a blank battlefield.");
       assert.equal(await page.locator("#battle-canvas-fallback").isVisible(), true, "A failed WebGL2 direct renderer must expose the 2D fallback canvas.");
       assert.equal(await page.locator("#battle-visual-fallback").isVisible(), true, "A failed WebGL2 direct renderer must expose the tactical fallback brief.");
-      assert.match(
-        await text(page.locator("#campaign-status")),
-        /^(?:Battle visualization is unavailable; command rules remain ready\.|First order: Hunt two rift spoor\.)$/,
-        "The fallback must retain either its truthful rendering notice or the acknowledged first-order guidance."
+      const language = await page.locator("html").getAttribute("lang");
+      const fallbackPresentation = BATTLE_FALLBACK_PRESENTATIONS[language];
+      assert.ok(fallbackPresentation, `Canvas fallback campaign status requires a supported document locale; received ${String(language)}.`);
+      const fallbackStatuses = [fallbackPresentation.notice, STAGE_ONE_FIRST_ORDERS[language]];
+      const campaignStatus = await text(page.locator("#campaign-status"));
+      assert.ok(
+        fallbackStatuses.includes(campaignStatus),
+        `The ${language} fallback must retain an exact rendering notice or acknowledged first-order status; observed ${JSON.stringify(campaignStatus)}.`
       );
       assert.equal(await page.locator("#action-hunt").isEnabled(), true, "The fallback must keep the initial Hunt command available after the briefing acknowledgement.");
       assert.equal(await page.locator("[data-battle-target]").count(), 0, "The fallback must not resurrect removed absolute battle-target controls.");
@@ -2190,45 +2735,75 @@ async function runBattleParityPath(browser, baseUrl, { failCanvas = false } = {}
       assert.equal(
         await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches),
         false,
-        "The renderer-enabled parity path must run without reduced-motion preference before waiting for live-wave breaches."
+        "The renderer-enabled parity path must run without reduced-motion preference before waiting for a durable encounter resolution."
       );
       assert.equal(await page.locator("#battle-visual-fallback").isHidden(), true, "A functioning WebGL2 direct renderer must keep the static tactical fallback card hidden.");
     }
 
-    await materializeStageOneAllies(page, failCanvas ? "Canvas fallback battle path" : "Rendered battle path");
-    await awaitStageOneScoutEngagementBeforeBreach(page, failCanvas ? "Canvas fallback battle path" : "Rendered battle path");
+    const parityContext = failCanvas ? "Canvas fallback battle path" : "Rendered battle path";
+    await materializeStageOneAllies(page, parityContext);
+    await clickEnabledAction(page, "#action-capture");
+    await clickEnabledAction(page, "#action-materialize");
+    assert.equal(
+      await text(page.locator("#legion-value")),
+      "4 / 10",
+      `${parityContext} must satisfy the declared four-Legion preparation prerequisite before awaiting Scout.`
+    );
+    assert.equal(
+      await text(page.locator("#nodes-value")),
+      "1 / 1",
+      `${parityContext} must satisfy the declared forge-node preparation prerequisite before awaiting Scout.`
+    );
+    const resolvedCountBeforeScout = await page.locator("#objective-checklist .complete").count();
+    await awaitStageOneScoutEngagementBeforeBreach(page, parityContext);
 
-    const breach = await awaitTimedBattleBreachBatch(page, entryIntegrity);
+    const resolution = await awaitTimedBattleResolution(page, entryIntegrity, resolvedCountBeforeScout);
     if (failCanvas) {
+      const language = await page.locator("html").getAttribute("lang");
+      const fallbackPresentation = BATTLE_FALLBACK_PRESENTATIONS[language];
+      assert.ok(fallbackPresentation, `Canvas fallback resolution requires a supported document locale; received ${String(language)}.`);
       assert.equal(
         await text(page.locator("#battle-pressure")),
-        "Static tactical fallback: rendering is unavailable, but command rules remain active.",
-        "The first scheduled fallback breach must not overwrite the truthful static battle pressure."
+        fallbackPresentation.pressure,
+        `The first scheduled fallback resolution must retain the exact ${language} static battle pressure.`
       );
       assert.equal(
         await text(page.locator("#battle-wave-indicator")),
-        "STATIC TACTICAL BRIEFING · COMMAND SCHEDULE ACTIVE",
-        "The first scheduled fallback breach must retain the static tactical briefing command schedule instead of a live-wave label."
+        fallbackPresentation.waveIndicator,
+        `The first scheduled fallback resolution must retain the exact ${language} static command-schedule label instead of a transient live-wave label.`
       );
     }
     if (failCanvas) await verifyCommandCooldown(page);
     assertNoClientErrors(clientErrors, failCanvas ? "Canvas fallback battle path" : "Rendered battle path");
-    return breach;
+    return resolution;
   } finally {
     await context.close();
   }
 }
 
-async function verifyRendererIndependentBattleBreach(browser, baseUrl) {
+async function verifyRendererIndependentBattleResolution(browser, baseUrl) {
   const rendered = await runBattleParityPath(browser, baseUrl);
   const fallback = await runBattleParityPath(browser, baseUrl, { failCanvas: true });
-  const renderedBreaches = rendered.trace.filter(isSerializedEncounterBreach);
-  const fallbackBreaches = fallback.trace.filter(isSerializedEncounterBreach);
   const renderedActions = rendered.trace.filter((event) => event.kind === "action");
   const fallbackActions = fallback.trace.filter((event) => event.kind === "action");
 
-  assert.ok(renderedBreaches.length > 0, "The renderer-enabled battle path must record one or more serialized encounter breach events.");
-  assert.ok(fallbackBreaches.length > 0, "The Canvas-fallback battle path must record one or more serialized encounter breach events.");
+  assert.ok(rendered.resolutionSequence.length > 0, "The renderer-enabled battle path must record a durable encounter resolution.");
+  assert.ok(fallback.resolutionSequence.length > 0, "The Canvas-fallback battle path must record a durable encounter resolution.");
+  assert.deepEqual(
+    fallback.resolutionSequence,
+    rendered.resolutionSequence,
+    "The renderer-enabled and Canvas-fallback paths must serialize the same normalized encounter resolution sequence."
+  );
+  assert.equal(
+    fallback.outcome,
+    rendered.outcome,
+    "The renderer-enabled and Canvas-fallback paths must produce the same first durable encounter outcome."
+  );
+  assert.equal(
+    fallback.integrityDelta,
+    rendered.integrityDelta,
+    "The renderer-enabled and Canvas-fallback paths must apply the same Gate integrity delta for their encounter resolution."
+  );
   assert.deepEqual(
     fallbackActions,
     renderedActions,
@@ -2392,6 +2967,78 @@ async function chooseRewardAndAdvance(page, rewardId, number, heading) {
     navigation.dispose();
   }
 }
+const CARRY_STATUS_LOCALES = Object.freeze({
+  "rift-lens": Object.freeze({
+    ko: "균열의 렌즈의 효과가 베일 시타델(으)로 이어집니다.",
+    en: "Rift Lens carries into Veil Citadel.",
+  }),
+  "veil-vanguard": Object.freeze({
+    ko: "베일 선봉대의 효과가 메아리 왕좌(으)로 이어집니다.",
+    en: "Veil Vanguard carries into Echo Throne.",
+  }),
+  "throne-echo": Object.freeze({
+    ko: "왕좌의 메아리의 효과가 선큰 바스티온(으)로 이어집니다.",
+    en: "Throne Echo carries into Sunken Bastion.",
+  }),
+});
+
+async function assertLocalizedCarryStatus(page, rewardId, context) {
+  const language = await page.locator("html").getAttribute("lang");
+  const carryStatus = CARRY_STATUS_LOCALES[rewardId]?.[language];
+  const firstOrder = STAGE_ONE_FIRST_ORDERS[language];
+  assert.equal(
+    typeof carryStatus,
+    "string",
+    `${context} requires a carry-status contract for reward=${rewardId} html[lang=${String(language)}].`
+  );
+  assert.equal(
+    typeof firstOrder,
+    "string",
+    `${context} requires the shared Hunt-first-order contract for html[lang=${String(language)}].`
+  );
+  assert.equal(
+    await text(page.locator("#campaign-status")),
+    `${carryStatus} ${firstOrder}`,
+    context
+  );
+}
+const STAGE_THREE_POSSESS_FEEDBACK = Object.freeze({
+  ko: "센티널의 의지가 아군 명령에 굴복했습니다. 그 분노가 총공격에 실려 발산됩니다.",
+  en: "A sentinel's will is folded into your command; its fury rides your assaults.",
+});
+const STAGE_SELECTOR_IDS = Object.freeze({
+  1: "cinder-span",
+  2: "veil-citadel",
+  3: "echo-throne",
+  4: "sunken-bastion",
+  5: "howling-sprawl",
+});
+const STAGE_SELECTOR_STATE_COPY = Object.freeze({
+  ko: Object.freeze({ cleared: "완료됨", current: "현재 스테이지", locked: "잠김" }),
+  en: Object.freeze({ cleared: "cleared", current: "current stage", locked: "locked" }),
+});
+
+async function assertLocalizedStageSelector(page, number, state, context) {
+  const language = await page.locator("html").getAttribute("lang");
+  const stageId = STAGE_SELECTOR_IDS[number];
+  const stateCopy = STAGE_SELECTOR_STATE_COPY[language]?.[state];
+  const dictionary = (await TRANSLATIONS_SOURCE_CONTRACT)[language];
+  const titleKey = `stage.${stageId}.title`;
+  assert.equal(typeof stageId, "string", `${context} requires Stage ${number} selector metadata.`);
+  assert.equal(typeof stateCopy, "string", `${context} requires ${language} selector-state copy for ${state}.`);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(dictionary ?? {}, titleKey),
+    true,
+    `${context} requires the ${language} translation key ${titleKey}.`
+  );
+  assert.equal(
+    await page.locator(`#stage-select-${number}`).getAttribute("aria-label"),
+    `${dictionary[titleKey]}: ${stateCopy}`,
+    context
+  );
+}
+
+
 
 
 async function runStageOne(page) {
@@ -2535,7 +3182,10 @@ async function runStageOne(page) {
   );
 
   await page.waitForFunction(
-    () => /Cinder Warden · 8\/8 HP/.test(document.querySelector("#battle-hostile-label")?.textContent || ""),
+    () => {
+      const assault = document.querySelector("#action-assault");
+      return assault instanceof HTMLButtonElement && !assault.disabled;
+    },
     undefined,
     { timeout: 75_000 },
   );
@@ -2577,7 +3227,7 @@ async function runStageOne(page) {
 
   await chooseRewardAndAdvance(page, "rift-lens", 2, "Veil Citadel");
   assert.equal(await text(page.locator("#legion-value")), "0 / 10", "Rift Lens must leave Stage 2 at the base legion capacity.");
-  assert.match(await text(page.locator("#campaign-status")), /Rift Lens carries into Veil Citadel\./, "Stage 2 must visibly report the selected Stage 1 boon.");
+  await assertLocalizedCarryStatus(page, "rift-lens", "Stage 2 must visibly report the selected Stage 1 boon.");
 }
 
 async function runStageTwo(page) {
@@ -2597,12 +3247,76 @@ async function runStageTwo(page) {
   );
   await chooseRewardAndAdvance(page, "veil-vanguard", 3, "Echo Throne");
   assert.equal(await text(page.locator("#legion-value")), "4 / 10", "Veil Vanguard must carry four raised shades into Stage 3.");
-  assert.match(await text(page.locator("#campaign-status")), /Veil Vanguard carries into Echo Throne\./, "Stage 3 must visibly report the selected Stage 2 boon.");
+  await assertLocalizedCarryStatus(page, "veil-vanguard", "Stage 3 must visibly report the selected Stage 2 boon.");
+}
+
+const STAGE_THREE_CHECKLIST_COPY = Object.freeze({
+  ko: Object.freeze({
+    possess: "센티널 빙의",
+    domain: "군주의 영역 1회 발동",
+    assault: "게이트 소버린 처치",
+    optionalSuffix: " (선택)",
+    optionalState: "선택 사항",
+    completeState: "완료됨",
+    currentState: "현재 목표",
+  }),
+  en: Object.freeze({
+    possess: "Possess a sentinel",
+    domain: "Invoke Lord's Domain once",
+    assault: "Defeat the Gate Sovereign",
+    optionalSuffix: " (Optional)",
+    optionalState: "optional",
+    completeState: "complete",
+    currentState: "current objective",
+  }),
+});
+
+async function assertStageThreeOptionalChecklist(page, expected, context) {
+  const language = await page.locator("html").getAttribute("lang");
+  const copy = STAGE_THREE_CHECKLIST_COPY[language];
+  assert.ok(copy, `${context} requires Stage 3 checklist copy for html[lang=${String(language)}].`);
+  const rows = await page.locator("#objective-checklist li").evaluateAll((items) => items.map((item) => ({
+    text: item.textContent?.trim() ?? "",
+    className: item.className,
+    ariaLabel: item.getAttribute("aria-label"),
+  })));
+
+  for (const id of ["possess", "domain"]) {
+    const state = expected[id];
+    const row = rows.find(({ text: rowText }) => rowText.startsWith(copy[id]));
+    const visibleText = `${copy[id]}${state === "optional" ? copy.optionalSuffix : ""}`;
+    const ariaState = state === "optional" ? copy.optionalState : copy.completeState;
+    assert.deepEqual(
+      row,
+      {
+        text: visibleText,
+        className: state,
+        ariaLabel: `${visibleText}: ${ariaState}`,
+      },
+      `${context} must render Stage 3 ${id} as exact ${language} ${state} copy without making it current.`,
+    );
+  }
+
+  assert.deepEqual(
+    rows.filter(({ className }) => className === "current"),
+    [{
+      text: copy.assault,
+      className: "current",
+      ariaLabel: `${copy.assault}: ${copy.currentState}`,
+    }],
+    `${context} must keep Assault as the only required current checklist row.`,
+  );
+  await assertCurrentObjectiveCommand(page, "assault", context);
 }
 
 async function runStageThree(page) {
   const entryIntegrity = await enterBattle(page, 3, "Echo Throne");
   await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract", "#action-materialize", "#action-materialize", "#action-capture"]);
+  await assertStageThreeOptionalChecklist(
+    page,
+    { possess: "optional", domain: "optional" },
+    "Prepared Stage 3 before optional commands",
+  );
   const traceBeforePossession = await campaignTrace(page);
   await clickEnabledAction(page, "#action-possess", { assertCampaignSurface: false });
   const traceAfterPossession = await campaignTrace(page);
@@ -2616,12 +3330,25 @@ async function runStageThree(page) {
     { kind: "action", action: "possess" },
     "Possession must append its semantic action event to the campaign trace."
   );
+  await assertStageThreeOptionalChecklist(
+    page,
+    { possess: "complete", domain: "optional" },
+    "Stage 3 after optional Possess",
+  );
+  const language = await page.locator("html").getAttribute("lang");
+  const possessFeedback = STAGE_THREE_POSSESS_FEEDBACK[language];
+  assert.equal(typeof possessFeedback, "string", `Stage 3 Possess requires an exact feedback contract for html[lang=${String(language)}].`);
   assert.equal(
     await text(page.locator("#campaign-status")),
-    "A sentinel's will is folded into your command; its fury rides your assaults.",
+    possessFeedback,
     "After Stage 3 Extract clears entry guidance, Possess must publish its sentinel command result instead of restoring the first-order prompt."
   );
   await runActions(page, ["#action-domain"]);
+  await assertStageThreeOptionalChecklist(
+    page,
+    { possess: "complete", domain: "complete" },
+    "Stage 3 after optional Domain",
+  );
   await assertPreparationIntegrity(page, 3, entryIntegrity);
   assert.equal(await text(page.locator("#legion-value")), "8 / 10", "Two materializations must grow the Veil Vanguard from four to eight shades.");
   await runActions(page, ["#action-assault", "#action-assault"]);
@@ -2633,24 +3360,74 @@ async function runStageThree(page) {
     "Stage 3 must offer its current two reward choices."
   );
   await chooseRewardAndAdvance(page, "throne-echo", 4, "Sunken Bastion");
-  assert.match(
-    await text(page.locator("#campaign-status")),
-    /Throne Echo carries into Sunken Bastion\./,
-    "Claiming Throne Echo must progress the campaign into Stage 4."
-  );
+  await assertLocalizedCarryStatus(page, "throne-echo", "Claiming Throne Echo must progress the campaign into Stage 4.");
   for (const number of [1, 2, 3]) {
-    const label = await page.locator(`#stage-select-${number}`).getAttribute("aria-label") || "";
-    assert.match(label, /cleared/, `Stage ${number} must be marked cleared after Stage 3 reward selection.`);
+    await assertLocalizedStageSelector(page, number, "cleared", `Stage ${number} must be marked cleared after Stage 3 reward selection.`);
   }
   assert.equal(await page.locator("#stage-select-4").getAttribute("aria-current"), "step", "Stage 4 must be the active campaign selection after the Stage 3 reward.");
-  assert.equal(await page.locator("#stage-select-4").getAttribute("aria-label"), "Sunken Bastion: current stage", "Stage 4 must be available as the current campaign selection.");
-  assert.equal(await page.locator("#stage-select-5").getAttribute("aria-label"), "Howling Sprawl: locked", "Stage 5 must remain locked after the Stage 3 reward.");
+  await assertLocalizedStageSelector(page, 4, "current", "Stage 4 must be available as the current campaign selection.");
+  await assertLocalizedStageSelector(page, 5, "locked", "Stage 5 must remain locked after the Stage 3 reward.");
 }
+
+async function verifyStageThreeChecklist(browser, baseUrl) {
+  const fixtures = await createCampaignFixtures();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  let strictErrors;
+  try {
+    const page = await context.newPage();
+    strictErrors = collectStrictClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await page.locator("#import-save").setInputFiles({
+      name: "abyssal-surge-stage-three-prepared.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(fixtures.stageThreePrepared), "utf8"),
+    });
+    await page.locator("#campaign-screen").waitFor({ state: "visible" });
+    await page.waitForFunction(
+      () => document.querySelector("#save-status")?.textContent.startsWith("가져온 캠페인 저장 완료"),
+      undefined,
+      { timeout: 10_000 },
+    );
+    await enterBattle(page, 3, "메아리 왕좌");
+    await assertStageThreeOptionalChecklist(
+      page,
+      { possess: "optional", domain: "optional" },
+      "Focused Korean Stage 3 prepared checklist",
+    );
+
+    await page.locator("#lang-toggle").click();
+    await page.waitForFunction(() => document.documentElement.lang === "en");
+    await assertStageThreeOptionalChecklist(
+      page,
+      { possess: "optional", domain: "optional" },
+      "Focused English Stage 3 prepared checklist",
+    );
+
+    await clickEnabledAction(page, "#action-possess");
+    await assertStageThreeOptionalChecklist(
+      page,
+      { possess: "complete", domain: "optional" },
+      "Focused Stage 3 after optional Possess",
+    );
+    await clickEnabledAction(page, "#action-domain");
+    await assertStageThreeOptionalChecklist(
+      page,
+      { possess: "complete", domain: "complete" },
+      "Focused Stage 3 after optional Domain",
+    );
+    assertNoStrictClientErrors(strictErrors, "Focused Stage 3 optional checklist");
+  } finally {
+    strictErrors?.beginTeardown();
+    await context.close();
+  }
+}
+
 
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
-const CURRENT_STATIC_CACHE = "abyssal-surge-static-v29";
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v37";
 
 function currentWorkerCacheName() {
   let serviceWorkerSource;
@@ -2671,7 +3448,7 @@ function currentWorkerCacheName() {
   assert.equal(
     cacheName,
     CURRENT_STATIC_CACHE,
-    "sw.js must retain the v29 static cache revision required by the browser cache assertion.",
+    "sw.js must retain the v30 static cache revision required by the browser cache assertion.",
   );
   return cacheName;
 }
@@ -2791,20 +3568,113 @@ async function verifyLobbyCampaignRoundTrip(browser, baseUrl) {
     assert.equal(await page.locator("#action-hunt").isEnabled(), true, "Retrying Stage 1 must return directly to its command path.");
 
     await page.setViewportSize({ width: 390, height: 844 });
-    const stageSelector = page.locator("#stage-selector");
-    await stageSelector.waitFor({ state: "visible" });
-    const { clientWidth, scrollWidth } = await stageSelector.evaluate((element) => ({
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth
-    }));
+    await page.locator("#retry-stage").scrollIntoViewIfNeeded();
+    const mobileNavigation = await page.evaluate(() => {
+      const stageSelector = document.querySelector("#stage-selector");
+      const stageNumber = document.querySelector("#stage-number");
+      const retry = document.querySelector("#retry-stage");
+      const retryRect = retry?.getBoundingClientRect();
+      const retryOwner = retryRect && document.elementFromPoint(
+        retryRect.left + retryRect.width / 2,
+        retryRect.top + retryRect.height / 2,
+      );
+      return {
+        selectorHidden: stageSelector ? getComputedStyle(stageSelector).display === "none" : false,
+        stageIdentity: stageNumber?.textContent?.trim() ?? "",
+        retryRendered: Boolean(
+          retryRect
+          && retryRect.width > 0
+          && retryRect.height > 0
+          && getComputedStyle(retry).display !== "none",
+        ),
+        retryOwnsCenter: Boolean(retry && retryOwner && retry.contains(retryOwner)),
+        documentScrollWidth: document.documentElement.scrollWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        viewportWidth: innerWidth,
+      };
+    });
+    assert.equal(mobileNavigation.selectorHidden, true, "At 390×844, the stage selector must stay hidden to prioritize the tactical field.");
+    assert.notEqual(mobileNavigation.stageIdentity, "", "At 390×844, the current stage identity must remain available without the selector.");
+    assert.equal(mobileNavigation.retryRendered, true, "At 390×844, the current-stage retry path must remain rendered.");
+    assert.equal(mobileNavigation.retryOwnsCenter, true, "At 390×844, the current-stage retry control must remain reachable.");
     assert.ok(
-      scrollWidth <= clientWidth,
-      `The 390px stage selector must not overflow horizontally; observed scrollWidth=${scrollWidth}, clientWidth=${clientWidth}.`
+      mobileNavigation.documentScrollWidth <= mobileNavigation.viewportWidth
+        && mobileNavigation.bodyScrollWidth <= mobileNavigation.viewportWidth,
+      `At 390×844, mobile combat must not overflow horizontally; document=${mobileNavigation.documentScrollWidth}, body=${mobileNavigation.bodyScrollWidth}, viewport=${mobileNavigation.viewportWidth}.`,
     );
   } finally {
     navigation?.dispose();
     await context.close();
   }
+}
+
+async function assertResultModalIsolation(page, context) {
+  const isolation = await page.evaluate(() => {
+    const result = document.querySelector("#view-result");
+    const screen = document.querySelector("#campaign-screen");
+    return {
+      siblings: [...screen.children].map((child) => ({
+        id: child.id,
+        isResult: child === result,
+        inert: child.inert,
+      })),
+      languageToggleInert: document.querySelector("#lang-toggle")?.inert ?? false,
+    };
+  });
+  assert.ok(isolation.siblings.length > 1, `${context} must have campaign siblings to isolate.`);
+  assert.equal(
+    isolation.siblings.every(({ isResult, inert }) => (isResult ? !inert : inert)),
+    true,
+    `${context} must make every #campaign-screen child except #view-result inert.`,
+  );
+  assert.equal(isolation.languageToggleInert, true, `${context} must isolate the page-level language toggle.`);
+
+  const focusableSelector = "button:not([hidden]):not(:disabled), input:not([type='hidden']):not(:disabled), [href], [tabindex]:not([tabindex='-1'])";
+  const focusableCount = await page.locator("#view-result").evaluate((overlay, selector) => {
+    const focusable = [...overlay.querySelectorAll(selector)]
+      .filter((element) => !element.hidden && !element.inert && element.getClientRects().length > 0);
+    focusable.at(-1)?.focus();
+    return focusable.length;
+  }, focusableSelector);
+  assert.ok(focusableCount > 0, `${context} must expose at least one result-modal control.`);
+  await page.keyboard.press("Tab");
+  assert.equal(
+    await page.locator("#view-result").evaluate((overlay, selector) => {
+      const focusable = [...overlay.querySelectorAll(selector)]
+        .filter((element) => !element.hidden && !element.inert && element.getClientRects().length > 0);
+      return document.activeElement === focusable[0];
+    }, focusableSelector),
+    true,
+    `${context} Tab from the final control must wrap to the first result-modal control.`,
+  );
+  await page.locator("#view-result").evaluate((overlay, selector) => {
+    const focusable = [...overlay.querySelectorAll(selector)]
+      .filter((element) => !element.hidden && !element.inert && element.getClientRects().length > 0);
+    focusable[0]?.focus();
+  }, focusableSelector);
+  await page.keyboard.press("Shift+Tab");
+  assert.equal(
+    await page.locator("#view-result").evaluate((overlay, selector) => {
+      const focusable = [...overlay.querySelectorAll(selector)]
+        .filter((element) => !element.hidden && !element.inert && element.getClientRects().length > 0);
+      return document.activeElement === focusable.at(-1);
+    }, focusableSelector),
+    true,
+    `${context} Shift+Tab from the first control must wrap to the final result-modal control.`,
+  );
+}
+
+async function assertResultModalIsolationRestored(page, context) {
+  const restored = await page.evaluate(() => ({
+    campaignChildrenInteractive: [...document.querySelector("#campaign-screen").children]
+      .every((child) => !child.inert),
+    languageToggleInteractive: !document.querySelector("#lang-toggle")?.inert,
+  }));
+  assert.deepEqual(
+    restored,
+    { campaignChildrenInteractive: true, languageToggleInteractive: true },
+    `${context} must restore interaction to every surface isolated by the result modal.`,
+  );
 }
 
 async function verifyTerminalImportRoundTrip(browser, baseUrl, { fixtureName, envelope, assertResult }) {
@@ -2818,12 +3688,14 @@ async function verifyTerminalImportRoundTrip(browser, baseUrl, { fixtureName, en
 
     await importCampaignEnvelope(page, envelope, `abyssal-surge-${fixtureName}.json`);
     await page.locator("#view-result").waitFor({ state: "visible" });
+    await assertResultModalIsolation(page, `Public ${fixtureName} result modal`);
     assert.equal(navigation.count(), 0, `Public ${fixtureName} import must not navigate the main frame.`);
 
     const campaignUrl = page.url();
     await page.locator("#return-to-lobby-from-result").click();
     await page.locator("#campaign-lobby").waitFor({ state: "visible" });
     await page.locator("#campaign-screen").waitFor({ state: "hidden" });
+    await assertResultModalIsolationRestored(page, `Closing public ${fixtureName} result modal`);
     assert.equal(page.url(), campaignUrl, `Returning ${fixtureName} to the lobby must retain the campaign document URL.`);
     assert.equal(navigation.count(), 0, `Returning ${fixtureName} to the lobby must not navigate the main frame.`);
 
@@ -2839,6 +3711,13 @@ async function verifyTerminalImportRoundTrip(browser, baseUrl, { fixtureName, en
     assert.equal(page.url(), campaignUrl, `Resuming ${fixtureName} must retain the campaign document URL.`);
     assert.equal(navigation.count(), 0, `Resuming ${fixtureName} must not navigate the main frame.`);
     await assertResult(page);
+    await page.locator("#return-to-lobby-from-result").focus();
+    await page.keyboard.press("Escape");
+    await page.locator("#campaign-lobby").waitFor({ state: "visible" });
+    await page.locator("#view-result").waitFor({ state: "hidden" });
+    await assertResultModalIsolationRestored(page, `Escaping resumed ${fixtureName} result modal`);
+    assert.equal(page.url(), campaignUrl, `Escaping resumed ${fixtureName} must retain the campaign document URL.`);
+    assert.equal(navigation.count(), 0, `Escaping resumed ${fixtureName} must not navigate the main frame.`);
   } finally {
     navigation?.dispose();
     await context.close();
@@ -2943,9 +3822,19 @@ async function run() {
       console.log("PLAYTEST_BROWSER_COMPACT_CONTROL_JOURNEY_PASS viewport=320x568 canvas=direct command=reachable button-hotkey=blocked canvas-hotkey=dispatched");
       return;
     }
+    if (MOBILE_SAVE_CONTROLS_MODE) {
+      await verifyMobileSaveControls(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_MOBILE_SAVE_CONTROLS_PASS viewport=360x800 controls=export,import ownership=save-dock");
+      return;
+    }
     if (COMPACT_FIELD_OVERLAY_MODE) {
       await verifyCompactFieldOverlay(browser, hosting.baseUrl);
-      console.log("PLAYTEST_BROWSER_COMPACT_FIELD_OVERLAY_PASS viewport=360x800 contexts=standard,reduced consequence=one-line proxy=48px canvas=pass-through");
+      console.log("PLAYTEST_BROWSER_COMPACT_FIELD_OVERLAY_PASS viewport=360x800 contexts=standard,reduced overlay=hidden mission=visible controls=reachable canvas=unobstructed");
+      return;
+    }
+    if (STAGE_THREE_CHECKLIST_MODE) {
+      await verifyStageThreeChecklist(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_STAGE_THREE_CHECKLIST_PASS locales=ko,en optional=possess,domain current=assault");
       return;
     }
     if (REALTIME_ONLY_MODE) {
@@ -2964,12 +3853,12 @@ async function run() {
       return;
     }
     if (RENDERER_PARITY_MODE) {
-      await verifyRendererIndependentBattleBreach(browser, hosting.baseUrl);
-      console.log("PLAYTEST_BROWSER_RENDERER_PARITY_PASS direct=breach fallback=breach actions=normalized start=shared");
+      await verifyRendererIndependentBattleResolution(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_RENDERER_PARITY_PASS outcome=matched resolutions=normalized integrity-delta=matched actions=normalized start=shared");
       return;
     }
     const campaignFixtures = await createCampaignFixtures();
-    await verifyRendererIndependentBattleBreach(browser, hosting.baseUrl);
+    await verifyRendererIndependentBattleResolution(browser, hosting.baseUrl);
     await verifyReducedMotionBattlePresentation(browser, hosting.baseUrl);
     await verifyShortViewportSemanticCommandReachability(browser, hosting.baseUrl);
     await verifyLobbyCampaignRoundTrip(browser, hosting.baseUrl);
@@ -3027,7 +3916,10 @@ async function run() {
     await waitForCampaignBoot(page, { baseUrl: hosting.baseUrl, responseTrace: moduleResponses });
     const worker = await verifyWorker(page, hosting.baseUrl);
 
-    await startStageOneCampaign(page, { verifyBriefing: true });
+    await page.locator("#lang-toggle").click();
+    await page.waitForFunction(() => document.documentElement.lang === "en");
+    await startStageOneCampaign(page, { verifyBriefing: true, briefingLocale: "en" });
+    await assertStageOneActiveCockpitLanguageTogglePreservesCampaignEnvelope(page);
     await runStageOne(page);
     await runStageTwo(page);
     await runStageThree(page);

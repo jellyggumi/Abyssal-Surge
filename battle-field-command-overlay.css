@@ -253,7 +253,7 @@
 
 @media (max-width: 30rem) {
   #battle-field .ashen-field-command {
-    grid-template-columns: minmax(8.75rem, 1fr) minmax(7.75rem, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: .38rem;
     padding: .45rem;
   }
@@ -263,23 +263,27 @@
     padding: .35rem .4rem;
   }
 
-  #battle-field .ashen-field-command__objective {
-    font-size: .68rem;
+  #battle-field .ashen-field-command__objective,
+  #battle-field .ashen-field-command__result-copy {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   #battle-field .ashen-field-command__pressure {
-    display: none;
-  }
-
-  #battle-field .ashen-field-command__objective,
-  #battle-field .ashen-field-command__result-copy {
-    display: block;
-    overflow: visible;
-    -webkit-line-clamp: unset;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   #battle-field .ashen-field-command__activate {
-    min-width: 8.7rem;
+    width: 100%;
+    min-width: 0;
     min-height: 3rem;
     margin-inline-start: 0;
     padding: .45rem .55rem;

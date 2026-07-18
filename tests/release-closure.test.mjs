@@ -6,6 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { STAGES } from "../campaign-state.js";
+import { translations } from "../i18n.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -99,6 +100,112 @@ function indexLocalRuntimeEntrypoints(index) {
   }
 
   return [...new Set(paths)].sort();
+}
+const VOID_HTML_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+
+function htmlElementTree(source) {
+  const root = { children: [], parent: null };
+  const stack = [root];
+  const token = /<!--[\s\S]*?-->|<![^>]*>|<\/(?<closing>[a-z][\w-]*)\s*>|<(?<opening>[a-z][\w-]*)\b(?<attributes>[^>]*)>/gi;
+
+  for (const match of source.matchAll(token)) {
+    if (match.groups?.closing) {
+      const closingTag = match.groups.closing.toLowerCase();
+      while (stack.length > 1 && stack.at(-1).tagName !== closingTag) stack.pop();
+      if (stack.length > 1) stack.pop();
+      continue;
+    }
+    if (!match.groups?.opening) continue;
+
+    const tagName = match.groups.opening.toLowerCase();
+    const attributes = new Map(
+      [...match.groups.attributes.matchAll(/(?<name>[\w:-]+)(?:\s*=\s*["'](?<value>[^"']*)["'])?/g)]
+        .map((attribute) => [attribute.groups.name, attribute.groups.value ?? ""]),
+    );
+    const node = {
+      tagName,
+      id: attributes.get("id") ?? null,
+      classes: new Set((attributes.get("class") ?? "").split(/\s+/).filter(Boolean)),
+      i18nKey: attributes.get("data-i18n") ?? null,
+      i18nAriaKey: attributes.get("data-i18n-aria") ?? null,
+      i18nAltKey: attributes.get("data-i18n-alt") ?? null,
+      children: [],
+      parent: stack.at(-1),
+    };
+    stack.at(-1).children.push(node);
+    if (!VOID_HTML_TAGS.has(tagName) && !match[0].endsWith("/>")) stack.push(node);
+  }
+  return root;
+}
+
+function findHtmlElement(root, predicate) {
+  if (predicate(root)) return root;
+  for (const child of root.children ?? []) {
+    const match = findHtmlElement(child, predicate);
+    if (match) return match;
+  }
+  return null;
+}
+function findAllHtmlElements(root, predicate, matches = []) {
+  if (predicate(root)) matches.push(root);
+  for (const child of root.children ?? []) findAllHtmlElements(child, predicate, matches);
+  return matches;
+}
+
+
+function isHtmlDescendant(node, ancestor) {
+  for (let current = node?.parent; current; current = current.parent) {
+    if (current === ancestor) return true;
+  }
+  return false;
+}
+
+function cssBlock(source, header) {
+  const normalized = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const headerIndex = normalized.indexOf(header);
+  assert.notEqual(headerIndex, -1, `stylesheet must retain ${header}`);
+  const openIndex = normalized.indexOf("{", headerIndex + header.length);
+  assert.notEqual(openIndex, -1, `${header} must open a CSS block`);
+  let depth = 1;
+  for (let index = openIndex + 1; index < normalized.length; index += 1) {
+    if (normalized[index] === "{") depth += 1;
+    if (normalized[index] === "}") depth -= 1;
+    if (depth === 0) return normalized.slice(openIndex + 1, index);
+  }
+  assert.fail(`${header} must close its CSS block`);
+}
+
+function cssRules(source) {
+  const rules = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const openIndex = source.indexOf("{", cursor);
+    if (openIndex === -1) break;
+    const selector = source.slice(cursor, openIndex).trim();
+    let depth = 1;
+    let closeIndex = openIndex + 1;
+    for (; closeIndex < source.length && depth > 0; closeIndex += 1) {
+      if (source[closeIndex] === "{") depth += 1;
+      if (source[closeIndex] === "}") depth -= 1;
+    }
+    assert.equal(depth, 0, `${selector} must close its CSS rule`);
+    const body = source.slice(openIndex + 1, closeIndex - 1);
+    if (selector.startsWith("@")) {
+      rules.push(...cssRules(body));
+    } else {
+      rules.push({ selector, body });
+    }
+    cursor = closeIndex;
+  }
+  return rules;
+}
+
+function cssDeclaration(rule, property) {
+  const declaration = rule.body
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${property}:`));
+  return declaration?.slice(declaration.indexOf(":") + 1).trim();
 }
 
 
@@ -366,6 +473,76 @@ test("local index stylesheet and module entry points are shipped in the Pages ar
     missingFromServiceWorker,
     [],
     `Index runtime entry points missing from service-worker CORE_ASSETS: ${missingFromServiceWorker.join(", ")}`,
+  );
+});
+
+test("every static index localization hook is owned by both language dictionaries", async () => {
+  const tree = htmlElementTree(await readProjectFile("index.html"));
+  const keys = new Set(
+    findAllHtmlElements(
+      tree,
+      (element) => Boolean(element.i18nKey || element.i18nAriaKey || element.i18nAltKey),
+    ).flatMap((element) => [element.i18nKey, element.i18nAriaKey, element.i18nAltKey].filter(Boolean)),
+  );
+
+  assert.ok(keys.size > 0, "index.html must retain static localization hooks");
+  for (const locale of ["ko", "en"]) {
+    const missing = [...keys]
+      .filter((key) => !Object.prototype.hasOwnProperty.call(translations[locale], key))
+      .sort();
+    assert.deepEqual(
+      missing,
+      [],
+      `${locale} must own every index.html data-i18n, data-i18n-aria, and data-i18n-alt key: ${missing.join(", ")}`,
+    );
+  }
+});
+
+test("cockpit keeps battlefield, command controls, and field HUD as direct siblings with a localized mission guide", async () => {
+  const tree = htmlElementTree(await readProjectFile("index.html"));
+  const byId = (id) => findHtmlElement(tree, (element) => element.id === id);
+  const cockpit = findHtmlElement(tree, (element) => element.classes?.has("cockpit-main"));
+  const battlefield = byId("battle-field");
+  const commands = byId("command-panel");
+  const fieldHud = findHtmlElement(tree, (element) => element.classes?.has("field-edge-hud"));
+  const missionGuide = byId("battle-mission-guide");
+
+  assert.ok(cockpit, "index.html must expose the cockpit-main layout owner");
+  assert.strictEqual(battlefield?.parent, cockpit, "#battle-field must be a direct cockpit-main child");
+  assert.strictEqual(commands?.parent, cockpit, "#command-panel must be a direct cockpit-main child");
+  assert.strictEqual(fieldHud?.parent, cockpit, ".field-edge-hud must be a direct cockpit-main child");
+  assert.strictEqual(missionGuide?.parent, battlefield, "#battle-mission-guide must belong to the tactical battlefield");
+
+  for (const id of ["battle-mission-current", "battle-mission-why"]) {
+    const element = byId(id);
+    assert.ok(element, `mission guide must expose #${id} for runtime guidance`);
+    assert.equal(isHtmlDescendant(element, missionGuide), true, `#${id} must remain inside the mission guide`);
+  }
+
+  for (const key of ["mission.kicker", "mission.loop", "mission.win", "mission.lose"]) {
+    const keyedElement = findHtmlElement(tree, (element) => element.i18nKey === key);
+    assert.ok(keyedElement, `mission guide must expose the static ${key} localization hook`);
+    assert.equal(isHtmlDescendant(keyedElement, missionGuide), true, `${key} must remain inside the mission guide`);
+    assert.match(translations.ko[key], /\p{Script=Hangul}/u, `${key} must provide Korean mission guidance`);
+    assert.match(translations.en[key], /[A-Za-z]/, `${key} must remain available after the English toggle`);
+  }
+});
+
+test("mobile active-play visibility hides secondary cockpit details without hiding save controls", async () => {
+  const mobileRules = cssRules(cssBlock(await readProjectFile("styles.css"), "@media (max-width: 899px)"));
+  const activePlayRules = mobileRules.filter(({ selector }) => selector.includes("#stage-briefing[hidden]"));
+  const cockpitDetailsRule = activePlayRules.find(({ selector }) => selector.includes(".cockpit-details"));
+
+  assert.equal(
+    activePlayRules.some(({ selector }) => selector.includes(".save-dock") || selector.includes("#save-dock")),
+    false,
+    "the <=899px active-play selector must not hide the save dock after the briefing closes",
+  );
+  assert.ok(cockpitDetailsRule, "the <=899px active-play selector must retain secondary cockpit-details hiding");
+  assert.equal(
+    cssDeclaration(cockpitDetailsRule, "display"),
+    "none !important",
+    "secondary cockpit details must remain hidden while compact active play owns the viewport",
   );
 });
 

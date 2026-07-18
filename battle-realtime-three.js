@@ -37,6 +37,18 @@ const ENEMY_SPAWN_LANES = Object.freeze([3, 4, 5]);
 const ATTACK_RANGE = 1.9;
 const SHADE_INTERCEPT_RADIUS = 5;
 const EPSILON = 0.0001;
+
+// Presentation / Graphics Pass Configuration
+const SHADOW_MAP_SIZE = 1024;
+const SHADOW_CAMERA_SIZE = 18;
+const SHADOW_CAMERA_NEAR = 0.5;
+const SHADOW_CAMERA_FAR = 40;
+const SHADOW_BIAS = -0.0008;
+const FOG_DENSITY = 0.015;
+const TONE_MAPPING_EXPOSURE = 1.05;
+const FILL_LIGHT_INTENSITY = 0.65;
+const RIM_LIGHT_INTENSITY = 0.85;
+const RING_OPACITY = 0.4;
 const CIRCLE_PROBES = Object.freeze([
   Object.freeze([0, 0]),
   Object.freeze([1, 0]), Object.freeze([-1, 0]), Object.freeze([0, 1]), Object.freeze([0, -1]),
@@ -385,19 +397,66 @@ export class RealtimeBattle {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setClearColor(this.presentation?.palette?.background ?? "#060913", 1);
+
+    // ACES filmic tone mapping with conservative exposure
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
+
+    // Enable PCF soft shadows
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     this.scene = new THREE.Scene();
+
+    // Stage-palette fog/atmospheric depth
+    const fogColor = this.presentation?.palette?.background ?? "#060913";
+    this.scene.fog = new THREE.FogExp2(fogColor, FOG_DENSITY);
+
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
-    this.scene.add(new THREE.HemisphereLight(0x91b9d0, 0x090b14, 2.2));
+
+    // Hemisphere light with stage-colored ground
+    const hemiLight = new THREE.HemisphereLight(0x91b9d0, this.presentation?.palette?.background ?? 0x090b14, 2.2);
+    this.scene.add(hemiLight);
+
+    // Configured directional shadow camera on key light
     const keyLight = new THREE.DirectionalLight(0xffe5c2, 2.6);
     keyLight.position.set(7, 12, 8);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = SHADOW_MAP_SIZE;
+    keyLight.shadow.mapSize.height = SHADOW_MAP_SIZE;
+    keyLight.shadow.camera.near = SHADOW_CAMERA_NEAR;
+    keyLight.shadow.camera.far = SHADOW_CAMERA_FAR;
+    keyLight.shadow.camera.left = -SHADOW_CAMERA_SIZE;
+    keyLight.shadow.camera.right = SHADOW_CAMERA_SIZE;
+    keyLight.shadow.camera.top = SHADOW_CAMERA_SIZE;
+    keyLight.shadow.camera.bottom = -SHADOW_CAMERA_SIZE;
+    keyLight.shadow.bias = SHADOW_BIAS;
     this.scene.add(keyLight);
+    this.keyLight = keyLight;
+
+    // Subtle stage-colored fill light
+    const fillLightColor = this.presentation?.palette?.ally ?? 0x70e5d0;
+    const fillLight = new THREE.DirectionalLight(fillLightColor, FILL_LIGHT_INTENSITY);
+    fillLight.position.set(-8, 6, -6);
+    this.scene.add(fillLight);
+    this.fillLight = fillLight;
+
+    // Subtle stage-colored rim light
+    const rimLightColor = this.presentation?.palette?.accent ?? 0xffb85c;
+    const rimLight = new THREE.DirectionalLight(rimLightColor, RIM_LIGHT_INTENSITY);
+    rimLight.position.set(-2, 10, -12);
+    this.scene.add(rimLight);
+    this.rimLight = rimLight;
+
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(34, 22),
       new THREE.MeshStandardMaterial({ color: 0x10182a, transparent: true, opacity: 0.08, roughness: 1 }),
     );
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.userData.ground = true;
+    this.ground.receiveShadow = true; // Receive shadows on ground
     this.scene.add(this.ground);
+    this.ringGeometry = new THREE.RingGeometry(0.8, 1.1, 16);
     this.particles = new ParticleField(this.scene);
     this.attachEvents();
     this.resize();
@@ -543,7 +602,25 @@ export class RealtimeBattle {
     marker.position.set(x, this.navigationAt(x, z).elevation * TERRAIN_ELEVATION_SCALE + 0.08, z);
     marker.userData.semantic = semantic;
     marker.userData.pickRoot = marker;
+    marker.castShadow = true;
+    marker.receiveShadow = true;
     this.interactives.push(marker);
+
+    // Create a low-cost ground ring / light halo to improve readability
+    if (this.ringGeometry) {
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: RING_OPACITY,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(this.ringGeometry, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = -0.07;
+      marker.add(ring);
+    }
+
     return marker;
   }
 
@@ -581,6 +658,12 @@ export class RealtimeBattle {
     if (!template) throw new Error(`Missing stage template ${resource}`);
     const root = template.scene.clone(true);
     this.normalizeGroundCenter(root, targetSize);
+    root.traverse((node) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
     const instance = { root, mixer: new THREE.AnimationMixer(root), clips: template.animations, actions: new Map(), active: null, cooldown: 0 };
     this.mixers.push(instance.mixer);
     return instance;
@@ -1009,7 +1092,7 @@ export class RealtimeBattle {
       }
     }
 
-    if (this.currentWaveId && this.enemies.length > 0 && this.enemies.every((enemy) => enemy.defeated)) {
+    if (this.currentWaveId && this.enemies.length > 0 && this.enemies.every((enemy) => enemy.defeated || enemy.breachVisualized)) {
       const p = this.gridToWorld(STAGE_TACTICAL_ANCHORS.node.x, STAGE_TACTICAL_ANCHORS.node.y);
       const ally = this.presentation?.palette?.ally ?? "#70e5d0";
       this.particles?.emit(p.x, 0.5, p.z, ally, 20, { speedMin: 1.6, speedMax: 3.4, life: 0.9, gravity: 1.4, upBias: 1 });
@@ -1518,6 +1601,16 @@ export class RealtimeBattle {
     this.mixers.length = 0;
     this.staticBlockers.length = 0;
     this.particles?.dispose();
+    if (this.keyLight) {
+      this.keyLight.shadow?.dispose?.();
+      this.keyLight = null;
+    }
+    this.fillLight = null;
+    this.rimLight = null;
+    if (this.ringGeometry) {
+      disposeUnique(this.ringGeometry, this.disposedResources);
+      this.ringGeometry = null;
+    }
     const roots = [
       ...[...this.templates.values()].map((template) => template?.scene),
       this.scene,

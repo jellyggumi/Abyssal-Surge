@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 import { RealtimeBattle } from "../battle-realtime-three.js";
 
@@ -41,6 +43,154 @@ function makeRetirableMixer() {
     uncacheAction() {},
   };
 }
+async function initializeRendererPresentation() {
+  const source = await readFile(new URL("../battle-realtime-three.js", import.meta.url), "utf8");
+  const definition = source.match(/  async init\(\) \{[\s\S]*?\n  \}(?=\n\n  attachEvents\(\))/);
+  assert.ok(definition, "renderer module must expose its initialization behavior");
+
+  class Vector3 {
+    set(x, y, z) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      return this;
+    }
+  }
+  class WebGLRenderer {
+    constructor(options) {
+      this.options = options;
+      this.shadowMap = {};
+    }
+    setPixelRatio(value) { this.pixelRatio = value; }
+    setClearColor(color, alpha) { this.clearColor = { color, alpha }; }
+  }
+  class Scene {
+    constructor() { this.children = []; }
+    add(...children) { this.children.push(...children); }
+  }
+  class FogExp2 {
+    constructor(color, density) {
+      this.color = color;
+      this.density = density;
+    }
+  }
+  class PerspectiveCamera {
+    constructor(...parameters) { this.parameters = parameters; }
+  }
+  class HemisphereLight {
+    constructor(...parameters) { this.parameters = parameters; }
+  }
+  class DirectionalLight {
+    constructor(...parameters) {
+      this.parameters = parameters;
+      this.position = new Vector3();
+      this.shadow = { mapSize: {}, camera: {} };
+    }
+  }
+  class PlaneGeometry {
+    constructor(...parameters) { this.parameters = parameters; }
+  }
+  class MeshStandardMaterial {
+    constructor(parameters) { this.parameters = parameters; }
+  }
+  class Mesh {
+    constructor(geometry, material) {
+      this.geometry = geometry;
+      this.material = material;
+      this.rotation = {};
+      this.userData = {};
+    }
+  }
+  class RingGeometry {
+    constructor(...parameters) { this.parameters = parameters; }
+  }
+  class ParticleField {}
+
+  const THREE = {
+    ACESFilmicToneMapping: Symbol("ACESFilmicToneMapping"),
+    PCFSoftShadowMap: Symbol("PCFSoftShadowMap"),
+    SRGBColorSpace: Symbol("SRGBColorSpace"),
+    WebGLRenderer,
+    Scene,
+    FogExp2,
+    PerspectiveCamera,
+    HemisphereLight,
+    DirectionalLight,
+    PlaneGeometry,
+    MeshStandardMaterial,
+    Mesh,
+    RingGeometry,
+  };
+  const context = vm.createContext({
+    THREE,
+    ParticleField,
+    FILL_LIGHT_INTENSITY: 0.65,
+    FOG_DENSITY: 0.015,
+    RIM_LIGHT_INTENSITY: 0.85,
+    SHADOW_BIAS: -0.0008,
+    SHADOW_CAMERA_FAR: 40,
+    SHADOW_CAMERA_NEAR: 0.5,
+    SHADOW_CAMERA_SIZE: 18,
+    SHADOW_MAP_SIZE: 1024,
+    TONE_MAPPING_EXPOSURE: 1.05,
+    Number,
+    performance: { now: () => 100 },
+    requestAnimationFrame: () => 1,
+    window: { devicePixelRatio: 2 },
+  });
+  const executable = definition[0].replace(/^  async init\(\)/, "async function init()");
+  vm.runInContext(`${executable}\nglobalThis.initialize = init;`, context, { filename: "battle-realtime-three.js" });
+
+  const battle = {
+    canvas: { getContext: (kind) => (kind === "webgl2" ? {} : null) },
+    presentation: {
+      palette: { accent: "#f0a040", ally: "#70e5d0", background: "#101827" },
+    },
+    destroyed: false,
+    authoritativeLegion: null,
+    attachEvents() {},
+    resize() {},
+    async loadStageAssets() {},
+    createBattleObjects() {},
+    reconcileEncounterWave() {},
+    syncBossExposure() {},
+    publishRuntimeState() {},
+    frame() {},
+  };
+  await context.initialize.call(battle);
+  return { battle, THREE, types: { FogExp2, RingGeometry } };
+}
+
+test("RealtimeBattle initialization applies atmospheric rendering and configured tactical markers", async () => {
+  const { battle, THREE, types } = await initializeRendererPresentation();
+
+  assert.equal(battle.renderer.toneMapping, THREE.ACESFilmicToneMapping, "realtime rendering must use ACES filmic tone mapping");
+  assert.deepEqual(
+    { enabled: battle.renderer.shadowMap.enabled, type: battle.renderer.shadowMap.type },
+    { enabled: true, type: THREE.PCFSoftShadowMap },
+    "realtime rendering must enable PCF soft shadows",
+  );
+  assert.equal(battle.scene.fog instanceof types.FogExp2, true, "realtime rendering must use exponential atmospheric fog");
+  assert.equal(battle.scene.fog.color, "#101827", "fog must use the active stage background palette");
+  assert.equal(battle.ground.receiveShadow, true, "the tactical ground must receive unit and marker shadows");
+
+  const shadowCamera = battle.keyLight.shadow.camera;
+  assert.ok(shadowCamera.near > 0 && shadowCamera.far > shadowCamera.near, "shadow camera must define a positive near/far depth range");
+  assert.equal(shadowCamera.left, -shadowCamera.right, "shadow camera must cover equal left and right tactical extents");
+  assert.equal(shadowCamera.bottom, -shadowCamera.top, "shadow camera must cover equal top and bottom tactical extents");
+  assert.ok(
+    battle.keyLight.shadow.mapSize.width > 0
+      && battle.keyLight.shadow.mapSize.width === battle.keyLight.shadow.mapSize.height,
+    "directional shadows must use a nonzero square map",
+  );
+  assert.equal(battle.ringGeometry instanceof types.RingGeometry, true, "tactical markers must use ring geometry");
+  assert.deepEqual(
+    battle.ringGeometry.parameters,
+    [0.8, 1.1, 16],
+    "marker rings must retain a visible annulus with enough segments to read as circular",
+  );
+});
+
 
 test("RealtimeBattle safely ignores playback requests from clip-less runtime bindings", () => {
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
@@ -221,6 +371,54 @@ test("RealtimeBattle keeps Defeat on a lethally assaulted exposed boss while liv
     "a nonlethal exposed-boss assault must retain its boss Attack playback",
   );
 });
+
+test("RealtimeBattle clears a wave once every enemy is defeated or breach-retired while live enemies block completion", () => {
+  const makeWaveBattle = () => {
+    const events = [];
+    const battle = new RealtimeBattle(
+      null,
+      { stageNumber: 1 },
+      { onEncounterEvent: (event) => events.push(event) },
+    );
+    battle.currentWaveId = "scout";
+    battle.encounter = {
+      stageId: "cinder-span",
+      state: { activeWaveId: "scout" },
+    };
+    return { battle, events };
+  };
+
+  const resolvedWave = makeWaveBattle();
+  const defeated = makeUnit();
+  const breached = makeUnit();
+  defeated.defeated = true;
+  breached.breachVisualized = true;
+  resolvedWave.battle.enemies = [defeated, breached];
+
+  resolvedWave.battle.updateEnemies(0);
+  resolvedWave.battle.updateEnemies(0);
+
+  assert.deepEqual(
+    resolvedWave.events,
+    [{ type: "wave-cleared", stageId: "cinder-span", waveId: "scout" }],
+    "a mixed defeated-and-breached wave must clear once without repeating while its resolution is pending",
+  );
+
+  const blockedWave = makeWaveBattle();
+  const live = makeUnit();
+  live.breachVisualized = false;
+  blockedWave.battle.enemies = [defeated, breached, live];
+  blockedWave.battle.engagements.set(live, defeated);
+
+  blockedWave.battle.updateEnemies(0);
+
+  assert.deepEqual(
+    blockedWave.events,
+    [],
+    "one live unresolved enemy must block wave completion even when every peer is defeated or breached",
+  );
+});
+
 
 test("RealtimeBattle retires enemy animation mixers when an encounter wave is cleared", () => {
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
@@ -815,10 +1013,11 @@ test("RealtimeBattle destroy disposes shared WebGL resources once and remains id
     else globalThis.document = priorDocument;
   });
 
-  const disposals = { geometry: 0, material: 0, texture: 0, renderer: 0 };
+  const disposals = { geometry: 0, material: 0, texture: 0, ring: 0, shadow: 0, renderer: 0, particles: 0, audio: 0 };
   const texture = { isTexture: true, dispose: () => { disposals.texture += 1; } };
   const material = { map: texture, dispose: () => { disposals.material += 1; } };
   const geometry = { dispose: () => { disposals.geometry += 1; } };
+  const ringGeometry = { dispose: () => { disposals.ring += 1; } };
   const sharedMesh = { isMesh: true, geometry, material };
   const canvas = { removeEventListener() {} };
   const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
@@ -836,15 +1035,17 @@ test("RealtimeBattle destroy disposes shared WebGL resources once and remains id
     },
   });
   battle.renderer = { dispose: () => { disposals.renderer += 1; } };
-  battle.particles = { dispose() {} };
-  battle.audio = { dispose() {} };
+  battle.particles = { dispose: () => { disposals.particles += 1; } };
+  battle.audio = { dispose: () => { disposals.audio += 1; } };
+  battle.ringGeometry = ringGeometry;
+  battle.keyLight = { shadow: { dispose: () => { disposals.shadow += 1; } } };
 
   battle.destroy();
   battle.destroy();
 
   assert.deepEqual(
     disposals,
-    { geometry: 1, material: 1, texture: 1, renderer: 1 },
+    { geometry: 1, material: 1, texture: 1, ring: 1, shadow: 1, renderer: 1, particles: 1, audio: 1 },
     "destroy must release each shared GPU resource once even when the scene exposes it through multiple meshes and destroy is repeated",
   );
 });

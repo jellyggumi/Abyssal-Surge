@@ -187,12 +187,12 @@
       <section id="campaign-screen" class="cockpit" hidden aria-labelledby="stage-heading">
         <div class="cockpit-top">
           <div class="cockpit-stage-id">
-            <p id="stage-number" class="eyebrow">Stage 1 of 3</p>
+            <p id="stage-number" class="eyebrow">3단계 중 1단계</p>
             <h2 id="stage-heading" tabindex="-1" class="shiny-text">Cinder Span</h2>
             <p id="stage-region" class="muted"></p>
             <p id="commander-identity" class="commander-identity" data-i18n="screen.commanderIdentity">황혼의 감시자 · 그림자 군단을 지휘 중</p>
           </div>
-          <nav id="stage-selector" class="stage-selector" aria-label="Campaign stage progression">
+          <nav id="stage-selector" class="stage-selector" aria-label="캠페인 스테이지 진행 상태" data-i18n-aria="stage.selectorAria">
             <ol>
               <li><button id="stage-select-1" data-stage-number="1" type="button" aria-current="step" disabled><span>01</span> <span data-i18n="map.node1Title">신더 스팬</span></button></li>
               <li><button id="stage-select-2" data-stage-number="2" type="button" disabled><span>02</span> <span data-i18n="map.node2Title">베일 시타델</span></button></li>
@@ -206,9 +206,9 @@
               <li><button id="stage-select-10" data-stage-number="10" type="button" disabled><span>10</span> <span data-i18n="map.node10Title">게이트 제니스</span></button></li>
             </ol>
           </nav>
-          <span id="battle-wave-indicator" class="wave-badge">WAVE 1/3</span>
+          <span id="battle-wave-indicator" class="wave-badge">웨이브 1/3</span>
           <div class="campaign-heading-actions">
-            <button id="retry-stage" type="button" aria-label="Retry current stage" data-i18n="screen.retryButton">스테이지 재시도</button>
+            <button id="retry-stage" type="button" aria-label="현재 스테이지 재시도" data-i18n="screen.retryButton">스테이지 재시도</button>
             <button id="return-to-lobby" type="button" data-i18n="screen.returnButton">사령부로 돌아가기</button>
           </div>
         </div>
@@ -217,6 +217,7 @@
             <p class="eyebrow" data-i18n="briefing.eyebrow">작전 브리핑</p>
             <h3 id="briefing-title" data-i18n="briefing.title">문이 열린다</h3>
             <p class="commander-identity" data-i18n="screen.commanderIdentity">황혼의 감시자 · 그림자 군단을 지휘 중</p>
+            <p id="briefing-player-job" class="mission-briefing-player-job"></p>
             <p id="briefing-stage" class="mission-briefing-stage"></p>
             <p id="briefing-region" class="mission-briefing-region"></p>
             <dl class="mission-briefing-facts">
@@ -233,23 +234,36 @@
 
         <div class="cockpit-main">
           <!-- CENTER: the battlefield IS the screen -->
-          <section id="battle-field" class="panel battle-field-panel" aria-label="3D tactical battlefield">
+          <section id="battle-field" class="panel battle-field-panel" aria-label="3D 전술 전장" data-i18n-aria="battle.fieldAria">
+            <div id="battle-mission-guide" class="battle-mission-guide">
+              <span class="mission-kicker" data-i18n="mission.kicker">임무</span>
+              <strong id="battle-mission-current">현재 임무 분석 중...</strong>
+              <p id="battle-mission-why">세부 지시를 확인하는 중입니다.</p>
+              <div class="mission-loop-wrapper">
+                <span class="mission-loop" data-i18n="mission.loop">기본 루프: 사냥 → 추출 → 실체화 → 점거 → 총공격</span>
+                <span class="mission-controls" data-i18n="mission.controls">조작: WASD/방향키 이동 · Shift 돌진 · 지면 클릭/탭 소집 · 드래그 회전 · 휠 확대</span>
+              </div>
+              <div class="mission-badges">
+                <span class="mission-badge win" data-i18n="mission.win">승리: 수호 거점 점거 및 보스 제압</span>
+                <span class="mission-badge lose" data-i18n="mission.lose">패배: 군주 내구도 0 도달</span>
+              </div>
+            </div>
             <div id="canvas-container-3d" class="canvas-container-3d">
-              <canvas id="battle-canvas-3d" tabindex="0" aria-label="Direct tactical battlefield" aria-describedby="battle-direct-help"></canvas>
-              <canvas id="battle-canvas-fallback" aria-label="Tactical battlefield fallback" hidden></canvas>
+              <canvas id="battle-canvas-3d" tabindex="0" aria-label="실시간 전술 전장" data-i18n-aria="battle.canvasAria" aria-describedby="battle-direct-help"></canvas>
+              <canvas id="battle-canvas-fallback" aria-label="전술 전장 대체 화면" data-i18n-aria="battle.fallbackCanvasAria" hidden></canvas>
               <aside id="battle-visual-fallback" class="battle-visual-fallback" aria-labelledby="battle-fallback-title" hidden>
-                <p class="battle-fallback-kicker">Static tactical briefing</p>
-                <h4 id="battle-fallback-title">Rendering unavailable</h4>
-                <p id="battle-fallback-operation" class="battle-operation">Operation: Ember Break</p>
-                <p id="battle-fallback-doctrine">Open the forge lane, raise shades, then sever the Warden's hold.</p>
+                <p class="battle-fallback-kicker" data-i18n="battle.fallback.kicker">정적 전술 브리핑</p>
+                <h4 id="battle-fallback-title" data-i18n="battle.fallback.title">렌더링을 사용할 수 없음</h4>
+                <p id="battle-fallback-operation" class="battle-operation" data-i18n="battle.cinderSpan.operation">작전: 잿불 돌파</p>
+                <p id="battle-fallback-doctrine" data-i18n="battle.cinderSpan.doctrine">제련소 길을 열고 그림자를 일으켜 워든의 지배를 끊으십시오.</p>
                 <dl class="battle-force-labels">
-                  <div><dt>Command</dt><dd id="battle-fallback-ally-label">Dusk Legion</dd></div>
-                  <div><dt>Hostile</dt><dd id="battle-fallback-hostile-label">Ashbound Ward</dd></div>
+                  <div><dt data-i18n="battle.commandLabel">지휘 부대</dt><dd id="battle-fallback-ally-label">그림자 군단</dd></div>
+                  <div><dt data-i18n="battle.hostileLabel">적대 세력</dt><dd id="battle-fallback-hostile-label">잿빛 수호대</dd></div>
                 </dl>
-                <p class="battle-fallback-note">The direct renderer is unavailable. The tactical brief and command pad remain active.</p>
+                <p class="battle-fallback-note" data-i18n="battle.fallback.note">직접 렌더러를 사용할 수 없습니다. 전술 브리핑과 명령 패널은 활성 상태로 유지됩니다.</p>
               </aside>
             </div>
-            <p id="battle-direct-help" class="battle-mouse-help">Focus the field, then hold WASD or arrow keys to move the commander; hold Shift to surge. Drag to orbit, wheel to zoom, click ground for a personal rally, right-click ground for shade rally, and click a marked target to request its command.</p>
+            <p id="battle-direct-help" class="battle-mouse-help" data-i18n="battle.directHelp">전장을 선택한 후, WASD나 방향키를 길게 눌러 사령관을 이동하고 Shift를 눌러 돌진하십시오. 드래그하여 회전하고 휠로 확대/축소할 수 있으며, 지면을 클릭해 사령관을 소집하고 우클릭으로 그림자를 집결시키며 표시된 대상을 클릭해 명령을 발동하십시오.</p>
           </section>
           <section id="command-panel" class="panel command-panel cockpit-commands field-command-dock" aria-labelledby="commands-heading">
             <div class="section-heading">
@@ -313,15 +327,15 @@
           </section>
 
           <!-- RIGHT RAIL: every piece of intel, always visible -->
-          <aside class="cockpit-rail field-edge-hud" aria-label="Tactical field status">
+          <aside class="cockpit-rail field-edge-hud" aria-label="전술 전장 상태" data-i18n-aria="battle.statusAria">
             <section id="battle-tactical-brief" class="panel rail-panel battle-tactical-brief" aria-labelledby="battle-operation">
-              <h4 id="battle-operation" class="battle-operation">Operation: Ember Break</h4>
-              <p id="battle-doctrine" class="rail-doctrine">Open the forge lane, raise shades, then sever the Warden's hold.</p>
+              <h4 id="battle-operation" class="battle-operation">작전: 잿불 돌파</h4>
+              <p id="battle-doctrine" class="rail-doctrine">제련소 길을 열고 그림자를 일으켜 워든의 지배를 끊으십시오.</p>
               <dl class="battle-force-labels">
-                <div><dt>Command</dt><dd id="battle-ally-label">Dusk Legion</dd></div>
-                <div><dt>Hostile</dt><dd id="battle-hostile-label">Ashbound Ward</dd></div>
+                <div><dt data-i18n="battle.commandLabel">지휘 부대</dt><dd id="battle-ally-label">그림자 군단</dd></div>
+                <div><dt data-i18n="battle.hostileLabel">적대 세력</dt><dd id="battle-hostile-label">잿빛 수호대</dd></div>
               </dl>
-              <p id="battle-pressure" class="battle-pressure" aria-live="polite">Preparation window: issue commands before the first hostile wave enters the lane.</p>
+              <p id="battle-pressure" class="battle-pressure" aria-live="polite">준비 단계: 첫 번째 적 웨이브가 공격로에 진입하기 전에 명령을 내리십시오.</p>
               <p id="battle-asset-status" class="battle-asset-status" aria-live="polite">GLB 전장 자산 대기 중</p>
             </section>
 
@@ -336,27 +350,27 @@
                   <div><dt data-i18n="status.legion">군단 슬롯</dt><dd id="legion-value">0 / 10</dd></div>
                   <div><dt data-i18n="status.nodes">점거 거점</dt><dd id="nodes-value">0 / 1</dd></div>
                   <div><dt data-i18n="status.integrity">군주 내구도</dt><dd id="integrity-value">10 / 10</dd></div>
-                  <div><dt id="boss-label">Boss ward</dt><dd id="boss-value">8 / 8</dd></div>
+                  <div><dt id="boss-label">보스 보호막</dt><dd id="boss-value">8 / 8</dd></div>
                 </dl>
               </div>
-              <p class="field-current-objective"><span>Current objective</span><span id="stage-objective"></span></p>
-              <ol id="objective-checklist" class="objective-checklist" aria-label="Stage objectives"></ol>
+              <p class="field-current-objective"><span data-i18n="battle.currentObjective">현재 목표</span><span id="stage-objective"></span></p>
+              <ol id="objective-checklist" class="objective-checklist" aria-label="스테이지 목표" data-i18n-aria="battle.objectivesAria"></ol>
             </section>
           </aside>
 
 
           <details class="cockpit-details">
-            <summary>Operational detail</summary>
+            <summary data-i18n="screen.operationalDetail">작전 상세 정보</summary>
             <section class="panel rail-panel rail-boss" aria-labelledby="boss-spec-name">
               <div class="rail-boss-head">
-                <img id="boss-portrait-spec" class="boss-portrait-rail" src="assets/images/ui/boss-cinder-warden.png" alt="Boss Portrait" />
+                <img id="boss-portrait-spec" class="boss-portrait-rail" src="assets/images/ui/boss-cinder-warden.png" alt="보스 초상화" />
                 <div>
-                  <h4 id="boss-spec-name" class="shiny-text">Cinder Warden</h4>
+                  <h4 id="boss-spec-name" class="shiny-text">잿불 감시자</h4>
                   <dl class="spec-list spec-list-compact">
-                    <div><dt>위협</dt><dd id="boss-spec-threat">Class A</dd></div>
+                    <div><dt>위협</dt><dd id="boss-spec-threat">A급</dd></div>
                     <div><dt>HP</dt><dd id="boss-spec-hp">8 HP</dd></div>
                     <div><dt>반격</dt><dd id="boss-spec-counter">1</dd></div>
-                    <div><dt>거점</dt><dd id="boss-spec-nodes">1 Node</dd></div>
+                    <div><dt>거점</dt><dd id="boss-spec-nodes">1개 거점</dd></div>
                   </dl>
                 </div>
               </div>
@@ -364,19 +378,19 @@
               <ul class="stats-list stats-list-compact">
                 <li><span data-i18n="stats.integrity">최대 내구도</span> <span id="stat-max-integrity">10</span></li>
                 <li><span data-i18n="stats.cooldown">쿨타임 감소</span> <span id="stat-cooldown-reduction">0%</span></li>
-                <li><span data-i18n="stats.modifiers">전장 보정</span> <span id="stat-extra-damage">None</span></li>
-                <li><span data-i18n="stats.items">보상 아이템</span> <span id="stat-active-items">None</span></li>
+                <li><span data-i18n="stats.modifiers">전장 보정</span> <span id="stat-extra-damage">없음</span></li>
+                <li><span data-i18n="stats.items">보상 아이템</span> <span id="stat-active-items">없음</span></li>
               </ul>
             </section>
 
-            <section class="panel rail-panel rail-intel" aria-label="Stage narration">
+            <section class="panel rail-panel rail-intel" aria-label="스테이지 내레이션">
               <div id="stage-transition" class="stage-transition stage-transition-rail" aria-live="polite">
-                <video id="stage-transition-video" muted playsinline preload="metadata" hidden aria-label="Optional stage atmosphere"></video>
+                <video id="stage-transition-video" muted playsinline preload="metadata" hidden aria-label="선택적 스테이지 환경"></video>
                 <div id="narrator-atlas" class="narrator-atlas" aria-hidden="true"></div>
                 <div class="stage-transition-copy">
                   <p id="narration-line" class="narration-line" aria-hidden="true"></p>
                   <p id="narration-sr" class="sr-only" role="status"></p>
-                  <button id="toggle-stage-ambience" type="button" aria-pressed="false">Play ambient sound</button>
+                  <button id="toggle-stage-ambience" type="button" aria-pressed="false" data-i18n="battle.toggleAmbience">환경음 재생</button>
                 </div>
               </div>
             </section>
@@ -388,7 +402,7 @@
           <div class="section-heading">
             <div>
               <h3 id="save-heading" data-i18n="save.heading">로컬 캠페인 저장</h3>
-              <p id="save-status" class="hint" role="status">Preparing local save…</p>
+              <p id="save-status" class="hint" role="status">로컬 저장 데이터 준비 중…</p>
               <p id="campaign-mirror-status" class="mirror-status" role="status">탭 간 로컬 동기화를 확인하는 중입니다.</p>
             </div>
             <div class="button-row">
@@ -404,26 +418,26 @@
           <section class="panel result-panel">
             <h3 id="result-title" class="shiny-text">전투 결과</h3>
             <div id="result-status-box" class="result-status-box">
-              <span id="result-text" class="result-text victory">VICTORY</span>
+              <span id="result-text" class="result-text victory">승리</span>
             </div>
 
             <section id="reward-panel" class="reward-selection-container" aria-labelledby="reward-heading">
               <p class="eyebrow" data-i18n="reward.eyebrow">특별 보상</p>
               <h3 id="reward-heading" tabindex="-1" data-i18n="reward.heading">영구 보너스 하나를 선택하라</h3>
               <p id="reward-summary" data-i18n="reward.summary">선택하지 않은 보상은 균열 속으로 사라집니다. 선택 즉시 다음 전장이 열립니다.</p>
-              <div id="reward-options" class="reward-options" role="group" aria-label="Choose one reward"></div>
+              <div id="reward-options" class="reward-options" role="group" aria-label="보상 하나 선택" data-i18n-aria="reward.optionsAria"></div>
             </section>
 
             <section id="campaign-complete" class="completion-panel" aria-labelledby="completion-heading" hidden>
               <p class="eyebrow" data-i18n="completion.eyebrow">캠페인 완료</p>
               <h3 id="completion-heading" tabindex="-1" data-i18n="completion.heading">가라앉은 문이 침묵하다</h3>
-              <img class="completion-emblem" src="assets/images/ui/emblem-gate-sovereign.jpg" alt="Low-poly monument of the defeated Gate Sovereign inside a glowing gate ring" />
+              <img class="completion-emblem" src="assets/images/ui/emblem-gate-sovereign.jpg" alt="빛나는 차원문 고리 안에서 패배한 게이트 소버린의 로우폴리 기념비" data-i18n-alt="completion.emblemAlt" />
               <p id="completion-summary"></p>
               <button id="restart-campaign" class="primary" type="button" data-i18n="completion.restartButton">새로운 캠페인 시작</button>
             </section>
 
             <div class="button-row center-row">
-              <button id="retry-from-result" class="secondary" type="button" hidden>다시 시도 (Retry)</button>
+              <button id="retry-from-result" class="secondary" type="button" data-i18n="screen.retryButton" hidden>다시 시도</button>
               <button id="return-to-lobby-from-result" class="secondary" type="button" data-i18n="screen.returnButton">사령부로 돌아가기</button>
             </div>
           </section>

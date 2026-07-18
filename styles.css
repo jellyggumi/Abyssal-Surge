@@ -443,19 +443,58 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .objective-checklist li.complete::before { content: "✓"; color: var(--aqua); font-weight: 900; }
 .objective-checklist li.current { border: 1px solid rgb(255 184 92 / 44%); background: rgb(255 184 92 / 10%); }
 .objective-checklist li.current::before { content: "→"; color: var(--cinder); font-weight: 900; }
+.objective-checklist li.optional { opacity: 0.85; }
 .command-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
 .command-grid button { display: grid; grid-template-columns: auto auto 1fr; align-items: center; column-gap: .4rem; min-height: 3.8rem; text-align: left; padding: .4rem .6rem; }
 .command-grid button strong { align-self: end; }
 .command-grid button small { grid-column: 3; color: var(--muted); font-weight: 500; }
 .action-icon { grid-row: span 2; width: 2.45rem; height: 2.45rem; border-radius: .55rem; object-fit: cover; box-shadow: 0 0 0 1px rgb(112 229 208 / 22%); }
-.command-grid button:disabled .action-icon { filter: grayscale(.75) brightness(.6); }
+.command-grid button:disabled .action-icon { filter: grayscale(.85) brightness(.45); }
 .command-grid button.current-objective {
-  border-color: rgb(255 184 92 / 68%);
-  background: rgb(255 184 92 / 10%);
-  box-shadow: inset .2rem 0 0 var(--cinder);
+  border: 2px dashed var(--cinder) !important;
+  background: rgba(255, 184, 92, 0.12) !important;
+  box-shadow: inset .2rem 0 0 var(--cinder), 0 0 10px rgba(255, 184, 92, 0.25) !important;
+}
+.command-grid button.current-objective strong::before {
+  content: "▶ ";
+  color: var(--cinder);
+  display: inline-block;
+  font-weight: 900;
+  animation: pulse-chevron 1.2s infinite alternate;
+}
+@keyframes pulse-chevron {
+  0% { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1.1); opacity: 1; }
 }
 .command-grid button.current-objective .key {
   background: rgb(255 184 92 / 14%);
+}
+.command-grid button:disabled:has(.cooldown-overlay[hidden]) {
+  border: 1px dotted rgba(255, 255, 255, 0.2) !important;
+  background: rgba(9, 11, 21, 0.45) !important;
+  opacity: 0.65;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+.command-grid button:disabled:has(.cooldown-overlay[hidden]) strong::before {
+  content: "🔒 ";
+  display: inline-block;
+  font-size: 0.85em;
+  opacity: 0.8;
+  margin-right: 0.1rem;
+}
+.command-grid button:disabled:has(.cooldown-overlay[hidden]) .action-icon {
+  filter: grayscale(1) brightness(0.4) !important;
+}
+.command-grid button:disabled:has(.cooldown-overlay:not([hidden])) {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: rgba(9, 11, 21, 0.6) !important;
+}
+.command-grid button:disabled:has(.cooldown-overlay:not([hidden])) strong::before {
+  content: "⏳ ";
+  display: inline-block;
+  font-size: 0.85em;
+  margin-right: 0.1rem;
 }
 .key { grid-row: span 2; min-width: 1.8rem; padding: .18rem .35rem; border: 1px solid currentColor; border-radius: .4rem; color: var(--cinder); text-align: center; font-size: .75rem; }
 .reward-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
@@ -951,7 +990,13 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .cooldown-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(9, 11, 21, 0.82);
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(9, 11, 21, 0.85),
+    rgba(9, 11, 21, 0.85) 8px,
+    rgba(22, 28, 48, 0.85) 8px,
+    rgba(22, 28, 48, 0.85) 16px
+  ) !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1028,6 +1073,37 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
       "description";
     grid-template-rows: auto auto auto auto auto minmax(0, .7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto;
   }
+  .lobby-panel {
+    height: auto;
+    overflow: visible;
+    grid-template-rows: repeat(10, auto);
+  }
+
+  #campaign-lobby .campaign-map-section,
+  #campaign-lobby .storyboard-section,
+  #campaign-lobby .feature-preview-section {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  #campaign-lobby .campaign-map-grid,
+  #campaign-lobby .storyboard-grid,
+  #campaign-lobby .feature-preview-grid {
+    scrollbar-color: var(--aqua) transparent;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+  }
+
+  #campaign-lobby .campaign-map-grid::-webkit-scrollbar,
+  #campaign-lobby .storyboard-grid::-webkit-scrollbar,
+  #campaign-lobby .feature-preview-grid::-webkit-scrollbar { height: .45rem; }
+  #campaign-lobby .campaign-map-grid::-webkit-scrollbar-thumb,
+  #campaign-lobby .storyboard-grid::-webkit-scrollbar-thumb,
+  #campaign-lobby .feature-preview-grid::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--aqua);
+  }
 
   #campaign-lobby .campaign-map-grid,
   #campaign-lobby .storyboard-grid,
@@ -1085,6 +1161,77 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
    One screen carries everything a commander needs: battlefield
    center, intel rail right, command pad bottom - PC RTS layout.
    ============================================================ */
+
+/* Compact mission guide styling */
+.battle-mission-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgb(112 229 208 / 20%);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+.battle-mission-guide .mission-kicker {
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: var(--cinder);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.battle-mission-guide strong {
+  font-size: 0.95rem;
+  color: var(--aqua);
+  line-height: 1.25;
+}
+.battle-mission-guide p {
+  font-size: 0.8rem;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.35;
+}
+.battle-mission-guide .mission-loop-wrapper {
+  font-size: 0.75rem;
+  color: var(--focus);
+  font-weight: 700;
+  border-top: 1px dashed rgb(112 229 208 / 15%);
+  padding-top: 0.3rem;
+  margin-top: 0.15rem;
+}
+.battle-mission-guide .mission-loop-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2rem .75rem;
+}
+.battle-mission-guide .mission-controls {
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 650;
+}
+.battle-mission-guide .mission-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+.battle-mission-guide .mission-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+.battle-mission-guide .mission-badge.win {
+  color: var(--aqua);
+  border: 1px solid rgb(112 229 208 / 30%);
+}
+.battle-mission-guide .mission-badge.lose {
+  color: var(--danger);
+  border: 1px solid rgb(255 127 121 / 30%);
+}
 .cockpit {
   gap: .5rem;
 }
@@ -1278,6 +1425,12 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .mission-briefing-panel h3 { margin-bottom: .3rem; }
 .mission-briefing-stage { margin: 0; color: var(--aqua); font-size: .85rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .mission-briefing-region { margin: .2rem 0 1rem; color: var(--muted); }
+.mission-briefing-player-job {
+  margin: 0 0 .85rem;
+  color: var(--ink);
+  font-weight: 750;
+  line-height: 1.45;
+}
 .mission-briefing-facts { display: grid; gap: .45rem; margin: 0 0 1rem; }
 .mission-briefing-facts div { padding: .55rem .65rem; border-left: .22rem solid rgb(112 229 208 / 70%); border-radius: .45rem; background: rgb(255 255 255 / 5%); }
 .mission-briefing-facts dt { margin-bottom: .12rem; color: var(--cinder); }
@@ -1295,13 +1448,80 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .mission-briefing-panel .primary { width: 100%; }
 
 /* Desktop-wide: give the field more room */
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .cockpit-main { grid-template-columns: minmax(0, 1fr) 18rem; }
+  .cockpit-main {
+    grid-template-areas:
+      "battle hud"
+      "commands commands";
+  }
+  .cockpit-details { display: none; }
   .cockpit-main .canvas-container-3d { min-height: clamp(23rem, 58vh, 38rem); }
   .command-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .command-grid button:last-child { grid-column: auto; }
-  .command-grid button { grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; min-height: 4.6rem; }
-  .command-grid button small { grid-column: 1 / -1; }
+  .command-grid button {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    min-height: 4.6rem;
+  }
+  .command-grid button small { grid-column: 3; }
+  .battle-mission-guide {
+    display: grid;
+    grid-template-columns: auto minmax(14rem, 1fr) minmax(17rem, auto);
+    grid-template-areas:
+      "kicker current badges"
+      "loop loop why";
+    align-items: center;
+    gap: .25rem .65rem;
+    padding: .45rem .65rem;
+    margin-bottom: .35rem;
+  }
+  .battle-mission-guide .mission-kicker { grid-area: kicker; }
+  .battle-mission-guide strong { grid-area: current; }
+  .battle-mission-guide p {
+    grid-area: why;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .battle-mission-guide .mission-loop-wrapper {
+    grid-area: loop;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: 0;
+    white-space: normal;
+  }
+  .battle-mission-guide .mission-badges {
+    grid-area: badges;
+    flex-wrap: nowrap;
+    margin-top: 0;
+  }
+  #battle-direct-help {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  
+  .site-header, main { width: min(92rem, calc(100% - 2rem)); }
+  
+  .stage-selector ol {
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+  }
+  .stage-selector button {
+    min-height: 2.2rem !important;
+    padding: .2rem .35rem !important;
+    font-size: .7rem !important;
+  }
+  .stage-selector button span {
+    display: inline !important;
+    font-size: .65rem !important;
+  }
+  
 }
 
 /* Tablet/mobile layout lives in the "Mobile RTS HUD" section near the
@@ -1526,6 +1746,7 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
    command pad is a sticky bottom dock inside the thumb zone.
    ============================================================ */
 @media (max-width: 899px) {
+  #battle-field .ashen-field-command { display: none !important; }
   /* The page scrolls again; the sticky pad needs a scrollport. */
   body:has(#campaign-screen:not([hidden])) main {
     overflow: hidden auto;
@@ -1582,21 +1803,24 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     font-size: .62rem;
     white-space: nowrap;
   }
-  /* Stage selector: a bounded, wrapping grid keeps every stage visible. */
+  /* Stage selector: a swipeable, one-row strip keeps the battlefield on-screen. */
   .cockpit-top .stage-selector {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    min-width: 0;
-    overflow: visible;
+    display: none !important;
   }
   .stage-selector ol {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-columns: minmax(8.75rem, 1fr);
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-template-rows: 1fr;
     gap: .25rem;
-    width: 100%;
-    min-width: 0;
+    width: max-content;
+    min-width: 100%;
   }
-  .stage-selector li { min-width: 0; }
+  .stage-selector li {
+    min-width: 0;
+    scroll-snap-align: start;
+  }
   .stage-selector button {
     width: 100%;
     min-width: 0;
@@ -1640,8 +1864,9 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
   .cockpit-main .canvas-container-3d {
     flex: 0 0 auto;
     width: 100%;
-    height: auto;
-    min-height: clamp(14rem, 38vh, 22rem);
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 9;
   }
   #battle-direct-help {
     position: absolute;
@@ -1698,18 +1923,23 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     white-space: nowrap;
   }
   .field-current-objective {
-    display: flex;
-    align-items: baseline;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
     gap: .3rem;
-    overflow: hidden;
+    overflow: visible;
     margin: .2rem 0 0;
     padding: .2rem .3rem;
     font-size: .64rem;
-    white-space: nowrap;
+    white-space: normal;
   }
   .field-current-objective > span:last-child {
+    display: -webkit-box;
+    min-width: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.25;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
   /* Operation brief: a slim strip - forces + live pressure only. */
   .field-edge-hud .battle-tactical-brief { padding: .35rem .45rem; }
@@ -1740,28 +1970,19 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
 
   /* -- Command pad: sticky dock riding the bottom edge -- */
   .field-command-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 30;
+    position: static !important;
+    bottom: auto !important;
+    z-index: auto !important;
     order: 3;
-    margin-top: auto;
-    padding: .4rem .45rem calc(.4rem + env(safe-area-inset-bottom, 0px));
-    border-color: color-mix(in srgb, var(--battle-ally) 58%, var(--line));
-    background: rgb(6 9 18 / 97%);
-    box-shadow: 0 -0.6rem 1.6rem rgb(0 0 0 / 5%);
+    margin-top: 0.5rem !important;
+    padding: .4rem .45rem;
+    border-color: rgb(112 229 208 / 24%);
+    background: rgb(7 12 25 / 48%);
+    box-shadow: none !important;
   }
-  /* Page content fades out under the pad instead of hard-clipping. */
   .field-command-dock::before {
-    position: absolute;
-    right: -.1rem;
-    bottom: 100%;
-    left: -.1rem;
-    height: 1.1rem;
-    content: "";
-    pointer-events: none;
-    background: linear-gradient(to top, rgb(4 6 12 / 82%), transparent);
+    display: none !important;
   }
-
 /* Compact mobile heights keep the dock in normal scroll flow, not over the field. */
 @media (max-width: 899px) and (max-height: 600px) {
   .field-command-dock {
@@ -1849,6 +2070,19 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     min-height: 2.35rem;
     padding: .25rem .45rem;
     font-size: .65rem;
+  }
+  .battle-mission-guide {
+    background: rgba(10, 13, 24, 0.92) !important;
+    border-color: rgb(112 229 208 / 30%) !important;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.4);
+    margin-bottom: 0.4rem;
+  }
+  #campaign-screen:has(#stage-briefing[hidden]) .cockpit-details {
+    display: none !important;
+  }
+  body, html, main, #game-root, #campaign-screen {
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 }
 
@@ -2019,4 +2253,18 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+@media (min-width: 900px) and (min-height: 22.01rem) {
+  .cockpit-main {
+    grid-template-areas:
+      "battle hud"
+      "commands commands";
+  }
+  .field-command-dock {
+    grid-area: auto;
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+  .cockpit-details { display: none; }
 }

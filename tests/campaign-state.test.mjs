@@ -71,6 +71,7 @@ function start() {
 
 // Balance-v5 reference lines preserve legal stage gates while exercising reward effects.
 const ECONOMY_L4 = ["hunt", "hunt", "extract", "materialize", "materialize"];
+const S1_PREPARATION = Object.freeze([...ECONOMY_L4, "capture"]);
 const S1_ENCOUNTER = Object.freeze([
   { type: "start-wave", waveId: "scout" },
   { type: "wave-cleared", waveId: "scout" },
@@ -79,7 +80,7 @@ const S1_ENCOUNTER = Object.freeze([
   { type: "start-wave", waveId: "reinforcement" },
   { type: "wave-cleared", waveId: "reinforcement" },
 ]);
-const S1_OPTIMAL = [...ECONOMY_L4, "capture", ...S1_ENCOUNTER, "assault", "assault", "assault"];
+const S1_OPTIMAL = [...S1_PREPARATION, ...S1_ENCOUNTER, "assault", "assault", "assault"];
 const S2_LENS = [...ECONOMY_L4, "capture", "capture", "possess", "assault", "assault"];
 const S3_VANGUARD_LENS = ["capture", "domain", "possess", "assault", "assault"];
 
@@ -115,10 +116,18 @@ function buildLegion(state, target) {
   return state;
 }
 
+function prepareDeclaredEncounter(state) {
+  const preparation = STAGES[state.stageIndex].encounter;
+  state = buildLegion(state, preparation.preparationLegion ?? 0);
+  while (state.stage.nodes < (preparation.preparationNodes ?? 0)) state = command(state, "capture");
+  return state;
+}
+
 // Clears every declared wave in schedule order after proving the schedule is
 // enforced: the second declared wave must reject while the first is uncleared.
 function clearDeclaredWaves(state) {
   const stage = STAGES[state.stageIndex];
+  state = prepareDeclaredEncounter(state);
   const waves = stage.encounter.waves;
   rejectWithoutMutation(
     state,
@@ -132,9 +141,9 @@ function clearDeclaredWaves(state) {
   return state;
 }
 
-// One late stage (4-10) on the verified deterministic line: clear the declared
-// encounter, build the legion past the thin threshold, take every node, spend
-// possess/domain where the stage offers them, then assault to the reward.
+// One late stage (4-10) on the verified deterministic line: prepare and clear
+// the declared encounter, build the legion past the thin threshold, take every
+// node, spend possess/domain where offered, then assault to the reward.
 function clearLateStage(state) {
   const stage = STAGES[state.stageIndex];
   assert.equal(state.stage.bossHealth, stage.bossHealth, `${stage.id} must open at its declared ${stage.bossHealth} boss health`);
@@ -202,6 +211,89 @@ test("hunt checklist reports live spoor progress after extraction", () => {
     label: "Hunt 1/2 rift spoor",
     complete: true,
   }, "an accepted repeat Hunt updates the displayed spoor progress without reopening the objective");
+});
+
+test("stage checklist keeps preparation ahead of waves and marks only truly optional commands", () => {
+  let stageOne = start();
+  let materialize = getStageChecklist(stageOne).find(({ id }) => id === "materialize");
+  assert.deepEqual(
+    materialize,
+    {
+      id: "materialize",
+      label: "Materialize a shadow legion (0/4)",
+      complete: false,
+    },
+    "Stage 1 must expose its declared four-Legion encounter preparation target before any command",
+  );
+
+  stageOne = commands(stageOne, ["hunt", "hunt", "extract", "materialize", "capture"]);
+  materialize = getStageChecklist(stageOne).find(({ id }) => id === "materialize");
+  assert.deepEqual(
+    materialize,
+    {
+      id: "materialize",
+      label: "Materialize a shadow legion (2/4)",
+      complete: false,
+    },
+    "two Legion and the forge node are not enough to complete Stage 1 encounter preparation",
+  );
+  assert.equal(
+    getStageChecklist(stageOne).find((item) => !item.complete && !item.optional)?.id,
+    "materialize",
+    "the first wave cannot become the current required objective before the four-Legion preparation gate",
+  );
+
+  stageOne = command(stageOne, "materialize");
+  materialize = getStageChecklist(stageOne).find(({ id }) => id === "materialize");
+  assert.deepEqual(
+    materialize,
+    {
+      id: "materialize",
+      label: "Materialize a shadow legion (4/4)",
+      complete: true,
+    },
+    "Stage 1 preparation completes exactly when the fourth Legion joins the captured forge node",
+  );
+  assert.equal(
+    getStageChecklist(stageOne).find((item) => !item.complete && !item.optional)?.id,
+    "wave-scout",
+    "the first declared wave becomes current only after the complete preparation gate",
+  );
+
+  const stageTwo = accept(chooseReward(commands(stageOne, S1_ENCOUNTER.concat("assault", "assault", "assault")), "rift-lens"));
+  const stageTwoPossess = getStageChecklist(stageTwo).find(({ id }) => id === "possess");
+  assert.deepEqual(
+    stageTwoPossess,
+    {
+      id: "possess",
+      label: "Possess a sentinel",
+      complete: false,
+    },
+    "Stage 2 Possess must remain required because its assault contract requires possession",
+  );
+
+  const stageThree = accept(chooseReward(commands(stageTwo, S2_LENS), "veil-vanguard"));
+  const stageThreeChecklist = getStageChecklist(stageThree);
+  assert.deepEqual(
+    stageThreeChecklist.find(({ id }) => id === "possess"),
+    {
+      id: "possess",
+      label: "Possess a sentinel",
+      complete: false,
+      optional: true,
+    },
+    "Stage 3 Possess must be truthfully marked optional",
+  );
+  assert.deepEqual(
+    stageThreeChecklist.find(({ id }) => id === "domain"),
+    {
+      id: "domain",
+      label: "Invoke Lord's Domain once",
+      complete: false,
+      optional: true,
+    },
+    "Stage 3 Domain must be truthfully marked optional",
+  );
 });
 
 test("battle breaches consume aegis, defeat at zero integrity, and replay from saves", () => {
@@ -423,7 +515,8 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
     stage.encounter,
     {
       preparationSeconds: 8,
-      preparationLegion: 2,
+      preparationLegion: 4,
+      preparationNodes: 1,
       waves: [
         { id: "scout", spawnAtSeconds: 8, hostiles: 2, hostileHealth: 2, breachDamage: 1 },
         { id: "guard", spawnAtSeconds: 22, hostiles: 3, hostileHealth: 2, breachDamage: 1 },
@@ -433,7 +526,7 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
     "Stage 1 must publish the declared 8/22/36 second 2/3/3 hostile encounter schedule.",
   );
 
-  let state = commands(start(), ["hunt", "hunt", "extract", "materialize", "capture"]);
+  let state = commands(start(), S1_PREPARATION);
   rejectWithoutMutation(state, (current) => applyAction(current, "assault"), "Stage 1 assault must remain blocked before the encounter clears");
   rejectWithoutMutation(state, (current) => applyEncounterEvent(current, { type: "start-wave", stageId: stage.id, waveId: "guard" }), "the second wave cannot start before Scout");
   rejectWithoutMutation(state, (current) => applyEncounterEvent(current, { type: "wave-cleared", stageId: stage.id, waveId: "scout" }), "a wave cannot clear before it starts");
@@ -477,29 +570,28 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
 });
 
 test("boss counterblows scale by stage and are softened by the legion shield", () => {
-  // Stage 1, thin legion (L2 < 3): counter = max(1, 1) + 1 thin = 2.
-  let thin = commands(start(), ["hunt", "hunt", "extract", "materialize", "capture", ...S1_ENCOUNTER]);
-  thin = command(thin, "assault");
-  assert.equal(thin.stage.bossHealth, 5, "Stage 1 assault must deal 3 damage");
-  assert.equal(thin.stage.integrity, 8, "a thin Stage 1 assault must cost 2 integrity");
+  // Stage 1 prepared legion (L4, floor(4/4)=1 shield): counter = 1.
+  let prepared = commands(start(), [...S1_PREPARATION, ...S1_ENCOUNTER]);
+  prepared = command(prepared, "assault");
+  assert.equal(prepared.stage.bossHealth, 5, "Stage 1 assault must deal 3 damage");
+  assert.equal(prepared.stage.integrity, 9, "the required four-shade legion must soften the first Stage 1 counterblow to 1");
 
-  // Same run, shielded legion (L4, floor(4/4)=1 shield, not thin): counter 1.
-  thin = command(thin, "materialize");
-  assert.equal(thin.stage.legion, 4);
-  const shielded = command(thin, "assault");
-  assert.equal(shielded.stage.integrity, 7, "a shielded Stage 1 assault must cost only 1 integrity");
+  // The preparation contract leaves no thin Stage 1 route; its shield applies
+  // consistently until the third assault ends the stage.
+  const shielded = command(prepared, "assault");
+  assert.equal(shielded.stage.integrity, 8, "the prepared Stage 1 legion must soften the second counterblow to 1");
 });
 
 test("integrity persists across stages instead of resetting to 10", () => {
-  // Thin Stage 1 rush: three counterblows of 2 leave integrity 4.
-  let state = commands(start(), ["hunt", "hunt", "extract", "materialize", "capture", ...S1_ENCOUNTER, "assault", "assault", "assault"]);
+  // Prepared Stage 1: three shielded counterblows of 1 leave integrity 7.
+  let state = commands(start(), [...S1_PREPARATION, ...S1_ENCOUNTER, "assault", "assault", "assault"]);
   assert.equal(state.status, "reward");
-  assert.equal(state.stage.integrity, 4);
+  assert.equal(state.stage.integrity, 7);
 
   state = accept(chooseReward(state, "rift-lens"));
   assert.equal(state.stageIndex, 1);
-  assert.equal(state.stage.integrity, 5, "Stage 2 must open with carried integrity 4 + reward restore 1, not 10");
-  assert.equal(state.stage.entryIntegrity, 5, "the stage entry snapshot must record the carried value");
+  assert.equal(state.stage.integrity, 8, "Stage 2 must open with carried integrity 7 + reward restore 1, not 10");
+  assert.equal(state.stage.entryIntegrity, 8, "the stage entry snapshot must record the carried value");
 });
 
 test("Rift Lens adds four damage to possessed Stage 3 assaults", () => {
@@ -586,13 +678,13 @@ test("thin legions take the reckless-assault penalty", () => {
 
 test("defeat is reachable: the thin rush dies on Echo Throne and retry restores the stage entry", () => {
   const thinLine = ["hunt", "hunt", "extract", "materialize"];
-  let state = commands(start(), [...thinLine, "capture", ...S1_ENCOUNTER, "assault", "assault", "assault"]);
+  let state = commands(start(), [...S1_PREPARATION, ...S1_ENCOUNTER, "assault", "assault", "assault"]);
   state = accept(chooseReward(state, "rift-lens"));
   state = commands(state, [...thinLine, "capture", "capture", "possess", "assault", "assault"]);
   assert.equal(state.status, "reward", "the thin Stage 2 line survives on the killing blow");
-  assert.equal(state.stage.integrity, 0);
+  assert.equal(state.stage.integrity, 2);
   state = accept(chooseReward(state, "anchor-shard"));
-  assert.equal(state.stage.integrity, 4, "Echo Throne entry = max(0 + restore 1 + Anchor Shard 2, entry floor 4)");
+  assert.equal(state.stage.integrity, 5, "Echo Throne entry = max(2 + restore 1 + Anchor Shard 2, entry floor 4)");
 
   state = commands(state, [...thinLine, "capture", "assault"]);
   assert.equal(state.status, "defeat", "the first undefended Echo Throne assault must be lethal");
@@ -601,7 +693,7 @@ test("defeat is reachable: the thin rush dies on Echo Throne and retry restores 
 
   const retried = accept(retryStage(state), "defeat must allow a retry");
   assert.equal(retried.status, "active");
-  assert.equal(retried.stage.integrity, 4, "retry must restore the recorded stage-entry integrity");
+  assert.equal(retried.stage.integrity, 5, "retry must restore the recorded stage-entry integrity");
   assert.equal(retried.stage.nodes, 0, "retry must reset stage progress");
   assert.deepEqual(retried.rewards.map(({ rewardId }) => rewardId), ["rift-lens", "anchor-shard"]);
 });

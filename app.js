@@ -17,9 +17,9 @@ import { BattleVisualizer } from "./battle-visualizer.js";
 import { RealtimeBattle } from "./battle-realtime-three.js";
 import { getBattlePresentation } from "./battle-presentation.js";
 import { CampaignMirror } from "./campaign-sync.js";
-import { currentLang, translations } from "./i18n.js";
+import { currentLang, translate, translations } from "./i18n.js";
 
-const BUILD_TAG = "abyssal-surge-static-v1";
+const BUILD_TAG = "abyssal-surge-static-v37";
 const DB_NAME = "abyssal-surge-campaign";
 const DB_VERSION = 1;
 const STORE_NAME = "campaigns";
@@ -329,6 +329,7 @@ const elements = Object.freeze({
   returnToLobby: document.querySelector("#return-to-lobby"),
   resultOverlay: document.querySelector("#view-result"),
   briefing: document.querySelector("#stage-briefing"),
+  briefingPlayerJob: document.querySelector("#briefing-player-job"),
   briefingStage: document.querySelector("#briefing-stage"),
   briefingRegion: document.querySelector("#briefing-region"),
   briefingObjective: document.querySelector("#briefing-objective"),
@@ -408,7 +409,9 @@ const elements = Object.freeze({
   stageButtons: [...document.querySelectorAll("#stage-selector [data-stage-number]")],
   bgmToggle: document.querySelector("#bgm-toggle"),
   bgmPlayer: document.querySelector("#bgm-player"),
-  languageToggle: document.querySelector("#lang-toggle")
+  languageToggle: document.querySelector("#lang-toggle"),
+  battleMissionCurrent: document.querySelector("#battle-mission-current"),
+  battleMissionWhy: document.querySelector("#battle-mission-why")
 });
 
 let campaign = null;
@@ -458,6 +461,398 @@ function translatedResumeText(key, fallback) {
   return translations[currentLang()]?.[key] ?? fallback;
 }
 
+function resolvePresentationCopy(key, fallback, stageId, type) {
+  if (key) {
+    const res = translate(key);
+    if (res) return res;
+  }
+  if (stageId && type) {
+    const res = translate(`presentation.${stageId}.${type}`);
+    if (res) return res;
+  }
+  return fallback;
+}
+
+function calculateAssaultDamage(state, stage, benefits) {
+  const assault = stage.commands.assault;
+  if (!assault) return 0;
+  let damage = assault.damage;
+  if (state.possessed) {
+    damage += (assault.possessedDamage ?? 0) + (benefits.possessedAssaultBonus ?? 0);
+  }
+  return damage;
+}
+
+function calculateCounterDamage(state, stage, benefits) {
+  const assault = stage.commands.assault;
+  if (!assault || !assault.counter) return 0;
+  const counter = assault.counter;
+  if (counter.mode === "threshold") {
+    const base = state.legion >= counter.minimumLegion ? counter.readyDamage : counter.belowDamage;
+    return Math.max(1, base - (benefits.counterReduction ?? 0));
+  }
+  const shield = Math.floor(state.legion / counter.shieldDivisor);
+  const thin = state.legion < counter.thinLegion ? counter.thinPenalty : 0;
+  return Math.max(1, Math.max(1, counter.baseDamage - shield) + thin - (benefits.counterReduction ?? 0));
+}
+
+function getCommandDescription(action, available, lang) {
+  const stage = currentStage();
+  const state = campaign.stage;
+  const benefits = getCampaignBenefits(campaign);
+  const progression = stage.progression;
+  
+  if (action === "hunt") {
+    return lang === "ko"
+      ? `균열 흔적 탐색 (진행도: ${state.hunted}/${progression.huntGoal})`
+      : `Search for spoor (progress: ${state.hunted}/${progression.huntGoal})`;
+  }
+  if (action === "extract") {
+    return lang === "ko"
+      ? `은닉처에서 영혼 +${progression.soulsPerExtract} 획득`
+      : `Gain +${progression.soulsPerExtract} souls from cache`;
+  }
+  if (action === "materialize") {
+    const extra = benefits.materializeBonus ?? 0;
+    const summon = Math.min(progression.materializeSummon + extra, state.capacity - state.legion);
+    return lang === "ko"
+      ? `비용: 영혼 ${progression.materializeCost} | 군단 +${summon} 실체화`
+      : `Cost: ${progression.materializeCost} souls | Gain +${summon} legion`;
+  }
+  if (action === "capture") {
+    return lang === "ko"
+      ? `기술 거점 점거 (그림자 2명 필요 | 거점 +1)`
+      : `Capture tech node (needs 2 legion | results in +1 node)`;
+  }
+  if (action === "possess") {
+    const command = stage.commands.possess;
+    const possessedDamage = stage.commands.assault?.possessedDamage ?? 0;
+    const extraDamage = benefits.possessedAssaultBonus ?? 0;
+    const totalBonus = possessedDamage + extraDamage;
+    return lang === "ko"
+      ? `총공격 피해 +${totalBonus} 부여`
+      : `Grants +${totalBonus} assault damage`;
+  }
+  if (action === "domain") {
+    const command = stage.commands.domain;
+    const restore = command?.integrityRestore ?? 0;
+    const aegis = command?.aegis ?? 0;
+    return lang === "ko"
+      ? `군주 내구도 +${restore} 회복 및 차단막 +${aegis} 획득`
+      : `Restores +${restore} integrity & grants +${aegis} aegis`;
+  }
+  if (action === "assault") {
+    const dmg = calculateAssaultDamage(state, stage, benefits);
+    const counter = calculateCounterDamage(state, stage, benefits);
+    return lang === "ko"
+      ? `보스에게 ${dmg} 피해 | 예상 반격: ${counter}`
+      : `Deal ${dmg} damage | Expected counterblow: ${counter}`;
+  }
+  return "";
+}
+
+function getCommandLockReason(action, lang) {
+  const stage = currentStage();
+  const state = campaign.stage;
+  const benefits = getCampaignBenefits(campaign);
+  const progression = stage.progression;
+  
+  if (action === "hunt") {
+    if (state.hunted >= progression.huntGoal || state.extracted) {
+      return lang === "ko"
+        ? "균열 흔적이 모두 발견되었습니다. 그림자 은닉처를 추출하십시오."
+        : "The spoor is fully mapped. Extract the gathered shade.";
+    }
+    return lang === "ko"
+      ? "현재 스테이지에서 명령을 내릴 수 없습니다."
+      : "This stage is not accepting commands right now.";
+  }
+  if (action === "extract") {
+    if (state.hunted < progression.huntGoal) {
+      return lang === "ko"
+        ? "추출 전에 두 개의 흔적을 발견해야 합니다."
+        : "Two spoor marks are required before extraction.";
+    }
+    if (state.extracted) {
+      return lang === "ko"
+        ? "그림자 은닉처가 이미 추출되었습니다."
+        : "The shade cache has already been extracted.";
+    }
+  }
+  if (action === "materialize") {
+    if (state.souls < progression.materializeCost) {
+      return lang === "ko"
+        ? `실체화에 필요한 영혼이 부족합니다 (${state.souls}/${progression.materializeCost} 보유).`
+        : `Extract enough shade before materializing (have ${state.souls}/${progression.materializeCost}).`;
+    }
+    if (state.legion >= state.capacity) {
+      return lang === "ko"
+        ? "군단 슬롯이 가득 찼습니다."
+        : "Your legion slots are full.";
+    }
+  }
+  if (action === "capture") {
+    if (state.legion < 2) {
+      return lang === "ko"
+        ? `거점을 점거하려면 최소 2명의 그림자가 필요합니다 (현재 ${state.legion}명).`
+        : `Need at least 2 shades to anchor the node (have ${state.legion}).`;
+    }
+    if (state.nodes >= stage.nodeGoal) {
+      return lang === "ko"
+        ? "필요한 모든 거점을 이미 점거했습니다."
+        : "Every required node is already held.";
+    }
+  }
+  if (action === "possess") {
+    const command = stage.commands.possess;
+    if (!command) {
+      return lang === "ko"
+        ? "이 스테이지에서는 빙의를 사용할 수 없습니다."
+        : "Possession is not available in this stage.";
+    }
+    if (state.nodes < command.requiresNodes) {
+      return lang === "ko"
+        ? `센티널을 빙의하려면 신호 거점을 ${command.requiresNodes}곳 점거해야 합니다 (현재 ${state.nodes}곳 보유).`
+        : `Hold ${command.requiresNodes} signal nodes to possess (have ${state.nodes}).`;
+    }
+    if (state.possessed) {
+      return lang === "ko"
+        ? "이미 센티널을 빙의 중입니다."
+        : "A sentinel is already possessed.";
+    }
+  }
+  if (action === "domain") {
+    const command = stage.commands.domain;
+    if (!command) {
+      return lang === "ko"
+        ? "이 스테이지에서는 군주의 영역을 사용할 수 없습니다."
+        : "Lord's Domain is not available in this stage.";
+    }
+    if (state.nodes < command.requiresNodes) {
+      return lang === "ko"
+        ? `영역을 발동하려면 신호 거점을 ${command.requiresNodes}곳 점거해야 합니다 (현재 ${state.nodes}곳 보유).`
+        : `Hold ${command.requiresNodes} signal nodes to open the Domain (have ${state.nodes}).`;
+    }
+    if (state.domainUses >= command.limit) {
+      return lang === "ko"
+        ? "군주의 영역이 이미 발동되었습니다."
+        : "Lord's Domain has already been invoked.";
+    }
+  }
+  if (action === "assault") {
+    const encounter = currentEncounter(stage, state);
+    if (encounter && !encounter.bossExposed) {
+      return lang === "ko"
+        ? "보스를 공격하기 전에 모든 적 웨이브를 물리쳐야 합니다."
+        : "Clear every declared wave before assaulting the boss.";
+    }
+    if (state.nodes < stage.nodeGoal) {
+      return lang === "ko"
+        ? `보스를 공격하려면 모든 거점 ${stage.nodeGoal}곳을 점거해야 합니다 (현재 ${state.nodes}곳 보유).`
+        : `Hold every required node before the boss can be assaulted (have ${state.nodes}/${stage.nodeGoal}).`;
+    }
+    const assault = stage.commands.assault;
+    if (assault && assault.requiresPossessed && !state.possessed) {
+      return lang === "ko"
+        ? "보스를 대면하기 전에 센티널에 빙의하십시오."
+        : `Possess a sentinel before confronting the ${stage.bossName}.`;
+    }
+  }
+  return "";
+}
+
+function getChecklistLabel(item, lang) {
+  if (lang !== "ko") return item.label;
+  const stage = currentStage();
+  if (item.id === "hunt") {
+    const match = item.label.match(/(\d+)\/(\d+)/);
+    if (match) {
+      const [_, current, total] = match;
+      return `균열 흔적 ${current}/${total} 사냥`;
+    }
+    return "균열 흔적 사냥";
+  }
+  if (item.id === "extract") {
+    return "그림자 은닉처 추출";
+  }
+  if (item.id === "materialize") {
+    const match = item.label.match(/(\d+)\/(\d+)/);
+    if (match) {
+      const [_, current, total] = match;
+      return `그림자 군단 ${current}/${total} 실체화`;
+    }
+    return "그림자 군단 실체화";
+  }
+  if (item.id === "capture") {
+    const match = item.label.match(/Hold (\d+)/);
+    if (match) {
+      const [_, total] = match;
+      return `기술 거점 ${total}곳 점거`;
+    }
+    return "기술 거점 점거";
+  }
+  if (item.id === "possess") {
+    return "센티널 빙의";
+  }
+  if (item.id === "domain") {
+    return "군주의 영역 1회 발동";
+  }
+  if (item.id.startsWith("wave-")) {
+    const waveId = item.id.substring(5);
+    const waveNameKo = translate(`wave.${waveId}`) || waveId;
+    return `${waveNameKo} 웨이브 처치`;
+  }
+  if (item.id === "assault") {
+    const bossNameKo = translate(`stage.${stage.id}.bossName`) || stage.bossName;
+    return `${bossNameKo} 처치`;
+  }
+  return item.label;
+}
+
+function translateStatusMessage(msg, lang) {
+  if (lang !== "ko") return msg;
+  if (!msg) return "";
+  
+  if (msg.includes("The abyss answers when you are ready.")) {
+    return "준비가 되면 심연이 답할 것입니다.";
+  }
+  if (msg.includes("No campaign started.")) {
+    return "시작된 캠페인이 없습니다.";
+  }
+  if (msg === "You find a heatless footprint in the cinders.") {
+    return "잿더미에서 열기 없는 흔적 하나를 발견했습니다. 균열을 특정하려면 한 번 더 사냥하십시오.";
+  }
+  if (msg === "The second trace exposes the rift's pulse.") {
+    return "두 번째 흔적이 균열의 맥동을 드러냈습니다. 이제 영혼을 추출할 수 있습니다.";
+  }
+  if (msg.endsWith("reforms. Your earned boons remain.")) {
+    const stageTitle = msg.replace("reforms. Your earned boons remain.", "").trim();
+    const stageObj = STAGES.find(s => s.title === stageTitle);
+    const stageTitleKo = stageObj ? translate(`stage.${stageObj.id}.title`) : stageTitle;
+    return `${stageTitleKo}이(가) 재구성되었습니다. 획득한 가호는 유지됩니다.`;
+  }
+  if (msg.includes("opens. Follow the spoor before the bridge cools.")) {
+    const stageTitle = msg.replace("opens. Follow the spoor before the bridge cools.", "").trim();
+    const stageObj = STAGES.find(s => s.title === stageTitle);
+    const stageTitleKo = stageObj ? translate(`stage.${stageObj.id}.title`) : stageTitle;
+    return `${stageTitleKo}이(가) 개방되었습니다. 다리가 식기 전에 흔적을 쫓으십시오.`;
+  }
+  if (msg.endsWith("dissolves into ash. Choose one lasting boon.")) {
+    const bossName = msg.replace("dissolves into ash. Choose one lasting boon.", "").trim();
+    const stageObj = STAGES.find(s => s.bossName === bossName);
+    const bossNameKo = stageObj ? translate(`stage.${stageObj.id}.bossName`) : bossName;
+    return `${bossNameKo}이(가) 재로 분해되었습니다. 지속되는 가호 하나를 선택하십시오.`;
+  }
+  if (msg.includes("The legion loses its anchor. Regroup and retry this stage.")) {
+    return "군단이 닻을 잃었습니다. 부대를 재정비하고 스테이지를 재시도하십시오.";
+  }
+  if (msg.includes("The breach shatters the legion's anchor. Regroup and retry this stage.")) {
+    return "균열로 인해 군단의 닻이 파괴되었습니다. 부대를 재정비하고 스테이지를 재시도하십시오.";
+  }
+  if (msg.includes("An abyssal breach strikes, but the aegis absorbs it.")) {
+    return "심연의 균열 습격이 발생했으나, 이지스가 이를 흡수했습니다.";
+  }
+  if (msg.startsWith("An abyssal breach tears ") && msg.endsWith(" integrity.")) {
+    const dmg = msg.replace("An abyssal breach tears ", "").replace(" integrity.", "").trim();
+    return `심연의 균열이 발생하여 군주 내구도가 ${dmg}만큼 감소했습니다.`;
+  }
+  if (msg.includes("The second spoor opens into a soul cache before the rift can close.")) {
+    return "균열이 닫히기 전에 두 번째 흔적이 그림자 은닉처로 열렸습니다.";
+  }
+  if (msg.includes("Four volatile shades tear free from the rift.")) {
+    return "네 명의 불안정한 그림자가 균열에서 흘러나왔습니다.";
+  }
+  if (msg.includes("shadow answer your call.") || msg.includes("shadow answers your call.")) {
+    const num = msg.split(" ")[0];
+    return `${num}명의 그림자가 부름에 응답했습니다.`;
+  }
+  if (msg.startsWith("The node bends beneath the legion's banner (")) {
+    const progress = msg.substring(msg.indexOf("(") + 1, msg.indexOf(")"));
+    return `거점이 군단의 깃발 아래 굴복했습니다 (${progress}).`;
+  }
+  if (msg.includes("A sentinel's will is folded into your command; its fury rides your assaults.")) {
+    return "센티널의 의지가 아군 명령에 굴복했습니다. 그 분노가 총공격에 실려 발산됩니다.";
+  }
+  if (msg.startsWith("Lord's Domain unfolds once:")) {
+    const restoreMatch = msg.match(/restores (\d+) integrity/);
+    const aegisMatch = msg.match(/next (\d+) counterblows/);
+    const restore = restoreMatch ? restoreMatch[1] : "0";
+    const aegis = aegisMatch ? aegisMatch[1] : "0";
+    return `군주의 영역이 펼쳐졌습니다: 심연이 군주 내구도를 ${restore} 회복시켰고, 다음 ${aegis}회의 반격이 차단됩니다.`;
+  }
+  if (msg.endsWith("wave has reached the battlefield.")) {
+    const waveId = msg.replace("wave has reached the battlefield.", "").trim();
+    const waveNameKo = translate(`wave.${waveId}`) || waveId;
+    return `${waveNameKo} 웨이브가 전장에 도달했습니다.`;
+  }
+  if (msg.endsWith("is exposed. Spawning has stopped.")) {
+    const bossName = msg.replace("is exposed. Spawning has stopped.", "").trim();
+    const stageObj = STAGES.find(s => s.bossName === bossName);
+    const bossNameKo = stageObj ? translate(`stage.${stageObj.id}.bossName`) : bossName;
+    return `${bossNameKo}이(가) 노출되었습니다. 적의 생성이 중단되었습니다.`;
+  }
+  if (msg.endsWith("wave cleared. The next wave remains on approach.")) {
+    const waveId = msg.replace("wave cleared. The next wave remains on approach.", "").trim();
+    const waveNameKo = translate(`wave.${waveId}`) || waveId;
+    return `${waveNameKo} 웨이브를 물리쳤습니다. 다음 웨이브가 다가오고 있습니다.`;
+  }
+  if (msg.includes("is claimed. The ") && msg.includes(" is gone, and Abyssal Command endures.")) {
+    const part1 = msg.split(" is claimed. The ");
+    const rewardName = part1[0];
+    const bossName = part1[1].replace(" is gone, and Abyssal Command endures.", "");
+    const stageObj = STAGES.find(s => s.bossName === bossName);
+    const bossNameKo = stageObj ? translate(`stage.${stageObj.id}.bossName`) : bossName;
+    
+    let rewardId = "";
+    for (const s of STAGES) {
+      const r = s.rewards.find(reward => reward.name === rewardName);
+      if (r) { rewardId = r.id; break; }
+    }
+    const rewardNameKo = rewardId ? translate(`reward.${rewardId}.name`) : rewardName;
+    return `${rewardNameKo}을(를) 획득했습니다. ${bossNameKo}은(는) 소멸했으며, 심연의 명령(Abyssal Command)이 유지됩니다.`;
+  }
+  if (msg.includes(" carries into ")) {
+    const parts = msg.split(" carries into ");
+    const rewardName = parts[0];
+    const nextStageTitle = parts[1].replace(".", "").trim();
+    const nextStageObj = STAGES.find(s => s.title === nextStageTitle);
+    const nextStageTitleKo = nextStageObj ? translate(`stage.${nextStageObj.id}.title`) : nextStageTitle;
+    
+    let rewardId = "";
+    for (const s of STAGES) {
+      const r = s.rewards.find(reward => reward.name === rewardName);
+      if (r) { rewardId = r.id; break; }
+    }
+    const rewardNameKo = rewardId ? translate(`reward.${rewardId}.name`) : rewardName;
+    return `${rewardNameKo}의 효과가 ${nextStageTitleKo}(으)로 이어집니다.`;
+  }
+  if (msg.includes("recoils; ") && msg.includes("ward strength remains.")) {
+    const parts = msg.split("recoils; ");
+    const bossName = parts[0].trim();
+    const rest = parts[1];
+    const wardMatch = rest.match(/^(\d+) ward strength remains\.\s*(.*)$/);
+    if (wardMatch) {
+      const ward = wardMatch[1];
+      const aftermath = wardMatch[2];
+      
+      const stageObj = STAGES.find(s => s.bossName === bossName);
+      const bossNameKo = stageObj ? translate(`stage.${stageObj.id}.bossName`) : bossName;
+      
+      let aftermathKo = aftermath;
+      if (aftermath.includes("The Domain turns the counterblow aside.")) {
+        aftermathKo = "군주의 영역이 반격을 차단했습니다.";
+      } else if (aftermath.startsWith("The counterblow tears ") && aftermath.endsWith(" integrity.")) {
+        const integrity = aftermath.replace("The counterblow tears ", "").replace(" integrity.", "").trim();
+        aftermathKo = `반격으로 인해 군주 내구도가 ${integrity}만큼 감소했습니다.`;
+      }
+      return `${bossNameKo}이(가) 주춤합니다. 보스 보호벽 체력 ${ward} 남음. ${aftermathKo}`;
+    }
+  }
+
+  return msg;
+}
+
+
 function updateResumeAffordance() {
   const resumableCampaign = storedCampaign;
   const hasResumableCampaign = Boolean(resumableCampaign);
@@ -468,7 +863,10 @@ function updateResumeAffordance() {
   if (!hasResumableCampaign) return;
 
   const stage = STAGES[resumableCampaign.stageIndex];
-  elements.resumeStage.textContent = `${stage.number} / ${STAGES.length} · ${stage.title}`;
+  const stageTitle = currentLang() === "ko" ? translate(`stage.${stage.id}.title`) || stage.title : stage.title;
+  elements.resumeStage.textContent = currentLang() === "ko"
+    ? `${STAGES.length}단계 중 ${stage.number}단계 · ${stageTitle}`
+    : `${stage.number} / ${STAGES.length} · ${stage.title}`;
   const statusKey = RESUME_STATUS_KEYS[resumableCampaign.status];
   elements.resumeStatus.textContent = translatedResumeText(statusKey, resumableCampaign.status);
 }
@@ -476,18 +874,39 @@ function updateResumeAffordance() {
 
 function renderChecklist(checklist) {
   elements.checklist.replaceChildren();
-  const nextPendingId = checklist.find((item) => !item.complete)?.id;
+  const nextPendingId = checklist.find((item) => !item.complete && !item.optional)?.id;
+  const lang = currentLang();
   for (const item of checklist) {
     const row = document.createElement("li");
-    row.className = item.complete ? "complete" : item.id === nextPendingId ? "current" : "pending";
-    row.textContent = item.label;
-    row.setAttribute("aria-label", `${item.label}: ${item.complete ? "complete" : item.id === nextPendingId ? "current objective" : "pending"}`);
+    let statusClass = "pending";
+    let ariaState = "";
+    if (item.complete) {
+      statusClass = "complete";
+      ariaState = lang === "ko" ? "완료됨" : "complete";
+    } else if (item.optional) {
+      statusClass = "optional";
+      ariaState = lang === "ko" ? "선택 사항" : "optional";
+    } else if (item.id === nextPendingId) {
+      statusClass = "current";
+      ariaState = lang === "ko" ? "현재 목표" : "current objective";
+    } else {
+      statusClass = "pending";
+      ariaState = lang === "ko" ? "대기 중" : "pending";
+    }
+    row.className = statusClass;
+    let localizedLabel = getChecklistLabel(item, lang);
+    if (item.optional && !item.complete) {
+      localizedLabel += lang === "ko" ? " (선택)" : " (Optional)";
+    }
+    row.textContent = localizedLabel;
+    row.setAttribute("aria-label", `${localizedLabel}: ${ariaState}`);
     elements.checklist.append(row);
   }
 }
 
 function renderRewards(stage) {
   elements.rewardOptions.replaceChildren();
+  const lang = currentLang();
   for (const reward of stage.rewards) {
     const button = document.createElement("button");
     button.type = "button";
@@ -502,9 +921,9 @@ function renderRewards(stage) {
       button.append(art);
     }
     const name = document.createElement("strong");
-    name.textContent = reward.name;
+    name.textContent = lang === "ko" ? translate(`reward.${reward.id}.name`) || reward.name : reward.name;
     const description = document.createElement("span");
-    description.textContent = reward.description;
+    description.textContent = lang === "ko" ? translate(`reward.${reward.id}.description`) || reward.description : reward.description;
     button.append(name, description);
     button.addEventListener("click", () => handleReward(reward.id));
     elements.rewardOptions.append(button);
@@ -569,15 +988,33 @@ function remainingCooldown(action, now = performance.now()) {
 
 function setBattlePressure(phase, label) {
   const staticFallback = battleVisualFallback;
+  const lang = currentLang();
   elements.waveIndicator.dataset.phase = staticFallback ? "fallback" : phase;
-  elements.waveIndicator.textContent = staticFallback ? "STATIC TACTICAL BRIEFING · COMMAND SCHEDULE ACTIVE" : label;
-  elements.battlePressure.textContent = staticFallback
-    ? "Static tactical fallback: rendering is unavailable, but command rules remain active."
-    : phase === "briefing"
-      ? "Mission briefing: review the order, then commit the legion."
-      : phase === "preparation"
-        ? "Preparation window: issue commands before the first hostile wave enters the lane."
-        : "Live-wave pressure: keep the command pad active while hostiles cross the lane.";
+  
+  let displayLabel = label;
+  if (phase === "briefing") {
+    displayLabel = lang === "ko" ? "작전 브리핑 · 명령 대기 중" : "MISSION BRIEFING · COMMAND PENDING";
+  }
+  
+  if (lang === "ko") {
+    elements.waveIndicator.textContent = staticFallback ? "정적 전술 브리핑 · 명령 스케줄 활성화됨" : displayLabel;
+    elements.battlePressure.textContent = staticFallback
+      ? "정적 전술 모드: 렌더링이 불가하지만 명령 규칙은 활성 상태로 유지됩니다."
+      : phase === "briefing"
+        ? "작전 브리핑: 명령을 검토한 후 군단을 투입하십시오."
+        : phase === "preparation"
+          ? "준비 시간: 첫 번째 적 웨이브가 전장에 진입하기 전에 명령을 내리십시오."
+          : "웨이브 진행 중: 적들이 전장을 가로지르는 동안 명령 패널을 활성화하십시오.";
+  } else {
+    elements.waveIndicator.textContent = staticFallback ? "STATIC TACTICAL BRIEFING · COMMAND SCHEDULE ACTIVE" : displayLabel;
+    elements.battlePressure.textContent = staticFallback
+      ? "Static tactical fallback: rendering is unavailable, but command rules remain active."
+      : phase === "briefing"
+        ? "Mission briefing: review the order, then commit the legion."
+        : phase === "preparation"
+          ? "Preparation window: issue commands before the first hostile wave enters the lane."
+          : "Live-wave pressure: keep the command pad active while hostiles cross the lane.";
+  }
 }
 
 function renderBattleAssetStatus({ state, loaded = 0, total = 0, clips = 0 } = {}) {
@@ -603,15 +1040,20 @@ function renderBattlePresentation(stage) {
     elements.battleField.style.setProperty("--battle-ally", palette.ally);
     elements.battleField.style.setProperty("--battle-hostile", palette.hostile);
     elements.battleField.style.setProperty("--battle-accent", palette.accent);
-    elements.battleOperation.textContent = presentation.operation;
-    elements.battleDoctrine.textContent = presentation.doctrine;
-    elements.battleAllyLabel.textContent = presentation.allyLabel;
-    elements.battleHostileLabel.textContent = presentation.hostileLabel;
-    elements.battleFallbackOperation.textContent = presentation.operation;
-    elements.battleFallbackDoctrine.textContent = presentation.doctrine;
-    elements.battleFallbackAllyLabel.textContent = presentation.allyLabel;
-    elements.battleFallbackHostileLabel.textContent = presentation.hostileLabel;
   }
+
+  const operation = resolvePresentationCopy(presentation.operationKey, presentation.operation, stage.id, "operation");
+  const doctrine = resolvePresentationCopy(presentation.doctrineKey, presentation.doctrine, stage.id, "doctrine");
+  const allyLabel = resolvePresentationCopy(null, presentation.allyLabel, stage.id, "allyLabel");
+  const hostileLabel = resolvePresentationCopy(null, presentation.hostileLabel, stage.id, "hostileLabel");
+  elements.battleOperation.textContent = operation;
+  elements.battleDoctrine.textContent = doctrine;
+  elements.battleAllyLabel.textContent = allyLabel;
+  elements.battleHostileLabel.textContent = hostileLabel;
+  elements.battleFallbackOperation.textContent = operation;
+  elements.battleFallbackDoctrine.textContent = doctrine;
+  elements.battleFallbackAllyLabel.textContent = allyLabel;
+  elements.battleFallbackHostileLabel.textContent = hostileLabel;
 
   const showFallback = battleVisualFallback && !elements.screen.hidden;
   elements.battleCanvas3d.hidden = showFallback;
@@ -621,11 +1063,26 @@ function renderBattlePresentation(stage) {
   return presentation;
 }
 
+function syncModalIsolation() {
+  const activeModal = resultOverlayOpen
+    ? elements.resultOverlay
+    : stageBriefingOpen
+      ? elements.briefing
+      : null;
+  for (const child of elements.screen.children) {
+    child.inert = Boolean(activeModal && child !== activeModal);
+  }
+  if (elements.languageToggle) elements.languageToggle.inert = Boolean(activeModal);
+}
+
 function setMissionBriefingModal(active) {
   elements.briefing.hidden = !active;
-  for (const child of elements.screen.children) {
-    if (child !== elements.briefing) child.inert = active;
-  }
+  syncModalIsolation();
+}
+
+function setResultModal(active) {
+  elements.resultOverlay.hidden = !active;
+  syncModalIsolation();
 }
 
 function setBriefingStageArt(stage) {
@@ -641,13 +1098,24 @@ function renderMissionBriefing(stage) {
   setBriefingStageArt(stage);
   setMissionBriefingModal(stageBriefingOpen);
   if (!stageBriefingOpen) return;
+  const lang = currentLang();
   const presentation = getBattlePresentation(stage.id);
-  elements.briefingStage.textContent = `Stage ${stage.number} · ${stage.title}`;
-  elements.briefingRegion.textContent = stage.region;
-  elements.briefingObjective.textContent = stage.objective;
-  elements.briefingOperation.textContent = presentation.operation;
-  elements.briefingDoctrine.textContent = presentation.doctrine;
-  elements.briefingBoss.textContent = stage.bossName;
+  
+  const bossName = lang === "ko" ? translate(`stage.${stage.id}.bossName`) || stage.bossName : stage.bossName;
+  const stageTitle = lang === "ko" ? translate(`stage.${stage.id}.title`) || stage.title : stage.title;
+  const region = lang === "ko" ? translate(`stage.${stage.id}.region`) || stage.region : stage.region;
+  
+  elements.briefingPlayerJob.textContent = translate("briefing.playerJob").replace("{bossName}", bossName);
+  elements.briefingStage.textContent = lang === "ko"
+    ? `스테이지 ${stage.number} · ${stageTitle}`
+    : `Stage ${stage.number} · ${stage.title}`;
+  elements.briefingRegion.textContent = region;
+  elements.briefingObjective.textContent = presentation.objectiveKey
+    ? resolvePresentationCopy(presentation.objectiveKey, stage.objective, stage.id, "objective")
+    : translations[lang]?.[`stage.${stage.id}.objective`] ?? stage.objective;
+  elements.briefingOperation.textContent = resolvePresentationCopy(presentation.operationKey, presentation.operation, stage.id, "operation");
+  elements.briefingDoctrine.textContent = resolvePresentationCopy(presentation.doctrineKey, presentation.doctrine, stage.id, "doctrine");
+  elements.briefingBoss.textContent = bossName;
 }
 
 function clearEncounterStartTimer() {
@@ -667,8 +1135,11 @@ function armEncounterWhenPrepared(sessionId = battleSessionId) {
   if (!stage.encounter || !encounter || encounter.bossExposed || encounter.spawningStopped) return;
 
   const preparationLegion = stage.encounter.preparationLegion ?? 0;
-  const readyForInitialWave = encounter.activeWaveId !== null ||
-    campaign.stage.legion >= preparationLegion;
+  const preparationNodes = stage.encounter.preparationNodes ?? 0;
+  const readyForInitialWave = encounter.activeWaveId !== null || (
+    campaign.stage.legion >= preparationLegion &&
+    campaign.stage.nodes >= preparationNodes
+  );
   if (!readyForInitialWave) return;
 
   battleStartedAt = performance.now();
@@ -691,45 +1162,94 @@ function projectBattleRuntime() {
   const engagements = runtimeCount(rendererRuntime?.engagements);
   const exchanges = runtimeCount(rendererRuntime?.exchanges);
 
+  const lang = currentLang();
+  const presentation = getBattlePresentation(stage.id);
+  const allyName = resolvePresentationCopy(null, presentation.allyLabel, stage.id, "allyLabel");
+  const bossName = lang === "ko" ? translate(`stage.${stage.id}.bossName`) || stage.bossName : stage.bossName;
 
-  elements.battleAllyLabel.textContent = `Dusk Legion · ${state.legion}/${state.capacity} fielded`;
+  elements.battleAllyLabel.textContent = lang === "ko"
+    ? `${allyName} · ${state.legion}/${state.capacity} 실체화됨`
+    : `${allyName} · ${state.legion}/${state.capacity} fielded`;
   elements.battleFallbackAllyLabel.textContent = elements.battleAllyLabel.textContent;
   elements.battleField.dataset.runtimeMode = rendererMode;
   elements.battleField.dataset.engagements = String(engagements);
   elements.battleField.dataset.exchanges = String(exchanges);
 
-
   if (!encounter) {
-    const bossLabel = `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
+    const bossLabel = lang === "ko"
+      ? `${bossName} · 체력 ${state.bossHealth}/${stage.bossHealth}`
+      : `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
     elements.battleHostileLabel.textContent = bossLabel;
     elements.battleFallbackHostileLabel.textContent = bossLabel;
-    if (!stageBriefingOpen) setBattlePressure("preparation", `BOSS COMMAND · ${stage.bossName.toUpperCase()}`);
+    if (!stageBriefingOpen) {
+      const pressureText = lang === "ko"
+        ? `보스 명령 · ${bossName}`
+        : `BOSS COMMAND · ${stage.bossName.toUpperCase()}`;
+      setBattlePressure("preparation", pressureText);
+    }
     return;
   }
 
   if (activeWave) {
     const waveIndex = stage.encounter.waves.findIndex((wave) => wave.id === activeWave.id) + 1;
-    const waveLabel = `${activeWave.id.toUpperCase()} · ${activeWave.hostiles} HOSTILES`;
+    const waveName = lang === "ko" ? translate(`wave.${activeWave.id}`) || activeWave.id : activeWave.id;
+    const waveLabel = lang === "ko"
+      ? `${waveName.toUpperCase()} · 적 ${activeWave.hostiles}명`
+      : `${activeWave.id.toUpperCase()} · ${activeWave.hostiles} HOSTILES`;
     elements.battleHostileLabel.textContent = waveLabel;
     elements.battleFallbackHostileLabel.textContent = waveLabel;
-    if (!stageBriefingOpen) setBattlePressure("live", `LIVE WAVE · ${waveIndex}/${stage.encounter.waves.length} · ${activeWave.id.toUpperCase()}`);
+    if (!stageBriefingOpen) {
+      const pressureText = lang === "ko"
+        ? `웨이브 진행 중 · ${waveIndex}/${stage.encounter.waves.length} · ${waveName.toUpperCase()}`
+        : `LIVE WAVE · ${waveIndex}/${stage.encounter.waves.length} · ${activeWave.id.toUpperCase()}`;
+      setBattlePressure("live", pressureText);
+    }
     return;
   }
 
   if (encounter.bossExposed) {
-    const bossLabel = `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
+    const bossLabel = lang === "ko"
+      ? `${bossName} · 체력 ${state.bossHealth}/${stage.bossHealth}`
+      : `${stage.bossName} · ${state.bossHealth}/${stage.bossHealth} HP`;
     elements.battleHostileLabel.textContent = bossLabel;
     elements.battleFallbackHostileLabel.textContent = bossLabel;
-    if (!stageBriefingOpen) setBattlePressure("live", `BOSS EXPOSED · ${stage.bossName.toUpperCase()}`);
+    if (!stageBriefingOpen) {
+      const pressureText = lang === "ko"
+        ? `보스 노출됨 · ${bossName}`
+        : `BOSS EXPOSED · ${stage.bossName.toUpperCase()}`;
+      setBattlePressure("live", pressureText);
+    }
     return;
   }
 
   const nextWaveIndex = encounter.waves.findIndex((wave) => !wave.cleared);
   const nextWave = stage.encounter.waves[nextWaveIndex];
-  const nextLabel = nextWave ? `${nextWave.id.toUpperCase()} INBOUND · ${nextWave.hostiles} HOSTILES` : "ENCOUNTER STANDING BY";
+  
+  let nextLabel, pressureText;
+  if (lang === "ko") {
+    if (nextWave) {
+      const waveName = translate(`wave.${nextWave.id}`) || nextWave.id;
+      nextLabel = `${waveName.toUpperCase()} 진입 대기 중 · 적 ${nextWave.hostiles}명`;
+      pressureText = `전투 준비 · 웨이브 ${nextWaveIndex + 1}/${stage.encounter.waves.length} · ${waveName.toUpperCase()}`;
+    } else {
+      nextLabel = "전투 대기 중";
+      pressureText = "전투 준비 · 대기 중";
+    }
+  } else {
+    if (nextWave) {
+      nextLabel = `${nextWave.id.toUpperCase()} INBOUND · ${nextWave.hostiles} HOSTILES`;
+      pressureText = `PREPARATION · WAVE ${nextWaveIndex + 1}/${stage.encounter.waves.length} · ${nextWave.id.toUpperCase()}`;
+    } else {
+      nextLabel = "ENCOUNTER STANDING BY";
+      pressureText = "PREPARATION · STANDING BY";
+    }
+  }
+  
   elements.battleHostileLabel.textContent = nextLabel;
   elements.battleFallbackHostileLabel.textContent = nextLabel;
-  if (!stageBriefingOpen) setBattlePressure("preparation", `PREPARATION · WAVE ${nextWaveIndex + 1}/${stage.encounter.waves.length} · ${nextWave?.id?.toUpperCase() ?? "STANDING BY"}`);
+  if (!stageBriefingOpen) {
+    setBattlePressure("preparation", pressureText);
+  }
 }
 
 function synchronizeBattleRenderer(renderer = visualizer) {
@@ -800,7 +1320,7 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
     if (campaign.status !== "active" || encounter?.bossExposed || encounter?.spawningStopped) {
       clearEncounterStartTimer();
     }
-    await persistCampaign(`Encounter ${event.type} saved`);
+    await persistCampaign(`persist.encounter.${event.type}`);
     render();
     synchronizeBattleRenderer();
 
@@ -927,21 +1447,20 @@ function syncCockpit() {
   if (briefingShould) setBattlePressure("briefing", "MISSION BRIEFING · COMMAND PENDING");
 
   const overlayShould = campaign.status !== "active";
-  if (overlayShould !== resultOverlayOpen) {
-    resultOverlayOpen = overlayShould;
-    elements.resultOverlay.hidden = !overlayShould;
-    if (overlayShould) {
-      stopBattle();
-      window.requestAnimationFrame(() => {
-        (campaign.status === "reward"
-          ? elements.rewardOptions.querySelector("button")
-          : campaign.status === "campaign-complete"
-            ? document.querySelector("#completion-heading")
-            : campaign.status === "defeat"
-              ? elements.retryFromResult
-              : elements.returnToLobbyFromResult)?.focus();
-      });
-    }
+  const overlayChanged = overlayShould !== resultOverlayOpen;
+  resultOverlayOpen = overlayShould;
+  setResultModal(overlayShould);
+  if (overlayChanged && overlayShould) {
+    stopBattle();
+    window.requestAnimationFrame(() => {
+      (campaign.status === "reward"
+        ? elements.rewardOptions.querySelector("button")
+        : campaign.status === "campaign-complete"
+          ? document.querySelector("#completion-heading")
+          : campaign.status === "defeat"
+            ? elements.retryFromResult
+            : elements.returnToLobbyFromResult)?.focus();
+    });
   }
   if (campaign.status === "active" && !stageBriefingOpen && !visualizer && !cooldownTimer) startBattle();
 }
@@ -960,29 +1479,64 @@ function applyStageArt(img, source, fallback) {
 function renderBossSpec(stage, state, benefits) {
   const spec = BOSS_SPEC[stage.number - 1];
   applyStageArt(elements.bossSpecPortrait, BOSS_BY_STAGE[stage.id], BOSS_FALLBACK_BY_STAGE[stage.id]);
-  elements.bossSpecPortrait.alt = `${stage.bossName} portrait`;
-  elements.bossSpecName.textContent = stage.bossName;
-  elements.bossSpecLore.textContent = spec.lore;
-  elements.bossSpecThreat.textContent = spec.threat;
-  elements.bossSpecHp.textContent = `${state.bossHealth} / ${stage.bossHealth} HP`;
+  
+  const lang = currentLang();
+  const bossName = lang === "ko" ? translate(`stage.${stage.id}.bossName`) || stage.bossName : stage.bossName;
+  const lore = lang === "ko" ? translate(`boss.${stage.id}.lore`) || spec.lore : spec.lore;
+  const threat = lang === "ko" ? translate(`boss.${stage.id}.threat`) || spec.threat : spec.threat;
+  const nodeGoalText = lang === "ko"
+    ? `장악 거점 ${stage.nodeGoal}개`
+    : `${stage.nodeGoal} Node${stage.nodeGoal === 1 ? "" : "s"}`;
+  
+  elements.bossSpecPortrait.alt = lang === "ko" ? `${bossName} 초상화` : `${stage.bossName} portrait`;
+  elements.bossSpecName.textContent = bossName;
+  elements.bossSpecLore.textContent = lore;
+  elements.bossSpecThreat.textContent = threat;
+  elements.bossSpecHp.textContent = lang === "ko"
+    ? `체력 ${state.bossHealth} / ${stage.bossHealth}`
+    : `${state.bossHealth} / ${stage.bossHealth} HP`;
   elements.bossSpecCounter.textContent = String(spec.counter);
-  elements.bossSpecNodes.textContent = `${stage.nodeGoal} Node${stage.nodeGoal === 1 ? "" : "s"}`;
+  elements.bossSpecNodes.textContent = nodeGoalText;
+  
   elements.statMaxIntegrity.textContent = String(benefits.maxIntegrity);
   elements.statCooldownReduction.textContent = `${Math.round(benefits.cooldownReduction * 100)}%`;
-  const combatModifiers = [
-    benefits.extraAssaultDamage > 0 ? `Assault +${benefits.extraAssaultDamage}` : null,
-    benefits.lensDamage > 0 ? `Possession +${benefits.lensDamage}` : null,
-    benefits.counterReduction > 0 ? `Counter −${benefits.counterReduction}` : null
-  ].filter(Boolean);
-  elements.statExtraDamage.textContent = combatModifiers.join(" · ") || "None";
-  elements.statActiveItems.textContent = benefits.activeItemNames.length ? benefits.activeItemNames.join(", ") : "None";
+  
+  let combatModifiers = [];
+  if (lang === "ko") {
+    if (benefits.extraAssaultDamage > 0) combatModifiers.push(`총공격 +${benefits.extraAssaultDamage}`);
+    if (benefits.lensDamage > 0) combatModifiers.push(`빙의 +${benefits.lensDamage}`);
+    if (benefits.counterReduction > 0) combatModifiers.push(`반격 감소 −${benefits.counterReduction}`);
+  } else {
+    if (benefits.extraAssaultDamage > 0) combatModifiers.push(`Assault +${benefits.extraAssaultDamage}`);
+    if (benefits.lensDamage > 0) combatModifiers.push(`Possession +${benefits.lensDamage}`);
+    if (benefits.counterReduction > 0) combatModifiers.push(`Counter −${benefits.counterReduction}`);
+  }
+  elements.statExtraDamage.textContent = combatModifiers.join(" · ") || (lang === "ko" ? "없음" : "None");
+  
+  const activeItemNames = benefits.activeItemNames.map(name => {
+    let rewardId = "";
+    for (const s of STAGES) {
+      const r = s.rewards.find(reward => reward.name === name);
+      if (r) { rewardId = r.id; break; }
+    }
+    return (lang === "ko" && rewardId) ? translate(`reward.${rewardId}.name`) : name;
+  });
+  elements.statActiveItems.textContent = activeItemNames.length ? activeItemNames.join(", ") : (lang === "ko" ? "없음" : "None");
 }
 
 function renderResult(isComplete) {
   const isDefeat = campaign.status === "defeat";
   const awaitingReward = campaign.status === "reward";
-  elements.resultTitle.textContent = isDefeat ? "Anchor Lost" : isComplete ? "Campaign Complete" : "Ward Broken";
-  elements.resultText.textContent = isDefeat ? "DEFEAT" : "VICTORY";
+  const lang = currentLang();
+  
+  if (lang === "ko") {
+    elements.resultTitle.textContent = isDefeat ? "닻을 잃음" : isComplete ? "캠페인 완료" : "보호벽 돌파";
+    elements.resultText.textContent = isDefeat ? "패배" : "승리";
+  } else {
+    elements.resultTitle.textContent = isDefeat ? "Anchor Lost" : isComplete ? "Campaign Complete" : "Ward Broken";
+    elements.resultText.textContent = isDefeat ? "DEFEAT" : "VICTORY";
+  }
+  
   elements.resultText.className = `result-text ${isDefeat ? "defeat" : "victory"}`;
   elements.rewardPanel.hidden = !awaitingReward;
   elements.retryFromResult.hidden = !isDefeat;
@@ -1020,45 +1574,121 @@ function render() {
   renderBattlePresentation(stage);
   renderMissionBriefing(stage);
 
-  elements.stageNumber.textContent = `Stage ${stage.number} of ${STAGES.length}`;
-  elements.stageHeading.textContent = stage.title;
-  elements.stageRegion.textContent = stage.region;
-  elements.stageObjective.textContent = stage.objective;
+  const lang = currentLang();
+  const checklist = getStageChecklist(campaign);
+  const pendingChecklistItem = checklist.find((item) => !item.complete && !item.optional);
+  
+  elements.stageNumber.textContent = lang === "ko"
+    ? `10단계 중 ${stage.number}단계`
+    : `Stage ${stage.number} of ${STAGES.length}`;
+  
+  elements.stageHeading.textContent = lang === "ko" ? translate(`stage.${stage.id}.title`) || stage.title : stage.title;
+  elements.stageRegion.textContent = lang === "ko" ? translate(`stage.${stage.id}.region`) || stage.region : stage.region;
+  
+  elements.stageObjective.textContent = pendingChecklistItem
+    ? getChecklistLabel(pendingChecklistItem, lang)
+    : (lang === "ko" ? translate(`stage.${stage.id}.objective`) || stage.objective : stage.objective);
+    
   const hasRewardCarryMessage = campaign.lastMessage.endsWith(` carries into ${stage.title}.`);
   const stageEntryOrder = entryGuidanceStageId === stage.id && campaign.status === "active" && state.hunted === 0 && !state.extracted;
-  elements.status.textContent = hasRewardCarryMessage && stageEntryOrder
-    ? `${campaign.lastMessage} First order: Hunt two rift spoor.`
-    : hasRewardCarryMessage
-      ? campaign.lastMessage
-      : stageEntryOrder
-        ? "First order: Hunt two rift spoor."
-        : battleVisualFallback && battleUiActive()
-          ? "Battle visualization is unavailable; command rules remain ready."
-          : campaign.lastMessage;
+  
+  const translatedLastMessage = translateStatusMessage(campaign.lastMessage, lang);
+  let statusText = "";
+  if (hasRewardCarryMessage && stageEntryOrder) {
+    statusText = lang === "ko"
+      ? `${translatedLastMessage} 첫 명령: 균열 흔적을 두 번 사냥하십시오.`
+      : `${campaign.lastMessage} First order: Hunt two rift spoor.`;
+  } else if (hasRewardCarryMessage) {
+    statusText = translatedLastMessage;
+  } else if (stageEntryOrder) {
+    statusText = lang === "ko"
+      ? "첫 명령: 균열 흔적을 두 번 사냥하십시오."
+      : "First order: Hunt two rift spoor.";
+  } else if (battleVisualFallback && battleUiActive()) {
+    statusText = lang === "ko"
+      ? "전투 시각화가 비활성화되었습니다. 명령 시스템은 준비 완료되었습니다."
+      : "Battle visualization is unavailable; command rules remain ready.";
+  } else {
+    statusText = translatedLastMessage;
+  }
+  elements.status.textContent = statusText;
+
   elements.souls.textContent = String(state.souls);
   elements.legion.textContent = `${state.legion} / ${state.capacity}`;
   elements.nodes.textContent = `${state.nodes} / ${stage.nodeGoal}`;
   elements.integrity.textContent = `${state.integrity} / ${benefits.maxIntegrity}`;
-  elements.bossLabel.textContent = `${stage.bossName} ward`;
+  
+  const bossNameKo = translate(`stage.${stage.id}.bossName`) || stage.bossName;
+  elements.bossLabel.textContent = lang === "ko"
+    ? `${bossNameKo} 보호벽`
+    : `${stage.bossName} ward`;
+    
   elements.boss.textContent = `${state.bossHealth} / ${stage.bossHealth}`;
   elements.retry.disabled = campaign.status === "reward" || isComplete;
   elements.complete.hidden = !isComplete;
-  elements.completionSummary.textContent = isComplete ? campaign.lastMessage : "";
+  
+  elements.completionSummary.textContent = isComplete ? translatedLastMessage : "";
+  
   renderBossSpec(stage, state, benefits);
   renderResult(isComplete);
   syncCockpit();
 
-  const checklist = getStageChecklist(campaign);
-  const nextObjectiveAction = checklist.find((item) => !item.complete)?.id;
+  if (pendingChecklistItem) {
+    let guideId = pendingChecklistItem.id;
+    if (guideId.startsWith("wave-")) {
+      guideId = "wave";
+    }
+    const currentText = translate(`guide.${guideId}.current`);
+    const whyText = translate(`guide.${guideId}.why`);
+    const loopText = translate(`guide.${guideId}.loop`);
+    const fantasyText = translate("mission.fantasy");
+    const winText = translate("mission.winCondition");
+    const lossText = translate("mission.lossCondition");
+    
+    if (elements.battleMissionCurrent) {
+      elements.battleMissionCurrent.textContent = currentText;
+    }
+    if (elements.battleMissionWhy) {
+      elements.battleMissionWhy.textContent = `${whyText} [${loopText}] \n(${fantasyText} | ${winText} | ${lossText})`;
+    }
+  } else {
+    if (elements.battleMissionCurrent) {
+      elements.battleMissionCurrent.textContent = "";
+    }
+    if (elements.battleMissionWhy) {
+      elements.battleMissionWhy.textContent = "";
+    }
+  }
+
+  const nextObjectiveAction = pendingChecklistItem?.id;
   projectBattleRuntime();
+  
   for (const button of elements.commandButtons) {
     const action = button.dataset.action;
     const isCurrentObjective = action === nextObjectiveAction;
-    renderCooldown(button, action, available.has(action));
+    const isAvailable = available.has(action);
+    renderCooldown(button, action, isAvailable);
     button.classList.toggle("current-objective", isCurrentObjective);
     if (isCurrentObjective) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
+    
+    const small = button.querySelector("small");
+    if (small) {
+      small.textContent = getCommandDescription(action, isAvailable, lang);
+    }
+    
+    const nameText = button.querySelector("strong")?.textContent || action;
+    const descText = small ? small.textContent : "";
+    if (!isAvailable) {
+      const reason = getCommandLockReason(action, lang);
+      button.setAttribute("title", reason);
+      button.setAttribute("aria-label", lang === "ko" ? `${nameText} (${descText}) - 잠김: ${reason}` : `${nameText} (${descText}) - locked: ${reason}`);
+    } else {
+      button.removeAttribute("title");
+      button.setAttribute("aria-label", `${nameText} (${descText})`);
+    }
   }
+  
   for (const button of elements.stageButtons) {
     const stageNumber = Number(button.dataset.stageNumber);
     const definition = STAGES[stageNumber - 1];
@@ -1071,7 +1701,13 @@ function render() {
     button.classList.toggle("locked", !active && !cleared);
     if (active) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
-    button.setAttribute("aria-label", `${definition.title}: ${active ? "current stage" : cleared ? "cleared" : "locked"}`);
+    
+    const definitionTitle = lang === "ko" ? translate(`stage.${definition.id}.title`) || definition.title : definition.title;
+    const activeText = lang === "ko" ? "현재 스테이지" : "current stage";
+    const clearedText = lang === "ko" ? "완료됨" : "cleared";
+    const lockedText = lang === "ko" ? "잠김" : "locked";
+    
+    button.setAttribute("aria-label", `${definitionTitle}: ${active ? activeText : cleared ? clearedText : lockedText}`);
     if (active && battleUiActive() && lastScrolledStageId !== stage.id) {
       lastScrolledStageId = stage.id;
       button.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "smooth" });
@@ -1097,7 +1733,7 @@ async function resumeCampaign() {
   storedCampaign = campaign;
   updateResumeAffordance();
   revealCampaign();
-  if (resumableCampaign.status === "briefing") await persistCampaign("Imported briefing started");
+  if (resumableCampaign.status === "briefing") await persistCampaign("persist.importedBriefingStarted");
 }
 
 function revealCampaign() {
@@ -1227,14 +1863,19 @@ function flashEffect(effect) {
   }
 }
 
-async function persistCampaign(context = "Campaign saved") {
+async function persistCampaign(contextKey = "persist.campaignSaved") {
   if (!campaign) return;
   const envelope = createSaveEnvelope(campaign);
   storedCampaign = campaign;
   updateResumeAffordance();
   const savedTo = await storage.save(envelope);
   campaignMirror?.publish(envelope);
-  setSaveStatus(`${context} in ${savedTo}.`);
+  const lang = currentLang();
+  const localizedContext = translate(contextKey) || contextKey;
+  const statusMsg = lang === "ko"
+    ? `${localizedContext} (${savedTo}에 저장됨)`
+    : `${localizedContext} in ${savedTo}.`;
+  setSaveStatus(statusMsg);
 }
 
 async function applyMirroredCampaign(envelope) {
@@ -1250,7 +1891,7 @@ async function applyMirroredCampaign(envelope) {
       narratedOutcome = null;
       render();
     }
-    setSaveStatus("다른 탭의 로컬 캠페인을 반영했습니다.");
+    setSaveStatus(translate("saveStatus.mirroredApplied"));
   } catch {
     // The mirror validates structure; replay validation keeps incompatible saves local.
   }
@@ -1300,7 +1941,7 @@ async function handleAction(action) {
   armEncounterWhenPrepared();
   triggerBattleVisual(action, action === "materialize" ? { count: materializeCount } : {});
   render();
-  await persistCampaign("Campaign saved");
+  await persistCampaign("persist.campaignSaved");
 }
 
 async function handleReward(rewardId) {
@@ -1313,7 +1954,7 @@ async function handleReward(rewardId) {
   }
   flashEffect("reward");
   playCue("reward");
-  await persistCampaign("Reward and campaign saved");
+  await persistCampaign("persist.rewardAndCampaignSaved");
   if (campaign.status === "campaign-complete") {
     render();
     document.querySelector("#completion-heading")?.focus();
@@ -1325,7 +1966,7 @@ async function handleReward(rewardId) {
 }
 
 async function beginNewCampaign() {
-  if (campaign && campaign.trace.length > 0 && !window.confirm("Start a new campaign? Your current local run will be replaced.")) return;
+  if (campaign && campaign.trace.length > 0 && !window.confirm(translate("confirm.newCampaign"))) return;
   stopBattle();
   entryGuidanceStageId = null;
   const result = startCampaign(createCampaign());
@@ -1335,7 +1976,7 @@ async function beginNewCampaign() {
   openCurrentStageBriefing("intro");
   revealCampaign();
   flashEffect("awaken");
-  await persistCampaign("New campaign saved");
+  await persistCampaign("persist.newCampaignSaved");
 }
 
 async function returnToLobby() {
@@ -1345,9 +1986,9 @@ async function returnToLobby() {
   entryGuidanceStageId = null;
   storedCampaign = campaign;
   resultOverlayOpen = false;
-  elements.resultOverlay.hidden = true;
+  setResultModal(false);
   setMissionBriefingModal(false);
-  await persistCampaign("Campaign returned to command lobby");
+  await persistCampaign("persist.campaignReturnedToCommandLobby");
   elements.screen.hidden = true;
   elements.lobby.hidden = false;
   syncBackgroundEffects();
@@ -1365,7 +2006,7 @@ async function handleRetry() {
   }
   flashEffect("retry");
   entryGuidanceStageId = null;
-  await persistCampaign("Stage retry saved");
+  await persistCampaign("persist.stageRetrySaved");
   // Engine is back to "active": render() closes the overlay and restarts
   // the battle session on the same cockpit screen.
   render();
@@ -1389,13 +2030,13 @@ function exportSave() {
   anchor.download = "abyssal-surge-campaign-save.json";
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setSaveStatus("Versioned campaign save exported.");
+  setSaveStatus(translate("saveStatus.exported"));
 }
 
 async function importSave(file) {
   if (!file) return;
   if (file.size > MAX_IMPORT_BYTES) {
-    setSaveStatus("Import rejected: save exceeds the 256 KiB limit.");
+    setSaveStatus(translate("importTooLarge"));
     elements.importSave.value = "";
     return;
   }
@@ -1411,10 +2052,11 @@ async function importSave(file) {
     storedCampaign = campaign;
     updateResumeAffordance();
     revealCampaign();
-    await persistCampaign("Imported campaign saved");
+    await persistCampaign("persist.importedCampaignSaved");
     flashEffect("reward");
   } catch (error) {
-    setSaveStatus(`Import rejected: ${error instanceof Error ? error.message : "invalid save file"}`);
+    const errorMsg = error instanceof Error ? error.message : "invalid save file";
+    setSaveStatus(translate("importRejected").replace("{error}", errorMsg));
   } finally {
     elements.importSave.value = "";
   }
@@ -1532,6 +2174,30 @@ function wireControls() {
     event.preventDefault();
     elements.startCombat.focus();
   });
+  elements.resultOverlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      void returnToLobby();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [...elements.resultOverlay.querySelectorAll(
+      "button:not([hidden]):not(:disabled), input:not([type='hidden']):not(:disabled), [href], [tabindex]:not([tabindex='-1'])",
+    )].filter((element) => !element.hidden && !element.inert && element.getClientRects().length > 0);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
   elements.commandButtons.forEach((button) => button.addEventListener("click", () => handleAction(button.dataset.action)));
   elements.exportSave.addEventListener("click", exportSave);
   elements.importSave.addEventListener("change", () => importSave(elements.importSave.files?.[0]));
@@ -1545,6 +2211,7 @@ function wireControls() {
   elements.languageToggle?.addEventListener("click", () => window.requestAnimationFrame(() => {
     updateResumeAffordance();
     syncCinematicCopy();
+    if (campaign) render();
   }));
   window.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
@@ -1826,12 +2493,12 @@ async function initialize() {
     try {
       storedCampaign = restoreSaveEnvelope(loaded.envelope);
       updateResumeAffordance();
-      setSaveStatus(`A compatible campaign is available from ${loaded.source}.`);
+      setSaveStatus(translate("saveStatus.compatibleCampaign").replace("{source}", loaded.source));
     } catch {
-      setSaveStatus("A local save was found but is incompatible. Start a new campaign or import a valid save.");
+      setSaveStatus(translate("saveStatus.incompatibleCampaign"));
     }
   } else {
-    setSaveStatus(storage.mode === "indexeddb" ? "No local campaign yet. IndexedDB is ready." : "IndexedDB is unavailable; this session will use the safe local fallback.");
+    setSaveStatus(storage.mode === "indexeddb" ? translate("saveStatus.noCampaignIndexedDb") : translate("saveStatus.indexedDbUnavailable"));
   }
   campaignMirror = new CampaignMirror({ onState: applyMirroredCampaign });
   const mirrorAvailability = campaignMirror.start(storedCampaign ? createSaveEnvelope(storedCampaign) : null);

@@ -54,7 +54,8 @@ export const STAGES = Object.freeze([
     }),
     encounter: Object.freeze({
       preparationSeconds: 8,
-      preparationLegion: 2,
+      preparationLegion: 4,
+      preparationNodes: 1,
       waves: Object.freeze([
         Object.freeze({ id: "scout", spawnAtSeconds: 8, hostiles: 2, hostileHealth: 2, breachDamage: 1 }),
         Object.freeze({ id: "guard", spawnAtSeconds: 22, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
@@ -1027,6 +1028,14 @@ export function applyEncounterEvent(state, event) {
 
   if (event.type === "start-wave") {
     if (encounter.activeWaveId !== null) return rejected(state, "The declared wave is already active.");
+    const preparationLegion = stage.encounter.preparationLegion ?? 0;
+    const preparationNodes = stage.encounter.preparationNodes ?? 0;
+    if (activeIndex === 0 && (
+      state.stage.legion < preparationLegion ||
+      state.stage.nodes < preparationNodes
+    )) {
+      return rejected(state, "Prepare the declared legion and required nodes before starting the encounter.");
+    }
     const next = transition(state, (draft) => {
       draft.stage.encounter.activeWaveId = configuredWave.id;
       draft.lastMessage = `${configuredWave.id} wave has reached the battlefield.`;
@@ -1131,14 +1140,30 @@ export function getStageChecklist(state) {
   assertStateShape(state);
   const stage = activeStage(state);
   const current = state.stage;
+  const reqLegion = Math.max(2, stage.encounter?.preparationLegion ?? 2);
   const checklist = [
     { id: "hunt", label: `Hunt ${current.hunted}/${stage.progression.huntGoal} rift spoor`, complete: current.hunted >= stage.progression.huntGoal || current.extracted },
     { id: "extract", label: "Extract a soul cache", complete: current.extracted },
-    { id: "materialize", label: "Materialize a shadow legion", complete: current.legion >= 2 },
+    { id: "materialize", label: `Materialize a shadow legion (${current.legion}/${reqLegion})`, complete: current.legion >= reqLegion },
     { id: "capture", label: `Hold ${stage.nodeGoal} tech ${stage.nodeGoal === 1 ? "node" : "nodes"}`, complete: current.nodes >= stage.nodeGoal }
   ];
-  if (stage.commands.possess) checklist.push({ id: "possess", label: "Possess a sentinel", complete: current.possessed });
-  if (stage.commands.domain) checklist.push({ id: "domain", label: "Invoke Lord's Domain once", complete: current.domainUses === stage.commands.domain.limit });
+  if (stage.commands.possess) {
+    const isRequired = Boolean(stage.commands.assault?.requiresPossessed);
+    checklist.push({
+      id: "possess",
+      label: "Possess a sentinel",
+      complete: current.possessed,
+      ...(isRequired ? {} : { optional: true })
+    });
+  }
+  if (stage.commands.domain) {
+    checklist.push({
+      id: "domain",
+      label: "Invoke Lord's Domain once",
+      complete: current.domainUses === stage.commands.domain.limit,
+      optional: true
+    });
+  }
   if (stage.encounter) {
     const encounter = encounterState(current, stage);
     for (const wave of encounter.waves) checklist.push({ id: `wave-${wave.id}`, label: `Clear ${wave.id} wave`, complete: wave.cleared });
