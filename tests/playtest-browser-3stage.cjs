@@ -13,6 +13,10 @@ const SOURCE_CACHE_ADMISSION_MODE = process.argv.includes("--source-cache-admiss
 const STAGE_ONE_ENCOUNTER_MODE = process.argv.includes("--stage-one-encounter");
 const SHORT_VIEWPORT_MODE = process.argv.includes("--short-viewport");
 const RENDERER_PARITY_MODE = process.argv.includes("--renderer-parity");
+const STAGE_RAIL_SCROLL_MODE = process.argv.includes("--stage-rail-scroll");
+const FALLBACK_TARGET_PARITY_MODE = process.argv.includes("--fallback-target-parity");
+const COMPACT_CONTROL_JOURNEY_MODE = process.argv.includes("--compact-control-journey");
+const COMPACT_FIELD_OVERLAY_MODE = process.argv.includes("--compact-field-overlay");
 let playwright;
 if (!BRIDGE_CACHE_BOUNDARY_MODE && !SOURCE_CACHE_ADMISSION_MODE) {
   try {
@@ -162,15 +166,23 @@ async function verifyBridgeCacheBoundary() {
 
   await fixture.prewarm();
 
-  assert.equal(fixture.fetchRecords.length, 1, "Bridge cache prewarming must fetch exactly one manifest.");
-  assert.equal(fixture.fetchRecords[0].request, manifestPath, "Bridge cache prewarming must fetch the bridge manifest.");
-  assert.equal(fixture.fetchRecords[0].options?.cache, "no-store", "Bridge manifest prewarming must bypass the HTTP cache.");
-  assert.equal(fixture.cachePuts.length, 1, "Bridge manifest must be retained in the cache.");
-  assert.equal(fixture.cachePuts[0].request, manifestPath, "Only the bridge manifest request may be stored directly.");
+  assert.deepEqual(
+    fixture.fetchRecords.map(({ request, options }) => ({ request: String(request), cache: options?.cache })),
+    [
+      { request: manifestPath, cache: "no-store" },
+      { request: expectedBridgeAsset, cache: "no-store" },
+    ],
+    "Bridge prewarming must fetch the manifest and each admitted bridge asset with HTTP caching disabled.",
+  );
+  assert.deepEqual(
+    fixture.cachePuts.map(({ request }) => String(request)),
+    [manifestPath, expectedBridgeAsset],
+    "Bridge prewarming must retain both the manifest and the admitted bridge asset with cache.put.",
+  );
   assert.deepEqual(
     fixture.cacheAdds,
-    [expectedBridgeAsset],
-    "Bridge cache prewarming must admit the canonical bridge output and reject every malicious or malformed manifest candidate."
+    [],
+    "Bridge prewarming must not use cache.add, which cannot guarantee no-store fetches.",
   );
   assert.equal(
     fixture.isBridgeRequest(expectedBridgeAsset),
@@ -860,6 +872,102 @@ async function assertBattleCanvasBlankPassThrough(page) {
   );
 }
 
+async function fallbackCanvasWorldPoint(page, { x, y, z = 0 }) {
+  return page.locator("#battle-canvas-fallback").evaluate((canvas, world) => {
+    const TILE_W = 64;
+    const TILE_H = 32;
+    const ELEV_H = 16;
+    const project = (worldX, worldY, worldZ = 0) => ({
+      x: (worldX - worldY) * (TILE_W / 2),
+      y: (worldX + worldY) * (TILE_H / 2) - worldZ * ELEV_H,
+    });
+    const rect = canvas.getBoundingClientRect();
+    const corners = [project(0, 0), project(16, 0), project(0, 8), project(16, 8)];
+    const minX = Math.min(...corners.map((point) => point.x)) - TILE_W / 2;
+    const maxX = Math.max(...corners.map((point) => point.x)) + TILE_W / 2;
+    const minY = Math.min(...corners.map((point) => point.y)) - ELEV_H * 3;
+    const maxY = Math.max(...corners.map((point) => point.y)) + TILE_H;
+    const scale = Math.min(rect.width / (maxX - minX), rect.height / (maxY - minY));
+    const target = project(world.x, world.y, world.z);
+    return {
+      x: rect.left + (rect.width - (maxX - minX) * scale) / 2 - minX * scale + target.x * scale,
+      y: rect.top + (rect.height - (maxY - minY) * scale) / 2 - minY * scale + target.y * scale,
+    };
+  }, { x, y, z });
+}
+
+async function fallbackCanvasActionPoint(page, action) {
+  await page.evaluate(async () => {
+    if (!window.__playtestFallbackAnchorAudit) {
+      const { BattleVisualizer } = await import("/battle-visualizer.js");
+      const originalNotify = BattleVisualizer.prototype.notifyTacticalLayout;
+      BattleVisualizer.prototype.notifyTacticalLayout = function notifyTacticalLayout() {
+        if (this.canvas?.id === "battle-canvas-fallback") {
+          window.__playtestFallbackAnchorAudit = { anchors: this.getTacticalTargetAnchors() };
+        }
+        return originalNotify.call(this);
+      };
+      window.__playtestFallbackAnchorAudit = { anchors: null };
+    }
+    window.__playtestFallbackAnchorAudit.anchors = null;
+    window.dispatchEvent(new Event("resize"));
+  });
+  await page.waitForFunction(() => Boolean(window.__playtestFallbackAnchorAudit?.anchors));
+  return page.evaluate((expectedAction) => {
+    const canvas = document.querySelector("#battle-canvas-fallback");
+    const anchor = window.__playtestFallbackAnchorAudit.anchors?.[expectedAction];
+    if (!canvas || !anchor) return null;
+    const rect = canvas.getBoundingClientRect();
+    return { x: rect.left + anchor.x, y: rect.top + anchor.y };
+  }, action);
+}
+
+async function clickFallbackCanvasPoint(page, point, context) {
+  assert.ok(point, `${context} must expose a rendered fallback target point.`);
+  const ownsPoint = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y) === document.querySelector("#battle-canvas-fallback"), point);
+  assert.equal(ownsPoint, true, `${context} must use a direct hit-test point on the rendered fallback canvas.`);
+  await page.evaluate(() => {
+    const canvas = document.querySelector("#battle-canvas-fallback");
+    canvas.removeAttribute("data-playtest-pointerup");
+    canvas.addEventListener("pointerup", (event) => {
+      canvas.dataset.playtestPointerup = JSON.stringify({ count: 1, targetId: event.target.id });
+    }, { once: true });
+  });
+  await page.mouse.click(point.x, point.y);
+  await page.waitForFunction(() => Boolean(document.querySelector("#battle-canvas-fallback")?.dataset.playtestPointerup));
+}
+
+async function clickFallbackCanvasWorldPoint(page, world, context) {
+  await clickFallbackCanvasPoint(page, await fallbackCanvasWorldPoint(page, world), context);
+}
+
+async function clickFallbackSemanticAction(page, action, context) {
+  const traceStart = (await campaignTrace(page)).length;
+  await clickFallbackCanvasPoint(page, await fallbackCanvasActionPoint(page, action), context);
+  const dispatchState = await page.evaluate((expectedAction) => {
+    const canvas = document.querySelector("#battle-canvas-fallback");
+    const actionButton = document.querySelector(`#action-${expectedAction}`);
+    return {
+      pointerup: canvas?.dataset.playtestPointerup,
+      actionDisabled: actionButton instanceof HTMLButtonElement && actionButton.disabled,
+    };
+  }, action);
+  assert.deepEqual(
+    dispatchState,
+    { pointerup: JSON.stringify({ count: 1, targetId: "battle-canvas-fallback" }), actionDisabled: true },
+    `${context} must route its physical fallback-canvas click to the supplied ${action} callback.`,
+  );
+  const trace = (await campaignTrace(page)).slice(traceStart);
+  const expectedTransition = action === "assault"
+    ? [{ kind: "encounter", event: { type: "boss-assault", stageId: "cinder-span" } }]
+    : [{ kind: "action", action }];
+  assert.deepEqual(
+    trace,
+    expectedTransition,
+    `${context} must append exactly one public ${action} campaign transition from the rendered fallback canvas.`,
+  );
+}
+
 async function enterBattle(page, number, heading) {
   // Single-screen cockpit: the battlefield, intel rail, and command pad are
   // all live the moment the stage is active - no scenario/boss-spec clicks.
@@ -1052,6 +1160,7 @@ async function createCampaignFixtures() {
 
   const briefing = createCampaign();
   const reward = commands(start(), stageOneVictory);
+  const exposed = commands(start(), ["hunt", "hunt", "extract", "materialize", "materialize", "capture", ...stageOneEncounter]);
 
   let defeat = commands(start(), [{ type: "start-wave", waveId: "scout" }]);
   while (defeat.status === "active") {
@@ -1079,6 +1188,7 @@ async function createCampaignFixtures() {
   return Object.freeze({
     briefing: createSaveEnvelope(briefing),
     reward: createSaveEnvelope(reward),
+    exposed: createSaveEnvelope(exposed),
     defeat: createSaveEnvelope(defeat),
     completed: createSaveEnvelope(completed)
   });
@@ -1107,8 +1217,8 @@ async function awaitTimedBattleBreachBatch(page, entryIntegrity) {
   });
 }
 
-async function materializeStageOneAllies(page, context) {
-  await runActions(page, ["#action-hunt", "#action-hunt"]);
+async function materializeStageOneAllies(page, context, { remainingHunts = 2 } = {}) {
+  await runActions(page, Array.from({ length: remainingHunts }, () => "#action-hunt"));
   await assertCurrentObjectiveCommand(page, "extract", `${context} after two Hunts`);
   await runActions(page, ["#action-extract", "#action-materialize"]);
 
@@ -1391,12 +1501,28 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
       "The local static HTTP server must serve each actual Stage 1 source GLB exactly once as a successful service-worker-backed glTF binary response."
     );
 
+    const hotkeyTraceStart = (await campaignTrace(page)).length;
     await canvas.focus();
     assert.equal(
       await canvas.evaluate((element) => document.activeElement === element),
       true,
-      "The tactical canvas must receive focus before direct keyboard control."
+      "The tactical canvas must receive focus before direct keyboard control.",
     );
+    await page.keyboard.press("KeyH");
+    await page.waitForFunction(
+      () => document.querySelector("#action-hunt") instanceof HTMLButtonElement
+        && document.querySelector("#action-hunt").disabled,
+      undefined,
+      { timeout: 30_000 },
+    );
+    assert.deepEqual(
+      (await campaignTrace(page)).slice(hotkeyTraceStart),
+      [{ kind: "action", action: "hunt" }],
+      "A focused direct tactical canvas must dispatch its unambiguous Hunt hotkey through the public campaign action flow.",
+    );
+
+    const actionCountBeforeMovement = (await campaignTrace(page)).length;
+    await canvas.focus();
     const fieldBox = await canvas.boundingBox();
     assert.ok(fieldBox, "The direct tactical canvas must expose a pointer-operable bounding box.");
     const centerX = fieldBox.x + fieldBox.width / 2;
@@ -1408,9 +1534,14 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
     await page.keyboard.down("KeyD");
     await page.waitForTimeout(900);
     await page.keyboard.up("KeyD");
+    assert.deepEqual(
+      (await campaignTrace(page)).slice(actionCountBeforeMovement),
+      [],
+      "KeyD must retain direct commander-movement ownership instead of dispatching a Domain action from the focused canvas.",
+    );
 
     const beforeAction = await campaignSurface(page);
-    await materializeStageOneAllies(page, "Focused real-time Three Stage 1 battle");
+    await materializeStageOneAllies(page, "Focused real-time Three Stage 1 battle", { remainingHunts: 1 });
     assert.notDeepEqual(
       await campaignSurface(page),
       beforeAction,
@@ -1431,6 +1562,130 @@ async function verifyRealtimeThreeBattleOnly(browser, baseUrl) {
   }
 }
 
+async function configureStageRailScrollAudit(context) {
+  await context.addInitScript(() => {
+    const calls = [];
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(...args) {
+      if (this instanceof HTMLElement && this.id.startsWith("stage-select-")) {
+        calls.push({ id: this.id, ariaCurrent: this.getAttribute("aria-current") });
+      }
+      return originalScrollIntoView?.apply(this, args);
+    };
+    Object.defineProperty(window, "__stageRailScrollAudit", {
+      configurable: false,
+      value: {
+        calls: () => calls.slice(),
+        reset: () => { calls.length = 0; },
+      },
+    });
+  });
+}
+
+async function assertStageRailScrollCalls(page, expected, context) {
+  assert.deepEqual(
+    await page.evaluate(() => window.__stageRailScrollAudit.calls()),
+    expected,
+    `${context} must scroll the active stage selector once while preserving its aria-current state.`,
+  );
+}
+
+async function verifyTransitionDrivenStageRailScrolling(browser, baseUrl) {
+  const fixtures = await createCampaignFixtures();
+  const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
+  let strictErrors;
+  try {
+    await configureStageRailScrollAudit(context);
+    const page = await context.newPage();
+    strictErrors = collectStrictClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await page.evaluate(() => window.__stageRailScrollAudit.reset());
+
+    await startStageOneCampaign(page);
+    await enterBattle(page, 1, "Cinder Span");
+    await page.waitForTimeout(1_200);
+    await assertStageRailScrollCalls(
+      page,
+      [{ id: "stage-select-1", ariaCurrent: "step" }],
+      "Repeated Stage 1 cooldown renders",
+    );
+
+    await page.evaluate(() => window.__stageRailScrollAudit.reset());
+    await importCampaignEnvelope(page, fixtures.reward, "abyssal-surge-stage-rail-reward.json");
+    await page.locator("#reward-panel").waitFor({ state: "visible" });
+    await chooseRewardAndAdvance(page, "rift-lens", 2, "Veil Citadel");
+    await page.locator("#battle-canvas-3d").waitFor({ state: "visible" });
+    await page.waitForTimeout(1_200);
+    await assertStageRailScrollCalls(
+      page,
+      [{ id: "stage-select-2", ariaCurrent: "step" }],
+      "The public Stage 1 reward-to-Stage 2 transition",
+    );
+    assertNoStrictClientErrors(strictErrors, "Transition-driven stage rail scrolling");
+  } finally {
+    strictErrors?.beginTeardown();
+    await context.close();
+  }
+}
+
+async function verifyFallbackCanvasTargetParity(browser, baseUrl) {
+  const fixtures = await createCampaignFixtures();
+  const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
+  let clientErrors;
+  try {
+    await configureBattleParityContext(context, { failCanvas: true });
+    const page = await context.newPage();
+    clientErrors = collectClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await startStageOneCampaign(page);
+    await enterBattle(page, 1, "Cinder Span");
+    await page.locator("#battle-canvas-fallback").waitFor({ state: "visible" });
+
+    await runActions(page, ["#action-hunt", "#action-hunt", "#action-extract"]);
+    await waitForActionEnabledAndReachable(page, "#action-materialize");
+    await clickFallbackSemanticAction(page, "materialize", "The legal Stage 1 portal target");
+    assert.equal(await text(page.locator("#legion-value")), "2 / 10", "A legal fallback portal click must field the first public legion.");
+
+    await waitForActionEnabledAndReachable(page, "#action-capture");
+    await clickFallbackSemanticAction(page, "capture", "The legal Stage 1 node target");
+    assert.equal(await text(page.locator("#nodes-value")), "1 / 1", "A legal fallback node click must claim the public node.");
+
+    const traceBeforeHiddenBoss = await campaignTrace(page);
+    await clickFallbackCanvasPoint(page, await fallbackCanvasActionPoint(page, "assault"), "The hidden Stage 1 boss target");
+    await page.waitForTimeout(150);
+    assert.deepEqual(
+      await campaignTrace(page),
+      traceBeforeHiddenBoss,
+      "A fallback boss click before exposure must not append a false Assault action.",
+    );
+
+    const portal = await fallbackCanvasActionPoint(page, "materialize");
+    await page.mouse.move(portal.x - 28, portal.y - 28);
+    await page.mouse.down();
+    await page.mouse.move(portal.x + 28, portal.y + 28, { steps: 4 });
+    await page.mouse.up();
+    const traceBeforeGroundMove = await campaignTrace(page);
+    await clickFallbackCanvasWorldPoint(page, { x: 3, y: 2 }, "A selected ally's non-target fallback ground point");
+    await page.waitForTimeout(150);
+    assert.deepEqual(
+      await campaignTrace(page),
+      traceBeforeGroundMove,
+      "A selected ally's non-target fallback ground click must preserve the presentation-only move path without a false campaign action.",
+    );
+
+    await importCampaignEnvelope(page, fixtures.exposed, "abyssal-surge-exposed-boss.json");
+    await page.locator("#battle-canvas-fallback").waitFor({ state: "visible" });
+    await waitForActionEnabledAndReachable(page, "#action-assault");
+    await clickFallbackSemanticAction(page, "assault", "The exposed and available Stage 1 boss target");
+    assert.equal(await text(page.locator("#boss-value")), "5 / 8", "The legal exposed fallback boss click must damage public boss health.");
+    assertNoClientErrors(clientErrors, "Fallback semantic target parity");
+  } finally {
+    await context.close();
+  }
+}
+
 async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   try {
@@ -1442,6 +1697,7 @@ async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
     await waitForCampaignBoot(page);
     await startStageOneCampaign(page);
+
     await enterBattle(page, 1, "Cinder Span");
     await assertDirectSourceGlbReadiness(page);
 
@@ -1454,6 +1710,299 @@ async function verifyGlbCanvasBridgeOnly(browser, baseUrl) {
     assertNoClientErrors(clientErrors, "GLB Canvas bridge-only battle");
   } finally {
     await context.close();
+  }
+}
+
+async function verifyCompactControlJourney(browser, baseUrl) {
+  const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 320, height: 568 } });
+  let strictErrors;
+  try {
+    const page = await context.newPage();
+    strictErrors = collectStrictClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await startStageOneCampaign(page);
+    await enterBattle(page, 1, "Cinder Span");
+
+    const canvas = page.locator("#battle-canvas-3d");
+    await canvas.waitFor({ state: "visible" });
+    await page.waitForFunction(() => document.querySelector("#battle-asset-status")?.dataset.state === "loaded", undefined, { timeout: 30_000 });
+    const canvasCenterTarget = await canvas.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.id ?? null;
+    });
+    assert.equal(
+      canvasCenterTarget,
+      "battle-canvas-3d",
+      "At 320×568, the direct battlefield center must remain owned by its canvas rather than the command panel.",
+    );
+
+    const commandPanel = page.locator("#command-panel");
+    await commandPanel.scrollIntoViewIfNeeded();
+    const commandReachability = await commandPanel.evaluate((panel) => {
+      const action = panel.querySelector("#action-hunt");
+      const panelRect = panel.getBoundingClientRect();
+      const actionRect = action?.getBoundingClientRect();
+      const centerTarget = actionRect && document.elementFromPoint(actionRect.left + actionRect.width / 2, actionRect.top + actionRect.height / 2);
+      return {
+        panelVisible: panelRect.bottom > 0 && panelRect.top < window.innerHeight,
+        huntVisible: Boolean(actionRect && actionRect.bottom > 0 && actionRect.top < window.innerHeight),
+        huntOwnsCenter: Boolean(action && centerTarget && action.contains(centerTarget)),
+      };
+    });
+    assert.deepEqual(
+      commandReachability,
+      { panelVisible: true, huntVisible: true, huntOwnsCenter: true },
+      "At 320×568, scrolling must leave the command panel and its Hunt control visibly reachable.",
+    );
+
+    const returnToLobby = page.locator("#return-to-lobby");
+    await returnToLobby.focus();
+    assert.equal(
+      await returnToLobby.evaluate((button) => document.activeElement === button),
+      true,
+      "The Return to Lobby button must receive focus before its single-key guard is exercised.",
+    );
+    const traceBeforeButtonHotkey = await campaignTrace(page);
+    const surfaceBeforeButtonHotkey = await campaignSurface(page);
+    const huntEnabledBeforeButtonHotkey = await page.locator("#action-hunt").isEnabled();
+    await page.keyboard.press("KeyH");
+    await page.waitForTimeout(150);
+    assert.deepEqual(await campaignTrace(page), traceBeforeButtonHotkey, "Focused Return to Lobby must block H from dispatching a campaign action.");
+    assert.deepEqual(await campaignSurface(page), surfaceBeforeButtonHotkey, "Focused Return to Lobby must preserve public campaign status.");
+    assert.equal(await page.locator("#action-hunt").isEnabled(), huntEnabledBeforeButtonHotkey, "Focused Return to Lobby must preserve command availability.");
+    const campaignSummary = page.locator("#campaign-screen summary").first();
+    await campaignSummary.focus();
+    assert.equal(
+      await campaignSummary.evaluate((summary) => document.activeElement === summary),
+      true,
+      "A focusable campaign summary must receive focus before its single-key guard is exercised.",
+    );
+    const traceBeforeSummaryHotkey = await campaignTrace(page);
+    const surfaceBeforeSummaryHotkey = await campaignSurface(page);
+    const huntEnabledBeforeSummaryHotkey = await page.locator("#action-hunt").isEnabled();
+    await page.keyboard.press("KeyH");
+    await page.waitForTimeout(150);
+    assert.deepEqual(await campaignTrace(page), traceBeforeSummaryHotkey, "Focused campaign summary must block H from dispatching a campaign action.");
+    assert.deepEqual(await campaignSurface(page), surfaceBeforeSummaryHotkey, "Focused campaign summary must preserve public campaign status.");
+    assert.equal(await page.locator("#action-hunt").isEnabled(), huntEnabledBeforeSummaryHotkey, "Focused campaign summary must preserve command availability.");
+
+    const traceStart = (await campaignTrace(page)).length;
+    await canvas.focus();
+    assert.equal(
+      await canvas.evaluate((element) => document.activeElement === element),
+      true,
+      "The direct battlefield must receive focus before its H action-hotkey is exercised.",
+    );
+    await page.keyboard.press("KeyH");
+    await page.waitForFunction(() => document.querySelector("#action-hunt") instanceof HTMLButtonElement && document.querySelector("#action-hunt").disabled);
+    assert.deepEqual(
+      (await campaignTrace(page)).slice(traceStart),
+      [{ kind: "action", action: "hunt" }],
+      "Focused direct canvas must retain H campaign-action dispatch at 320×568.",
+    );
+    assertNoStrictClientErrors(strictErrors, "Compact control journey");
+  } finally {
+    strictErrors?.beginTeardown();
+    await context.close();
+  }
+}
+
+async function startP2StageOne(page) {
+  const acceptRestart = (dialog) => dialog.accept();
+  page.once("dialog", acceptRestart);
+  await page.waitForTimeout(50);
+  await page.locator("#start-campaign").click();
+  await page.locator("#campaign-screen").waitFor({ state: "visible" });
+  await page.locator("#stage-briefing").waitFor({ state: "visible" });
+  await page.locator("#start-combat").click();
+  await page.locator("#stage-briefing").waitFor({ state: "hidden" });
+  await page.locator("#battle-field").waitFor({ state: "visible" });
+  await page.locator("#command-panel").waitFor({ state: "visible" });
+  await page.waitForFunction(() => {
+    const current = document.querySelector('#command-panel [data-action][aria-current="step"]');
+    return current instanceof HTMLButtonElement && !current.disabled;
+  });
+}
+
+async function openFreshStageOneFieldOverlay(context, baseUrl, observePage = null) {
+  const page = await context.newPage();
+  observePage?.(page);
+  await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+  await waitForCampaignBoot(page);
+  await startP2StageOne(page);
+  await page.locator(".ashen-field-command").waitFor({ state: "visible" });
+  await page.locator("#battle-canvas-3d").waitFor({ state: "visible" });
+  return page;
+}
+
+async function inspectCompactFieldOverlay(page) {
+  return page.evaluate(() => {
+    const overlay = document.querySelector(".ashen-field-command");
+    const proxy = overlay?.querySelector(".ashen-field-command__activate");
+    const consequence = overlay?.querySelector(".ashen-field-command__activate-note");
+    const activeCommand = document.querySelector('#command-panel [data-action][aria-current="step"]');
+    const canvas = document.querySelector("#battle-canvas-3d");
+    const rect = consequence?.getBoundingClientRect();
+    const proxyRect = proxy?.getBoundingClientRect();
+    const consequenceStyle = consequence && getComputedStyle(consequence);
+    const computedLineHeight = consequenceStyle?.lineHeight === "normal"
+      ? Number.parseFloat(consequenceStyle.fontSize) * 1.2
+      : Number.parseFloat(consequenceStyle?.lineHeight);
+    let blankCanvasTarget = null;
+
+    if (canvas) {
+      const canvasRect = canvas.getBoundingClientRect();
+      const step = Math.max(24, Math.floor(Math.min(canvasRect.width, canvasRect.height) / 6));
+      for (let y = canvasRect.top + 12; y < canvasRect.bottom - 12 && !blankCanvasTarget; y += step) {
+        for (let x = canvasRect.left + 12; x < canvasRect.right - 12; x += step) {
+          if (document.elementFromPoint(x, y) === canvas) {
+            blankCanvasTarget = "battle-canvas-3d";
+            break;
+          }
+        }
+      }
+    }
+
+    const visible = (element, bounds) => Boolean(
+      element
+      && bounds
+      && bounds.width > 0
+      && bounds.height > 0
+      && getComputedStyle(element).visibility !== "hidden"
+      && getComputedStyle(element).display !== "none"
+      && bounds.right > 0
+      && bounds.left < window.innerWidth
+      && bounds.bottom > 0
+      && bounds.top < window.innerHeight
+    );
+
+    return {
+      activeCommandCount: document.querySelectorAll('#command-panel [data-action][aria-current="step"]').length,
+      activeCommandDetail: activeCommand?.querySelector("small")?.textContent?.trim() ?? "",
+      activeCommandName: activeCommand?.querySelector("strong")?.textContent?.trim() ?? "",
+      consequenceText: consequence?.textContent?.trim() ?? "",
+      consequenceVisible: visible(consequence, rect),
+      consequenceClientHeight: consequence?.clientHeight ?? 0,
+      consequenceLineHeight: computedLineHeight,
+      consequenceVisualHeight: rect?.height ?? 0,
+      proxyVisible: visible(proxy, proxyRect),
+      proxyWidth: proxyRect?.width ?? 0,
+      proxyHeight: proxyRect?.height ?? 0,
+      proxyOwnsCenter: Boolean(
+        proxy
+        && proxyRect
+        && proxy.contains(document.elementFromPoint(proxyRect.left + proxyRect.width / 2, proxyRect.top + proxyRect.height / 2))
+      ),
+      proxyAriaLabel: proxy?.getAttribute("aria-label")?.trim() ?? "",
+      objective: overlay?.querySelector(".ashen-field-command__objective")?.textContent?.trim() ?? "",
+      hostile: overlay?.querySelector(".ashen-field-command__hostile")?.textContent?.trim() ?? "",
+      ward: overlay?.querySelector(".ashen-field-command__ward")?.textContent?.trim() ?? "",
+      integrity: document.querySelector("#integrity-value")?.textContent?.trim() ?? "",
+      blankCanvasTarget,
+      horizontalOverflow: {
+        documentElement: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+        viewport: window.innerWidth,
+      },
+      overlayInteractiveTargetCount: overlay?.querySelectorAll('button, [role="button"]').length ?? 0,
+    };
+  });
+}
+
+function assertCompactFieldOverlaySurface(surface, context, { requireCanvasPassThrough = true } = {}) {
+  assert.equal(surface.activeCommandCount, 1, `${context} must expose exactly one current native command.`);
+  assert.notEqual(surface.activeCommandDetail, "", `${context} must derive a nonempty consequence from the current native command <small>.`);
+  assert.notEqual(surface.activeCommandName, "", `${context} must derive the proxy accessible name from a nonempty native command name.`);
+  assert.notEqual(surface.proxyAriaLabel, "", `${context} native-command proxy must expose a nonempty accessible name.`);
+  assert.equal(
+    surface.proxyAriaLabel.includes(surface.activeCommandName),
+    true,
+    `${context} proxy accessible name must contain the dynamic native command name.`,
+  );
+  assert.equal(
+    surface.proxyAriaLabel.includes(surface.activeCommandDetail),
+    true,
+    `${context} proxy accessible name must contain the dynamic native command <small> detail.`,
+  );
+  assert.equal(
+    surface.consequenceText,
+    surface.activeCommandDetail,
+    `${context} consequence must be the active native command <small> text, not hard-coded visible copy.`,
+  );
+  assert.equal(surface.consequenceVisible, true, `${context} consequence must visibly render in the compact battlefield overlay.`);
+  assert.ok(
+    surface.consequenceClientHeight <= Math.ceil(surface.consequenceLineHeight) + 1
+      && surface.consequenceVisualHeight <= Math.ceil(surface.consequenceLineHeight) + 1,
+    `${context} consequence must occupy one visual line; clientHeight=${surface.consequenceClientHeight}, visualHeight=${surface.consequenceVisualHeight}, lineHeight=${surface.consequenceLineHeight}.`,
+  );
+  assert.equal(surface.proxyVisible, true, `${context} native-command proxy must remain visible at 360px.`);
+  assert.ok(
+    surface.proxyWidth >= 48 && surface.proxyHeight >= 48,
+    `${context} native-command proxy must provide a >=48×48 CSS-pixel target; observed ${surface.proxyWidth}×${surface.proxyHeight}.`,
+  );
+  assert.equal(surface.proxyOwnsCenter, true, `${context} native-command proxy must own its center hit-test.`);
+  if (requireCanvasPassThrough) {
+    assert.equal(surface.blankCanvasTarget, "battle-canvas-3d", `${context} must leave a blank battlefield point owned by #battle-canvas-3d.`);
+  }
+  assert.ok(
+    surface.horizontalOverflow.documentElement <= surface.horizontalOverflow.viewport
+      && surface.horizontalOverflow.body <= surface.horizontalOverflow.viewport,
+    `${context} must not cause document horizontal overflow; documentElement=${surface.horizontalOverflow.documentElement}, body=${surface.horizontalOverflow.body}, viewport=${surface.horizontalOverflow.viewport}.`,
+  );
+  assert.equal(
+    surface.overlayInteractiveTargetCount,
+    1,
+    `${context} must retain only the existing native-command proxy as an interactive overlay target.`,
+  );
+}
+
+async function verifyCompactFieldOverlay(browser, baseUrl) {
+  const standardContext = await browser.newContext({ viewport: { width: 360, height: 800 } });
+  let strictErrors;
+  try {
+    const page = await openFreshStageOneFieldOverlay(standardContext, baseUrl, (freshPage) => {
+      strictErrors = collectStrictClientErrors(freshPage);
+    });
+    const surface = await inspectCompactFieldOverlay(page);
+    assertCompactFieldOverlaySurface(surface, "Fresh 360px Stage 1 compact field overlay");
+    assertNoStrictClientErrors(strictErrors, "Fresh 360px Stage 1 compact field overlay");
+  } finally {
+    strictErrors?.beginTeardown();
+    await standardContext.close();
+  }
+
+  const reducedMotionContext = await browser.newContext({
+    reducedMotion: "reduce",
+    viewport: { width: 360, height: 800 },
+  });
+  let reducedStrictErrors;
+  try {
+    await configureBattleParityContext(reducedMotionContext, { auditAnimationFrames: true });
+    const page = await reducedMotionContext.newPage();
+    reducedStrictErrors = collectStrictClientErrors(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
+    await waitForCampaignBoot(page);
+    await page.evaluate(() => window.__battleAnimationAudit.begin());
+    await startP2StageOne(page);
+    await page.locator(".ashen-field-command").waitFor({ state: "visible" });
+    await page.waitForTimeout(350);
+    const animationRequests = await page.evaluate(() => window.__battleAnimationAudit.end());
+    const surface = await inspectCompactFieldOverlay(page);
+
+    assertCompactFieldOverlaySurface(surface, "Reduced-motion fresh 360px Stage 1 compact field overlay", { requireCanvasPassThrough: false });
+    assert.notEqual(surface.objective, "", "Reduced-motion field overlay must expose a nonempty objective.");
+    assert.notEqual(surface.hostile, "", "Reduced-motion field overlay must expose a nonempty hostile readout.");
+    assert.notEqual(surface.ward, "", "Reduced-motion field overlay must expose a nonempty ward readout.");
+    assert.notEqual(surface.integrity, "", "Reduced-motion Stage 1 must expose a nonempty integrity value.");
+    assert.ok(
+      animationRequests <= 1,
+      `Reduced-motion compact field overlay must not schedule a continuous animation-frame loop; observed ${animationRequests} request(s).`,
+    );
+    assertNoStrictClientErrors(reducedStrictErrors, "Reduced-motion compact field overlay");
+  } finally {
+    reducedStrictErrors?.beginTeardown();
+    await reducedMotionContext.close();
   }
 }
 
@@ -1859,9 +2408,103 @@ async function runStageOne(page) {
     );
   }
 
-  await runActions(page, ["#action-hunt", "#action-hunt"]);
+  const fieldProxy = page.locator(".ashen-field-command__activate");
+  const receipt = page.locator('[data-field-overlay="relay-receipt"]');
+  const receiptCommand = receipt.locator('[data-field-overlay="relay-command"]');
+  const relayedCommandName = await text(fieldProxy.locator(".ashen-field-command__activate-name"));
+  const relayPrefix = await text(receipt.locator('[data-i18n="fieldOverlay.relayPrefix"]'));
+  assert.notEqual(
+    relayPrefix,
+    "",
+    "The mounted field overlay must render its localized relay prefix before issuing a command.",
+  );
+  assert.equal(
+    await receipt.isHidden(),
+    true,
+    "Stage 1 must not show an Order Seal receipt before the field proxy relays an existing command.",
+  );
+
+  const traceBeforeOverlayHunt = await campaignTrace(page);
+  await clickEnabledAction(page, ".ashen-field-command__activate");
+  assert.deepEqual(
+    (await campaignTrace(page)).slice(traceBeforeOverlayHunt.length),
+    [{ kind: "action", action: "hunt" }],
+    "Activating the current Stage 1 Hunt from the field overlay must append the public campaign Hunt transition.",
+  );
+  await receipt.waitFor({ state: "visible" });
+  assert.equal(
+    await text(receiptCommand),
+    relayedCommandName,
+    "The Order Seal receipt must name the existing command the field proxy relayed.",
+  );
+  assert.equal(
+    await text(receipt),
+    `${relayPrefix} ${relayedCommandName}`,
+    "The visible Order Seal receipt must retain the mounted localized relay prefix and relayed native command name.",
+  );
+  assert.deepEqual(
+    await receipt.evaluate((element) => ({
+      role: element.getAttribute("role"),
+      ariaLive: element.getAttribute("aria-live"),
+      tabIndex: element.getAttribute("tabindex"),
+      pointerEvents: getComputedStyle(element).pointerEvents,
+      containsInteractiveDescendant: Boolean(element.querySelector('button, a[href], input, select, textarea, [role="button"], [tabindex]')),
+    })),
+    {
+      role: "status",
+      ariaLive: "polite",
+      tabIndex: null,
+      pointerEvents: "none",
+      containsInteractiveDescendant: false,
+    },
+    "The visible Order Seal must be a passive polite status receipt rather than a second focusable command.",
+  );
+  assert.equal(
+    await page.locator(".ashen-field-command button, .ashen-field-command [role=\"button\"]").count(),
+    1,
+    "The field overlay must retain exactly one semantic command: its native-command proxy.",
+  );
+
+  await clickEnabledAction(page, "#action-hunt");
   await assertCurrentObjectiveCommand(page, "extract", "Completing two Stage 1 Hunts");
-  await runActions(page, ["#action-extract"]);
+  const extractCommand = page.locator("#action-extract");
+  const extractCommandName = await text(extractCommand.locator("strong"));
+  const extractCommandDetail = await text(extractCommand.locator("small"));
+  const extractProxyAriaLabel = `${extractCommandName}: ${extractCommandDetail}`;
+  await page.waitForFunction(({ name, ariaLabel }) => {
+    const proxy = document.querySelector(".ashen-field-command__activate");
+    const overlay = proxy?.closest(".ashen-field-command");
+    return overlay?.dataset.action === "extract"
+      && proxy?.querySelector(".ashen-field-command__activate-name")?.textContent?.trim() === name
+      && proxy?.getAttribute("aria-label") === ariaLabel;
+  }, { name: extractCommandName, ariaLabel: extractProxyAriaLabel });
+  assert.deepEqual(
+    await fieldProxy.evaluate((proxy) => ({
+      action: proxy.closest(".ashen-field-command")?.dataset.action,
+      name: proxy.querySelector(".ashen-field-command__activate-name")?.textContent?.trim(),
+      ariaLabel: proxy.getAttribute("aria-label"),
+    })),
+    {
+      action: "extract",
+      name: extractCommandName,
+      ariaLabel: extractProxyAriaLabel,
+    },
+    "After Hunt advances the engine objective, the same field proxy must follow Extract's action, name, and accessible label.",
+  );
+  await fieldProxy.focus();
+  assert.equal(
+    await page.evaluate(() => document.activeElement === document.querySelector(".ashen-field-command__activate")),
+    true,
+    "The existing field proxy must receive keyboard focus before Enter relays Extract.",
+  );
+  const traceBeforeOverlayExtract = await campaignTrace(page);
+  await fieldProxy.press("Enter");
+  await page.waitForFunction(() => document.querySelector("#action-extract") instanceof HTMLButtonElement && document.querySelector("#action-extract").disabled);
+  assert.deepEqual(
+    (await campaignTrace(page)).slice(traceBeforeOverlayExtract.length),
+    [{ kind: "action", action: "extract" }],
+    "Focused Enter on the field proxy must relay exactly one existing Extract command.",
+  );
 
   assert.equal(await page.locator("#action-materialize").isEnabled(), true, "Stage 1 Materialize must unlock after Hunt twice and Extract.");
   assert.equal(await page.locator("#action-capture").isEnabled(), false, "Stage 1 Capture must remain disabled until a legion materializes.");
@@ -2007,7 +2650,7 @@ async function runStageThree(page) {
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
-const CURRENT_STATIC_CACHE = "abyssal-surge-static-v28";
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v29";
 
 function currentWorkerCacheName() {
   let serviceWorkerSource;
@@ -2028,7 +2671,7 @@ function currentWorkerCacheName() {
   assert.equal(
     cacheName,
     CURRENT_STATIC_CACHE,
-    "sw.js must retain the v28 static cache revision required by the browser cache assertion.",
+    "sw.js must retain the v29 static cache revision required by the browser cache assertion.",
   );
   return cacheName;
 }
@@ -2285,6 +2928,26 @@ async function run() {
       console.log("PLAYTEST_BROWSER_BRIDGE_PASS manifest=45 action-atlases=42 terrain-plates=3 status=loaded action=hunt");
       return;
     }
+    if (STAGE_RAIL_SCROLL_MODE) {
+      await verifyTransitionDrivenStageRailScrolling(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_STAGE_RAIL_SCROLL_PASS stages=1,2 calls=1-per-active-stage aria-current=step");
+      return;
+    }
+    if (FALLBACK_TARGET_PARITY_MODE) {
+      await verifyFallbackCanvasTargetParity(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_FALLBACK_TARGET_PARITY_PASS portal=materialize node=capture hidden-boss=rejected exposed-boss=assault ground=move-no-action");
+      return;
+    }
+    if (COMPACT_CONTROL_JOURNEY_MODE) {
+      await verifyCompactControlJourney(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_COMPACT_CONTROL_JOURNEY_PASS viewport=320x568 canvas=direct command=reachable button-hotkey=blocked canvas-hotkey=dispatched");
+      return;
+    }
+    if (COMPACT_FIELD_OVERLAY_MODE) {
+      await verifyCompactFieldOverlay(browser, hosting.baseUrl);
+      console.log("PLAYTEST_BROWSER_COMPACT_FIELD_OVERLAY_PASS viewport=360x800 contexts=standard,reduced consequence=one-line proxy=48px canvas=pass-through");
+      return;
+    }
     if (REALTIME_ONLY_MODE) {
       await verifyRealtimeThreeBattleOnly(browser, hosting.baseUrl);
       console.log("PLAYTEST_BROWSER_REALTIME_PASS stage=Cinder Span renderer=webgl2 glb=terrain/cinder-span.glb readiness=loaded direct-control=changed action=hunt");
@@ -2428,7 +3091,7 @@ async function run() {
 
 if (BRIDGE_CACHE_BOUNDARY_MODE) {
   verifyBridgeCacheBoundary()
-    .then(() => console.log("PLAYTEST_BRIDGE_CACHE_BOUNDARY_PASS cached=1 rejected=traversal,cross-origin"))
+    .then(() => console.log("PLAYTEST_BRIDGE_CACHE_BOUNDARY_PASS cached=manifest,asset rejected=traversal,cross-origin"))
     .catch((error) => {
       console.error(`PLAYTEST_BRIDGE_CACHE_BOUNDARY_FAIL: ${error instanceof Error ? error.stack || error.message : String(error)}`);
       process.exitCode = 1;

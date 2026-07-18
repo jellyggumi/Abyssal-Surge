@@ -85,6 +85,22 @@ function archivePaths(workflow) {
   return new Set(declaration.groups.paths.trim().split(/\s+/).map((path) => `./${path}`));
 }
 
+function indexLocalRuntimeEntrypoints(index) {
+  const paths = [];
+
+  for (const tag of index.matchAll(/<(link|script)\b(?<attributes>[^>]*)>/gi)) {
+    const attributes = tag.groups.attributes;
+    const localPath = attributes.match(/\b(?:href|src)=["'](?<path>[^"']+)["']/i)?.groups?.path;
+    const isStylesheet = tag[1].toLowerCase() === "link" && /\brel=["']stylesheet["']/i.test(attributes);
+    const isModule = tag[1].toLowerCase() === "script" && /\btype=["']module["']/i.test(attributes);
+
+    if (!localPath || (!isStylesheet && !isModule) || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(localPath)) continue;
+    paths.push(projectRelativePath(new URL(localPath, SOURCE_ROOT)));
+  }
+
+  return [...new Set(paths)].sort();
+}
+
 
 function optionalMediaPaths(serviceWorker) {
   const declaration = serviceWorker.match(/const OPTIONAL_MEDIA = \[(?<assets>[\s\S]*?)\];/);
@@ -321,6 +337,35 @@ test("every static local app module is shipped in the Pages artifact and precach
     missingFromServiceWorker,
     [],
     `Static local app module closure missing from service-worker CORE_ASSETS: ${missingFromServiceWorker.join(", ")}`,
+  );
+});
+
+test("local index stylesheet and module entry points are shipped in the Pages artifact and precached offline", async () => {
+  const [workflow, index, serviceWorker] = await Promise.all([
+    readProjectFile(".github/workflows/static.yml"),
+    readProjectFile("index.html"),
+    readProjectFile("sw.js"),
+  ]);
+  const entrypoints = indexLocalRuntimeEntrypoints(index);
+  const pagesArtifact = archivePaths(workflow);
+  const serviceWorkerCore = coreAssetPaths(serviceWorker);
+  const missingFromArtifact = entrypoints.filter((entrypoint) => !pagesArtifact.has(entrypoint));
+  const missingFromServiceWorker = entrypoints.filter((entrypoint) => !serviceWorkerCore.has(entrypoint));
+
+  assert.deepEqual(
+    entrypoints.filter((entrypoint) => entrypoint.startsWith("./battle-field-command-overlay")),
+    ["./battle-field-command-overlay.css", "./battle-field-command-overlay.js"],
+    "index.html must keep both field-command overlay runtime entry points.",
+  );
+  assert.deepEqual(
+    missingFromArtifact,
+    [],
+    `Index runtime entry points missing from Pages git archive: ${missingFromArtifact.join(", ")}`,
+  );
+  assert.deepEqual(
+    missingFromServiceWorker,
+    [],
+    `Index runtime entry points missing from service-worker CORE_ASSETS: ${missingFromServiceWorker.join(", ")}`,
   );
 });
 

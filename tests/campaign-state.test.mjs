@@ -293,6 +293,84 @@ test("public campaign API completes the deterministic ten-stage Abyssal Command 
   );
 });
 
+test("Glass Necropolis alone restores the low no-Lens/no-Brand route to a survivable entry", () => {
+  const clearLateWithoutReward = (current) => {
+    const stage = STAGES[current.stageIndex];
+    current = clearDeclaredWaves(current);
+    current = buildLegion(current, current.stage.capacity);
+    while (current.stage.nodes < stage.nodeGoal) current = command(current, "capture");
+    if (stage.commands.possess) current = command(current, "possess");
+    if (stage.commands.domain) current = command(current, "domain");
+    while (current.status === "active") current = command(current, "assault");
+    assert.equal(current.status, "reward", `${stage.id} must be won before its reward is claimed`);
+    return current;
+  };
+
+  // This published reward line deliberately takes neither Rift Lens nor Bulwark
+  // Brand. Its fully prepared Stage 5 winner is the low-integrity case that
+  // previously opened Glass Necropolis at the global four-integrity floor.
+  let state = accept(chooseReward(commands(start(), S1_OPTIMAL), "ember-cohort"));
+  state = buildLegion(state, 4);
+  while (state.stage.nodes < STAGES[state.stageIndex].nodeGoal) state = command(state, "capture");
+  state = command(state, "possess");
+  while (state.status === "active") state = command(state, "assault");
+  state = accept(chooseReward(state, "veil-vanguard"));
+
+  state = buildLegion(state, state.stage.capacity);
+  state = command(state, "capture");
+  state = command(state, "domain");
+  state = command(state, "possess");
+  while (state.status === "active") state = command(state, "assault");
+  state = accept(chooseReward(state, "throne-echo"));
+
+  state = clearLateWithoutReward(state);
+  assert.equal(state.stage.integrity, 0, "the low Stage 4 winner must carry the route's actual surviving integrity");
+  state = accept(chooseReward(state, "tidebreaker-sigil"));
+  assert.equal(state.stageId, "howling-sprawl");
+  assert.equal(state.stage.integrity, 4, "the global floor remains unchanged before Glass Necropolis");
+
+  state = clearLateWithoutReward(state);
+  assert.equal(state.stage.integrity, 0, "the fully prepared low Stage 5 winner must still be recoverable");
+  state = accept(chooseReward(state, "sprawl-hourglass"));
+  assert.equal(state.stageId, "glass-necropolis");
+  assert.deepEqual(
+    state.rewards.map(({ rewardId }) => rewardId),
+    ["ember-cohort", "veil-vanguard", "throne-echo", "tidebreaker-sigil", "sprawl-hourglass"],
+    "the documented no-Lens/no-Brand route must carry its complete reward history into Stage 6",
+  );
+  assert.equal(state.stage.integrity, 7, "Glass Necropolis must raise this low winner to its seven-integrity entry floor");
+
+  const stage = STAGES[state.stageIndex];
+  state = clearDeclaredWaves(state);
+  state = buildLegion(state, state.stage.capacity);
+  while (state.stage.nodes < stage.nodeGoal) state = command(state, "capture");
+  state = command(state, "possess");
+  assert.equal(state.stage.legion, state.stage.capacity, "the route must retain all available Stage 6 preparation");
+
+  for (const [assault, expected] of [
+    { integrity: 5, bossHealth: 11, status: "active" },
+    { integrity: 3, bossHealth: 6, status: "active" },
+    { integrity: 1, bossHealth: 1, status: "active" },
+    { integrity: 0, bossHealth: 0, status: "reward" },
+  ].entries()) {
+    state = command(state, "assault");
+    assert.equal(state.stage.integrity, expected.integrity, `Stage 6 assault ${assault + 1} must apply its legal counterblow`);
+    assert.equal(state.stage.bossHealth, expected.bossHealth, `Stage 6 assault ${assault + 1} must deal possessed damage`);
+    assert.equal(state.status, expected.status, `Stage 6 assault ${assault + 1} must not enter a retry-defeat loop`);
+  }
+
+  // A healthy player arrives above the Stage 6 floor through the established
+  // Lens line, and that earned integrity must not be reduced to seven.
+  let healthy = start();
+  healthy = accept(chooseReward(commands(healthy, S1_OPTIMAL), "rift-lens"));
+  healthy = accept(chooseReward(commands(healthy, S2_LENS), "veil-vanguard"));
+  healthy = accept(chooseReward(commands(healthy, S3_VANGUARD_LENS), "throne-echo"));
+  healthy = clearLateStage(healthy);
+  healthy = clearLateStage(healthy);
+  assert.equal(healthy.stageId, "glass-necropolis");
+  assert.equal(healthy.stage.integrity, 8, "Glass Necropolis must retain integrity earned above its entry floor");
+});
+
 test("stage 4-10 declared encounters expose the boss only after every wave clears", () => {
   for (const stage of STAGES.slice(3)) {
     assert.ok(stage.encounter, `${stage.id} must declare an encounter that guards its boss`);

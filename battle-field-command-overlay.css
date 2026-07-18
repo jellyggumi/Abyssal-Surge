@@ -52,7 +52,7 @@
 
 #battle-field .ashen-field-command__standard,
 #battle-field .ashen-field-command__watch,
-#battle-field .ashen-field-command__consequence {
+#battle-field .ashen-field-command__result {
   position: relative;
   border: 1px solid rgb(202 157 89 / 66%);
   background:
@@ -150,7 +150,7 @@
   color: var(--battle-ally);
 }
 
-#battle-field .ashen-field-command__consequence {
+#battle-field .ashen-field-command__result {
   grid-column: 2;
   grid-row: 3;
   align-self: end;
@@ -160,7 +160,7 @@
   text-align: end;
 }
 
-#battle-field .ashen-field-command__consequence-copy {
+#battle-field .ashen-field-command__result-copy {
   display: -webkit-box;
   overflow: hidden;
   margin-top: .18rem;
@@ -169,6 +169,30 @@
   line-height: 1.2;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+#battle-field .ashen-field-command__receipt {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: stretch;
+  min-width: 0;
+  overflow: hidden;
+  padding: .38rem .45rem;
+  border: 1px solid rgb(202 157 89 / 66%);
+  border-radius: .35rem;
+  background:
+    linear-gradient(135deg, rgb(30 23 15 / 94%), rgb(11 12 14 / 80%)),
+    repeating-linear-gradient(0deg, transparent 0 .3rem, rgb(255 255 255 / 2%) .3rem .34rem);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 35%), 0 .35rem .8rem rgb(0 0 0 / 26%);
+  color: #f2dfb8;
+  font-size: .66rem;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #battle-field .ashen-field-command__activate {
@@ -243,9 +267,15 @@
     font-size: .68rem;
   }
 
-  #battle-field .ashen-field-command__pressure,
-  #battle-field .ashen-field-command__consequence-copy {
+  #battle-field .ashen-field-command__pressure {
     display: none;
+  }
+
+  #battle-field .ashen-field-command__objective,
+  #battle-field .ashen-field-command__result-copy {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: unset;
   }
 
   #battle-field .ashen-field-command__activate {

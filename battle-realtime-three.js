@@ -53,6 +53,37 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function disposeUnique(resource, disposed) {
+  if (!resource || disposed.has(resource)) return;
+  disposed.add(resource);
+  resource.dispose?.();
+}
+
+function disposeTextures(value, disposed, visited = new Set()) {
+  if (!value || typeof value !== "object" || visited.has(value)) return;
+  visited.add(value);
+  if (value.isTexture) {
+    disposeUnique(value, disposed);
+    return;
+  }
+  for (const nested of Object.values(value)) disposeTextures(nested, disposed, visited);
+}
+
+function disposeMaterialResources(material, disposed) {
+  if (!material || disposed.has(material)) return;
+  disposeTextures(material, disposed);
+  disposeUnique(material, disposed);
+}
+
+function disposeObjectResources(root, disposed) {
+  root?.traverse?.((node) => {
+    if (!node.isMesh && !node.isPoints && !node.isLine) return;
+    disposeUnique(node.geometry, disposed);
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of materials) disposeMaterialResources(material, disposed);
+  });
+}
+
 const PARTICLE_CAPACITY = 360;
 const AUDIO_ROOT = "./assets/audio/";
 
@@ -60,7 +91,7 @@ const AUDIO_ROOT = "./assets/audio/";
 // ash, boss impacts, action bursts). One field per battle instance; all
 // emitters share the same fixed-capacity buffer (additive-blended points),
 // so cost is a single draw call regardless of how many effects are live.
-class ParticleField {
+export class ParticleField {
   constructor(scene) {
     this.capacity = PARTICLE_CAPACITY;
     this.cursor = 0;
@@ -158,7 +189,7 @@ class ParticleField {
 // continuous per-frame combat events that have no authored cue: strike
 // clash, boss impact, defeat, breach, wave-cleared. Listener follows the
 // camera every frame so panning/distance stays correct as the player orbits.
-class SpatialAudio {
+export class SpatialAudio {
   constructor() {
     const AudioCtx = typeof window !== "undefined" ? (window.AudioContext || window.webkitAudioContext) : null;
     this.ctx = AudioCtx ? new AudioCtx() : null;
@@ -279,6 +310,7 @@ export class RealtimeBattle {
     this.currentWaveId = null;
     this.pendingEncounterEvent = null;
     this.bossExposed = false;
+    this.lastBossHealth = null;
     this.runtimeSignature = null;
     this.allies = [];
     this.enemies = [];
@@ -287,6 +319,7 @@ export class RealtimeBattle {
     this.authoritativeLegion = null;
     this.templates = new Map();
     this.mixers = [];
+    this.disposedResources = new Set();
     this.interactives = [];
     this.pressed = new Set();
     this.destroyed = false;
@@ -330,6 +363,7 @@ export class RealtimeBattle {
     this.bound = {
       resize: () => this.resize(),
       visibility: () => this.onVisibility(),
+      clearPressedInput: () => this.clearPressedInput(),
       contextLost: (event) => this.onContextLost(event),
       keydown: (event) => this.onKey(event, true),
       keyup: (event) => this.onKey(event, false),
@@ -384,12 +418,14 @@ export class RealtimeBattle {
     this.canvas.addEventListener("webglcontextlost", this.bound.contextLost, false);
     this.canvas.addEventListener("keydown", this.bound.keydown);
     this.canvas.addEventListener("keyup", this.bound.keyup);
+    this.canvas.addEventListener("blur", this.bound.clearPressedInput);
     this.canvas.addEventListener("pointerdown", this.bound.pointerdown);
     this.canvas.addEventListener("pointermove", this.bound.pointermove);
     this.canvas.addEventListener("pointerup", this.bound.pointerup);
     this.canvas.addEventListener("pointercancel", this.bound.pointercancel);
     this.canvas.addEventListener("contextmenu", this.bound.contextmenu);
     this.canvas.addEventListener("wheel", this.bound.wheel, { passive: false });
+    globalThis.window?.addEventListener("blur", this.bound.clearPressedInput);
     document.addEventListener("visibilitychange", this.bound.visibility);
     this.resizeObserver = new ResizeObserver(this.bound.resize);
     this.resizeObserver.observe(this.canvas);
@@ -487,6 +523,7 @@ export class RealtimeBattle {
       const tinted = materials.map((material) => {
         if (!material) return material;
         const clone = material.clone();
+        clone.userData.isBossIdentityTint = true;
         if (clone.color) clone.color.lerp(tint, 0.55);
         if ("emissive" in clone) {
           clone.emissive = tint.clone();
@@ -604,9 +641,11 @@ export class RealtimeBattle {
   }
 
   shakeCamera(magnitude, duration = 0.25) {
-    this.shakeMagnitude = Math.max(this.shakeMagnitude, magnitude);
-    this.shakeTime = Math.max(this.shakeTime, duration);
-    this.shakeDuration = this.shakeTime;
+    const currentStrength = this.shakeMagnitude * (this.shakeDuration > 0 ? this.shakeTime / this.shakeDuration : 0);
+    if (magnitude < currentStrength) return; // weaker pulse is already masked by the still-decaying stronger one
+    this.shakeMagnitude = magnitude;
+    this.shakeTime = duration;
+    this.shakeDuration = duration;
   }
 
   update(dt) {
@@ -622,7 +661,7 @@ export class RealtimeBattle {
     this.node.rotation.y -= dt * 0.5;
     this.updateMarkerPulses(dt);
     this.updateAmbience(dt);
-    this.particles.update(dt);
+    this.particles?.update(dt);
     this.audio.updateListener(this.camera);
     this.updateCamera(dt);
     this.publishRuntimeState();
@@ -652,7 +691,6 @@ export class RealtimeBattle {
       speedMin: 0.05, speedMax: 0.25, life: 3.5, gravity: -0.15, upBias: 0.4,
     });
   }
-
 
   liveAlly(unit) {
     return this.allies.includes(unit) && !unit.defeated;
@@ -1004,7 +1042,6 @@ export class RealtimeBattle {
     }
   }
 
-
   updateCamera(dt = 0) {
     this.cameraTarget.lerp(this.commanderPosition, 0.12);
     const horizontal = Math.cos(this.orbitElevation) * this.zoom;
@@ -1034,6 +1071,10 @@ export class RealtimeBattle {
     this.renderer.setSize(rect.width, rect.height, false);
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
+  }
+
+  clearPressedInput() {
+    this.pressed.clear();
   }
 
   onKey(event, down) {
@@ -1140,6 +1181,11 @@ export class RealtimeBattle {
       this.authoritativeLegion = legion;
       this.reconcileAllies(legion);
     }
+    const bossHealth = Number(state?.bossHealth ?? campaign?.stage?.bossHealth);
+    if (Number.isFinite(bossHealth)) {
+      if (bossHealth === 0 && this.lastBossHealth > 0) this.defeat(this.boss);
+      this.lastBossHealth = bossHealth;
+    }
     this.applyEncounter({ stageId, config, state: encounterState });
   }
 
@@ -1154,6 +1200,14 @@ export class RealtimeBattle {
   }
 
   retire(instance) {
+    const disposed = this.disposedResources;
+    instance?.root?.traverse?.((node) => {
+      if (!node.isMesh) return;
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      for (const material of materials) {
+        if (material?.userData?.isBossIdentityTint) disposeUnique(material, disposed);
+      }
+    });
     if (!instance?.mixer) return;
     instance.mixer.stopAllAction();
     instance.mixer.uncacheRoot(instance.root);
@@ -1345,17 +1399,16 @@ export class RealtimeBattle {
     if (point === "node") this.nodePulse = Math.max(this.nodePulse, 2.15);
   }
 
-
   actionFeedbackProfile(action) {
     const palette = this.presentation?.palette ?? {};
     const ally = palette.ally ?? "#70e5d0";
     const accent = palette.accent ?? "#ffb85c";
     const hostile = palette.hostile ?? "#ff7f79";
     const profile = {
-      hunt: { color: accent, count: 12, gain: 0.52, pulse: "portal" },
-      extract: { color: ally, count: 14, gain: 0.58, pulse: "portal" },
-      materialize: { color: ally, count: 20, gain: 0.7, pulse: "portal" },
-      capture: { color: accent, count: 18, gain: 0.66, pulse: "node" },
+      hunt: { color: accent, count: 12, gain: 0.52 },
+      extract: { color: ally, count: 14, gain: 0.58 },
+      materialize: { color: ally, count: 20, gain: 0.7 },
+      capture: { color: accent, count: 18, gain: 0.66 },
       possess: { color: accent, count: 16, gain: 0.62 },
       domain: { color: accent, count: 24, gain: 0.74 },
       assault: { color: hostile, count: 28, gain: 0.78 },
@@ -1368,11 +1421,9 @@ export class RealtimeBattle {
     if (!profile) return null;
     const source = this.actionFeedbackPoint(semantic.source);
     const target = this.actionFeedbackPoint(semantic.target);
-    const { action, color, count, gain, pulse } = profile;
+    const { action, color, count, gain } = profile;
     this.pulseActionMarker(semantic.source);
     this.pulseActionMarker(semantic.target);
-    if (pulse === "portal") this.portalPulse = Math.max(this.portalPulse, 2.15);
-    if (pulse === "node") this.nodePulse = Math.max(this.nodePulse, 2.15);
     const sourceCount = Math.max(4, Math.floor(count * 0.42));
     const emit = (position, amount) => this.particles?.emit(position.x, position.y + 0.72, position.z, color, amount, {
       speedMin: 0.8,
@@ -1386,7 +1437,7 @@ export class RealtimeBattle {
     else emit(target, count - sourceCount);
     this.audio.playSample(action, source.x, source.y + 0.72, source.z, gain);
     if (source.x !== target.x || source.y !== target.y || source.z !== target.z) {
-      this.audio.playTone?.(target.x, target.y + 0.72, target.z, {
+      this.audio.playTone(target.x, target.y + 0.72, target.z, {
         freq: action === "assault" ? 170 : 420,
         endFreq: action === "assault" ? 90 : 760,
         duration: 0.16,
@@ -1401,14 +1452,14 @@ export class RealtimeBattle {
     return { action, source, target };
   }
 
-
   playActionEffect(semantic = {}) {
     const action = semantic?.action;
     if (!action || this.destroyed) return;
     this.emitActionFeedback(semantic);
     const actor = this.actionFeedbackActor(semantic.actor);
     if (actor) this.play(actor, semantic.actorClip ?? semantic.clip ?? "Special", true);
-    if (action === "assault" && this.bossExposed) this.play(this.boss, "Attack", true);
+    if (action === "assault" && this.bossExposed && this.boss && !this.boss.defeated) this.play(this.boss, "Attack", true);
+    if (action === "possess" || action === "domain") this.rally.copy(this.commanderPosition);
   }
 
   triggerAction(semantic) {
@@ -1421,6 +1472,7 @@ export class RealtimeBattle {
 
   onVisibility() {
     if (document.hidden) {
+      this.clearPressedInput();
       if (this.raf) cancelAnimationFrame(this.raf);
       this.raf = 0;
       return;
@@ -1446,9 +1498,11 @@ export class RealtimeBattle {
     this.raf = 0;
     this.resizeObserver?.disconnect();
     document.removeEventListener("visibilitychange", this.bound.visibility);
+    globalThis.window?.removeEventListener("blur", this.bound.clearPressedInput);
     this.canvas.removeEventListener("webglcontextlost", this.bound.contextLost);
     this.canvas.removeEventListener("keydown", this.bound.keydown);
     this.canvas.removeEventListener("keyup", this.bound.keyup);
+    this.canvas.removeEventListener("blur", this.bound.clearPressedInput);
     this.canvas.removeEventListener("pointerdown", this.bound.pointerdown);
     this.canvas.removeEventListener("pointermove", this.bound.pointermove);
     this.canvas.removeEventListener("pointerup", this.bound.pointerup);
@@ -1463,8 +1517,17 @@ export class RealtimeBattle {
     for (const mixer of this.mixers) mixer.stopAllAction();
     this.mixers.length = 0;
     this.staticBlockers.length = 0;
-    this.renderer?.dispose();
     this.particles?.dispose();
+    const roots = [
+      ...[...this.templates.values()].map((template) => template?.scene),
+      this.scene,
+      this.terrain,
+      this.ground,
+      this.portal,
+      this.node,
+    ];
+    for (const root of roots) disposeObjectResources(root, this.disposedResources);
+    this.renderer?.dispose();
     this.audio?.dispose();
     this.templates.clear();
   }

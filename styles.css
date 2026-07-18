@@ -916,6 +916,7 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--battle-background) 82%, var(--battle-ally)), var(--battle-background)),
     repeating-linear-gradient(90deg, transparent 0 1.5rem, rgb(255 255 255 / 3%) 1.5rem 1.6rem);
+  pointer-events: none;
 }
 
 .battle-visual-fallback[hidden] {
@@ -1760,6 +1761,16 @@ body:has(#campaign-screen:not([hidden])) main { overflow-y: hidden; }
     pointer-events: none;
     background: linear-gradient(to top, rgb(4 6 12 / 82%), transparent);
   }
+
+/* Compact mobile heights keep the dock in normal scroll flow, not over the field. */
+@media (max-width: 899px) and (max-height: 600px) {
+  .field-command-dock {
+    position: static;
+    bottom: auto;
+    z-index: auto;
+    margin-top: 0;
+  }
+}
   /* Keep the live status line; drop the heading + keyboard hint. */
   .field-command-dock .section-heading { display: block; margin: 0; }
   .field-command-dock .section-heading h3,

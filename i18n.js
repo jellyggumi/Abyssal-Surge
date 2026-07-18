@@ -114,6 +114,12 @@ const translations = {
     "save.exportButton": "저장 내보내기",
     "save.importButton": "저장 불러오기",
     "save.hint": "캠페인 상태는 버전이 관리되는 IndexedDB 봉투에 로컬로 저장됩니다. 브라우저 데이터를 지우기 전에 파일로 내보내세요.",
+    "fieldOverlay.aria": "현재 전장 명령",
+    "fieldOverlay.order": "현재 명령",
+    "fieldOverlay.ingress": "적 침입",
+    "fieldOverlay.ward": "관문 수호 — 패배 지점",
+    "fieldOverlay.status": "전장 상태",
+    "fieldOverlay.relayPrefix": "명령 전달됨 —",
     noscript: "Abyssal Command 캠페인을 지휘하려면 JavaScript가 필요합니다."
   },
   en: {
@@ -222,13 +228,19 @@ const translations = {
     "save.exportButton": "Export save",
     "save.importButton": "Import save",
     "save.hint": "Campaign state is stored locally in a versioned IndexedDB envelope. Export a file before clearing browser data.",
+    "fieldOverlay.aria": "Current field command",
+    "fieldOverlay.order": "Current order",
+    "fieldOverlay.ingress": "Hostile ingress",
+    "fieldOverlay.ward": "Gate ward — loss point",
+    "fieldOverlay.status": "Field status",
+    "fieldOverlay.relayPrefix": "Order relayed —",
     noscript: "JavaScript is required to command the Abyssal Command campaign."
   }
 };
 
 function currentLang() {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = globalThis.window?.localStorage?.getItem(STORAGE_KEY);
     if (stored === "ko" || stored === "en") return stored;
   } catch {
     // localStorage unavailable (private mode, etc.) — fall through to default.
@@ -236,7 +248,13 @@ function currentLang() {
   return DEFAULT_LANG;
 }
 
+function translate(key, lang = currentLang()) {
+  const dict = translations[lang] || translations[DEFAULT_LANG];
+  return dict[key] ?? translations[DEFAULT_LANG][key] ?? "";
+}
+
 function applyLanguage(lang) {
+  if (typeof document === "undefined") return;
   const dict = translations[lang] || translations[DEFAULT_LANG];
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-i18n]").forEach((element) => {
@@ -260,7 +278,7 @@ function applyLanguage(lang) {
 
 function setLanguage(lang) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, lang);
+    globalThis.window?.localStorage?.setItem(STORAGE_KEY, lang);
   } catch {
     // Ignore persistence failures; the session still gets the requested language.
   }
@@ -275,6 +293,6 @@ function initI18n() {
   });
 }
 
-initI18n();
+if (typeof document !== "undefined") initI18n();
 
-export { applyLanguage, setLanguage, currentLang, translations };
+export { applyLanguage, setLanguage, currentLang, translate, translations };

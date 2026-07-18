@@ -267,6 +267,7 @@ export const STAGES = Object.freeze([
     bossName: "Requiem Choir",
     bossHealth: 16,
     rewardIntegrityRestore: 3,
+    entryIntegrityFloor: 7,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
       hunt: Object.freeze({ cooldown: STANDARD_COMMAND_COOLDOWNS.hunt }),
@@ -1077,8 +1078,9 @@ export function chooseReward(state, rewardId) {
     // 0-1) must not open the next stage as an unwinnable retry treadmill.
     // 4 is the measured survival threshold for the declared-wave stages.
     const ENTRY_INTEGRITY_FLOOR = 4;
+    const entryIntegrityFloor = nextStage.entryIntegrityFloor ?? ENTRY_INTEGRITY_FLOOR;
     const carried = clamp(
-      Math.max(draft.stage.integrity + stage.rewardIntegrityRestore + entry.integrity, ENTRY_INTEGRITY_FLOOR),
+      Math.max(draft.stage.integrity + stage.rewardIntegrityRestore + entry.integrity, entryIntegrityFloor),
       0,
       benefits.maxIntegrity
     );

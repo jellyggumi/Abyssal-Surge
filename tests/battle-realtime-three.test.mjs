@@ -17,6 +17,7 @@ function makeRoot(x = 0, z = 0) {
         return this;
       },
     },
+    userData: {},
     removeFromParent() {
       this.removed = true;
     },
@@ -49,6 +50,81 @@ test("RealtimeBattle safely ignores playback requests from clip-less runtime bin
     "a runtime binding that has not exposed animation clips must not break the command feedback path",
   );
 });
+
+test("RealtimeBattle clears held keyboard movement on canvas, window, and hidden-document focus loss without cancelling click-to-move", () => {
+  const canvasListeners = new Map();
+  const windowListeners = new Map();
+  const documentListeners = new Map();
+  const listeners = (target) => ({
+    addEventListener(type, handler) {
+      target.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (target.get(type) === handler) target.delete(type);
+    },
+  });
+  const canvas = listeners(canvasListeners);
+  const document = { ...listeners(documentListeners), activeElement: canvas, hidden: false };
+  const window = listeners(windowListeners);
+  const descriptors = new Map(
+    ["document", "window", "ResizeObserver"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+  );
+  Object.assign(globalThis, {
+    document,
+    window,
+    ResizeObserver: class {
+      observe() {}
+      disconnect() {}
+    },
+  });
+
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  const commanderOrder = { x: 4, y: 0, z: -2 };
+  const pressMovement = () => {
+    document.activeElement = canvas;
+    canvasListeners.get("keydown")({ code: "KeyW", preventDefault() {} });
+    assert.deepEqual([...battle.pressed], ["KeyW"], "the movement key must be held before focus is lost");
+  };
+  const assertClearedWithoutCancellingOrder = (source, loseFocus) => {
+    battle.commanderOrder = commanderOrder;
+    pressMovement();
+    loseFocus();
+    assert.deepEqual([...battle.pressed], [], `${source} focus loss must clear held keyboard movement`);
+    assert.strictEqual(
+      battle.commanderOrder,
+      commanderOrder,
+      `${source} focus loss must preserve the active click-to-move commander order`,
+    );
+  };
+
+  try {
+    battle.attachEvents();
+    assert.equal(typeof canvasListeners.get("blur"), "function", "the canvas must clear input when it loses focus");
+    assert.equal(typeof windowListeners.get("blur"), "function", "the browser window must clear input when it loses focus");
+
+    assertClearedWithoutCancellingOrder("canvas", () => {
+      document.activeElement = null;
+      canvasListeners.get("blur")();
+    });
+    assertClearedWithoutCancellingOrder("window", () => {
+      document.activeElement = null;
+      windowListeners.get("blur")();
+    });
+    assertClearedWithoutCancellingOrder("hidden document", () => {
+      document.hidden = true;
+      documentListeners.get("visibilitychange")();
+      document.hidden = false;
+    });
+  } finally {
+    battle.destroy();
+    for (const [name, descriptor] of descriptors) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  }
+});
+
+
 
 
 test("RealtimeBattle uses the unit Strike vocabulary for scout attacks", () => {
@@ -109,6 +185,40 @@ test("RealtimeBattle starts one-shot Defeat playback once when non-commander act
     allyPlays.filter(({ clip }) => clip === "Defeat"),
     [{ unit: defeatedAlly, clip: "Defeat", once: true }],
     "a defeated non-commander ally must start one finite Defeat clip and never restart it on later updates",
+  );
+});
+
+test("RealtimeBattle keeps Defeat on a lethally assaulted exposed boss while live exposed bosses still Attack", () => {
+  const lethalBattle = new RealtimeBattle(null, { stageNumber: 1 });
+  const lethalBoss = makeUnit({ hp: 16 });
+  const lethalPlays = [];
+  lethalBattle.boss = lethalBoss;
+  lethalBattle.play = (unit, clip, once) => lethalPlays.push({ unit, clip, once });
+
+  lethalBattle.applyCampaignState({ state: { legion: 0, bossHealth: 16, bossExposed: true } });
+  lethalBattle.applyCampaignState({ state: { legion: 0, bossHealth: 0, bossExposed: true } });
+  lethalBattle.playActionEffect({ action: "assault", source: "boss", target: "commander" });
+
+  assert.equal(lethalBoss.defeated, true, "the final assault's campaign sync must defeat the boss");
+  assert.deepEqual(
+    lethalPlays,
+    [{ unit: lethalBoss, clip: "Defeat", once: true }],
+    "a lethal exposed-boss assault must leave the boss's one-shot Defeat playback intact",
+  );
+
+  const liveBattle = new RealtimeBattle(null, { stageNumber: 1 });
+  const liveBoss = makeUnit({ hp: 16 });
+  const livePlays = [];
+  liveBattle.boss = liveBoss;
+  liveBattle.bossExposed = true;
+  liveBattle.play = (unit, clip, once) => livePlays.push({ unit, clip, once });
+
+  liveBattle.playActionEffect({ action: "assault", source: "boss", target: "commander" });
+
+  assert.deepEqual(
+    livePlays,
+    [{ unit: liveBoss, clip: "Attack", once: true }],
+    "a nonlethal exposed-boss assault must retain its boss Attack playback",
   );
 });
 
@@ -540,4 +650,201 @@ test("RealtimeBattle preserves stages 4–10 and loads each stage's declared ter
       `Stage ${stageNumber} must request its declared terrain and boss resources.`,
     );
   }
+});
+
+test("ParticleField recycles the fixed-capacity pool instead of growing unbounded", async () => {
+  const { ParticleField } = await import("../battle-realtime-three.js");
+  const added = [];
+  const scene = { add: (object) => added.push(object) };
+  const field = new ParticleField(scene);
+
+  assert.equal(field.capacity, 360, "particle pool capacity must match the documented budget");
+  assert.equal(added.length, 1, "constructing a ParticleField must add exactly one Points object to the scene");
+
+  field.emit(0, 0, 0, "#ffffff", 400, {});
+  const aliveCount = Array.from(field.alive).filter((flag) => flag === 1).length;
+  assert.equal(aliveCount, 360, "emitting more particles than capacity must recycle oldest slots, never exceed capacity");
+  assert.equal(field.cursor, 40, "cursor must wrap modulo capacity after overflowing (400 % 360 = 40)");
+
+  field.update(10);
+  const aliveAfterLongDt = Array.from(field.alive).filter((flag) => flag === 1).length;
+  assert.equal(aliveAfterLongDt, 0, "a long enough dt must expire every particle back to the dead pool");
+
+  field.dispose();
+});
+
+test("SpatialAudio constructs safely with a null AudioContext outside a browser environment", async () => {
+  const { SpatialAudio } = await import("../battle-realtime-three.js");
+  const audio = new SpatialAudio();
+
+  assert.equal(audio.ctx, null, "non-browser SpatialAudio must not construct a real AudioContext");
+  assert.equal(audio.master, null, "non-browser SpatialAudio must not construct a master gain node");
+  assert.doesNotThrow(() => audio.playTone(0, 0, 0, { freq: 440 }), "playTone must tolerate a null AudioContext");
+  assert.doesNotThrow(() => audio.playSample("hunt", 0, 0, 0, 1), "playSample must tolerate a null AudioContext");
+  assert.doesNotThrow(() => audio.updateListener({ position: { x: 0, y: 0, z: 0 } }), "updateListener must tolerate a null AudioContext");
+});
+
+test("RealtimeBattle triggers boss defeat feedback exactly once when applyCampaignState reports bossHealth reaching zero", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1, palette: { hostile: "#ff7f79" } });
+  const boss = makeUnit({ x: 3, z: 5 });
+  battle.boss = boss;
+  const defeatCalls = [];
+  const originalDefeat = battle.defeat.bind(battle);
+  battle.defeat = (unit) => {
+    defeatCalls.push(unit);
+    return originalDefeat(unit);
+  };
+
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 8 } });
+  assert.deepEqual(defeatCalls, [], "the first sync at full boss health must not trigger defeat");
+
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 3 } });
+  assert.deepEqual(defeatCalls, [], "a partial-damage sync must not trigger defeat");
+
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 0 } });
+  assert.deepEqual(defeatCalls, [boss], "bossHealth transitioning to zero must call defeat(this.boss) exactly once");
+  assert.equal(boss.defeated, true, "the boss instance itself must be marked defeated");
+
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 0 } });
+  assert.deepEqual(defeatCalls, [boss], "a repeated zero-health sync must not re-trigger defeat (defeat() is itself idempotent via unit.defeated)");
+});
+
+test("RealtimeBattle applyCampaignState does not defeat the boss on a fresh stage entry at full health after a prior defeat", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1, palette: { hostile: "#ff7f79" } });
+  const boss = makeUnit({ x: 3, z: 5 });
+  battle.boss = boss;
+
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 8 } });
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 0 } });
+  assert.equal(boss.defeated, true, "boss must be defeated once its health reaches zero");
+
+  const nextBoss = makeUnit({ x: -1, z: 2 });
+  battle.boss = nextBoss;
+  battle.applyCampaignState({ state: { legion: 0, bossHealth: 12 } });
+  assert.equal(nextBoss.defeated, false, "a fresh boss instance on stage retry/advance must not start pre-defeated");
+});
+
+test("RealtimeBattle shakeCamera lets a weaker overlapping pulse decay smoothly instead of spiking the envelope", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+
+  battle.shakeCamera(0.35, 0.5);
+  assert.equal(battle.shakeMagnitude, 0.35);
+  assert.equal(battle.shakeDuration, 0.5);
+
+  // Simulate 0.45s of decay (0.05s of the 0.5s duration remaining): residual strength = 0.35 * 0.05/0.5 = 0.035.
+  battle.shakeTime = 0.05;
+  const strengthBeforeWeakerPulse = battle.shakeMagnitude * (battle.shakeDuration > 0 ? battle.shakeTime / battle.shakeDuration : 0);
+  assert.ok(Math.abs(strengthBeforeWeakerPulse - 0.035) < 1e-9, "sanity: the shake must have decayed to the expected residual strength");
+
+  // A pulse weaker than the current residual strength (e.g. a footstep-dust-scale event) must not spike the envelope back up.
+  battle.shakeCamera(0.02, 0.22);
+  assert.equal(battle.shakeMagnitude, 0.35, "a pulse weaker than the still-decaying residual strength must not overwrite the peak magnitude");
+  assert.equal(battle.shakeDuration, 0.5, "a weaker pulse must not reset the decay envelope's duration denominator");
+  assert.equal(battle.shakeTime, 0.05, "a weaker pulse must not extend the remaining shake time");
+
+  // A pulse stronger than the current residual strength (but weaker than the original peak) correctly takes over as the new envelope.
+  battle.shakeCamera(0.14, 0.22);
+  assert.equal(battle.shakeMagnitude, 0.14, "a pulse stronger than the current residual strength must take over as the new envelope, even if weaker than the original peak");
+  assert.equal(battle.shakeDuration, 0.22);
+  assert.equal(battle.shakeTime, 0.22);
+
+  battle.shakeCamera(0.5, 0.3);
+  assert.equal(battle.shakeMagnitude, 0.5, "a pulse stronger than the current envelope must take over");
+  assert.equal(battle.shakeDuration, 0.3);
+  assert.equal(battle.shakeTime, 0.3);
+});
+
+test("RealtimeBattle restores rally-to-commander grouping on possess and domain actions", () => {
+  const battle = new RealtimeBattle(null, {
+    stageNumber: 1,
+    palette: { ally: "#ally", accent: "#accent", hostile: "#hostile" },
+  });
+  battle.commanderPosition.set(4, 0, -2);
+  battle.play = () => {};
+
+  battle.playActionEffect({ action: "possess", source: "portal", target: "ally", actor: "commander" });
+  assert.deepEqual(
+    { x: battle.rally.x, y: battle.rally.y, z: battle.rally.z },
+    { x: 4, y: 0, z: -2 },
+    "possess must rally allies to the commander's current position",
+  );
+
+  battle.rally.set(99, 0, 99);
+  battle.playActionEffect({ action: "domain", source: "portal", target: "portal", actor: "commander" });
+  assert.deepEqual(
+    { x: battle.rally.x, y: battle.rally.y, z: battle.rally.z },
+    { x: 4, y: 0, z: -2 },
+    "domain must also rally allies to the commander's current position",
+  );
+
+  battle.rally.set(99, 0, 99);
+  battle.playActionEffect({ action: "hunt", source: "portal", target: "extractor", actor: "commander" });
+  assert.deepEqual(
+    { x: battle.rally.x, y: battle.rally.y, z: battle.rally.z },
+    { x: 99, y: 0, z: 99 },
+    "actions other than possess/domain must not touch the rally point",
+  );
+});
+
+test("RealtimeBattle retire() disposes boss-identity-tint material clones without touching template-shared materials", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  let disposedCount = 0;
+  const tintedMaterial = { userData: { isBossIdentityTint: true }, dispose: () => { disposedCount += 1; } };
+  const sharedMaterial = { userData: {}, dispose: () => { disposedCount += 1; } };
+  const boss = {
+    root: {
+      traverse(visit) {
+        visit({ isMesh: true, material: tintedMaterial });
+        visit({ isMesh: true, material: sharedMaterial });
+        visit({ isMesh: false, material: sharedMaterial });
+      },
+      removeFromParent() {},
+    },
+    mixer: null,
+  };
+
+  battle.retire(boss);
+  assert.equal(disposedCount, 1, "retire() must dispose exactly the boss-identity-tint clone, not the template-shared material");
+});
+
+test("RealtimeBattle destroy disposes shared WebGL resources once and remains idempotent", (t) => {
+  const priorDocument = globalThis.document;
+  globalThis.document = { removeEventListener() {} };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+  });
+
+  const disposals = { geometry: 0, material: 0, texture: 0, renderer: 0 };
+  const texture = { isTexture: true, dispose: () => { disposals.texture += 1; } };
+  const material = { map: texture, dispose: () => { disposals.material += 1; } };
+  const geometry = { dispose: () => { disposals.geometry += 1; } };
+  const sharedMesh = { isMesh: true, geometry, material };
+  const canvas = { removeEventListener() {} };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  battle.scene = {
+    traverse(visit) {
+      visit(sharedMesh);
+      visit({ isMesh: true, geometry, material });
+    },
+  };
+  battle.templates.set("units/shade.glb", {
+    scene: {
+      traverse(visit) {
+        visit({ isMesh: true, geometry, material });
+      },
+    },
+  });
+  battle.renderer = { dispose: () => { disposals.renderer += 1; } };
+  battle.particles = { dispose() {} };
+  battle.audio = { dispose() {} };
+
+  battle.destroy();
+  battle.destroy();
+
+  assert.deepEqual(
+    disposals,
+    { geometry: 1, material: 1, texture: 1, renderer: 1 },
+    "destroy must release each shared GPU resource once even when the scene exposes it through multiple meshes and destroy is repeated",
+  );
 });

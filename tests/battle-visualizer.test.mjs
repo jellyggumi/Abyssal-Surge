@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { BattleVisualizer } from "../battle-visualizer.js";
 
-function makeVisualizer(t, { reducedMotion = false, setTimeout, clearTimeout } = {}) {
+function makeVisualizer(t, { reducedMotion = false, setTimeout, clearTimeout, canvas = {}, options = {} } = {}) {
   const priorWindow = globalThis.window;
   globalThis.window = {
     matchMedia: () => ({ matches: reducedMotion }),
@@ -15,12 +15,99 @@ function makeVisualizer(t, { reducedMotion = false, setTimeout, clearTimeout } =
     else globalThis.window = priorWindow;
   });
 
-  const visualizer = new BattleVisualizer({});
+  const visualizer = new BattleVisualizer(canvas, undefined, options);
   visualizer.renderStatic = () => {};
   visualizer.publishRuntimeState = () => {};
   visualizer.hasBridgeAtlas = () => false;
   return visualizer;
 }
+
+function makePointerCanvas() {
+  const listeners = new Map();
+  return {
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
+    },
+    removeEventListener(type) {
+      listeners.delete(type);
+    },
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: 1600, height: 900 };
+    },
+    setPointerCapture() {},
+    dispatch(type, { x, y }) {
+      listeners.get(type)?.({ button: 0, pointerId: 1, clientX: x, clientY: y });
+    },
+  };
+}
+
+function clickCanvasTarget(canvas, point) {
+  canvas.dispatch("pointerdown", point);
+  canvas.dispatch("pointerup", point);
+}
+
+test("BattleVisualizer fallback canvas prioritizes available semantic targets over selected move orders and rejects unavailable bosses", (t) => {
+  const canvas = makePointerCanvas();
+  const requestedActions = [];
+  let availableActions = ["materialize", "capture", "assault"];
+  const visualizer = makeVisualizer(t, {
+    canvas,
+    options: {
+      nodeGoal: 1,
+      onActionRequest: (action) => requestedActions.push(action),
+      getAvailableActions: () => availableActions,
+    },
+  });
+  const moveOrders = [];
+  visualizer.view.scale = 100;
+  visualizer.project = (x, y) => ({ x: x * 100, y: y * 100 });
+  visualizer.elevationAt = () => 0;
+  visualizer.walkable = () => true;
+  visualizer.unprojectToTile = () => ({ x: 2, y: 2 });
+  visualizer.issueMoveOrder = (tile) => moveOrders.push(tile);
+  visualizer.selection.add({ x: 1, y: 1 });
+  visualizer.attachPointerHandlers();
+
+  const screenPoint = (point) => visualizer.project(point.x, point.y);
+  clickCanvasTarget(canvas, screenPoint(visualizer.actionPoint("portal")));
+  clickCanvasTarget(canvas, screenPoint(visualizer.actionPoint("node")));
+
+  assert.deepEqual(
+    requestedActions,
+    ["materialize", "capture"],
+    "clicking available portal and node targets must dispatch their supplied campaign action callback",
+  );
+  assert.deepEqual(
+    moveOrders,
+    [],
+    "an available semantic target must consume the click before a selected ally can receive a movement order",
+  );
+
+  visualizer.selection.clear();
+  clickCanvasTarget(canvas, screenPoint(visualizer.actionPoint("boss")));
+  assert.deepEqual(
+    requestedActions,
+    ["materialize", "capture"],
+    "a hidden boss target must not dispatch Assault even when that action is otherwise available",
+  );
+
+  visualizer.bossExposed = true;
+  availableActions = ["materialize", "capture"];
+  clickCanvasTarget(canvas, screenPoint(visualizer.actionPoint("boss")));
+  assert.deepEqual(
+    requestedActions,
+    ["materialize", "capture"],
+    "an exposed boss must still reject Assault while the supplied available-action contract withholds it",
+  );
+
+  availableActions = ["materialize", "capture", "assault"];
+  clickCanvasTarget(canvas, screenPoint(visualizer.actionPoint("boss")));
+  assert.deepEqual(
+    requestedActions,
+    ["materialize", "capture", "assault"],
+    "an exposed boss must dispatch Assault only after the supplied available-action contract admits it",
+  );
+});
 
 test("BattleVisualizer action feedback remains presentation-only while preserving semantic source-to-target gestures", (t) => {
   const visualizer = makeVisualizer(t);

@@ -167,6 +167,8 @@ export class BattleVisualizer {
     this.nodes = [];        // {x, y}
     this.nodeGoal = Math.max(1, Number.isInteger(options.nodeGoal) ? options.nodeGoal : 1);
     this.onTacticalLayout = typeof options.onTacticalLayout === "function" ? options.onTacticalLayout : null;
+    this.onActionRequest = typeof options.onActionRequest === "function" ? options.onActionRequest : null;
+    this.getAvailableActions = typeof options.getAvailableActions === "function" ? options.getAvailableActions : null;
     this.orderFlag = null;  // {x, y, life}
     this.waveCounter = 0;
     this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
@@ -326,6 +328,39 @@ export class BattleVisualizer {
       capture: captureNode ? this.project(captureNode.x, captureNode.y, 0) : null,
       assault: this.project(BOSS_TILE.x, BOSS_TILE.y, 0)
     };
+  }
+
+  tacticalActionAt(canvasPoint) {
+    if (!this.onActionRequest || !this.getAvailableActions) return null;
+    const available = new Set(this.getAvailableActions());
+    const candidates = [
+      { action: "materialize", point: this.actionPoint("portal") },
+      ...(this.nodes.length < this.nodeGoal ? [{ action: "capture", point: this.actionPoint("node") }] : []),
+      ...(this.bossExposed ? [{ action: "assault", point: this.actionPoint("boss") }] : []),
+    ];
+    const radius = Math.max(16, this.view.scale * 0.6);
+    let hit = null;
+    let distance = radius * radius;
+    for (const candidate of candidates) {
+      if (!available.has(candidate.action)) continue;
+      const point = candidate.point;
+      const screen = this.project(point.x, point.y, this.elevationAt(point.x, point.y));
+      const dx = canvasPoint.x - screen.x;
+      const dy = canvasPoint.y - screen.y;
+      const squared = dx * dx + dy * dy;
+      if (squared <= distance) {
+        hit = candidate.action;
+        distance = squared;
+      }
+    }
+    return hit;
+  }
+
+  requestTacticalActionAt(canvasPoint) {
+    const action = this.tacticalActionAt(canvasPoint);
+    if (!action) return false;
+    this.onActionRequest(action);
+    return true;
   }
 
   notifyTacticalLayout() {
@@ -802,15 +837,15 @@ export class BattleVisualizer {
           const s = this.project(ally.x, ally.y, this.elevationAt(ally.x, ally.y));
           if (rectContains(this.dragRect, s.x, s.y)) this.selection.add(ally);
         }
-      } else if (this.selection.size > 0) {
-        // Click with an active selection: move order via slope-aware picking.
+      } else if (!this.requestTacticalActionAt(p) && this.selection.size > 0) {
+        // A target command takes priority over selected-unit move orders.
         const tile = this.unprojectToTile(p.x, p.y);
         if (tile && this.walkable(tile.x, tile.y)) {
           this.issueMoveOrder(tile);
           this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
           this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 520, duration: 0.12, type: "sine", gain: 0.6 });
         }
-      } else {
+      } else if (this.selection.size === 0) {
         this.selection.clear();
       }
       this.pointerDown = null;
@@ -850,6 +885,7 @@ export class BattleVisualizer {
 
   actionPoint(point) {
     if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) return point;
+    if (point === "portal") return ALLY_SPAWN;
     if (point === "ally") return this.allies[0] ?? ALLY_SPAWN;
     if (point === "boss") return BOSS_TILE;
     if (point === "extractor") return { x: 6, y: 3.5 };

@@ -441,6 +441,7 @@ let cooldownTimer = 0;
 let battleVisualFallback = false;
 let battleStarting = false;
 let pendingBattleRenderer = null;
+let lastScrolledStageId = null;
 const cooldowns = new Map();
 let resultOverlayOpen = false;
 let campaignMirror = null;
@@ -841,6 +842,7 @@ function activateBattleFallback(stage, sessionId) {
   let fallback = null;
   fallback = new BattleVisualizer(elements.battleFallbackCanvas, getBattlePresentation(stage.id), {
     nodeGoal: stage.nodeGoal,
+    getAvailableActions: () => campaign ? getAvailableActions(campaign) : [],
     onAssetStatus: renderBattleAssetStatus,
     onActionRequest: (action) => void handleAction(action),
     onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, fallback),
@@ -858,6 +860,7 @@ function activateBattleFallback(stage, sessionId) {
 async function startBattle() {
   if (!campaign || campaign.status !== "active" || visualizer || cooldownTimer || battleStarting) return;
   battleStarting = true;
+  lastScrolledStageId = null;
   const sessionId = ++battleSessionId;
   rendererRuntime = null;
   battleVisualFallback = false;
@@ -1069,7 +1072,10 @@ function render() {
     if (active) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
     button.setAttribute("aria-label", `${definition.title}: ${active ? "current stage" : cleared ? "cleared" : "locked"}`);
-    if (active) button.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "smooth" });
+    if (active && battleUiActive() && lastScrolledStageId !== stage.id) {
+      lastScrolledStageId = stage.id;
+      button.scrollIntoView?.({ block: "nearest", inline: "center", behavior: "smooth" });
+    }
   }
 
   renderChecklist(checklist);
@@ -1542,10 +1548,13 @@ function wireControls() {
   }));
   window.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
-    const target = event.target;
-    if (target === elements.battleCanvas3d) return;
-    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target?.isContentEditable) return;
     const action = ACTION_KEYS[event.key.toLowerCase()];
+    const focusOwner = document.activeElement;
+    if (focusOwner === elements.battleCanvas3d) {
+      if (action === "domain") return;
+    } else if (focusOwner !== document.body && focusOwner !== document.documentElement) {
+      return;
+    }
     if (action && battleUiActive() && !resultOverlayOpen && campaign && getAvailableActions(campaign).includes(action)) {
       event.preventDefault();
       void handleAction(action);
