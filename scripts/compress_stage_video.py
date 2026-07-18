@@ -23,6 +23,9 @@ from pathlib import Path
 DEFAULT_CRF = 18
 DEFAULT_PRESET = "slow"
 DEFAULT_MIN_SSIM = 0.9950
+WIDTH = 960
+HEIGHT = 540
+FPS = 24
 DEFAULT_MIN_SAVINGS_PERCENT = 1.0
 VALID_PRESETS = (
     "ultrafast",
@@ -92,7 +95,7 @@ def ensure_file(path: Path) -> None:
         raise VideoToolError(f"Could not inspect input: {error.strerror or error}") from error
 
 
-def probe_video(path: Path, *, decode: bool = True) -> dict[str, object]:
+def probe_video(path: Path, *, decode: bool = True, require_contract: bool = True) -> dict[str, object]:
     ensure_file(path)
     result = run_checked(
         [
@@ -128,6 +131,11 @@ def probe_video(path: Path, *, decode: bool = True) -> dict[str, object]:
         mismatches.append(f"pixel_format={stream.get('pix_fmt')!r} (expected yuv420p)")
     if width <= 0 or height <= 0 or width % 2 or height % 2:
         mismatches.append(f"dimensions={width}x{height} (expected positive even dimensions)")
+    frame_rate = stream.get("avg_frame_rate") or stream.get("r_frame_rate")
+    if require_contract and (width, height) != (WIDTH, HEIGHT):
+        mismatches.append(f"dimensions={width}x{height} (expected {WIDTH}x{HEIGHT})")
+    if require_contract and frame_rate != f"{FPS}/1":
+        mismatches.append(f"frame_rate={frame_rate!r} (expected '{FPS}/1')")
     if bytes_count <= 0 or duration <= 0:
         mismatches.append("encoded video has no bytes or duration")
     if not has_faststart(path):
@@ -167,10 +175,16 @@ def compute_ssim(source: Path, output: Path) -> float:
             str(source),
             "-i",
             str(output),
-            "-lavfi",
-            "[0:v:0][1:v:0]ssim",
+            "-filter_complex",
+            (
+                f"[0:v:0]fps={FPS},scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
+                f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,"
+                "format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[source];"
+                "[1:v:0]settb=AVTB,setpts=PTS-STARTPTS[encoded];"
+                "[source][encoded]ssim=shortest=1[ssim]"
+            ),
             "-map",
-            "0:v:0",
+            "[ssim]",
             "-f",
             "null",
             "-",
@@ -202,7 +216,7 @@ def compress(args: argparse.Namespace) -> None:
     if output.exists():
         raise VideoToolError("Refusing to overwrite an existing output")
 
-    source_report = probe_video(source)
+    source_report = probe_video(source, require_contract=False)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
     try:
@@ -221,6 +235,12 @@ def compress(args: argparse.Namespace) -> None:
                 "0:v:0",
                 "-map",
                 "0:a?",
+                "-vf",
+                (
+                    f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
+                    f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,"
+                    f"fps={FPS},format=yuv420p"
+                ),
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -240,8 +260,6 @@ def compress(args: argparse.Namespace) -> None:
             "FFmpeg compression",
         )
         output_report = probe_video(temporary_path)
-        if (source_report["width"], source_report["height"]) != (output_report["width"], output_report["height"]):
-            raise VideoToolError("Compression changed the video dimensions")
         duration_delta = abs(float(source_report["duration_seconds"]) - float(output_report["duration_seconds"]))
         if duration_delta > 0.05:
             raise VideoToolError(f"Compression changed duration by {duration_delta:.3f}s (maximum 0.050s)")
@@ -283,7 +301,10 @@ def compress(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Locally validate or opt-in recompress stage MP4s with H.264/yuv420p, SSIM, and faststart gates."
+        description=(
+            "Locally validate or opt-in conform/recompress stage MP4s to H.264/yuv420p, "
+            "960x540 at 24 fps, with SSIM and faststart gates."
+        )
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 

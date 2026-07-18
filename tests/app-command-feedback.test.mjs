@@ -362,3 +362,288 @@ test("healthy battle rendering owns command feedback without duplicate local cue
   assert.deepEqual(rendered.effectCalls, [], "renderer-backed feedback must not duplicate the local visual acknowledgement");
   assert.deepEqual(rendered.cueCalls, [], "renderer-backed feedback must not duplicate the local audio acknowledgement");
 });
+
+async function loadEncounterCueDispatcher() {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const cueMap = source.match(/const ENCOUNTER_CUE_BY_EVENT = Object\.freeze\(\{[\s\S]*?\}\);/);
+  assert.ok(cueMap, "app runtime must expose its encounter-event cue map");
+  const cueCalls = [];
+  const context = vm.createContext({
+    battleSessionId: 7,
+    campaign: { status: "active" },
+    clearEncounterStartTimer: () => {},
+    currentEncounter: () => ({ bossExposed: true, spawningStopped: false }),
+    encounterEventQueue: Promise.resolve(),
+    persistCampaign: async () => {},
+    playCue: (cue) => cueCalls.push(cue),
+    render: () => {},
+    scheduleEncounterWaveStart: () => {},
+    synchronizeBattleRenderer: () => {},
+    visualizer: {},
+    applyEncounterEvent(state, event) {
+      return event.accepted === false
+        ? { accepted: false, state }
+        : { accepted: true, state: { status: "active" } };
+    },
+  });
+  const definition = appFunction(source, "handleEncounterEvent", "stopBattle");
+  vm.runInContext(
+    `${cueMap[0]}\n${definition}\nglobalThis.dispatchEncounter = handleEncounterEvent;`,
+    context,
+    { filename: "app.js" },
+  );
+  return {
+    cueCalls,
+    dispatch: (event) => context.dispatchEncounter(event, 7, null),
+  };
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+async function loadAudioSceneLifecycle() {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const musicMap = source.match(/const MUSIC_BY_SCENE = Object\.freeze\(\{[\s\S]*?\}\);/);
+  assert.ok(musicMap, "app runtime must expose its scene music map");
+
+  const playerAttributes = new Map();
+  const playerCalls = [];
+  const playRuns = [];
+  const player = {
+    dataset: {},
+    paused: true,
+    getAttribute(name) {
+      return playerAttributes.get(name) ?? null;
+    },
+    set src(value) {
+      playerAttributes.set("src", value);
+    },
+    get src() {
+      return playerAttributes.get("src") ?? "";
+    },
+    pause() {
+      this.paused = true;
+      playerCalls.push("pause");
+    },
+    load() {
+      playerCalls.push("load");
+    },
+    play() {
+      const run = deferred();
+      playRuns.push(run);
+      playerCalls.push(`play:${this.src}`);
+      return run.promise;
+    },
+  };
+  const toggleCalls = [];
+  const cueCalls = [];
+  const ambienceCalls = [];
+  const cuePlayer = {
+    currentTime: 9,
+    pause: () => cueCalls.push("pause"),
+    removeAttribute: (name) => cueCalls.push(`remove:${name}`),
+    load: () => cueCalls.push("load"),
+  };
+  const ambiencePlayer = {
+    currentTime: 8,
+    pause: () => ambienceCalls.push("pause"),
+    removeAttribute: (name) => ambienceCalls.push(`remove:${name}`),
+    load: () => ambienceCalls.push("load"),
+  };
+  const context = vm.createContext({
+    MUSIC_BY_SCENE: undefined,
+    ambiencePlayer,
+    battleSessionId: 4,
+    battleStartedAt: 123,
+    battleStarting: true,
+    battleVisualFallback: true,
+    bgmEnabled: true,
+    bgmSceneRun: 0,
+    clearEncounterStartTimer: () => {},
+    cooldownTimer: 99,
+    cooldowns: new Map([["hunt", 1]]),
+    cuePlayer,
+    elements: {
+      ambience: {
+        textContent: "",
+        setAttribute: (name, value) => ambienceCalls.push(`${name}:${value}`),
+      },
+      bgmPlayer: player,
+      bgmToggle: {
+        classList: {
+          toggle: (name, value) => toggleCalls.push(`${name}:${value}`),
+        },
+        setAttribute: (name, value) => toggleCalls.push(`${name}:${value}`),
+      },
+    },
+    encounterEventQueue: Promise.resolve(),
+    lastCueEffect: "breach-alert",
+    lastCueStartedAt: 100,
+    pendingBattleRenderer: { destroy() {} },
+    pendingCommandFocus: true,
+    rendererRuntime: {},
+    translate: () => "Play ambience",
+    visualizer: { destroy() {} },
+    window: {
+      clearInterval: (id) => playerCalls.push(`clearInterval:${id}`),
+    },
+  });
+  const definitions = [
+    appFunction(source, "stopBattle", "activateBattleFallback"),
+    appFunction(source, "setBgmTogglePlaying", "playSelectedBgm"),
+    appFunction(source, "playSelectedBgm", "syncBgmScene"),
+    appFunction(source, "syncBgmScene", "stopBattleAudio"),
+    appFunction(source, "stopBattleAudio", "waitForNarration"),
+  ];
+  vm.runInContext(
+    `${musicMap[0]}\n${definitions.join("\n\n")}\nglobalThis.audioSceneApi = {
+      syncBgmScene,
+      stopBattle,
+      state: () => ({ ambiencePlayer, lastCueEffect, lastCueStartedAt }),
+    };`,
+    context,
+    { filename: "app.js" },
+  );
+  return {
+    ambienceCalls,
+    api: context.audioSceneApi,
+    cueCalls,
+    player,
+    playerCalls,
+    playRuns,
+    toggleCalls,
+  };
+}
+
+async function loadCinematicLifecycle() {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const attributes = new Map();
+  const calls = [];
+  const statuses = [];
+  const video = {
+    currentTime: 5,
+    ended: false,
+    hidden: true,
+    muted: false,
+    readyState: 4,
+    getAttribute(name) {
+      return attributes.get(name) ?? null;
+    },
+    removeAttribute(name) {
+      attributes.delete(name);
+      calls.push(`remove:${name}`);
+    },
+    set src(value) {
+      attributes.set("src", value);
+    },
+    get src() {
+      return attributes.get("src") ?? "";
+    },
+    load() {
+      calls.push("load");
+    },
+    pause() {
+      calls.push("pause");
+    },
+    play() {
+      calls.push("play");
+      return Promise.resolve();
+    },
+  };
+  const elements = {
+    cinematic: video,
+    cinematicButton: { disabled: false },
+    cinematicFallback: { hidden: true },
+  };
+  const context = vm.createContext({
+    cinematicStatusKey: "optional",
+    elements,
+    setCinematicStatus: (status) => statuses.push(status),
+  });
+  const definition = appFunction(source, "playCinematic", "wireControls");
+  vm.runInContext(`${definition}\nglobalThis.playCanonicalCinematic = playCinematic;`, context, { filename: "app.js" });
+  return { calls, elements, play: () => context.playCanonicalCinematic(), statuses, video };
+}
+
+test("accepted encounter wave and breach transitions emit their authored cues while rejected duplicates stay silent", async () => {
+  const fixture = await loadEncounterCueDispatcher();
+
+  await fixture.dispatch({ type: "start-wave" });
+  await fixture.dispatch({ type: "start-wave", accepted: false });
+  await fixture.dispatch({ type: "breach" });
+
+  assert.deepEqual(
+    fixture.cueCalls,
+    ["wave-spawn", "breach-alert"],
+    "only reducer-accepted encounter transitions may emit the wave and breach audio contracts",
+  );
+});
+
+test("stopping battle clears one-shot audio and stale BGM completions before returning enabled music to the lobby", async () => {
+  const fixture = await loadAudioSceneLifecycle();
+
+  fixture.api.syncBgmScene("battle");
+  fixture.api.stopBattle();
+
+  assert.equal(fixture.player.src, "assets/audio/bgm-theme.mp3", "battle teardown must restore the lobby music source");
+  assert.equal(fixture.player.dataset.audioScene, "lobby", "battle teardown must publish the restored lobby scene");
+  assert.deepEqual(
+    fixture.playerCalls.filter((call) => call.startsWith("play:")),
+    ["play:assets/audio/battle-bgm.mp3", "play:assets/audio/bgm-theme.mp3"],
+    "the enabled player must cross from battle music back to lobby music exactly once",
+  );
+  assert.equal(
+    fixture.playerCalls.includes("clearInterval:99"),
+    true,
+    "battle teardown must clear its active render interval",
+  );
+  assert.deepEqual(fixture.cueCalls, ["pause", "remove:src", "load"], "the active one-shot cue must be paused, unloaded, and reset");
+  assert.deepEqual(
+    fixture.ambienceCalls,
+    ["pause", "remove:src", "load", "aria-pressed:false"],
+    "stage ambience must be paused, unloaded, and reset to its inactive control state",
+  );
+  const stopped = fixture.api.state();
+  assert.equal(stopped.ambiencePlayer, null, "stage ambience must release its player after unloading");
+  assert.equal(stopped.lastCueEffect, "", "battle teardown must clear cue deduplication state for the next battle");
+  assert.equal(stopped.lastCueStartedAt, 0, "battle teardown must clear the prior cue timestamp");
+
+  fixture.playRuns[0].resolve();
+  await Promise.resolve();
+  assert.deepEqual(fixture.toggleCalls, [], "a stale battle-music play completion must not reassert the BGM toggle");
+  fixture.playRuns[1].resolve();
+  await Promise.resolve();
+  assert.deepEqual(
+    fixture.toggleCalls,
+    ["is-playing:true", "aria-pressed:true"],
+    "only the current lobby-music completion may confirm enabled playback",
+  );
+});
+
+test("cinematic media failure preserves the fallback and the next play request reloads the canonical MP4", async () => {
+  const fixture = await loadCinematicLifecycle();
+
+  fixture.play();
+  assert.equal(fixture.video.src, "assets/video/abyssal-surge-cinematic.mp4");
+  assert.deepEqual(fixture.statuses, ["loading"]);
+  assert.equal(fixture.elements.cinematicButton.disabled, true);
+
+  fixture.video.onerror();
+  assert.deepEqual(fixture.statuses, ["loading", "unavailable"]);
+  assert.equal(fixture.video.hidden, true, "failed video must leave the optional media surface");
+  assert.equal(fixture.elements.cinematicFallback.hidden, false, "failed video must reveal the transcript/direct-link fallback");
+  assert.equal(fixture.video.getAttribute("src"), null, "failed media source must be unloaded before recovery");
+  assert.equal(fixture.elements.cinematicButton.disabled, false, "failed media must leave retry available");
+
+  fixture.play();
+  assert.equal(fixture.video.src, "assets/video/abyssal-surge-cinematic.mp4", "retry must reattach the canonical representative");
+  assert.equal(fixture.video.hidden, false);
+  assert.equal(fixture.elements.cinematicFallback.hidden, true);
+  assert.deepEqual(fixture.statuses, ["loading", "unavailable", "loading"]);
+  assert.deepEqual(fixture.calls, ["load", "pause", "remove:src", "load", "load"]);
+});

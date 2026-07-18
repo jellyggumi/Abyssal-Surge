@@ -1279,10 +1279,14 @@ export class BattleVisualizer {
       this.exchanges += 1;
       if (enemy.hp <= 0) {
         enemy.defeated = true;
+        enemy.bridgeClip = "Defeat";
+        enemy.bridgeClipUntil = Number.POSITIVE_INFINITY;
         this.clearEngagement(enemy);
       }
       if (ally.hp <= 0) {
         ally.defeated = true;
+        ally.bridgeClip = "Defeat";
+        ally.bridgeClipUntil = Number.POSITIVE_INFINITY;
         this.selection.delete(ally);
         this.clearEngagement(ally);
       }

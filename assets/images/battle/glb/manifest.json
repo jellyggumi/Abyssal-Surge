@@ -21,7 +21,43 @@
       225,
       270,
       315
-    ]
+    ],
+    "directionIndex": [
+      {
+        "column": 0,
+        "yawDegrees": 0
+      },
+      {
+        "column": 1,
+        "yawDegrees": 45
+      },
+      {
+        "column": 2,
+        "yawDegrees": 90
+      },
+      {
+        "column": 3,
+        "yawDegrees": 135
+      },
+      {
+        "column": 4,
+        "yawDegrees": 180
+      },
+      {
+        "column": 5,
+        "yawDegrees": 225
+      },
+      {
+        "column": 6,
+        "yawDegrees": 270
+      },
+      {
+        "column": 7,
+        "yawDegrees": 315
+      }
+    ],
+    "cellPaddingFraction": 0.1,
+    "transparentBackground": true
   },
   "records": [
     {
@@ -30,16 +66,23 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/cinder-span.glb",
-        "sha256": "5ee9dcba288e2a60a8cd029f24a73f2389fb08f5ee0003506c62529e0223bbce",
+        "sha256": "a45e587295182c80086ade837cb458f32d68e948283c3c3d6889635bb086a043",
         "root": "cinder-span-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-span.png",
-        "sha256": "252f275e0f8064d6048a121aaecb42d4c63c7b028754f09caac15e287961307d",
-        "bytes": 7756,
+        "sha256": "c9c41f7492d03e64595f8e2f0a4224c71f5c946475fa85597b47b67458c5c8a4",
+        "bytes": 10577,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 1,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.169861,
+        "distinctDirectionColumns": 1,
+        "animatedDirectionColumns": 0
       },
       "frameSamples": [
         1
@@ -56,7 +99,8 @@
         "yawColumnsDegrees": [
           0
         ],
-        "rootTracking": "static terrain root at source frame 1"
+        "rootTracking": "static terrain root at source frame 1",
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -65,16 +109,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
+        "sha256": "c09446d57ded4b5b869e7a7122a4d568305226054fcb555b34efa46c8565c5de",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Attack.png",
-        "sha256": "d81f74e99faa9d33abd5902794be81a36191bdf2202f69e91757bae4561bfcdc",
-        "bytes": 296829,
+        "sha256": "019e723d621a1e055113299f45f7936da9ef3e7c87e35d6cb70b7ca7ac189f59",
+        "bytes": 312846,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.157532,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Attack",
       "action": "cinder-warden__Attack",
@@ -103,8 +154,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.777393
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.509006,
+        "targetHeight": 1.620606,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -113,16 +166,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
+        "sha256": "c09446d57ded4b5b869e7a7122a4d568305226054fcb555b34efa46c8565c5de",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Defeat.png",
-        "sha256": "aea86a03d6abe008cdd5d47f244f898c1e724affb2dd1b479fac11eaf891b43d",
-        "bytes": 247894,
+        "sha256": "31c3c3634c943a785d5744cd0cee7a2c7b7b57af0421a4d7789b1b471f35e807",
+        "bytes": 234526,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 14,
+        "maximumCoverageRatio": 0.080261,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "cinder-warden__Defeat",
@@ -151,8 +211,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 7.21469
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 7.905919,
+        "targetHeight": 0.724422,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -161,16 +223,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/cinder-warden.glb",
-        "sha256": "d09366c58993a9603711a37a3011f50c2dad8afdfb92de56a0c613e3f65328fb",
+        "sha256": "c09446d57ded4b5b869e7a7122a4d568305226054fcb555b34efa46c8565c5de",
         "root": "cinder-warden-root"
       },
       "output": {
         "path": "assets/images/battle/glb/cinder-warden__Idle.png",
-        "sha256": "83ab94ffb7551f68fa4da090867cabc042c0dc607b97c502cee4a93801f9fec3",
-        "bytes": 304010,
+        "sha256": "79e963c6793c93060045ce44a7f1a1edea0d896baa2226cf230f4ef98499f88c",
+        "bytes": 319903,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.158569,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "cinder-warden__Idle",
@@ -199,8 +268,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.569977
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.353427,
+        "targetHeight": 1.58012,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -209,16 +280,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/command-obelisk.glb",
-        "sha256": "a60e4f348395c6e6c045d34ae3d63fa1e23c72af7c10e31fa7e94d162969c1c1",
+        "sha256": "a5445d47455a585cf99dc167732ba100be162c9ba97f87f2b9264c1a9947e00b",
         "root": "command-obelisk-root"
       },
       "output": {
         "path": "assets/images/battle/glb/command-obelisk__Activate.png",
-        "sha256": "0505ca6b77a766d21121c7ab44f1f3d9756dbf9ba2caf15dfc5489bea15d9c53",
-        "bytes": 227746,
+        "sha256": "e9130dd0e79c87642c3c87d79016456d99d73ee301c1f3accf3712746d47afb1",
+        "bytes": 253892,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 18,
+        "maximumCoverageRatio": 0.119141,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Activate",
       "action": "command-obelisk__Activate",
@@ -247,8 +325,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.29473
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.547533,
+        "targetHeight": 1.39335,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -257,16 +337,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/command-obelisk.glb",
-        "sha256": "a60e4f348395c6e6c045d34ae3d63fa1e23c72af7c10e31fa7e94d162969c1c1",
+        "sha256": "a5445d47455a585cf99dc167732ba100be162c9ba97f87f2b9264c1a9947e00b",
         "root": "command-obelisk-root"
       },
       "output": {
         "path": "assets/images/battle/glb/command-obelisk__Idle.png",
-        "sha256": "238516ee56349847153953c23f12b25ce0aa42d663e98754ad0e38cace282d9f",
-        "bytes": 233897,
+        "sha256": "034a0c8ed7e3dd8042b2f6255f6ad6c025a108f9595d55e88610a398a414960b",
+        "bytes": 281347,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.137085,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "command-obelisk__Idle",
@@ -295,8 +382,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.006512
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.999599,
+        "targetHeight": 1.311669,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -305,16 +394,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/echo-throne.glb",
-        "sha256": "9a86ac8bc093bcbf4478419f09ea0c1d1a797dd3298ece457a036dfa0c0f8e99",
+        "sha256": "4683ce02905fe481d83a38a99c00daea75709e3f33c764e8c39def8362d41d01",
         "root": "echo-throne-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne__Activate.png",
-        "sha256": "67d5bf6ebadbfe48234b40ff840672fda147299698ad043d32571262a5e2d28d",
-        "bytes": 313677,
+        "sha256": "3033ffcb1cec522632840c1e172f4ee194071d15c327180efcddc828f166f5c3",
+        "bytes": 331114,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 19,
+        "maximumCoverageRatio": 0.193359,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Activate",
       "action": "echo-throne__Activate",
@@ -343,8 +439,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.528111
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.682061,
+        "targetHeight": 1.374593,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -353,16 +451,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/echo-throne.glb",
-        "sha256": "9a86ac8bc093bcbf4478419f09ea0c1d1a797dd3298ece457a036dfa0c0f8e99",
+        "sha256": "4683ce02905fe481d83a38a99c00daea75709e3f33c764e8c39def8362d41d01",
         "root": "echo-throne-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne__Idle.png",
-        "sha256": "ce2ffda4568d85ccb4b8d8b52f8d1ae327448df8b2dd36074edeea0b1b43f4a7",
-        "bytes": 323033,
+        "sha256": "578567064797b8b745b74155c288b011c82a2d5c07400a4ce12e691fb8522858",
+        "bytes": 378525,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 14,
+        "maximumCoverageRatio": 0.228088,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "echo-throne__Idle",
@@ -391,8 +496,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.236116
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.01052,
+        "targetHeight": 1.294012,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -401,16 +508,23 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/echo-throne-steps.glb",
-        "sha256": "321c0695a20c0dff0b8e6012b7a6f6cbc7950139a509a74f85f66892678c6faa",
+        "sha256": "2700b493fdfec8042c8ba0aaa03c2d50171d512303be879cef1ecc9464292658",
         "root": "echo-throne-steps-root"
       },
       "output": {
         "path": "assets/images/battle/glb/echo-throne-steps.png",
-        "sha256": "cb60afd16b47fa257e4ca51ce2de3219a1e82e246b7c689ded8595e8cb23b49f",
-        "bytes": 6825,
+        "sha256": "de1663307fd583f638de0c78ab5eb5951a277ca4093bbf0f68ddff7995e0bd7e",
+        "bytes": 8909,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 1,
+        "minimumEdgePaddingPx": 12,
+        "maximumCoverageRatio": 0.133301,
+        "distinctDirectionColumns": 1,
+        "animatedDirectionColumns": 0
       },
       "frameSamples": [
         1
@@ -427,7 +541,8 @@
         "yawColumnsDegrees": [
           0
         ],
-        "rootTracking": "static terrain root at source frame 1"
+        "rootTracking": "static terrain root at source frame 1",
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -436,16 +551,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
+        "sha256": "93a358677a06b227e113d971541949934fc77242e512efa9bad9b3a82f1e4d9e",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Attack.png",
-        "sha256": "4d8f1f66eea7c8454aa32cca706b2f5ce6b733eb485022c104250e6cd80bf642",
-        "bytes": 272999,
+        "sha256": "5ed07c1bfca200c286a60b4ff7b8fde6052d78937e38dbd8489e3a61ee0c1324",
+        "bytes": 309949,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 14,
+        "maximumCoverageRatio": 0.180908,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Attack",
       "action": "gate-sovereign__Attack",
@@ -474,8 +596,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 6.83404
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 6.020856,
+        "targetHeight": 1.755079,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -484,16 +608,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
+        "sha256": "93a358677a06b227e113d971541949934fc77242e512efa9bad9b3a82f1e4d9e",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Defeat.png",
-        "sha256": "3e38e53e33c0d26e0c266dda85b61b30a9c2c4ef7ec5235ca65d44e9d7ea5874",
-        "bytes": 267361,
+        "sha256": "b62ff34bbf5c0bdb6338e97bdff96b9e08e452572ec56a8882806f4f48af4e6f",
+        "bytes": 226668,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 16,
+        "maximumCoverageRatio": 0.086548,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "gate-sovereign__Defeat",
@@ -522,8 +653,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 6.887227
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 9.007978,
+        "targetHeight": 1.034982,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -532,16 +665,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/gate-sovereign.glb",
-        "sha256": "ca5e47a7caa5bcc05dc311e10367423b49d0af4ac5ebae218afa2809d95e55ff",
+        "sha256": "93a358677a06b227e113d971541949934fc77242e512efa9bad9b3a82f1e4d9e",
         "root": "gate-sovereign-root"
       },
       "output": {
         "path": "assets/images/battle/glb/gate-sovereign__Idle.png",
-        "sha256": "3b6650ef036a1e3c3283be965d557248c872489e566556284ee1eb69eb73d638",
-        "bytes": 278479,
+        "sha256": "065dd740395b64c481b104305c015ee3cd8afb83ec2694419f561420cfc726fe",
+        "bytes": 315622,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 14,
+        "maximumCoverageRatio": 0.181091,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "gate-sovereign__Idle",
@@ -570,8 +710,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 6.601383
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.868345,
+        "targetHeight": 1.711234,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -580,16 +722,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
+        "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Defeat.png",
-        "sha256": "c326ec9b458f003b6911dd48912b51dc84741ee48ede7f208d49919c4e350aee",
-        "bytes": 226481,
+        "sha256": "9d64be41845edf5bb97cb21e4f9a9e30fb172600b767a91107835f4c4bef3e05",
+        "bytes": 221990,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.076538,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "guard__Defeat",
@@ -618,8 +767,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.396922
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.636457,
+        "targetHeight": 0.24771,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -628,16 +779,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
+        "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Idle.png",
-        "sha256": "910455481eabe7e8e51ca9fb15c3199dadb952f8848b0e3ad487bf1a7628d930",
-        "bytes": 256611,
+        "sha256": "830a3bd6db28bd87328042a490f478423c4f1c6495d642e2b0c346dea12dd382",
+        "bytes": 319108,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.178833,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "guard__Idle",
@@ -666,8 +824,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.619262
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.475041,
+        "targetHeight": 1.045023,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -676,16 +836,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
+        "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Move.png",
-        "sha256": "d6bdd1b53bcbfc9851bc612e7ce9569d2f5106f5c30d03bfa5fa8612fcc62100",
-        "bytes": 255471,
+        "sha256": "5646b270e7baff58586bcae2c49fdbb712299580d448fe7e651f282c87f71760",
+        "bytes": 318999,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 18,
+        "maximumCoverageRatio": 0.178284,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Move",
       "action": "guard__Move",
@@ -714,8 +881,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.575716
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.483285,
+        "targetHeight": 1.048831,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -724,16 +893,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
+        "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Special.png",
-        "sha256": "10b2fbc84a55e7dbfdeb49f298bbe34d01879c75a455103545d16d47c8cada99",
-        "bytes": 234492,
+        "sha256": "95f66e619a319aa61f9a01c214f109153b01968b83b131b4d32d6d39f4414632",
+        "bytes": 266982,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.142334,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Special",
       "action": "guard__Special",
@@ -762,8 +938,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.126756
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.428123,
+        "targetHeight": 1.135553,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -772,16 +950,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/guard.glb",
-        "sha256": "d7fc0db3e3f35679b99879df4b5d343aef347b14d013f0981f7164de5d9b41b8",
+        "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
         "root": "guard-root"
       },
       "output": {
         "path": "assets/images/battle/glb/guard__Strike.png",
-        "sha256": "3f1d691b89198b459f0f7f46dd75256303da22c3ec6220275f18b8d02128e6df",
-        "bytes": 247537,
+        "sha256": "aa5c72323a25467a41b121725a26def092c52c8a055ab40bab0b37a98192cbc0",
+        "bytes": 306916,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.170959,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Strike",
       "action": "guard__Strike",
@@ -810,8 +995,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.760767
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.654826,
+        "targetHeight": 1.048699,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -820,16 +1007,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
+        "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Defeat.png",
-        "sha256": "f33c230599b2c6450de0e50994bcda6c9bda953a7fd9e86cc584a72f0c0a79e8",
-        "bytes": 226646,
+        "sha256": "1cc1dcc0f8dd33b37cb750a2facdee03d373f0a8756d91abc25644a79d762ba1",
+        "bytes": 237464,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 12,
+        "maximumCoverageRatio": 0.070984,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "possessed__Defeat",
@@ -858,8 +1052,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.032065
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.366742,
+        "targetHeight": 0.434686,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -868,16 +1064,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
+        "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Idle.png",
-        "sha256": "fb61c2a4081e85cb342e31114f8d666b135692c2b63285ebe4e5ccae538b23fe",
-        "bytes": 257213,
+        "sha256": "95b065ad68525716ca0ce261715a407db13f7d37912fff43fa9d7fbd32c378fc",
+        "bytes": 341865,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 18,
+        "maximumCoverageRatio": 0.154785,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "possessed__Idle",
@@ -906,8 +1109,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.036267
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.497418,
+        "targetHeight": 1.096798,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -916,16 +1121,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
+        "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Move.png",
-        "sha256": "461ff4abcd408137055b9f68c7a47bbc98aa79baf22d1b66507ff15dfcdcf0bf",
-        "bytes": 257111,
+        "sha256": "4721f2f6caca14f51916481f974fb9261cf2adf91f1eb7b9fffee1a31942d12f",
+        "bytes": 342789,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 18,
+        "maximumCoverageRatio": 0.152954,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Move",
       "action": "possessed__Move",
@@ -954,8 +1166,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.984849
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.492958,
+        "targetHeight": 1.096697,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -964,16 +1178,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
+        "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Special.png",
-        "sha256": "5c4f0b0806b5a99f4a965863a9015c245049111b9b19b838e6a0a3fe706fec0d",
-        "bytes": 238873,
+        "sha256": "d6cb6dc508e860df652d6f8bab943f485e32cbb7caa7584c81d78dd4d97019af",
+        "bytes": 291739,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 23,
+        "maximumCoverageRatio": 0.135132,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Special",
       "action": "possessed__Special",
@@ -1002,8 +1223,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.575354
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.326257,
+        "targetHeight": 1.215323,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1012,16 +1235,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/possessed.glb",
-        "sha256": "8d087ea830d245ab496abf71427816a246d775d631b1c7a2ab0e5aa61c45a8e0",
+        "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
         "root": "possessed-root"
       },
       "output": {
         "path": "assets/images/battle/glb/possessed__Strike.png",
-        "sha256": "782bbf9ad12ffa18624bc4d92ca9edc3097c59c416e3f37bce59fad44fa906ee",
-        "bytes": 252597,
+        "sha256": "4d0013d8ebe01d34c924804fe5e8afe940f035d249310479521bc133f480a526",
+        "bytes": 328666,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 19,
+        "maximumCoverageRatio": 0.149109,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Strike",
       "action": "possessed__Strike",
@@ -1050,8 +1280,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.186581
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.665785,
+        "targetHeight": 1.091075,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1060,16 +1292,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
+        "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Defeat.png",
-        "sha256": "dd49ba540c6648564ff39b73113e3e65d2d70dc0b1b2f6d7cc4376f3ef99761d",
-        "bytes": 237559,
+        "sha256": "2502827c0657b4f385ffd39e5878de2f612075dfb70cb6a281d83e24aa9e0791",
+        "bytes": 225975,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.06665,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "reinforce__Defeat",
@@ -1098,8 +1337,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.529763
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 7.11206,
+        "targetHeight": 0.569824,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1108,16 +1349,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
+        "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Idle.png",
-        "sha256": "79aa85aa9c1ba61a162c4d4005dc2f129dbc0f4557b9adf94218319e4d0ccc58",
-        "bytes": 282122,
+        "sha256": "825f8300b4a23944d3ab9669ba9cb0c6d625c60a3bb981560ceba4731183ac88",
+        "bytes": 313905,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 22,
+        "maximumCoverageRatio": 0.146729,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "reinforce__Idle",
@@ -1146,8 +1394,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.232711
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.614246,
+        "targetHeight": 1.389191,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1156,16 +1406,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
+        "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Move.png",
-        "sha256": "5c581f4b06c7cb4da95235df1f1f764ea7ef180efbc869405727f6286a1cc4bd",
-        "bytes": 281544,
+        "sha256": "9cf9db551c18420dc7d13a003105a3313f6d7d72dd49147d8044b450f3a5c604",
+        "bytes": 315384,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 23,
+        "maximumCoverageRatio": 0.144043,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Move",
       "action": "reinforce__Move",
@@ -1194,8 +1451,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.180238
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.588338,
+        "targetHeight": 1.380624,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1204,16 +1463,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
+        "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Special.png",
-        "sha256": "478be8016dfc603ea1491bb01de674ec92ed8f844442a93cffab4ef1639192bf",
-        "bytes": 260873,
+        "sha256": "b573fdf69442f6b4aaf0c80053b344397de79f5f2013e9ca63bde8af2fd471b3",
+        "bytes": 280862,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 21,
+        "maximumCoverageRatio": 0.139343,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Special",
       "action": "reinforce__Special",
@@ -1242,8 +1508,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.811666
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.514642,
+        "targetHeight": 1.559183,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1252,16 +1520,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/reinforce.glb",
-        "sha256": "1d73d4d9bb79a8fb454d77143a49734aa9d7bb5ec70730d9982e4c9eecb14826",
+        "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
         "root": "reinforce-root"
       },
       "output": {
         "path": "assets/images/battle/glb/reinforce__Strike.png",
-        "sha256": "fe9b5e0396b07d18560ae073f5b0f1400bd4febc80c362572a44a0e804467581",
-        "bytes": 275601,
+        "sha256": "192096ce327e6d00aa28d36eaa77388465512fb4dd81f8c3008b4580c3f79691",
+        "bytes": 302312,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 24,
+        "maximumCoverageRatio": 0.140747,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Strike",
       "action": "reinforce__Strike",
@@ -1290,8 +1565,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.394141
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.813613,
+        "targetHeight": 1.389678,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1300,16 +1577,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/rift-portal.glb",
-        "sha256": "fcdd63974c3982641555effc75d0fc443a6b7a0e5c58ba992f9b30d8cc26dfe3",
+        "sha256": "3df41622bde83b7113fd62108ff01730a7386ca21f5e62d38896764ae5b3b11b",
         "root": "rift-portal-root"
       },
       "output": {
         "path": "assets/images/battle/glb/rift-portal__Activate.png",
-        "sha256": "13a4c6f30427da6cb47a7846c379a8cebbcde6a88c835bbd57c4e098863c3d26",
-        "bytes": 300696,
+        "sha256": "ddd98608dac1b981149beb8b6736416c041505a220cb91061d4b1045faddef47",
+        "bytes": 316479,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.170349,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Activate",
       "action": "rift-portal__Activate",
@@ -1338,8 +1622,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.315847
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.018314,
+        "targetHeight": 1.404068,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1348,16 +1634,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/rift-portal.glb",
-        "sha256": "fcdd63974c3982641555effc75d0fc443a6b7a0e5c58ba992f9b30d8cc26dfe3",
+        "sha256": "3df41622bde83b7113fd62108ff01730a7386ca21f5e62d38896764ae5b3b11b",
         "root": "rift-portal-root"
       },
       "output": {
         "path": "assets/images/battle/glb/rift-portal__Idle.png",
-        "sha256": "8affc63ca667e4790a2ab822c772f2ea928416fcb5cb9ac42597c00e485615fd",
-        "bytes": 307779,
+        "sha256": "1acca7bb9085ad153429cc6dbbbfa79d8a25072f5f3084925b545c0586f5fd88",
+        "bytes": 349715,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 14,
+        "maximumCoverageRatio": 0.200378,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "rift-portal__Idle",
@@ -1386,8 +1679,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.025445
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.353306,
+        "targetHeight": 1.321759,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1396,16 +1691,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
+        "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Defeat.png",
-        "sha256": "59c8db4118a6d7b19c993a3f4a7dde3bcc99dc3cb461d9b8708175211171fba6",
-        "bytes": 216326,
+        "sha256": "a78fb3cce9d2d9395376d86b6314e9ad2a3b2e7727fa62978d47345bd9491130",
+        "bytes": 216512,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.052673,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "scout__Defeat",
@@ -1434,8 +1736,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.330796
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.428785,
+        "targetHeight": 0.365441,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1444,16 +1748,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
+        "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Idle.png",
-        "sha256": "756d5e7c762e0ab4b2fd30135afda5a97e481f9c38b93aaaa4474a1ef41d3d55",
-        "bytes": 229512,
+        "sha256": "22a23916edd6a1c0447c53446d8abdcfad48c4c994478c6ac21da69af2987a6c",
+        "bytes": 282938,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.109375,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "scout__Idle",
@@ -1482,8 +1793,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.718435
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.498303,
+        "targetHeight": 1.027099,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1492,16 +1805,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
+        "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Move.png",
-        "sha256": "29a5fc13d1eceb08ba6765ee9e97bca4531d9ce1a5d243130903304fcabbbdd5",
-        "bytes": 229165,
+        "sha256": "08b87a974bd662b98a82d1748aee773ce7691403a18938b6d7f47eeef3c3c1a7",
+        "bytes": 287216,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 19,
+        "maximumCoverageRatio": 0.111816,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Move",
       "action": "scout__Move",
@@ -1530,8 +1850,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.669174
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.430832,
+        "targetHeight": 1.005768,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1540,16 +1862,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
+        "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Special.png",
-        "sha256": "bfed3a26979490121f449558b75c0ac4921fcec9366dce5aba2dc4f0116eecd4",
-        "bytes": 215085,
+        "sha256": "10022b6c780c0ae963fdb804f1effd49a5c19a8298410d1b3a6afc2172d0b636",
+        "bytes": 251278,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.093262,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Special",
       "action": "scout__Special",
@@ -1578,8 +1907,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.197264
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.283591,
+        "targetHeight": 1.147957,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1588,16 +1919,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/scout.glb",
-        "sha256": "32703ade4bf4bfb8f0e12e666339f991cfe91ad85fc1dac917ef81a336045127",
+        "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
         "root": "scout-root"
       },
       "output": {
         "path": "assets/images/battle/glb/scout__Strike.png",
-        "sha256": "e948cc4c7921ce4400c5f8d8a37a417c5d37bfcdb86b75c31a2faf7dafceffe4",
-        "bytes": 224641,
+        "sha256": "316be881749599c50a8765244b677ea6e55d132c972ef3379bbf3ca1c4923ad8",
+        "bytes": 277230,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.10614,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Strike",
       "action": "scout__Strike",
@@ -1626,8 +1964,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.851947
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.621996,
+        "targetHeight": 1.033368,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1636,16 +1976,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
+        "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Defeat.png",
-        "sha256": "c05b180089da12723e918bfcb588e7f4a744f5e7b19846458eebb822447f60e0",
-        "bytes": 222451,
+        "sha256": "a64a3ae08e41338423bdfe206130e09709b9a798b666a8a933e43c570a08fa32",
+        "bytes": 227870,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 12,
+        "maximumCoverageRatio": 0.060486,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "shade__Defeat",
@@ -1674,8 +2021,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.01443
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.709315,
+        "targetHeight": 0.405481,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1684,16 +2033,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
+        "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Idle.png",
-        "sha256": "351910ad8aaccc37ef57136721fad6a3169449588ee4e96db2109b8bdbb8bc82",
-        "bytes": 251233,
+        "sha256": "47d3bb049645a48d5a3e3e817ff51d04d74c17fad00081ec2796194bdc5e8978",
+        "bytes": 318985,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 21,
+        "maximumCoverageRatio": 0.131104,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "shade__Idle",
@@ -1722,8 +2078,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.036267
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.668266,
+        "targetHeight": 1.169499,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1732,16 +2090,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
+        "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Move.png",
-        "sha256": "5d8a3907bfd593f77e93f251b3f598e01c6d025dc78fb4f34e1ed8907c553077",
-        "bytes": 252075,
+        "sha256": "37748d0c4f08e87c8398266d218afd98ff490d5d2e992f4c3e720032469a9d48",
+        "bytes": 319445,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.131836,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Move",
       "action": "shade__Move",
@@ -1770,8 +2135,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.984849
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.642684,
+        "targetHeight": 1.166314,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1780,16 +2147,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
+        "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Special.png",
-        "sha256": "7985ce34718ec4d161e9500f57048e794ec8e1317f4890f52ddfcf2cff9379f3",
-        "bytes": 234900,
+        "sha256": "2ff30096397a113e136c1093448b3fd30ac03b3498c53d3b5deabf99527eb607",
+        "bytes": 280308,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 24,
+        "maximumCoverageRatio": 0.114624,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Special",
       "action": "shade__Special",
@@ -1818,8 +2192,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.575354
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.409172,
+        "targetHeight": 1.30968,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1828,16 +2204,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/units/shade.glb",
-        "sha256": "a369f892b7984c65d3d9e71db015b4dd8acee59480b906f7b9e35ef320403efc",
+        "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
         "root": "shade-root"
       },
       "output": {
         "path": "assets/images/battle/glb/shade__Strike.png",
-        "sha256": "57179301672a48250810a86ef0a41b9491b7705844f7e92d19d31963a1f144a9",
-        "bytes": 244697,
+        "sha256": "f3463b3a4ad2ae5bcbbd407fdf81dc97bcb390a8dcd9afa2b7f303ab8ff984f8",
+        "bytes": 312917,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 21,
+        "maximumCoverageRatio": 0.127502,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Strike",
       "action": "shade__Strike",
@@ -1866,8 +2249,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 4.186581
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.788073,
+        "targetHeight": 1.173719,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1876,16 +2261,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/soul-extractor.glb",
-        "sha256": "922bb25c2aad10f02a9650b84aa61581caf220db616d7a79827c46c8518770a5",
+        "sha256": "b4ab5540c16bcedb06c15ba6dd8b3cf4a05276668d4eb1755d25024551f8115a",
         "root": "soul-extractor-root"
       },
       "output": {
         "path": "assets/images/battle/glb/soul-extractor__Activate.png",
-        "sha256": "3326274bd0a0ce0d3634f0d236136e8e2436f8567935a9cbfa028a9248391e39",
-        "bytes": 252343,
+        "sha256": "d73dae077e76eeadd099ce5147da72802491497be660913994a68c1a2f533287",
+        "bytes": 266064,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 31,
+        "maximumCoverageRatio": 0.133667,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Activate",
       "action": "soul-extractor__Activate",
@@ -1914,8 +2306,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.29859
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 4.929827,
+        "targetHeight": 0.832785,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1924,16 +2318,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/props/soul-extractor.glb",
-        "sha256": "922bb25c2aad10f02a9650b84aa61581caf220db616d7a79827c46c8518770a5",
+        "sha256": "b4ab5540c16bcedb06c15ba6dd8b3cf4a05276668d4eb1755d25024551f8115a",
         "root": "soul-extractor-root"
       },
       "output": {
         "path": "assets/images/battle/glb/soul-extractor__Idle.png",
-        "sha256": "afd14e02682b4ec66622e57e257e31d5ec1e22bb1e1443006cfb52d452985a70",
-        "bytes": 329498,
+        "sha256": "e24da9f083dc14ce96a089f997a7550fa9a298e0477199100a96908b8b3f45d7",
+        "bytes": 359950,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 20,
+        "maximumCoverageRatio": 0.2276,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "soul-extractor__Idle",
@@ -1962,8 +2363,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 3.826449
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 3.493406,
+        "targetHeight": 0.783965,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -1972,16 +2375,23 @@
       "kind": "terrainPlate",
       "source": {
         "path": "assets/models/abyssal-command/terrain/veil-citadel.glb",
-        "sha256": "b0fa5cfb141d408db274579b5560be29cfbcd7c9af71040a2f3aa8b8c5c67c29",
+        "sha256": "ac9ebee41357d170f9566ceeb9b12b71f91a9b7cd02f1a78757adc7791384e99",
         "root": "veil-citadel-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-citadel.png",
-        "sha256": "5009203ff88caade24eda65afd45403731b329720a33ea618bc5060081fb83dc",
-        "bytes": 9075,
+        "sha256": "31ee82c9408d71f8d916a082e3a5b3eabfa501aabd2316574f3d96343c0d3fb2",
+        "bytes": 10586,
         "width": 128,
         "height": 128,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 1,
+        "minimumEdgePaddingPx": 22,
+        "maximumCoverageRatio": 0.189453,
+        "distinctDirectionColumns": 1,
+        "animatedDirectionColumns": 0
       },
       "frameSamples": [
         1
@@ -1998,7 +2408,8 @@
         "yawColumnsDegrees": [
           0
         ],
-        "rootTracking": "static terrain root at source frame 1"
+        "rootTracking": "static terrain root at source frame 1",
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -2007,16 +2418,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
+        "sha256": "d46423216e92312ea11aa2d7fe04754df1733f5ba27859b49d4740d195481c14",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Attack.png",
-        "sha256": "85ddc51bb6b54f97f6164e67cfab2fe1e9d3633c458ba2e7de56e29bd57e21d3",
-        "bytes": 276541,
+        "sha256": "dc701fe40e679ced018fb1231a356ff9426ab479724d0592a75fb4a67d2b16ab",
+        "bytes": 289961,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.163757,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Attack",
       "action": "veil-tactician__Attack",
@@ -2045,8 +2463,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.869125
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.400021,
+        "targetHeight": 1.521197,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -2055,16 +2475,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
+        "sha256": "d46423216e92312ea11aa2d7fe04754df1733f5ba27859b49d4740d195481c14",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Defeat.png",
-        "sha256": "de485b6bdf822fca88303d4031ee396ab519c221d4c684d7171c8e8e82c4791a",
-        "bytes": 239942,
+        "sha256": "ce4ea0e4ea9eaf9af1a7aa5e39d9d7faf1384d88ed90234c3b456c07eba62afc",
+        "bytes": 228205,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 15,
+        "maximumCoverageRatio": 0.082031,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Defeat",
       "action": "veil-tactician__Defeat",
@@ -2093,8 +2520,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 7.288319
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 7.790861,
+        "targetHeight": 0.771922,
+        "cellPaddingFraction": 0.1
       }
     },
     {
@@ -2103,16 +2532,23 @@
       "kind": "actionAtlas",
       "source": {
         "path": "assets/models/abyssal-command/bosses/veil-tactician.glb",
-        "sha256": "bbfad22182f830925fe673f09adb9ae1b6dab43ca3c0f31f63c4dd6899d75b00",
+        "sha256": "d46423216e92312ea11aa2d7fe04754df1733f5ba27859b49d4740d195481c14",
         "root": "veil-tactician-root"
       },
       "output": {
         "path": "assets/images/battle/glb/veil-tactician__Idle.png",
-        "sha256": "e1a211c61bcc501f74dbda2a95bae9ce796fdeeced0f42438705c48c6615f20b",
-        "bytes": 280862,
+        "sha256": "bf379eb59c0da0f1b7d3bdb60143abf5f74500efa35a7f3b117562ab394d2612",
+        "bytes": 295061,
         "width": 1024,
         "height": 512,
         "mimeType": "image/png"
+      },
+      "visualValidation": {
+        "nonEmptyCells": 32,
+        "minimumEdgePaddingPx": 17,
+        "maximumCoverageRatio": 0.164856,
+        "distinctDirectionColumns": 8,
+        "animatedDirectionColumns": 8
       },
       "clip": "Idle",
       "action": "veil-tactician__Idle",
@@ -2141,8 +2577,10 @@
           270,
           315
         ],
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": 5.662616
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": 5.244889,
+        "targetHeight": 1.483195,
+        "cellPaddingFraction": 0.1
       }
     }
   ]

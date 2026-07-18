@@ -124,6 +124,7 @@ async function initializeRendererPresentation() {
   const context = vm.createContext({
     THREE,
     ParticleField,
+    cappedPixelRatio: (_width, devicePixelRatio) => devicePixelRatio,
     FILL_LIGHT_INTENSITY: 0.65,
     FOG_DENSITY: 0.015,
     RIM_LIGHT_INTENSITY: 0.85,
@@ -189,6 +190,75 @@ test("RealtimeBattle initialization applies atmospheric rendering and configured
     [0.8, 1.1, 16],
     "marker rings must retain a visible annulus with enough segments to read as circular",
   );
+});
+
+test("RealtimeBattle resize reapplies DPR tiers without changing the canvas dimensions or skipping projection updates", () => {
+  const canvasRect = { width: 960, height: 540 };
+  const pixelRatios = [];
+  const canvasSizes = [];
+  const camera = {
+    aspect: 0,
+    projectionUpdates: 0,
+    updateProjectionMatrix() {
+      this.projectionUpdates += 1;
+    },
+  };
+  const canvas = {
+    getBoundingClientRect() {
+      return canvasRect;
+    },
+  };
+  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const viewport = { devicePixelRatio: 3, innerWidth: 901 };
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    writable: true,
+    value: viewport,
+  });
+
+  try {
+    const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+    battle.renderer = {
+      setPixelRatio(value) {
+        pixelRatios.push(value);
+      },
+      setSize(width, height, updateStyle) {
+        canvasSizes.push([width, height, updateStyle]);
+      },
+    };
+    battle.camera = camera;
+
+    for (const innerWidth of [901, 900, 481, 480]) {
+      viewport.innerWidth = innerWidth;
+      battle.resize();
+    }
+
+    assert.deepEqual(
+      pixelRatios,
+      [2, 1.5, 1.5, 1.25],
+      "crossing the desktop and mobile width boundaries must reapply the matching DPR cap",
+    );
+    assert.deepEqual(
+      canvasSizes,
+      [
+        [960, 540, false],
+        [960, 540, false],
+        [960, 540, false],
+        [960, 540, false],
+      ],
+      "DPR tier changes must preserve the measured canvas dimensions and CSS size",
+    );
+    assert.equal(camera.aspect, 16 / 9, "resize must preserve the canvas aspect ratio in the camera");
+    assert.equal(
+      camera.projectionUpdates,
+      4,
+      "every threshold-crossing resize must publish the updated camera projection",
+    );
+  } finally {
+    if (windowDescriptor) Object.defineProperty(globalThis, "window", windowDescriptor);
+    else delete globalThis.window;
+  }
 });
 
 
@@ -880,6 +950,92 @@ test("SpatialAudio constructs safely with a null AudioContext outside a browser 
   assert.doesNotThrow(() => audio.playTone(0, 0, 0, { freq: 440 }), "playTone must tolerate a null AudioContext");
   assert.doesNotThrow(() => audio.playSample("hunt", 0, 0, 0, 1), "playSample must tolerate a null AudioContext");
   assert.doesNotThrow(() => audio.updateListener({ position: { x: 0, y: 0, z: 0 } }), "updateListener must tolerate a null AudioContext");
+});
+
+test("SpatialAudio abandons pending sample playback when disposed before decoding completes", async () => {
+  const { promise: decodeStarted, resolve: markDecodeStarted } = Promise.withResolvers();
+  const { promise: decoded, resolve: finishDecode } = Promise.withResolvers();
+  const calls = { gains: 0, panners: 0, sources: 0, starts: 0 };
+  const node = {
+    gain: { value: 0 },
+    connect(target) {
+      return target;
+    },
+    disconnect() {},
+  };
+
+  class PendingDecodeAudioContext {
+    state = "running";
+    destination = {};
+
+    createGain() {
+      calls.gains += 1;
+      return { ...node, gain: { value: 0 } };
+    }
+
+    createPanner() {
+      calls.panners += 1;
+      return { ...node };
+    }
+
+    createBufferSource() {
+      calls.sources += 1;
+      return {
+        ...node,
+        addEventListener() {},
+        start() {
+          calls.starts += 1;
+        },
+      };
+    }
+
+    decodeAudioData() {
+      markDecodeStarted();
+      return decoded;
+    }
+
+    close() {
+      this.state = "closed";
+      return Promise.resolve();
+    }
+  }
+
+  const descriptors = new Map(
+    ["fetch", "window"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]),
+  );
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    writable: true,
+    value: { AudioContext: PendingDecodeAudioContext },
+  });
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    writable: true,
+    value: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(1) }),
+  });
+
+  try {
+    const { SpatialAudio } = await import("../battle-realtime-three.js");
+    const audio = new SpatialAudio();
+    calls.gains = 0;
+    const playback = audio.playSample("hunt", 1, 2, 3, 0.5);
+
+    await decodeStarted;
+    audio.dispose();
+    finishDecode({});
+
+    await assert.doesNotReject(playback, "a disposed pending playback must settle without dereferencing cleared audio state");
+    assert.deepEqual(
+      calls,
+      { gains: 0, panners: 0, sources: 0, starts: 0 },
+      "resolving decode after disposal must not create playback nodes or start late audio",
+    );
+  } finally {
+    for (const [name, descriptor] of descriptors) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  }
 });
 
 test("RealtimeBattle triggers boss defeat feedback exactly once when applyCampaignState reports bossHealth reaching zero", () => {

@@ -38,6 +38,7 @@ jobs:
         assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3
         assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3
         assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3
+        assets/audio/breach-alert.mp3 assets/audio/wave-spawn.mp3 assets/audio/battle-bgm.mp3
         assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3
         assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png
         assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png
@@ -102,6 +103,7 @@ jobs:
             assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3 \
             assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3 \
             assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3 \
+            assets/audio/breach-alert.mp3 assets/audio/wave-spawn.mp3 assets/audio/battle-bgm.mp3 \
             assets/audio/narr-stage3.mp3 assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3 \
             assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png \
             assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png \

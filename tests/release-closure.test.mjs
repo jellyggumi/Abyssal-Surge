@@ -126,6 +126,7 @@ function htmlElementTree(source) {
       tagName,
       id: attributes.get("id") ?? null,
       classes: new Set((attributes.get("class") ?? "").split(/\s+/).filter(Boolean)),
+      attributes,
       i18nKey: attributes.get("data-i18n") ?? null,
       i18nAriaKey: attributes.get("data-i18n-aria") ?? null,
       i18nAltKey: attributes.get("data-i18n-alt") ?? null,
@@ -206,6 +207,25 @@ function cssDeclaration(rule, property) {
     .map((entry) => entry.trim())
     .find((entry) => entry.startsWith(`${property}:`));
   return declaration?.slice(declaration.indexOf(":") + 1).trim();
+}
+
+function sourceFunctionBody(source, name) {
+  const declaration = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`).exec(source);
+  assert.ok(declaration, `app.js must declare ${name}()`);
+  const openIndex = declaration.index + declaration[0].lastIndexOf("{");
+  let depth = 1;
+  for (let index = openIndex + 1; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(openIndex + 1, index);
+  }
+  assert.fail(`${name}() must close its function body`);
+}
+
+function absoluteCssPixels(value) {
+  const length = /^(?<amount>\d*\.?\d+)(?<unit>px|rem)$/.exec(value ?? "");
+  assert.ok(length, `expected an absolute px/rem CSS length, received ${value}`);
+  return Number(length.groups.amount) * (length.groups.unit === "rem" ? 16 : 1);
 }
 
 
@@ -498,8 +518,192 @@ test("every static index localization hook is owned by both language dictionarie
   }
 });
 
-test("cockpit keeps battlefield, command controls, and field HUD as direct siblings with a localized mission guide", async () => {
+test("cinematic fallback localizes fragments without replacing anchor-owning parents", async () => {
   const tree = htmlElementTree(await readProjectFile("index.html"));
+  const video = findHtmlElement(tree, (element) => element.id === "campaign-cinematic");
+  const fallback = findHtmlElement(tree, (element) => element.id === "cinematic-fallback");
+  const expectedFragments = new Map([
+    [video, [
+      ["span", "lobby.cinematicUnavailable"],
+      ["a", "lobby.cinematicOpenMp4"],
+    ]],
+    [fallback, [
+      ["span", "lobby.cinematicPlaybackUnavailable"],
+      ["a", "lobby.cinematicOpenRepresentativeMp4"],
+      ["span", "lobby.cinematicTranscriptAlternative"],
+    ]],
+  ]);
+
+  for (const [owner, expected] of expectedFragments) {
+    assert.ok(owner, "index.html must retain both cinematic fallback surfaces");
+    assert.ok(
+      owner.children.some((element) => element.tagName === "a"),
+      `#${owner.id} must retain its direct fallback anchor`,
+    );
+    assert.equal(
+      owner.i18nKey,
+      null,
+      `#${owner.id} must not own data-i18n because replacing its textContent would destroy its anchor`,
+    );
+
+    const keyedFragments = owner.children
+      .filter((element) => element.i18nKey)
+      .map((element) => [element.tagName, element.i18nKey]);
+    assert.deepEqual(
+      keyedFragments,
+      expected,
+      `#${owner.id} must localize each fallback text and link as an independent fragment`,
+    );
+
+    for (const [, key] of expected) {
+      for (const locale of ["ko", "en"]) {
+        assert.equal(
+          Object.prototype.hasOwnProperty.call(translations[locale], key),
+          true,
+          `${locale} must own cinematic fallback fragment ${key}`,
+        );
+      }
+    }
+  }
+});
+
+test("localized fullscreen control requests, exits, and synchronizes fullscreen state", async () => {
+  const [index, app] = await Promise.all([
+    readProjectFile("index.html"),
+    readProjectFile("app.js"),
+  ]);
+  const tree = htmlElementTree(index);
+  const control = findHtmlElement(tree, (element) => element.id === "toggle-fullscreen");
+
+  assert.equal(control?.tagName, "button", "index.html must expose #toggle-fullscreen as a button");
+  assert.equal(control?.i18nKey, "screen.fullscreenEnter", "the fullscreen button must start with localized enter copy");
+  assert.equal(control?.attributes.get("aria-pressed"), "false", "the fullscreen button must expose its initial inactive state");
+  for (const locale of ["ko", "en"]) {
+    assert.ok(translations[locale]["screen.fullscreenEnter"], `${locale} must localize entering fullscreen`);
+    assert.ok(translations[locale]["screen.fullscreenExit"], `${locale} must localize exiting fullscreen`);
+  }
+
+  const toggleBody = sourceFunctionBody(app, "toggleFullscreen");
+  assert.match(
+    toggleBody,
+    /document\.fullscreenElement[\s\S]*?document\.exitFullscreen\s*\(\s*\)/,
+    "toggleFullscreen() must exit when a fullscreen element is active",
+  );
+  assert.match(
+    toggleBody,
+    /elements\.screen\.requestFullscreen\s*\(\s*\)/,
+    "toggleFullscreen() must request fullscreen on the campaign screen",
+  );
+
+  const syncBody = sourceFunctionBody(app, "syncFullscreenControl");
+  assert.match(syncBody, /document\.fullscreenElement\s*===\s*elements\.screen/, "fullscreen sync must derive state from the campaign screen");
+  assert.match(syncBody, /setAttribute\s*\(\s*["']aria-pressed["']\s*,\s*String\(active\)\s*\)/, "fullscreen sync must publish the pressed state");
+  assert.match(syncBody, /screen\.fullscreenExit[\s\S]*?screen\.fullscreenEnter/, "fullscreen sync must swap localized enter and exit copy");
+
+  const wireBody = sourceFunctionBody(app, "wireControls");
+  assert.match(wireBody, /elements\.toggleFullscreen\?\.addEventListener\s*\(\s*["']click["'][\s\S]*?toggleFullscreen\s*\(\s*\)/, "fullscreen button clicks must invoke toggleFullscreen()");
+  assert.match(wireBody, /document\.addEventListener\s*\(\s*["']fullscreenchange["']\s*,\s*syncFullscreenControl\s*\)/, "native fullscreen changes must resynchronize the control");
+  assert.match(wireBody, /syncFullscreenControl\s*\(\s*\)/, "control wiring must synchronize fullscreen support and initial state");
+});
+
+test("returning to the lobby finishes campaign fullscreen exit before hiding the screen", async () => {
+  const app = await readProjectFile("app.js");
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const runReturnToLobby = new AsyncFunction(
+    "campaign",
+    "document",
+    "elements",
+    "stopBattle",
+    "stageBriefingOpen",
+    "entryGuidanceStageId",
+    "storedCampaign",
+    "resultOverlayOpen",
+    "setResultModal",
+    "setMissionBriefingModal",
+    "persistCampaign",
+    "syncBackgroundEffects",
+    "updateResumeAffordance",
+    "window",
+    "syncFullscreenControl",
+    sourceFunctionBody(app, "returnToLobby"),
+  );
+  const events = [];
+  let campaignScreenHidden = false;
+  let finishFullscreenExit;
+  const screen = {
+    get hidden() {
+      return campaignScreenHidden;
+    },
+    set hidden(value) {
+      campaignScreenHidden = value;
+      events.push(`screen:hidden:${value}`);
+    },
+  };
+  const lobby = {
+    set hidden(value) {
+      events.push(`lobby:hidden:${value}`);
+    },
+  };
+  const document = {
+    fullscreenElement: screen,
+    exitFullscreen() {
+      events.push("fullscreen:exit-start");
+      return new Promise((resolve) => {
+        finishFullscreenExit = () => {
+          document.fullscreenElement = null;
+          events.push("fullscreen:exit-finished");
+          resolve();
+        };
+      });
+    },
+  };
+  const elements = {
+    screen,
+    lobby,
+    resume: { focus: () => events.push("resume:focus") },
+  };
+
+  const returning = runReturnToLobby(
+    { status: "active" },
+    document,
+    elements,
+    () => events.push("battle:stopped"),
+    true,
+    "stage-1",
+    null,
+    true,
+    () => undefined,
+    () => undefined,
+    async () => undefined,
+    () => undefined,
+    () => undefined,
+    { requestAnimationFrame: (callback) => callback() },
+    () => undefined,
+  );
+
+  await Promise.resolve();
+  assert.equal(
+    campaignScreenHidden,
+    false,
+    "the campaign screen must remain visible while the native fullscreen exit is pending",
+  );
+  finishFullscreenExit();
+  await returning;
+
+  assert.equal(campaignScreenHidden, true, "the campaign screen must hide after fullscreen exits");
+  assert.ok(
+    events.indexOf("fullscreen:exit-finished") < events.indexOf("screen:hidden:true"),
+    `fullscreen exit must finish before the campaign screen hides: ${events.join(" -> ")}`,
+  );
+});
+
+
+test("desktop cockpit keeps battlefield, status rail, and command deck as direct layout surfaces", async () => {
+  const [index, styles] = await Promise.all([
+    readProjectFile("index.html"),
+    readProjectFile("styles.css"),
+  ]);
+  const tree = htmlElementTree(index);
   const byId = (id) => findHtmlElement(tree, (element) => element.id === id);
   const cockpit = findHtmlElement(tree, (element) => element.classes?.has("cockpit-main"));
   const battlefield = byId("battle-field");
@@ -512,6 +716,17 @@ test("cockpit keeps battlefield, command controls, and field HUD as direct sibli
   assert.strictEqual(commands?.parent, cockpit, "#command-panel must be a direct cockpit-main child");
   assert.strictEqual(fieldHud?.parent, cockpit, ".field-edge-hud must be a direct cockpit-main child");
   assert.strictEqual(missionGuide?.parent, battlefield, "#battle-mission-guide must belong to the tactical battlefield");
+
+  const desktopRules = cssRules(styles.replace(/\/\*[\s\S]*?\*\//g, ""));
+  const cockpitRule = desktopRules.find(({ selector }) => selector === ".cockpit-main");
+  const battlefieldRule = desktopRules.find(({ selector }) => selector === ".cockpit-main .battle-field-panel");
+  const statusRailRule = desktopRules.find(({ selector }) => selector === ".cockpit-rail");
+  const commandDeckRule = desktopRules.find(({ selector }) => selector === ".field-command-dock");
+  assert.equal(cssDeclaration(cockpitRule, "display"), "grid", "desktop cockpit-main must own the layout grid");
+  assert.match(cssDeclaration(cockpitRule, "grid-template-areas") ?? "", /"battle hud"[\s\S]*"commands commands"/, "desktop grid must reserve direct battlefield, HUD, and command-deck surfaces");
+  assert.equal(cssDeclaration(battlefieldRule, "grid-area"), "battle", "battlefield must own the desktop battle area");
+  assert.equal(cssDeclaration(statusRailRule, "grid-area"), "hud", "status rail must own the desktop HUD area");
+  assert.equal(cssDeclaration(commandDeckRule, "grid-area"), "commands", "command deck must own the desktop commands area");
 
   for (const id of ["battle-mission-current", "battle-mission-why"]) {
     const element = byId(id);
@@ -528,11 +743,95 @@ test("cockpit keeps battlefield, command controls, and field HUD as direct sibli
   }
 });
 
-test("mobile active-play visibility hides secondary cockpit details without hiding save controls", async () => {
+
+test("battle resource rows own their semantic meter updates and progress fills", async () => {
+  const [index, app, styles] = await Promise.all([
+    readProjectFile("index.html"),
+    readProjectFile("app.js"),
+    readProjectFile("styles.css"),
+  ]);
+  const tree = htmlElementTree(index);
+  const resourceBar = findHtmlElement(tree, (element) => element.classes?.has("battle-resource-bar"));
+  const expectedMeters = [
+    ["souls", "souls-value"],
+    ["legion", "legion-value"],
+    ["nodes", "nodes-value"],
+    ["integrity", "integrity-value"],
+    ["boss", "boss-value"],
+  ];
+  const resourceRows = resourceBar?.children.filter((element) => element.attributes?.has("data-resource")) ?? [];
+
+  assert.deepEqual(
+    resourceRows.map((row) => row.attributes.get("data-resource")),
+    expectedMeters.map(([resource]) => resource),
+    "battle resource rows must expose stable data-resource meter owners",
+  );
+  for (const [resource, valueId] of expectedMeters) {
+    const row = resourceRows.find((element) => element.attributes.get("data-resource") === resource);
+    assert.ok(row, `${resource} must retain a dedicated resource row`);
+    assert.ok(findHtmlElement(row, (element) => element.id === valueId), `${resource} row must own #${valueId}`);
+  }
+
+  const meterBody = sourceFunctionBody(app, "setResourceMeter");
+  assert.match(meterBody, /element\?\.closest\s*\(\s*["']\[data-resource\]["']\s*\)/, "meter updates must resolve the semantic resource-row owner");
+  assert.match(meterBody, /meter\.style\.setProperty\s*\(\s*["']--resource-progress["']/, "meter updates must publish progress on the owning row");
+
+  const rules = cssRules(styles.replace(/\/\*[\s\S]*?\*\//g, ""));
+  const meterRule = rules.find(({ selector }) => selector === ".battle-resource-bar > div");
+  const fillRule = rules.find(({ selector }) => selector === ".battle-resource-bar > div::after");
+  assert.equal(cssDeclaration(meterRule, "--resource-progress"), "0%", "resource rows must default progress safely");
+  assert.equal(cssDeclaration(fillRule, "width"), "var(--resource-progress)", "resource fills must consume their owner's progress");
+});
+
+
+test("the 360px lobby uses a shrinkable column and bounds its cinematic surface", async () => {
+  const lobbyRules = cssRules(cssBlock(await readProjectFile("styles.css"), "@media (max-width: 62rem)"));
+  const lobbyGridRule = lobbyRules.find(({ selector }) => selector === ".lobby-panel");
+  const boundedSurfaceRule = lobbyRules.find(({ selector }) => {
+    const selectors = selector.split(",").map((entry) => entry.trim());
+    return [
+      ".lobby-panel > *",
+      ".lobby-panel > .cinematic-control",
+      "#campaign-cinematic",
+    ].every((expected) => selectors.includes(expected));
+  });
+  const cinematicControlRule = lobbyRules.find(
+    ({ selector }) => selector === ".lobby-panel > .cinematic-control",
+  );
+
+  assert.equal(
+    cssDeclaration(lobbyGridRule, "grid-template-columns"),
+    "minmax(0, 1fr)",
+    "the single lobby column must be allowed to shrink to a 360px viewport without intrinsic overflow",
+  );
+  assert.ok(boundedSurfaceRule, "the compact lobby must retain a shared cinematic width bound");
+  assert.equal(
+    cssDeclaration(boundedSurfaceRule, "min-width"),
+    "0",
+    "lobby children must be allowed to shrink below their intrinsic content width",
+  );
+  assert.equal(
+    cssDeclaration(boundedSurfaceRule, "max-width"),
+    "100%",
+    "cinematic content must not grow wider than the compact lobby",
+  );
+  assert.equal(
+    cssDeclaration(cinematicControlRule, "width"),
+    "100%",
+    "the cinematic control must consume only the available compact-column width",
+  );
+});
+test("mobile active play keeps command targets touch-safe and hides secondary cockpit details", async () => {
   const mobileRules = cssRules(cssBlock(await readProjectFile("styles.css"), "@media (max-width: 899px)"));
+  const commandTargetRule = mobileRules.find(({ selector }) => selector.includes(".field-command-dock .command-grid button"));
   const activePlayRules = mobileRules.filter(({ selector }) => selector.includes("#stage-briefing[hidden]"));
   const cockpitDetailsRule = activePlayRules.find(({ selector }) => selector.includes(".cockpit-details"));
 
+  assert.ok(commandTargetRule, "the <=899px cockpit must retain a command-button target rule");
+  assert.ok(
+    absoluteCssPixels(cssDeclaration(commandTargetRule, "min-height")) >= 44,
+    "mobile command targets must remain at least 44px tall",
+  );
   assert.equal(
     activePlayRules.some(({ selector }) => selector.includes(".save-dock") || selector.includes("#save-dock")),
     false,
@@ -544,6 +843,53 @@ test("mobile active-play visibility hides secondary cockpit details without hidi
     "none !important",
     "secondary cockpit details must remain hidden while compact active play owns the viewport",
   );
+});
+
+test("360px essential HUD copy stays readable and utility and save targets stay 44px tall", async () => {
+  const styles = await readProjectFile("styles.css");
+  const mobileRules = cssRules(cssBlock(styles, "@media (max-width: 899px)"));
+  const narrowRules = cssRules(cssBlock(styles, "@media (max-width: 640px)"));
+  const ruleFor = (rules, expectedSelector) => rules.find(({ selector }) => (
+    selector.split(",").map((entry) => entry.trim()).includes(expectedSelector)
+  ));
+  const essentialLabels = [
+    ".cockpit-top .wave-badge",
+    ".battle-resource-bar dt",
+    ".battle-mission-guide strong",
+    ".selection-dossier span",
+    ".selection-dossier small",
+    ".field-command-dock .status-message",
+    ".field-command-dock .key",
+    ".field-command-dock .command-grid strong",
+    ".field-current-objective",
+    ".field-edge-hud .battle-pressure",
+  ];
+  const readableMinimum = absoluteCssPixels(".68rem");
+
+  for (const selector of essentialLabels) {
+    const rule = ruleFor(mobileRules, selector);
+    assert.ok(rule, `the mobile HUD must retain an explicit essential-label rule for ${selector}`);
+    assert.ok(
+      absoluteCssPixels(cssDeclaration(rule, "font-size")) >= readableMinimum,
+      `${selector} must remain at least .68rem on a 360px viewport`,
+    );
+  }
+
+  const touchTargets = [
+    [mobileRules, ".site-header button"],
+    [mobileRules, ".cockpit-top .campaign-heading-actions button"],
+    [mobileRules, ".cockpit .save-dock button"],
+    [mobileRules, ".cockpit .save-dock .file-button"],
+    [narrowRules, ".result-panel .button-row button"],
+  ];
+  for (const [rules, selector] of touchTargets) {
+    const rule = ruleFor(rules, selector);
+    assert.ok(rule, `mobile utility controls must retain a minimum target size for ${selector}`);
+    assert.ok(
+      absoluteCssPixels(cssDeclaration(rule, "min-height")) >= 44,
+      `${selector} must remain at least 44px tall on a 360px viewport`,
+    );
+  }
 });
 
 test("campaign rendering supplies the engine stage checklist to the checklist view", async () => {

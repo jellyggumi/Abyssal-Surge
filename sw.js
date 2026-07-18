@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-surge-static-v37";
+const CACHE_NAME = "abyssal-surge-static-v38";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -129,6 +129,9 @@ const OPTIONAL_MEDIA = [
   "./assets/audio/assault.mp3",
   "./assets/audio/reward.mp3",
   "./assets/audio/ambient.mp3",
+  "./assets/audio/breach-alert.mp3",
+  "./assets/audio/wave-spawn.mp3",
+  "./assets/audio/battle-bgm.mp3",
   "./assets/audio/narr-intro.mp3",
   "./assets/audio/narr-stage1.mp3",
   "./assets/audio/narr-stage2.mp3",

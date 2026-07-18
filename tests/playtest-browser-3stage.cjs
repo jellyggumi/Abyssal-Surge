@@ -3427,7 +3427,7 @@ async function verifyStageThreeChecklist(browser, baseUrl) {
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
-const CURRENT_STATIC_CACHE = "abyssal-surge-static-v37";
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v38";
 
 function currentWorkerCacheName() {
   let serviceWorkerSource;
@@ -3448,7 +3448,7 @@ function currentWorkerCacheName() {
   assert.equal(
     cacheName,
     CURRENT_STATIC_CACHE,
-    "sw.js must retain the v30 static cache revision required by the browser cache assertion.",
+    "sw.js must retain the v38 static cache revision required by the browser cache assertion.",
   );
   return cacheName;
 }

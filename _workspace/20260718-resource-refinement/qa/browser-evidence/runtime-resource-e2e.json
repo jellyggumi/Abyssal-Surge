@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "run_date": "2026-07-18",
+  "base_url": "http://127.0.0.1:8877/",
+  "fresh_sessions": {
+    "webgl2": {
+      "cinematic": {
+        "hidden": false,
+        "paused": false,
+        "muted": true,
+        "ready_state": 4,
+        "width": 960,
+        "height": 540,
+        "fallback_hidden": true,
+        "transcript_expanded": true
+      },
+      "battle": {
+        "canvas_3d_hidden": false,
+        "fallback_canvas_hidden": true,
+        "asset_status": "GLB 소스 아틀라스 4/4 · 동작 클립 13개 활성",
+        "requested_glbs": [
+          "models/abyssal-command/terrain/cinder-span.glb",
+          "models/abyssal-command/units/shade.glb",
+          "models/abyssal-command/units/scout.glb",
+          "models/abyssal-command/bosses/cinder-warden.glb"
+        ],
+        "battle_bgm_src": "assets/audio/battle-bgm.mp3",
+        "battle_bgm_scene": "battle",
+        "screenshot": "_workspace/20260718-resource-refinement/qa/browser-evidence/stage1-3d.webp"
+      }
+    },
+    "webgl2_unavailable": {
+      "setup": "HTMLCanvasElement.getContext('webgl2') returned null for #battle-canvas-3d before application load",
+      "battle": {
+        "canvas_3d_hidden": true,
+        "fallback_canvas_hidden": false,
+        "static_brief_hidden": false,
+        "asset_status": "GLB 소스 아틀라스 45/45 · 동작 클립 42개 활성",
+        "bridge_png_requests": 45,
+        "command_sequence": ["hunt", "hunt", "extract", "materialize"],
+        "ally_label_after_materialize": "황혼 군단 · 2/10 실체화됨",
+        "screenshot": "_workspace/20260718-resource-refinement/qa/browser-evidence/stage1-canvas-fallback.webp"
+      }
+    }
+  },
+  "scope_note": "Fresh-browser runtime-selection and fallback integration evidence only. This artifact does not score full human immersion/readability gate G4."
+}

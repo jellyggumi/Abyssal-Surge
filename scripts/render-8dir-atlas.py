@@ -6,11 +6,13 @@ Default mode preserves the original one-model 8-direction scene renderer:
         --out /abs/dir --size 256
 
 Pack mode imports each existing Abyssal Command GLB in isolation and converts it
-to Canvas-ready transparent PNGs.  Action atlases have eight yaw columns and four
-source-frame rows (1, 10, 20, 30); terrain gets one static plate:
+to Canvas-ready transparent PNGs. Action atlases have eight yaw columns and four
+source-frame rows (1, 10, 20, 30); terrain gets one static plate. Framing uses
+the evaluated clip silhouette with a stable transparent safety margin:
 
     Blender --background --python scripts/render-8dir-atlas.py -- \
-        --pack --project-root /abs/Abyssal-Surge --size 128
+        --pack --project-root /abs/Abyssal-Surge --size 128 \
+        --skip-media-manifest
 """
 
 import argparse
@@ -19,6 +21,7 @@ import hashlib
 import json
 import math
 import os
+import struct
 import sys
 from pathlib import Path
 
@@ -29,6 +32,8 @@ from mathutils import Vector
 GENERATION_VERSION = "glb-raster-pack-v1"
 FRAME_SAMPLES = (1, 10, 20, 30)
 YAW_DEGREES = tuple(range(0, 360, 45))
+CELL_PADDING_FRACTION = 0.1
+ALPHA_THRESHOLD = 1.0 / 255.0
 
 
 def parse_args():
@@ -46,6 +51,16 @@ def parse_args():
         "--publish",
         action="store_true",
         help="Atomically publish the final manifest/media inventory from completed chunks.",
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify the published bridge manifest, source/output hashes, dimensions, directions, and actions.",
+    )
+    parser.add_argument(
+        "--skip-media-manifest",
+        action="store_true",
+        help="Publish bridge PNG/manifest only; use when another lane owns assets/media-manifest.json.",
     )
     parser.add_argument(
         "--project-root",
@@ -68,6 +83,7 @@ def configure_render(scene, size):
         scene.render.engine = "BLENDER_EEVEE_NEXT"
     except TypeError:
         scene.render.engine = "BLENDER_EEVEE"
+    scene.eevee.taa_render_samples = 16
     scene.render.resolution_x = size
     scene.render.resolution_y = size
     scene.render.resolution_percentage = 100
@@ -188,31 +204,70 @@ def mesh_bounds(imported, root):
     return minimum, maximum
 
 
-def orthographic_scale(imported, root, frames):
-    """Fit all source samples, so a clip cannot crop while its root moves."""
-    minimum = Vector((float("inf"),) * 3)
-    maximum = Vector((float("-inf"),) * 3)
+def framing_for_clip(imported, root, frames):
+    """Fit every sampled silhouette and center it without losing the ground pivot.
+
+    The eight pooled yaw views make horizontal centering stable. A fixed target
+    height derived from the pooled vertical bounds keeps action frames from
+    bobbing while placing the visible silhouette inside a 10% transparent moat.
+    """
+    minimum_x = float("inf")
+    maximum_x = float("-inf")
+    minimum_y = float("inf")
+    maximum_y = float("-inf")
+    elevation = math.radians(30.0)
     for frame in frames:
         bpy.context.scene.frame_set(frame)
         bpy.context.view_layer.update()
         low, high = mesh_bounds(imported, root)
-        minimum = Vector((min(minimum.x, low.x), min(minimum.y, low.y), min(minimum.z, low.z)))
-        maximum = Vector((max(maximum.x, high.x), max(maximum.y, high.y), max(maximum.z, high.z)))
-    extent = maximum - minimum
-    return max(float(extent.x), float(extent.y), float(extent.z), 1.0) * 1.9
+        corners = tuple(
+            Vector((x, y, z))
+            for x in (low.x, high.x)
+            for y in (low.y, high.y)
+            for z in (low.z, high.z)
+        )
+        for yaw_degrees in YAW_DEGREES:
+            yaw = math.radians(yaw_degrees)
+            view = Vector(
+                (-math.sin(yaw) * math.cos(elevation), math.cos(yaw) * math.cos(elevation), -math.sin(elevation))
+            )
+            right = view.cross(Vector((0.0, 0.0, 1.0))).normalized()
+            up = right.cross(view).normalized()
+            for corner in corners:
+                projected_x = corner.dot(right)
+                projected_y = corner.dot(up)
+                minimum_x = min(minimum_x, projected_x)
+                maximum_x = max(maximum_x, projected_x)
+                minimum_y = min(minimum_y, projected_y)
+                maximum_y = max(maximum_y, projected_y)
+    width = maximum_x - minimum_x
+    height = maximum_y - minimum_y
+    scale = max(width, height, 1.0) / (1.0 - 2.0 * CELL_PADDING_FRACTION)
+    target_height = ((minimum_y + maximum_y) * 0.5) / math.cos(elevation)
+    return {
+        "orthoScale": scale,
+        "targetHeight": target_height,
+        "projectedBounds": {
+            "minX": minimum_x,
+            "maxX": maximum_x,
+            "minY": minimum_y,
+            "maxY": maximum_y,
+        },
+    }
 
 
-def render_pixels(scene, camera, root, yaw_degrees, frame, size, distance, sample_path):
+def render_pixels(scene, camera, root, yaw_degrees, frame, size, distance, target_height, sample_path):
     scene.frame_set(frame)
     bpy.context.view_layer.update()
     root_position = root.matrix_world.translation.copy()
+    target = root_position + Vector((0.0, 0.0, target_height))
     yaw = math.radians(yaw_degrees)
     elevation = math.radians(30.0)
     horizontal = distance * math.cos(elevation)
-    camera.location = root_position + Vector(
+    camera.location = target + Vector(
         (math.sin(yaw) * horizontal, -math.cos(yaw) * horizontal, distance * math.sin(elevation))
     )
-    look_at(camera, root_position)
+    look_at(camera, target)
     scene.render.filepath = str(sample_path)
     bpy.ops.render.render(write_still=True)
     image = bpy.data.images.load(str(sample_path), check_existing=False)
@@ -227,7 +282,38 @@ def render_pixels(scene, camera, root, yaw_degrees, frame, size, distance, sampl
         sample_path.unlink(missing_ok=True)
 
 
-def pack_atlas(scene, camera, root, samples, size, output_path, is_terrain):
+def alpha_diagnostics(pixels, size):
+    minimum_x = size
+    minimum_y = size
+    maximum_x = -1
+    maximum_y = -1
+    opaque = 0
+    for y in range(size):
+        for x in range(size):
+            if pixels[(y * size + x) * 4 + 3] <= ALPHA_THRESHOLD:
+                continue
+            opaque += 1
+            minimum_x = min(minimum_x, x)
+            minimum_y = min(minimum_y, y)
+            maximum_x = max(maximum_x, x)
+            maximum_y = max(maximum_y, y)
+    if opaque == 0:
+        raise RuntimeError("Rendered atlas cell is fully transparent")
+    edge_padding = min(minimum_x, minimum_y, size - 1 - maximum_x, size - 1 - maximum_y)
+    if edge_padding < 1:
+        raise RuntimeError(
+            f"Rendered atlas cell touches its boundary: bounds "
+            f"{minimum_x},{minimum_y}..{maximum_x},{maximum_y} in {size}px"
+        )
+    return {
+        "bounds": [minimum_x, minimum_y, maximum_x, maximum_y],
+        "edgePaddingPx": edge_padding,
+        "coverageRatio": opaque / (size * size),
+        "signature": hashlib.sha256(pixels.tobytes()).hexdigest(),
+    }
+
+
+def pack_atlas(scene, camera, root, samples, size, output_path, is_terrain, framing):
     columns = 1 if is_terrain else len(YAW_DEGREES)
     rows = 1 if is_terrain else len(samples)
     width, height = size * columns, size * rows
@@ -236,9 +322,15 @@ def pack_atlas(scene, camera, root, samples, size, output_path, is_terrain):
     source_yaws = (0,) if is_terrain else YAW_DEGREES
     distance = camera.data.ortho_scale * 2.5
     sample_path = output_path.with_name(f".{output_path.stem}.sample.png")
+    cell_metrics = []
     for row, frame in enumerate(source_frames):
         for column, yaw in enumerate(source_yaws):
-            pixels = render_pixels(scene, camera, root, yaw, frame, size, distance, sample_path)
+            pixels = render_pixels(
+                scene, camera, root, yaw, frame, size, distance, framing["targetHeight"], sample_path
+            )
+            metrics = alpha_diagnostics(pixels, size)
+            metrics.update({"row": row, "column": column, "frame": frame, "yawDegrees": yaw})
+            cell_metrics.append(metrics)
             # Blender pixel arrays are bottom-up; row 0 is the top atlas row.
             destination_y = (rows - row - 1) * size
             for pixel_row in range(size):
@@ -251,20 +343,45 @@ def pack_atlas(scene, camera, root, samples, size, output_path, is_terrain):
     image.file_format = "PNG"
     image.save()
     bpy.data.images.remove(image)
-    return width, height
+    signatures_by_column = [
+        {metric["signature"] for metric in cell_metrics if metric["column"] == column}
+        for column in range(columns)
+    ]
+    diagnostics = {
+        "nonEmptyCells": len(cell_metrics),
+        "minimumEdgePaddingPx": min(metric["edgePaddingPx"] for metric in cell_metrics),
+        "maximumCoverageRatio": round(max(metric["coverageRatio"] for metric in cell_metrics), 6),
+        "distinctDirectionColumns": len(
+            {metric["signature"] for metric in cell_metrics if metric["row"] == 0}
+        ),
+        "animatedDirectionColumns": sum(len(signatures) > 1 for signatures in signatures_by_column),
+    }
+    return width, height, diagnostics
 
 
-def camera_metadata(camera):
+def camera_metadata(framing):
     return {
         "projection": "orthographic",
         "elevationDegrees": 30,
         "yawColumnsDegrees": list(YAW_DEGREES),
-        "rootTracking": "camera target equals evaluated <asset-id>-root translation for each source sample",
-        "orthoScale": round(camera.data.ortho_scale, 6),
+        "rootTracking": "camera target follows evaluated <asset-id>-root translation plus fixed clip targetHeight",
+        "orthoScale": round(framing["orthoScale"], 6),
+        "targetHeight": round(framing["targetHeight"], 6),
+        "cellPaddingFraction": CELL_PADDING_FRACTION,
     }
 
 
-def output_record(asset, source_path, source_hash, staged_path, output_path, width, height, clip=None):
+def output_record(
+    asset,
+    source_path,
+    source_hash,
+    staged_path,
+    output_path,
+    width,
+    height,
+    diagnostics,
+    clip=None,
+):
     root = f"{asset['id']}-root"
     record = {
         "assetId": asset["id"],
@@ -283,6 +400,7 @@ def output_record(asset, source_path, source_hash, staged_path, output_path, wid
             "height": height,
             "mimeType": "image/png",
         },
+        "visualValidation": diagnostics,
         "_stagedPath": str(staged_path),
     }
     if clip is None:
@@ -293,6 +411,7 @@ def output_record(asset, source_path, source_hash, staged_path, output_path, wid
             "elevationDegrees": 30,
             "yawColumnsDegrees": [0],
             "rootTracking": "static terrain root at source frame 1",
+            "cellPaddingFraction": CELL_PADDING_FRACTION,
         }
     else:
         record["clip"] = clip
@@ -383,10 +502,109 @@ def completed_records(project_root, model_manifest, output_dir):
         if sha256(candidate) != record["output"]["sha256"] or sha256(source) != record["source"]["sha256"]:
             raise RuntimeError(f"Hash mismatch in chunk record for {record['assetId']}")
     return sorted(records, key=lambda record: (record["assetId"], record["kind"], record.get("clip", "")))
+def png_dimensions(path):
+    with open(path, "rb") as source:
+        header = source.read(24)
+    if header[:8] != b"\x89PNG\r\n\x1a\n" or header[12:16] != b"IHDR":
+        raise RuntimeError(f"Invalid PNG header: {path}")
+    return struct.unpack(">II", header[16:24])
+
+
+def verify_pack(project_root):
+    model_manifest_path = project_root / "assets/models/abyssal-command/manifest.json"
+    bridge_manifest_path = project_root / "assets/images/battle/glb/manifest.json"
+    model_manifest = json.loads(model_manifest_path.read_text())
+    bridge_manifest = json.loads(bridge_manifest_path.read_text())
+    layout = bridge_manifest.get("atlasLayout", {})
+    expected_direction_index = [
+        {"column": column, "yawDegrees": yaw}
+        for column, yaw in enumerate(YAW_DEGREES)
+    ]
+    if (
+        bridge_manifest.get("generationVersion") != GENERATION_VERSION
+        or layout.get("actionColumns") != len(YAW_DEGREES)
+        or layout.get("actionRows") != len(FRAME_SAMPLES)
+        or layout.get("frameSamples") != list(FRAME_SAMPLES)
+        or layout.get("directionIndex") != expected_direction_index
+        or layout.get("cellPaddingFraction") != CELL_PADDING_FRACTION
+        or layout.get("transparentBackground") is not True
+    ):
+        raise RuntimeError("Published bridge layout contract mismatch")
+    expected_actions = {
+        (asset["id"], clip, action)
+        for asset in model_manifest["assets"]
+        for clip, action in zip(asset["actionClips"], asset["actions"])
+    }
+    expected_terrains = {
+        asset["id"]
+        for asset in model_manifest["assets"]
+        if asset["category"] == "terrain"
+    }
+    records = bridge_manifest.get("records", [])
+    actual_actions = {
+        (record["assetId"], record.get("clip"), record.get("action"))
+        for record in records
+        if record.get("kind") == "actionAtlas"
+    }
+    actual_terrains = {
+        record["assetId"]
+        for record in records
+        if record.get("kind") == "terrainPlate"
+    }
+    if actual_actions != expected_actions or actual_terrains != expected_terrains:
+        raise RuntimeError(
+            f"Published coverage mismatch: actions {len(actual_actions)}/{len(expected_actions)}, "
+            f"terrain {len(actual_terrains)}/{len(expected_terrains)}"
+        )
+    minimum_padding = float("inf")
+    minimum_animated_directions = len(YAW_DEGREES)
+    output_root = (project_root / "assets/images/battle/glb").resolve()
+    for record in records:
+        source = project_root / record["source"]["path"]
+        output = project_root / record["output"]["path"]
+        if not output.resolve().is_relative_to(output_root):
+            raise RuntimeError(f"Bridge output escapes runtime asset root: {output}")
+        if not source.is_file() or not output.is_file():
+            raise RuntimeError(f"Missing published bridge artifact: {record['assetId']}")
+        if sha256(source) != record["source"]["sha256"] or sha256(output) != record["output"]["sha256"]:
+            raise RuntimeError(f"Published hash mismatch: {record['assetId']}")
+        columns = record["layout"]["columns"]
+        rows = record["layout"]["rows"]
+        cell_width = record["layout"]["cellWidth"]
+        cell_height = record["layout"]["cellHeight"]
+        dimensions = (columns * cell_width, rows * cell_height)
+        if png_dimensions(output) != dimensions or dimensions != (
+            record["output"]["width"],
+            record["output"]["height"],
+        ):
+            raise RuntimeError(f"Published dimension mismatch: {record['assetId']}")
+        validation = record.get("visualValidation", {})
+        if (
+            validation.get("nonEmptyCells") != columns * rows
+            or validation.get("minimumEdgePaddingPx", 0) < 1
+        ):
+            raise RuntimeError(f"Published alpha/padding validation mismatch: {record['assetId']}")
+        minimum_padding = min(minimum_padding, validation["minimumEdgePaddingPx"])
+        if record["kind"] == "actionAtlas":
+            if validation.get("distinctDirectionColumns") != len(YAW_DEGREES):
+                raise RuntimeError(f"Published direction coverage mismatch: {record['assetId']}")
+            minimum_animated_directions = min(
+                minimum_animated_directions,
+                validation.get("animatedDirectionColumns", 0),
+            )
+    print(
+        f"GLB_RASTER_VERIFY records={len(records)} action_atlases={len(actual_actions)} "
+        f"terrain_plates={len(actual_terrains)} missing_actions=0 "
+        f"minimum_edge_padding_px={int(minimum_padding)} "
+        f"minimum_animated_direction_columns={minimum_animated_directions} "
+        f"manifest_sha256={sha256(bridge_manifest_path)}"
+    )
 
 
 
-def render_pack(project_root, size, asset_ids=(), publish=False):
+
+
+def render_pack(project_root, size, asset_ids=(), publish=False, skip_media_manifest=False):
     model_manifest_path = project_root / "assets/models/abyssal-command/manifest.json"
     model_manifest = json.loads(model_manifest_path.read_text())
     output_dir = project_root / "assets/images/battle/glb"
@@ -405,6 +623,7 @@ def render_pack(project_root, size, asset_ids=(), publish=False):
     configure_render(scene, size)
     records = []
     for asset in assets_to_render:
+        asset_records = []
         source_rel = f"assets/models/abyssal-command/{asset['path']}"
         source_path = project_root / source_rel
         source_hash = sha256(source_path)
@@ -413,9 +632,10 @@ def render_pack(project_root, size, asset_ids=(), publish=False):
         if asset["category"] == "terrain":
             bpy.context.scene.frame_set(1)
             bpy.context.view_layer.update()
+            framing = framing_for_clip(imported, root, (1,))
             camera_data = bpy.data.cameras.new("atlas_camera")
             camera_data.type = "ORTHO"
-            camera_data.ortho_scale = orthographic_scale(imported, root, (1,))
+            camera_data.ortho_scale = framing["orthoScale"]
             camera = bpy.data.objects.new("atlas_camera", camera_data)
             bpy.context.collection.objects.link(camera)
             scene.camera = camera
@@ -423,34 +643,45 @@ def render_pack(project_root, size, asset_ids=(), publish=False):
             output_rel = f"assets/images/battle/glb/{asset['id']}.png"
             staged_path = output_dir / ".staging" / f"{asset['id']}.png"
             staged_path.parent.mkdir(exist_ok=True)
-            width, height = pack_atlas(scene, camera, root, (1,), size, staged_path, True)
-            records.append(output_record(asset, source_rel, source_hash, staged_path, output_rel, width, height))
+            width, height, diagnostics = pack_atlas(
+                scene, camera, root, (1,), size, staged_path, True, framing
+            )
+            record = output_record(
+                asset, source_rel, source_hash, staged_path, output_rel, width, height, diagnostics
+            )
+            records.append(record)
+            asset_records.append(record)
+            write_chunk_records(output_dir, asset["id"], asset_records)
             continue
         if len(asset["actions"]) != len(asset["actionClips"]):
             raise RuntimeError(f"Action declaration mismatch for {asset['id']}")
         for action_name, clip in zip(asset["actions"], asset["actionClips"]):
             select_clip(imported, root, action_name)
-            scale = orthographic_scale(imported, root, FRAME_SAMPLES)
+            framing = framing_for_clip(imported, root, FRAME_SAMPLES)
             camera_data = bpy.data.cameras.new("atlas_camera")
             camera_data.type = "ORTHO"
-            camera_data.ortho_scale = scale
+            camera_data.ortho_scale = framing["orthoScale"]
             camera = bpy.data.objects.new("atlas_camera", camera_data)
             bpy.context.collection.objects.link(camera)
             scene.camera = camera
-            add_deterministic_lights(scene, root.matrix_world.translation, scale)
+            add_deterministic_lights(scene, root.matrix_world.translation, framing["orthoScale"])
             output_rel = f"assets/images/battle/glb/{asset['id']}__{clip}.png"
             staged_path = output_dir / ".staging" / f"{asset['id']}__{clip}.png"
             staged_path.parent.mkdir(exist_ok=True)
-            width, height = pack_atlas(scene, camera, root, FRAME_SAMPLES, size, staged_path, False)
-            record = output_record(asset, source_rel, source_hash, staged_path, output_rel, width, height, clip)
-            record["camera"] = camera_metadata(camera)
+            width, height, diagnostics = pack_atlas(
+                scene, camera, root, FRAME_SAMPLES, size, staged_path, False, framing
+            )
+            record = output_record(
+                asset, source_rel, source_hash, staged_path, output_rel, width, height, diagnostics, clip
+            )
+            record["camera"] = camera_metadata(framing)
             records.append(record)
+            asset_records.append(record)
             bpy.data.objects.remove(camera, do_unlink=True)
             for light in tuple(obj for obj in scene.objects if obj.name.startswith("atlas_") and obj.type == "LIGHT"):
                 bpy.data.objects.remove(light, do_unlink=True)
+        write_chunk_records(output_dir, asset["id"], asset_records)
     records.sort(key=lambda record: (record["assetId"], record["kind"], record.get("clip", "")))
-    for asset_id in sorted({record["assetId"] for record in records}):
-        write_chunk_records(output_dir, asset_id, [record for record in records if record["assetId"] == asset_id])
     if not publish:
         print(
             f"GLB_RASTER_CHUNK assets={len(assets_to_render)} "
@@ -475,10 +706,17 @@ def render_pack(project_root, size, asset_ids=(), publish=False):
             "actionRows": len(FRAME_SAMPLES),
             "frameSamples": list(FRAME_SAMPLES),
             "yawColumnsDegrees": list(YAW_DEGREES),
+            "directionIndex": [
+                {"column": column, "yawDegrees": yaw}
+                for column, yaw in enumerate(YAW_DEGREES)
+            ],
+            "cellPaddingFraction": CELL_PADDING_FRACTION,
+            "transparentBackground": True,
         },
         "records": records,
     }
-    sync_media_manifest(project_root, records)
+    if not skip_media_manifest:
+        sync_media_manifest(project_root, records)
     manifest_path = output_dir / "manifest.json"
     temporary = manifest_path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(raster_manifest, indent=2) + "\n")
@@ -487,7 +725,8 @@ def render_pack(project_root, size, asset_ids=(), publish=False):
         f"GLB_RASTER_PACK assets={len(model_manifest['assets'])} "
         f"action_atlases={sum(record['kind'] == 'actionAtlas' for record in records)} "
         f"terrain_plates={sum(record['kind'] == 'terrainPlate' for record in records)} "
-        f"outputs={len(records)} manifest={manifest_path}"
+        f"outputs={len(records)} manifest={manifest_path} "
+        f"media_manifest={'skipped' if skip_media_manifest else 'updated'}"
     )
 
 
@@ -520,7 +759,16 @@ def render_scene_directions(out_dir, size):
 
 
 args = parse_args()
-if args.pack:
-    render_pack(Path(args.project_root).resolve(), args.size, args.asset_id, args.publish)
+project_root = Path(args.project_root).resolve()
+if args.verify:
+    verify_pack(project_root)
+elif args.pack:
+    render_pack(
+        project_root,
+        args.size,
+        args.asset_id,
+        args.publish,
+        args.skip_media_manifest,
+    )
 else:
     render_scene_directions(args.out, args.size)

@@ -36,20 +36,22 @@
 - **TTK 밴드 (확정)**: 스테이지 클리어 시간 목표 S1 **75s ±15%**, S2 **100s ±15%**, S3 **120s ±15%** (인간 페이스 5–15s/act × 라이브 실측 9–17act/스테이지에서 유도. 봇 실측: 7.1/8.8/9.3s @0.5s/act).
 - 라이브 검증: 배포 사이트에서 47액션 풀캠페인 완주, S3를 integrity 0 직전 클리어. assault-우선 무모봇은 S2 사망(패배 도달 실증).
 
-## 3) 전투화면 (신규 확정 — SPA 4뷰)
+## 3) 전투화면 (현행 — 단일 화면 RTS 콕핏)
 
-캠페인 전환은 한 페이지 안의 네 서브 뷰로 고정한다. URL 이동·리로드·별도 씬 파일 없음, `hidden` 토글만 사용.
+캠페인 진행 중에는 전장·임무/보스 정보·상태 자원·7행동 명령 패드가 한 화면에 상주한다. 스테이지 진입은 작전 브리핑 modal, 승리/패배/보상은 콕핏 위 결과 overlay로 처리하며 URL 이동·리로드·별도 씬 파일은 없다.
 
 ```mermaid
 flowchart LR
-  Scenario[시나리오] --> BossSpec[보스 스펙]
-  BossSpec --> Battle[2.5D 버드아이 전투]
-  Battle --> Result[승리/패배 결과]
-  Result --> Reward[보상 선택]
-  Reward --> Scenario
+  Lobby[캠페인 로비] --> Briefing[작전 브리핑 modal]
+  Briefing --> Cockpit[전장 + 정보 레일 + 명령 패드]
+  Cockpit --> Result[승리/패배/보상 overlay]
+  Result --> Briefing
 ```
 
-- `#view-scenario` 내레이션·목표 진입점 / `#view-boss-spec` 보스 HP·반격·요구 거점 + 군주 스탯 / `#view-battle` Canvas 2D 2.5D 전장 + 컨트롤 패드 / `#view-result` 결과·단일 보상·재시도.
+- `#stage-briefing`: 목표·작전·교리·보스와 내레이션 진입점.
+- `#battle-field`: WebGL 주 전장과 Canvas 2D 폴백이 교대하는 중앙 전장.
+- cockpit 정보/명령 패드: `campaign-state.js` 파생 상태와 사용 가능한 행동을 상시 표시.
+- `#view-result`: 결과·보상·재시도를 전장 위에 격리하는 modal overlay.
 
 ### 컨트롤 패드 쿨타임 (UI 페이싱 레이어)
 
@@ -67,165 +69,169 @@ flowchart LR
 *(수치 소스: `app.js` COOLDOWN_SECONDS, `campaign-state.js` getCampaignBenefits — clamp(cooldownReduction, 0, 0.5))*
 **설계 원칙**: 쿨다운은 *실시간 페이싱 레이어*일 뿐, 상태 전이는 여전히 결정론 엔진이 판정한다. 세이브 트레이스에는 행동 순서만 기록되므로 리플레이 결정론이 유지된다.
 
-### 방어 전투(defended battle) — 2026-07-17 확정, 커밋 `2f3833c`
+### 방어 전투(defended battle) — 현행 선언형 인카운터
 
-전투 뷰는 관전 연출이 아니라 **방어 실패가 엔진 integrity를 실제로 깎는 방어전**이다. 웨이브를 막지 못하면 breach가 세이브에 기록된다.
+전투 뷰는 관전 연출만이 아니라, 렌더러가 제안한 `breach`·`wave-cleared` 사건을 `campaign-state.js`가 검증·기록하는 방어전이다. 웨이브 구성과 피해량은 프레젠테이션 상수가 아니라 각 스테이지의 `encounter` 선언이 소유한다.
 
-**웨이브 사이클** *(소스: `app.js` BATTLE_PREPARATION_MS=25_000, WAVE_GAP_MS=9_000, WAVE_LULL_MS=14_000, enemyCounts)*
+| 선언 필드 | 역할 |
+|---|---|
+| `preparationSeconds`, `preparationLegion`, `preparationNodes` | 첫 웨이브를 예약하기 전 준비 조건과 시간 |
+| `waves[].spawnAtSeconds` | 전투 시작 기준의 절대 웨이브 진입 시점 |
+| `waves[].hostiles`, `hostileHealth` | 렌더러가 시각화할 적 수와 로컬 교전 내구도 |
+| `waves[].breachDamage` | 권위 엔진이 수락된 breach에 적용할 피해 |
 
+Stage 1의 현행 선언은 준비 8초/legion 4/node 1, `scout` 8초·2기 → `guard` 22초·3기 → `reinforcement` 36초·3기이며 모두 hostileHealth 2, breachDamage 1이다. `app.js`는 이 선언을 읽어 다음 미해결 웨이브 하나만 예약한다. 반복 소강 루프나 렌더러별 별도 적 수 공식은 없다.
+
+**사건 흐름**
+
+```text
+준비 조건 충족 → start-wave(다음 선언 웨이브) → renderer 교전
+               → wave-cleared → 다음 spawnAtSeconds 예약
+               → breach → 권위 엔진이 해당 wave의 breachDamage 적용
+마지막 wave-cleared → bossExposed=true, spawningStopped=true
 ```
-준비 25s → 웨이브1 SCOUT → 9s → 웨이브2 GUARD → 9s → 웨이브3 BOSS REINFORCEMENT → 14s 소강(LULL 라벨) → 반복
-```
 
-- 웨이브당 적 수 `enemyCounts = [2, 2+stage, 3+stage]` — S1은 사이클당 2+3+4=9기(2HP 증원 포함 총 13스윙).
-- 소강 라벨 "LULL · REINFORCE THE PICKET LINE"은 사냥→추출→실체화 경제 루프를 돌리는 창이다. 한 루프(~11s)가 셰이드 ~4기(8스윙)를 공급하므로, **경제를 계속 돌리면 방어 가능하고 방치하면 출혈로 죽는다 — 경제 정지 = 죽음은 의도된 설계다.**
-
-**breach 소스 이원화** *(소스: `app.js` 52–58행 주석, `battle-visualizer.js` BREACH_X=1.2, `campaign-state.js` applyBattleBreach)*
-
-| 모드 | breach 트리거 | 방어 가능? |
-|---|---|---|
-| 라이브 심 (기본) | 적이 Dusk Portal에 **시각적으로 도달** (x ≤ BREACH_X=1.2 → `BattleVisualizer.onEnemyBreach` → `applyBattleBreach`) | **가능** — 피켓 방어·요격·재배치로 저지 |
-| reduced-motion / 렌더러 폴백 | 타이머 — 웨이브당 `⌈적 수 × SIMULATED_BREACH_RATIO(0.5)⌉`건이 BATTLE_BREACH_DELAY_MS(20s) 후 발동 | 불가 — 그래서 절반만·긴 퓨즈로 관대하게 |
-
-- breach 판정은 엔진 소유: aegis 우선 소모 → 없으면 integrity −1 → 0이면 패배 뷰. **`battle-breach` 이벤트는 세이브 트레이스에 기록되어 리플레이가 보존된다** (`campaign-state.js` replaySaveEnvelope가 재생).
-
-**피켓 방어 AI** *(소스: `battle-visualizer.js` PICKET_X=5.5, INTERCEPT_RANGE=3, GOAL_X=13.8, engagedT)*
-
-- 아군 셰이드는 기본적으로 **PICKET_X=5.5 방어선**(거점 전방)에서 대기하고, **INTERCEPT_RANGE=3타일** 내 적을 자동 요격한다.
-- 교전 중에는 `engagedT` 잠금으로 이동이 멈춘다 — 스윙 중 미끄러짐 없음.
-- **Assault(A) 시에만** GOAL_X=13.8로 전군 돌격(속도 5.2, 이동 명령 무시). 이동 명령(클릭)을 받은 유닛은 도착 후 잠시 홀드.
-
-**교전 리듬** *(소스: `battle-visualizer.js` CLASH_TICK_S=0.55, spawnAlly/spawnEnemy hp)*
-
-- 스윙은 **CLASH_TICK_S=0.55s 틱** 단위 — 유닛당 틱마다 최대 1스윙이라 2HP 셰이드가 1HP 정찰 둘을 눈에 보이게 버티며 막는다(프레임 단위 증발 방지).
-- 내구도: 셰이드 **2HP**(빙의 셰이드 **4HP**) / Scout **1HP** / Guard **1HP** / Reinforcement **2HP**.
-- 속도: 셰이드 1.4–1.9, Scout 1.5–1.9(측면 차선 우회), Guard·Reinforcement 0.9–1.3.
-
-**표현 전용 재배치(redeploy)** *(소스: `app.js` handleAction 937–959행)*
-
-- 엔진 legion이 만석이라 materialize가 거부되어도, 시각 필드의 아군이 교전으로 소모되었다면(`visualizer.allies.length < stage.legion`) **M이 시각 필드만 재충원**한다. 재충원 수 = min(2+summonBonus, legion − 필드 아군 수).
-- **엔진 전이 없음, 세이브 이벤트 없음, 리플레이 무영향.** 쿨타임은 동일하게 시작(페이싱 유지).
+- WebGL과 Canvas는 적이 포털 경계를 통과하면 현재 `stageId/waveId`의 `breach`를 제안한다. 엔진은 활성화된 다음 선언 웨이브와 일치할 때만 수락한다.
+- 수락된 breach는 configured `breachDamage`만큼 aegis를 먼저 소모하고 남은 피해를 integrity에 적용한다. `encounter` 의미 이벤트가 세이브 trace에 기록되므로 리플레이는 렌더 프레임이 아니라 사건 기록을 재생한다.
+- Canvas는 `PICKET_X=5.5`, `INTERCEPT_RANGE=3`, `CLASH_TICK_S=0.55`의 피켓 방어 연출을 유지한다. 아군 표시 내구도는 3, 적 표시 내구도는 웨이브 `hostileHealth`에서 읽는다. 이 로컬 수치는 캠페인 legion/integrity 수식이 아니다.
+- WebGL은 원형 충돌 probe, 지형 고도/절벽 제한, 아군 요격·집결, 적 포털 전진으로 같은 선언 웨이브를 시각화한다.
+- Assault는 보스 노출 뒤의 권위 `boss-assault` 사건으로만 보스 수치를 바꾼다. 이동·교전 클립과 파티클은 그 결과를 표현한다.
 
 **캔버스 HUD** *(소스: `battle-visualizer.js` setHud/drawHud, 붉은 비네트 935행)*
 
 - 좌상단 integrity 핍(채움=잔여, ≤3이면 적색 `#ff7f79`), aegis 보유 시 `AEGIS xN` 카운터, 우상단 보스 바(`BOSS n/max`).
 - breach 순간 화면 가장자리 **적색 비네트 펄스** — "breach는 로그가 아니라 체감되어야 한다."
 
-### 검증된 플레이 라인 (2026-07-17 라이브 실측)
-
-| 라인 | 결과 | 의미 |
-|---|---|---|
-| S1 러시 | **14s 클리어** | 최속 경로 성립 |
-| S2 빙의→총공격 | **23s 클리어** | 스테이지 메커닉(빙의) 경유 최속 |
-| S3 신중(풀 군단+도메인) | **20s 클리어** | 준비된 군단의 보상 |
-| S3 러시 | **9s 사망** | 얇은 군단 처벌 재현 — 의도된 교훈 |
-| S2 지속 방어 | 재배치 순환으로 **150s 유지** (integrity 6/10) | 방어 경제 루프가 장기전을 지탱함을 실증 |
-
-이 라인들은 방어 전투의 경계 검증(최속/사망/지속)이지 TTK 목표(§2, 인간 페이스 75–120s)의 대체가 아니다.
 
 ### 보상 확장 (전투화면 기획 반영)
 
 - Stage 1: Ember Cohort(Materialize당 +2기) / Rift Lens(빙의 총공격 +4) / **Stillwater Hourglass(쿨타임 −20% + 2번째 Hunt 자동 추출)** / **Bulwark Brand(반격 −2, 하한 1 — id `shadebreaker-brand`)**.
 - Stage 2: Veil Vanguard(S3를 legion 4로 시작) / Anchor Shard(S3 진입 integrity +2) / **Abyssal Banner(시작 aegis 1 + Materialize당 +1기)**.
 
-*수치 소스: `campaign-state.js` BALANCE — cohortSummonBonus 2, lensDamage 4, hourglassCooldownReduction 0.2, brandCounterReduction 2, vanguardLegion 4, anchorRestore 2, bannerInitialAegis 1, bannerSummonBonus 1.*
-- `getCampaignBenefits(state)`가 화면·전투 공유 파생 스탯의 단일 소스.
+*수치 소스: `campaign-state.js`의 `STAGES[].rewards[].effects` — `materializeBonus:2`, `possessedAssaultBonus:4`, `cooldownMultiplier:0.8` + `autoExtract:true`, `counterReduction:2`, Echo Throne `stageEntry.legion:4` / `stageEntry.integrity:2`, `entryAegis:1` + `materializeBonus:1`.*
+- `getCampaignBenefits(state)`가 이 effect를 화면·전투용 파생 필드로 투영하는 단일 소스다.
 
-### 전장 구현 (2026-07-17 확정 — 2:1 이등각 아키텍처)
+### 전장 구현 (2026-07-18 현행 — WebGL 주 렌더러 + Canvas 2D 폴백)
 
-전투 뷰는 기술 보고서(2.5D RTS 종합 아키텍처)를 반영해 **Canvas 2D 2:1 이등각(dimetric)** 렌더러로 구현되었다 (`iso-math.js` + `battle-visualizer.js`, WebGL/Three.js 의존 제거):
+전투 뷰는 정적 Web/PWA에서 두 표현 경로를 운용한다. **주 경로는 Three.js/WebGL `RealtimeBattle`**, reduced-motion 또는 WebGL/GLB 초기화 실패 경로는 **Canvas 2D `BattleVisualizer`**다. 두 렌더러 모두 `campaign-state.js`가 확정한 캠페인/인카운터 상태를 표현한다. 렌더러는 `breach`·`wave-cleared` 후보 이벤트를 전달할 수 있지만, 프레젠테이션 자산이 캠페인 수치를 직접 쓰지는 않는다.
 
-- **투영**: `x_s = (x_w−y_w)·32, y_s = (x_w+y_w)·16 − z_w·16` (타일 64×32, 수평선 ≈26.565°). 평행 투영 — 원근 축소 없음, 유닛 크기 항상 일정.
-- **고저차 지형**: 스테이지별 하이트필드 16×8 (S1 다리+심연, S2 쌍둥이 고원, S3 왕좌 계단). 마우스 피킹은 **칼럼 스캔**(최상단 고도부터 z별 역산 검증) — 경사/절벽에서 정확.
-- **뎁스 소팅**: painter key = `(x+y) + z·0.001 + layer` (ground<prop<unit<fx). **분할 소팅 큐** — 정적 지형은 오프스크린 캔버스에 1회 캐시, 동적 유닛/파티클만 매 프레임 정렬.
-- **드래그 선택**: 비물리 스크린 필터 루프 — 유닛 월드좌표를 화면 투영 후 `Rect.contains` 판정 (물리 박스캐스트 불일치 문제 원천 배제). 선택 후 클릭 = A* 이동 명령(경사 인지, 절벽 차단) + 분리 조향(간이 ORCA).
-- **공간 오디오**: 가상 리스너를 화면 지면 초점(중앙 상단 42% 지점)에 오버라이드. 하단 음원은 근접 증폭, 상단 음원은 로우패스+감쇠 (비대칭 감쇠 — Hades 기하 보정). WebAudio 오실레이터 합성.
-- **시드 고정 연출 RNG** (mulberry32): 같은 리플레이 = 같은 안무. 엔진 접점은 여전히 breach 콜백 하나뿐.
-- **불변식 테스트**: `tests/iso-math.test.mjs` 14개 (왕복 정합·2:1 비율·고도 오프셋·칼럼스캔 가림·뎁스 순서·A* 4종·조향·rect·8방향·PRNG) — 뮤테이션 5종 전부 킬 확인.
-- 이탈·재시도 시 rAF/타이머/포인터 핸들러/AudioContext/스프라이트 캐시 전부 해제 — 반복 전투 리소스 누적 0 불변식 유지.
+- **주 WebGL 경로**: 스테이지 지형 1종 + `shade.glb` + `scout.glb` + 스테이지 보스 1종, 총 4개 템플릿을 로드한다. v2 GLB 팩은 ground-center pivot, 내장 albedo/normal, 선언 액션, 빌드 recipe·측정값·원본/출력 SHA-256을 기록한다.
+- **WebGL 실제 채택 범위**: 적 웨이브는 현재 모두 `scout.glb`를 복제하고 웨이브 id를 아키타입 메타데이터로 둔다. `guard`·`reinforce` 메시가 리소스 팩에 있어도 주 렌더러의 적 실루엣으로는 아직 채택되지 않았다.
+- **Canvas 2D 경로**: `iso-math.js`의 2:1 dimetric 투영, 하이트필드, 칼럼 스캔 피킹, painter queue, A* 이동, 분리 조향을 유지한다. 런타임에 GLB 파서나 별도 WebGL 컨텍스트를 추가하지 않는다.
+- **GLB raster bridge**: `assets/images/battle/glb/manifest.json`의 `glb-raster-pack-v1`을 읽는다. 현행 45레코드는 액션 아틀라스 42개 + 지형 플레이트 3개이며, 15개 GLB 원본 전체와 원본/출력 SHA-256을 추적한다.
+- **아틀라스 계약**: 액션 PNG는 1024×512(8방향 열 × 원본 프레임 1/10/20/30의 4행, 128px 셀), 지형은 128×128 정적 plate다. 정사영 카메라 고도 30°, yaw 45° 간격이다. 4 frame×8 yaw의 evaluated bounds와 root translation으로 10% 투명 moat를 잡았고 현행 최소 edge padding은 12px, 모든 action atlas의 animated direction column은 8개다.
+- **브리지 부분 실패**: 유닛은 conceptual `dusk-legion-atlas.png`(8방향 × 2 idle-light phase) → 진영색 절차 실루엣, 보스는 스테이지 이미지 → 절차 삼각형, 지형은 절차 타일로 저하된다.
+- **Stage 4–10 자산 면제**: 3종 지형/보스 GLB를 재사용한다. WebGL은 스테이지 `palette.hostile` 틴트, Canvas는 고유 보스 초상으로 정체성을 보조한다. 이는 고유 보스 실루엣을 대체한 것이 아니라 명시된 리소스 예산 면제다.
+- **리소스 해제**: 전투 이탈·재시도 시 rAF, 타이머, 이벤트, AudioContext, mixer, 브리지 이미지/스프라이트 캐시를 해제한다.
 
-**3D→2D 스프라이트 파이프라인 검증**: `scripts/render-8dir-atlas.py` — Blender 오소그래픽 카메라(피치 60°, 요 45° 스텝, 루트 고정 피벗 orbit) → 8방향 렌더 → ffmpeg tile 아틀라스. gate-sovereign.blend 실증: 8프레임 5.7s, 192KB 아틀라스. `directionIndex()`가 이동 벡터→시트 인덱스 매핑을 담당.
+### 현재 남은 프레젠테이션 채택 경계
 
-### 진행 중 (예정 — 미구현)
+- `shade/possessed/scout/guard/reinforce-atlas.png` 5종은 1024×128 단일행 8방향 레거시 산출물로 저장되어 있지만 현행 JS가 직접 선택하지 않는다.
+- `sovereign-atlas.png`는 Stage 3 보스의 보조 이미지로 참조되며, `gate-sovereign__Idle` 브리지 아틀라스가 먼저 선택된다.
+- `guard`, `jump`, `evade`, `explore`는 구현 완료된 행동 동사가 아니다. 현행 액션 어휘는 아래 5/3/2클립 계약만 canonical이다.
 
-- **단일 화면 RTS 콕핏 재구성**: 현재 4개 순차 뷰(scenario→boss-spec→battle→result)를 **하나의 화면으로 통합** 예정. 전장 캔버스 중심 + 상태/목표/명령 패드 상시 표시, 결과는 오버레이. `hidden` 토글 전환은 콕핏 통합 전까지의 현행 구조.
-- **3D 리소스**: Blender 8방향 스프라이트 아틀라스(shade/possessed/scout/guard/reinforce/boss) 생산 및 유닛 렌더링 적용 예정 — 검증된 `scripts/render-8dir-atlas.py` 파이프라인(§3 전장 구현) 사용.
+## 4) 리소스 현황과 단일 추적선
 
-## 4) 리소스 계획 (던전·플레이어·적·스킬·이펙트·사운드·애니메이션·오브젝트)
+상세 인수 기준은 `_workspace/20260718-resource-refinement/design/presentation-spec.md`가 소유한다. 이 문서의 canonical 요약은 다음과 같다.
 
-현재 전투화면은 절차 프리미티브(콘/박스/격자/파티클)로 동작한다. 아래 표가 리소스 승격 계획이다. **파이프라인 원칙: 모든 이미지 리소스는 gti(갓티보이미젠) 컨셉 페인터리 스타일(픽셀아트 아님), 오디오는 ElevenLabs, 메시는 Blender headless → 스프라이트 렌더.**
-
-| 분류 | 현존 | 필요 (우선순위) | 파이프라인 | 통합 지점 |
-|---|---|---|---|---|
-| **던전(전장)** | 스테이지 배경 3종(PNG), 스토리보드 JPG 5종 | P1: 스테이지별 전장 바닥 텍스처 3종(1024² tileable), 포털 아트 2종(Dread/Dusk) | gti painterly → 512 다운스케일 → Three.js plane/portal 텍스처 | `battle-visualizer.js` ground/portal 머티리얼 |
-| **플레이어(Dusk Warden)** | 보스 초상 3종(패널용), 레거시 knight.png | P1: 전투 유닛 스프라이트 idle/walk/strike 3포즈 · P2: cast/guard/dash/jump 4포즈 추가 (4.1 동사 사전의 포즈 열 기준) | gti 포즈 시트(perfectpixel 방법론, 컨셉스타일) → 알파 정리 → 스프라이트 | 아군 유닛 메시 → 빌보드 스프라이트 교체 |
-| **적(웨이브)** | 레거시 unit_voidspawn.png | P1: Scout/Guard/Reinforcement 3종 스프라이트 · P2: 보스 전투 형태 3종 | 동일 gti 파이프라인, 적은 실루엣 대비 강조(가독성 G4) | 웨이브 유닛 메시 교체 |
-| **스킬(7액션)** | UI 아이콘 7종(부착 완료) | P2: materialize/domain/assault 캐스트 플립북(8–12프레임) | gti 키프레임 → ffmpeg 플립북 시트 | 액션 성공 시 파티클 위에 오버레이 |
-| **이펙트** | 절차 파티클 4종(소환/추출/영역/총공격), CSS visual-effect | P1: breach 경고 링, 노드 점령 링 (절차 유지 — 텍스처는 P3) | 절차 우선(성능 예산 이미 green), 필요 시 스프라이트 | `battle-visualizer.js` 파티클 시스템 |
-| **사운드** | SFX 8종 + 내레이션 6종 + ambient + bgm-theme | P1: breach 경보 1종 · P2: 전투 전용 BGM 1종, 웨이브 스폰 큐 1종 | ElevenLabs sound-generation (기존 `tmp/generate-audio.mjs` 재실행 패턴) | `CUE_BY_EFFECT` 확장 + 전투 뷰 진입/이탈 BGM 스왑 |
-| **애니메이션** | 타이핑 엔진, CSS 이펙트, 파티클 | 단기: 이미지 플립북(위 스킬 행) · 장기: Blender 리깅→액션→스프라이트 시트 렌더 | **리깅 경로는 Blender GUI/xvfb 필요** (headless는 MCP 애드온 불가 — 실측 제약). gate-sovereign.blend(661폴리)가 리깅 시작점 | 플립북이 기본, 리깅은 P3 |
-| **오브젝트** | gate ring(엠블럼), 절차 노드/포털/콘 | P2: 마력 거점(tech node) 아트, 영혼 웅덩이(soul pool) 아트, 왕좌 프롭 | gti 또는 Blender 저폴리(661폴리 파이프라인 재사용, 9.2s/렌더) | 노드/풀 메시 교체 |
-
-- 명명 규칙: `assets/images/battle/{category}-{name}-{variant}.png`, `assets/audio/battle-*.mp3`.
-- 각 배치는 프로덕션 계약의 권리 기록(출처·모델·프롬프트·SHA-256) 필수.
-- 용량 가드: 스프라이트 배치당 ≤1MB(quantize 256색), 전장 텍스처 3종 ≤1.5MB, SW 캐시 레지스트리 갱신 동반.
-
-### 4.1 유닛 행동 동사 사전 (이동·타격·시전·탐색·정찰·점프·방어·회피)
-
-전투 뷰의 모든 움직임을 아래 동사 사전으로 고정한다. **권위 열이 핵심 불변식**: 승패에 닿는 판정은 전부 결정론 엔진(campaign-state)이 소유하고, 전투 레이어 동사는 표현이거나 기록되는 상태 전이(`battle-breach` 계열)만 만든다. 표현 로직이 결과를 직접 바꾸면 리플레이가 깨진다.
-
-| 동사 | 발동 | 전투 레이어 로직 | 결과 권위 | 포즈/프레임 | 사운드 |
-|---|---|---|---|---|---|
-| **이동 move** | 목표 노드/적/포털 존재 | 경로 = 직선 + 분리 조향(유닛 간 최소거리), 250ms 재계획 | 표현 전용 | walk 2f 루프 | 발소리 스텝 큐(옵션) |
-| **타격 strike** | 사거리 내 적 + 유닛 쿨다운 | 근접 스윙 연출 + 히트 스파크, 데미지 숫자는 엔진 assault 판정만 표기 | **엔진** (assault/counterblow) | strike 1f + 스윙 트레일 | assault.mp3 재사용 |
-| **스킬시전 cast** | 플레이어 액션 성공 이벤트 수신 | 캐스트 플립북 + 파티클 (materialize/domain/assault) | **엔진** (모든 스탯 변화) | cast 1f + 플립북 8–12f | 해당 액션 SFX |
-| **탐색 explore** | 유휴 ≥3s | 주변 웨이포인트 순회, 전투 시작 시 즉시 중단 | 표현 전용 | walk 재사용 | 없음 |
-| **정찰 scout** | Scout 아키타입 전용 | 외곽 호 경로 순찰, 아군 접근 시 발견 링 표시 | 표현 전용 (발견은 연출) | walk 고속 재생 | hunt.mp3 (sonar) 재사용 |
-| **점프 jump** | 지형 단차/노드 진입 연출 | 포물선 보간 0.4s, 착지 먼지 파티클 | 표현 전용 | jump 1f | 착지 임팩트(P2 신규) |
-| **방어 guard** | 피격 예측 창(반격 이벤트 수신 직전) | 가드 포즈 + 실드 플래시, legion-shield 흡수량을 시각화 | **엔진** (shield 수식) | guard 1f | capture.mp3 저역 변형 |
-| **회피 evade** | 광역 이펙트 범위 내 + 회피 굴림 성공 | 0.3s 대시 + 잔상, 실제 피해 감소는 없음(연출) — 피해 판정은 엔진 반격 수식 그대로 | 표현 전용 | dash 1f + 모션 블러 | whoosh(P2 신규) |
-
-- 동사별 트리거·지속·페이드 파라미터는 `battle-visualizer.js` 상수 블록에 집중 (BALANCE 노브와 동일한 단일 소스 원칙).
-- 포즈 시트는 P1 3포즈(idle/walk/strike) → P2 4포즈 추가(cast/guard/dash/jump). 플립북과 포즈는 같은 gti 배치로 생성해 톤 일치.
-
-### 4.2 AI NPC (시드 고정 FSM)
-
-> **구현 현황 (2026-07-17)**: 방어 축은 이미 출하되었다 — 피켓 대기·요격·교전 잠금·Assault 돌격·Scout 측면 차선이 `battle-visualizer.js`에 라이브 (3장 방어 전투 참조). 아래 FSM은 남은 표현 동사(guard/evade/jump 연출 등)의 목표 모델이다.
-
-유닛 ≤30기·상태 6종 규모에서 행동 트리는 과설계 — **시드 고정 FSM**으로 확정한다. 전투 시작 시 결정론 시드(mulberry32, 캠페인 trace 길이에서 유도)를 고정해 같은 리플레이 = 같은 연출을 보장한다.
-
-```
-spawn → advance → engage ⇄ reposition → retreat(HP≤25% 표현치) → despawn
-                    ↓ (포털 도달)
-                 breach (기록되는 상태 전이 — 엔진 판정)
-```
-
-| 아키타입 | 소속 | 정책 | 사용 동사 |
+| 단계 | 현행 자산/계약 | 다음 단계 | 런타임 |
 |---|---|---|---|
-| Scout | 적 웨이브 1 | 외곽 정찰 → 최초 발견 아군에 직행, 회피 우선 | scout, move, evade, strike |
-| Guard | 적 웨이브 2 | 정면 진격, 30% 확률 guard 후 반격 | move, guard, strike |
-| Reinforcement | 적 웨이브 3 | 보스 콘 호위 → 포털 직행(breach 위협) | move, jump, strike |
-| aggressor | 아군 그림자 | 최근접 적 추적·타격 | move, strike, evade |
-| defender | 아군 그림자 | 노드/Dusk Portal 반경 방어, 이탈 금지 | move, guard, strike |
-| caster | 아군 그림자 | 플레이어 시전 시 동조 연출(오라/링) | cast, move |
+| **메시·재질** | v2 `abyssal-command` 15 GLB: 유닛 5, 보스 3, 프롭 4, 지형 3; flat-shaded PBR, bevel edge, 내장 텍스처, ground-center, 빌드 recipe·측정값·SHA-256 | `<asset-id>-root`, 팩 `manifest.json` | WebGL 또는 Blender 래스터 생성기 |
+| **리깅·액션** | 유닛 5클립, 보스 3클립, 프롭 2클립, 지형 정적; 유닛 `body-control`/`equipment-control` 보조 채널, 클립별 channel 수 6/5/5/6/4, `Move` root translation 없음 | `<asset-id>__<Clip>` 선언 이름/순서 | `RealtimeBattle.play()` / `render-8dir-atlas.py` |
+| **스프라이트** | `glb-raster-pack-v1`, 45레코드, 8열×4행/128px 셀 | 브리지 매니페스트·출력 SHA-256 | Canvas 동일 출처 PNG; GLB 파서 없음 |
+| **오디오·비디오** | MP3 의미 큐/내레이션/ambient/BGM, MP4 전환·선택형 시네마틱 | 의미 행동·스테이지 키, 미디어 해시 | 수락된 행동·브리핑·로비에만 결합 |
+| **런타임** | WebGL → Canvas → 이미지/도형/텍스트 폴백 | 로드 상태와 캠페인 상태 분리 | 결과 권위는 항상 `campaign-state.js` |
 
-- **AI 틱 250ms** (씬 전환 우선순위 갱신 주기와 동일), 프레임 예산: 30유닛 기준 틱당 ≤2ms — p95 9.2ms 실측 대비 여유 유지.
-- 아군 그림자 아키타입 배분은 materialize 순서로 순환(aggressor→defender→caster) — 결정론 유지.
-- retreat는 표현 체력(연출용 HP 바)에만 반응; 엔진 integrity와 혼동 금지. breach만이 엔진에 닿는 유일한 AI 산출.
+### 4.1 아트 디렉션과 실루엣 규칙
 
-## 5) 연출·미디어 파이프라인 (확정 운영)
+**아트 문장**: 차갑고 무거운 저폴리 군세가 심연의 발광 균열을 둘러싸고, 제한된 색과 날카로운 가장자리로 명령 가능한 실루엣을 만든다.
 
-- **내레이션**: 스테이지 진입/승리/패배마다 한국어 음성 + 타이핑(28ms/char, reduced-motion 즉시, sr-only 미러).
-- **시네마틱**: 3단계 프로토콜 — ① FFmpeg concat/xfade 초안 ② Remotion 규칙 바인딩 ③ 폴리싱. 검수 지표: 컷 전환 지연 ≤0.5s, 싱크 오차 ≤150ms, 텍스트 노출 ≥1.2s, CTA ≥2.5s.
-- **산출물 표준**: `scene_script.csv / shot_sheet.csv / audio_cue.csv / subtitles.csv / vfx_priority.csv` 스키마 필드 불변.
-- **8씬 상태기계**: `0 침투개막 → 1 유닛창출 → 2 노드분쟁 → 3 교전확장 → 4 Shift-Back → 5 보주반격 → 6 보스정점 → 7 귀환/영속`. 전환 우선순위: 생존복구 > 역전 > 압박유지 (250ms 갱신). 현재 씬0~7 시네마틱 자산 생성 완료(v100~v102 병합본 워크스페이스에 존재).
-- **플레이 영상**: Remotion 컴포지션(`tools/promo-video/`) — 타이틀 → 라이브 캡처 → 엠블럼 아웃트로, 67.9s/4.7MB 배포됨.
+1. subdivision으로 면을 둥글게 하지 않는다. 기존 faceted plane과 bevel edge가 작은 화면에서 면 전환을 만들게 한다.
+2. 색을 제거해도 `shade`의 양 sickle/X·후방 cloak tail, `scout`의 창·quiver/scarf, `guard`의 tower shield·halberd H, `reinforce`의 horn crown·중량 maul, `possessed`의 halo·비대칭 결정이 구분되어야 한다.
+3. 8방향은 색이 아니라 어깨·망토·무기 겹침과 negative space로 구분한다. 정면/후면과 좌우 대각이 같은 윤곽이면 불합격이다.
+4. 모든 root와 authored body/plinth 지면 중심은 ground-center이며 authored Z-up/runtime Y-up 최저점이 0m다. 포즈 중 하단 접점이 잘리거나 그림자에서 뜨면 안 된다. 비대칭 장비로 전체 AABB 수평 중심이 최대 0.272168m 어긋나는 것은 허용한다.
+5. 검수 크기는 원본 128px만이 아니다. Canvas의 일반 유닛 약 64px, 강화 적 약 76px, 보스 약 82px에서도 머리·무기·진영이 읽혀야 한다.
+6. 아군=청록/냉색, 적=적색·주황/온색, 빙의·영역=보라, 목표·권위=금색을 우선하되 실제 값은 `battle-presentation.js`의 스테이지 팔레트를 따른다.
+7. 파티클·링·트레일은 접촉점과 의미 대상을 강조한다. 몸통 외곽선, 선택 링, 포털, 노드, 보스 노출 상태를 장시간 가리지 않는다.
+
+### 4.2 현행 행동 동사와 포즈 목적
+
+행동 결과는 먼저 `campaign-state.js`/인카운터 이벤트가 수락한 뒤 표현된다. 거부되거나 쿨다운 중인 입력에는 포즈·사운드·효과를 재생하지 않는다.
+
+| 의미 행동 | 표현 소스 → 대상 | 포즈 | 전달 목적 | 결과 권위 |
+|---|---|---|---|---|
+| **Hunt** | portal → extractor | `shade__Special` | 탐지 개시와 목표 포착 | 엔진 |
+| **Extract** | extractor → portal | `soul-extractor__Activate` | 영혼 흡입과 회수 | 엔진 |
+| **Materialize** | portal → portal | `rift-portal__Activate`, commander `Special` | 군단 생성 | 엔진 |
+| **Capture** | portal → node | `command-obelisk__Activate` | 거점 잠금 | 엔진 |
+| **Possess** | portal → ally | `possessed__Special` | 제어권 전이 | 엔진 |
+| **Domain** | portal → portal | `echo-throne__Activate` | 영역 개방 | 엔진 |
+| **Assault** | ally → boss | `shade__Strike`, 노출 보스 `Attack` | 가장 무거운 공격 결산 | 엔진 |
+
+| 액션 클립 | 포즈 목적 | 현행 사용 |
+|---|---|---|
+| 유닛 `Idle` | 병종·무기 방향을 읽는 안정 기준 | 정지 actor |
+| 유닛 `Move` | 진행축·속도·발 접지 | commander/ally/enemy 이동 |
+| 유닛 `Strike` | 예비→접촉→회수의 한 타 | 근접 교전, Assault |
+| 유닛 `Special` | 일반 타격과 다른 소환·탐색·빙의·영역 신호 | 의미 행동, 아군 생성 |
+| 유닛 `Defeat` | 높이와 전투 가능 실루엣 해제 | 로컬 교전 패배 뒤 `Defeat`에 latch |
+| 보스 `Idle/Attack/Defeat` | 위협 유지/반격 강조/정점 종료 | 권위 상태를 표현만 함 |
+| 프롭 `Idle/Activate` | 기능 위치/수락된 상호작용 표시 | Canvas 의미 대상 |
+
+브리지의 4개 행은 새 4포즈가 아니라 같은 액션의 프레임 1/10/20/30 샘플이다. reduced-motion에서는 첫 행만 사용하고, 정상 Canvas는 125ms 간격으로 네 행을 순환한다.
+
+## 5) 사운드·시네마틱 전달 계약
+
+### 사운드 큐 역할
+
+| 큐 | 의미 역할 |
+|---|---|
+| `hunt.mp3` | 탐지 시작과 표적 포착 |
+| `extract.mp3` | 흡입·회수 완료 |
+| `materialize.mp3` | 질량이 생기는 상승형 소환 |
+| `capture.mp3` | 짧은 점령 잠금 |
+| `possess.mp3` | 주체 사이 제어권 전이 |
+| `domain.mp3` | 넓고 지속적인 영역 개방 |
+| `assault.mp3` | 가장 무거운 공격 결산 |
+| `reward.mp3` | 보상 선택 수락과 다음 상태 진입 |
+| `wave-spawn.mp3` | 권위 `start-wave` 수락과 적 진입 |
+| `breach-alert.mp3` | 권위 `breach` 수락과 방어선 손실 경보 |
+| `battle-bgm.mp3` | 사용자가 BGM을 켠 뒤 전투 장면의 압박 루프 |
+
+- 수락된 7행동은 WebGL에서 해당 MP3를 3D sample로 재생하고, Canvas에서는 가상 리스너 기반 oscillator gesture로 전달한다. 근접 충돌·defeat·wave-clear의 짧은 절차 tone은 고빈도 공간 피드백이며 app-level MP3 의미 큐를 대체하지 않는다.
+- `wave-spawn.mp3`와 `breach-alert.mp3`는 직렬화된 인카운터 사건 큐가 각각 권위 `start-wave`/`breach`를 수락한 뒤 단일 비공간 cue player로 재생한다. 동일 큐 150ms guard가 중첩을 억제한다.
+- `ambient.mp3`는 전투 중 별도 사용자 토글, `bgm-theme.mp3`↔`battle-bgm.mp3` 장면 전환은 사용자가 BGM을 켠 뒤에만 반복 재생한다. 전투 이탈은 cue/ambient source를 해제하고, BGM이 활성화되어 있었다면 로비 테마를 복원한다. 자동재생하지 않는다.
+- `narr-intro`, `narr-stage1/2/3`, `narr-victory`, `narr-defeat`는 같은 텍스트 타이핑·screen-reader 문장과 결합한다. Stage 4–10은 현재 텍스트 내레이션만 있다. `click.mp3`는 공급 파일이지만 현행 JS 직접 참조가 없다.
+
+### 시네마틱 목표와 런타임 폴백
+
+- 로비 시네마틱은 사냥→추출→소환→거점→빙의/영역→보스 압박→귀환의 판타지를 요약하는 **선택형** 매체다. 재생을 캠페인 시작 조건으로 만들지 않는다.
+- Stage 1–3 전환 영상은 장소 분위기를 5초 안에 전달한다. 목표·보스명·명령은 텍스트 브리핑이 소유한다.
+- 신규/갱신 MP4 목표는 H.264, yuv420p, 960×540, 24fps, faststart다. 현행 전환 경로는 `cinder-span.mp4`, `veil-citadel.mp4`, `echo-throne.mp4`를 참조하지만 shared inventory는 세 파일의 출처·해시만 완전히 추적하고 코덱/프레임률/faststart 검증 artifact는 보유하지 않는다. 따라서 전환 영상은 이 프로필을 통과했다고 선언하지 않는다.
+- 현행 `abyssal-surge-cinematic.mp4`는 H.264 High/yuv420p/960×540/24fps/faststart, 19.02초, AAC-LC다. 3개 VTT cue와 시각 설명문이 실제 3전장 몽타주 시간축에 맞는다.
+- 로비 영상은 Cinder poster, `preload="none"`, 사용자 버튼 로드, 최초 음소거, `playsinline`, native controls, 한국어 VTT, MP4 직접 링크를 쓴다. loading/ready/playing/paused/ended/unavailable 상태를 알리고 unavailable 시 링크·시각 설명문·텍스트 브리핑을 유지하며 다음 재생 요청으로 canonical MP4를 다시 로드한다.
+- reduced-motion에서는 스테이지 전환 MP4를 로드하지 않고 정적 stage art와 텍스트를 유지한다.
+
+### 런타임 폴백 사다리
+
+1. `RealtimeBattle` WebGL + GLB 연속 액션.
+2. reduced-motion/초기화/컨텍스트/GLB 실패 시 정적 전술 브리핑 sidecar와 `BattleVisualizer` Canvas 2D를 표시한다.
+3. Canvas가 초기화되면 명령 패드는 계속 활성이다. Canvas 초기화 자체가 실패하면 정적 브리핑은 남지만 `visualizer=null`이므로 행동 입력은 renderer 복구 전까지 비활성이다.
+4. 브리지 일부 실패 시 conceptual 8방향 atlas/스테이지 이미지/절차 도형·타일.
+5. 오디오 실패 시 무음 + 시각/상태/접근성 문구 유지.
+6. 비디오 실패 시 정적 stage art + fallback 링크 + 텍스트 브리핑 + 시각 설명문 유지.
+7. 어느 실패도 그 자체를 행동 실패·breach·패배·보상으로 직접 기록하지 않는다.
+
+- 명명과 출처: 신규/갱신 자산은 `assets/media-manifest.json` 또는 이 런의 engineering 리소스 매니페스트/보고서에 출처·생성 방식·프롬프트/절차 레시피·SHA-256을 기록한다. Sprite 생성 pass는 DR-007/`--skip-media-manifest`로 충돌을 피한 뒤 serialized reconciliation을 거쳤다. 현재 45개 PNG의 런타임/생성 권위는 `assets/images/battle/glb/manifest.json`과 `engineering/sprite-bridge-report.md`, shared media manifest의 해당 45개 bridge 항목은 파일과 일치하는 보조 inventory다.
+- 서비스 워커: 정적 오디오/영상은 명시 캐시 목록을, GLB raster bridge는 매니페스트에서 검증한 동일 출처 출력 목록을 사용한다.
+
+- **독립 후보 레인**: 상세 근거와 입고 판정은 presentation spec이 소유한다. 2026-07-18 현재 GTI는 비런타임 콘셉트 후보 생성, PerfectPixel은 provider 차단으로 미생성, Motion Previs는 분석 번들만 완료했다. Vox는 로컬 Pillow/FFmpeg 기반 22.625초 H.264 paper-collage 후보를 만들었으나 canonical 시네마틱·앱·서비스 워커·공유 매니페스트에는 채택하지 않았다. 보고서 또는 파일만으로 shipped 승격하지 않는다.
 
 ## 6) 장기 비전 (미구현 — 순서 있는 백로그)
 
-v1 기획의 실시간 RTS 전량은 *비전 백로그*로 유지한다. 구현 순서는 전투화면(3장)의 검증 결과가 결정한다.
+현행 직접 이동·단일 콕핏 이후에도 남아 있는 v1 실시간 RTS 확장분만 *비전 백로그*로 유지한다. 구현 순서는 전투화면(3장)의 검증 결과가 결정한다.
 
-1. **실시간 조작 확장**: WASD 영웅 직접 이동, Space RPG/전술 뷰 토글, QWER 스킬, 틸드 전군 회군. (현재: 시맨틱 커맨드 7종이 대체)
+1. **직접 조작 잔여 확장**: WASD/방향키 이동·Shift 돌진·지면 클릭/탭 집결은 구현됨. Space RPG/전술 뷰 토글, QWER 스킬, 틸드 전군 회군은 미구현 비전 백로그.
 2. **빙의(Possession) 실시간화**: Tab/휠클릭 유닛 빙의 + 자동복귀. (현재: P 커맨드 + 전투 뷰 연출)
 3. **슬롯 경제 확장**: 일반 1 / 정예 2 / 기사 5–10 / 장군 20–25, 상한 100. 대표 유닛(벨리온/베르/이그리트/어금니/아이언/탱크). (현재: 균일 1슬롯, capacity 10–100 클램프만 확정)
 4. **성장 수식**: P_shadow(t) = ⌊P_base + α·ln(1+β·L_h) + ΣΦ_i⌋ (α=15, β=1.2, Φ=8, N≤5). **status: deprecated-until-realtime** — v2 BALANCE 노브가 현행 canonical.
@@ -242,7 +248,7 @@ v1 기획의 실시간 RTS 전량은 *비전 백로그*로 유지한다. 구현 
 - **2026-07-16 S1 인시던트**: 커밋된 편집 마커 2개가 배포 SyntaxError 유발 → 수복 + CI에 마커 가드 추가.
 - **2026-07-16 밸런스 v2**: B1–B5 결함(패배불가/보상무효/역전불가/함정possess/전략공간 1종) 수치 증명 → 8회 노브 반복으로 casual 51.0% 도달. 테스트 14/14, 퍼저 150k op 0건.
 - **2026-07-16 전투화면 SPA**: 4뷰 전환 + 2.5D 웨이브 전투 + 쿨타임 + breach 구현. 상태 테스트 16/16. E2E는 playwright 의존성 부재로 미실행(아래 회고 참조).
-- **2026-07-17 방어 전투 (`2f3833c`)**: 피켓 라인 AI + 라이브 심 breach(시각 도달→엔진 전이) + 교전 틱 + 표현 전용 재배치 + 캔버스 HUD. 검증 라인 4종(S1 14s / S2 23s / S3 20s / S3 러시 9s 사망) + S2 지속 방어 150s 실측.
+- **2026-07-17 방어 전투 (`2f3833c`, 역사 기록)**: 당시 피켓 라인 AI + 라이브 심 breach + 교전 틱 + 표현 전용 재배치 + 캔버스 HUD와 5개 수동 라인을 검증했다. 이후 웨이브/피해 계약은 현재 3장의 선언형 `encounter`·권위 사건 흐름으로 교체되었으므로 이 수치를 현행 규칙으로 사용하지 않는다.
 - **성능 (라이브)**: frame p95 9.2ms (예산 16.7), 롱프레임 0/300, 힙 3.1MB, SW v2 캐시 0-transfer.
 
 ## 8) 기획 회고 (2026-07-17) — 비전 vs 출하 갭과 개선 적용

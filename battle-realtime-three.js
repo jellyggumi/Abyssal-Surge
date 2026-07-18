@@ -65,6 +65,11 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function cappedPixelRatio(width, devicePixelRatio) {
+  const pixelRatioCap = width <= 480 ? 1.25 : width <= 900 ? 1.5 : 2;
+  return Math.min(devicePixelRatio || 1, pixelRatioCap);
+}
+
 function disposeUnique(resource, disposed) {
   if (!resource || disposed.has(resource)) return;
   disposed.add(resource);
@@ -207,6 +212,7 @@ export class SpatialAudio {
     this.ctx = AudioCtx ? new AudioCtx() : null;
     this.buffers = new Map();
     this.master = null;
+    this.listenerForward = new THREE.Vector3();
     if (this.ctx) {
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.85;
@@ -215,11 +221,12 @@ export class SpatialAudio {
   }
 
   async loadSample(name) {
-    if (!this.ctx) return null;
+    const context = this.ctx;
+    if (!context) return null;
     if (this.buffers.has(name)) return this.buffers.get(name);
     const promise = fetch(`${AUDIO_ROOT}${name}.mp3`)
       .then((response) => (response.ok ? response.arrayBuffer() : null))
-      .then((data) => (data ? this.ctx.decodeAudioData(data) : null))
+      .then((data) => (data ? context.decodeAudioData(data) : null))
       .catch(() => null);
     this.buffers.set(name, promise);
     return promise;
@@ -236,7 +243,7 @@ export class SpatialAudio {
     } else if (listener.setPosition) {
       listener.setPosition(p.x, p.y, p.z);
     }
-    const forward = new THREE.Vector3();
+    const forward = this.listenerForward;
     camera.getWorldDirection(forward);
     if (listener.forwardX) {
       listener.forwardX.value = forward.x;
@@ -250,8 +257,8 @@ export class SpatialAudio {
     }
   }
 
-  makePanner(x, y, z) {
-    const panner = this.ctx.createPanner();
+  makePanner(x, y, z, context = this.ctx) {
+    const panner = context.createPanner();
     panner.panningModel = "HRTF";
     panner.distanceModel = "inverse";
     panner.refDistance = 4;
@@ -265,17 +272,24 @@ export class SpatialAudio {
   // Plays a shipped mp3 (hunt/extract/materialize/capture/possess/domain/assault)
   // positioned at world (x, y, z).
   async playSample(name, x, y, z, gain = 0.8) {
-    if (!this.ctx) return;
-    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => undefined);
+    const context = this.ctx;
+    if (!context) return;
+    if (context.state === "suspended") context.resume().catch(() => undefined);
     const buffer = await this.loadSample(name);
-    if (!buffer || this.ctx.state === "closed") return;
-    const source = this.ctx.createBufferSource();
+    if (!buffer) return;
+    if (this.ctx !== context || context.state === "closed" || !this.master) return;
+    const source = context.createBufferSource();
     source.buffer = buffer;
-    const gainNode = this.ctx.createGain();
+    const gainNode = context.createGain();
     gainNode.gain.value = gain;
-    const panner = this.makePanner(x, y, z);
+    const panner = this.makePanner(x, y, z, context);
     source.connect(gainNode).connect(panner).connect(this.master);
     source.start();
+    source.addEventListener("ended", () => {
+      source.disconnect();
+      gainNode.disconnect();
+      panner.disconnect();
+    }, { once: true });
   }
 
   // Short procedural blip (no audio file) for high-frequency combat events:
@@ -298,10 +312,20 @@ export class SpatialAudio {
     osc.connect(gainNode).connect(panner).connect(this.master);
     osc.start(now);
     osc.stop(now + duration);
+    osc.addEventListener("ended", () => {
+      osc.disconnect();
+      gainNode.disconnect();
+      panner.disconnect();
+    }, { once: true });
   }
 
   dispose() {
-    if (this.ctx && this.ctx.state !== "closed") this.ctx.close().catch(() => undefined);
+    this.buffers.clear();
+    this.master?.disconnect();
+    this.master = null;
+    const context = this.ctx;
+    this.ctx = null;
+    if (context && context.state !== "closed") context.close().catch(() => undefined);
   }
 }
 
@@ -322,6 +346,7 @@ export class RealtimeBattle {
     this.currentWaveId = null;
     this.pendingEncounterEvent = null;
     this.bossExposed = false;
+    this.rafCallback = null;
     this.lastBossHealth = null;
     this.runtimeSignature = null;
     this.allies = [];
@@ -374,6 +399,7 @@ export class RealtimeBattle {
     this.portalPulse = 0;
     this.bound = {
       resize: () => this.resize(),
+      frame: (time) => this.frame(time),
       visibility: () => this.onVisibility(),
       clearPressedInput: () => this.clearPressedInput(),
       contextLost: (event) => this.onContextLost(event),
@@ -394,7 +420,8 @@ export class RealtimeBattle {
       throw new Error("WebGL 2 is unavailable");
     }
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const viewportWidth = Number(window.innerWidth) || 1440;
+    this.renderer.setPixelRatio(cappedPixelRatio(viewportWidth, window.devicePixelRatio));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setClearColor(this.presentation?.palette?.background ?? "#060913", 1);
 
@@ -467,9 +494,10 @@ export class RealtimeBattle {
     this.reconcileEncounterWave();
     this.syncBossExposure();
     this.publishRuntimeState();
+    this.rafCallback = this.bound?.frame ?? ((time) => this.frame(time));
     this.running = true;
     this.lastTime = performance.now();
-    this.raf = requestAnimationFrame((time) => this.frame(time));
+    this.raf = requestAnimationFrame(this.rafCallback);
     return this;
   }
 
@@ -716,7 +744,7 @@ export class RealtimeBattle {
     }
     this.update(dt);
     this.renderer.render(this.scene, this.camera);
-    this.raf = requestAnimationFrame((nextTime) => this.frame(nextTime));
+    this.raf = requestAnimationFrame(this.rafCallback);
   }
 
   triggerHitStop(duration = 0.09) {
@@ -745,8 +773,8 @@ export class RealtimeBattle {
     this.updateMarkerPulses(dt);
     this.updateAmbience(dt);
     this.particles?.update(dt);
-    this.audio.updateListener(this.camera);
     this.updateCamera(dt);
+    this.audio.updateListener(this.camera);
     this.publishRuntimeState();
   }
 
@@ -1151,6 +1179,8 @@ export class RealtimeBattle {
     if (!this.renderer || !this.camera) return;
     const rect = this.canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
+    const viewportWidth = Number(window.innerWidth) || rect.width;
+    this.renderer.setPixelRatio(cappedPixelRatio(viewportWidth, window.devicePixelRatio));
     this.renderer.setSize(rect.width, rect.height, false);
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
@@ -1428,28 +1458,57 @@ export class RealtimeBattle {
     return count;
   }
 
+  resolvedWaveCount() {
+    let resolved = 0;
+    for (const wave of this.encounter?.state?.waves ?? []) {
+      if (wave?.cleared === true) resolved += 1;
+    }
+    return resolved;
+  }
+
+  visibleAllyCount() {
+    let visible = 0;
+    for (const ally of this.allies) {
+      if (!ally.defeated) visible += 1;
+    }
+    return visible;
+  }
+
   getRuntimeState() {
-    const total = this.encounter?.config?.waves?.length ?? 0;
-    const resolved = this.encounter?.state?.waves?.filter((wave) => wave?.cleared === true).length ?? 0;
     return {
       mode: "realtime-3d",
       enemiesActive: this.enemies.length,
-      alliesVisible: this.allies.filter((ally) => !ally.defeated).length,
+      alliesVisible: this.visibleAllyCount(),
       engagements: this.activeEngagements(),
       exchanges: this.exchanges,
       activeWaveId: this.encounter?.state?.activeWaveId ?? null,
-      resolved,
-      total,
+      resolved: this.resolvedWaveCount(),
+      total: this.encounter?.config?.waves?.length ?? 0,
       bossExposed: this.bossExposed,
     };
   }
 
   publishRuntimeState() {
-    const runtime = this.getRuntimeState();
-    const signature = JSON.stringify(runtime);
+    const enemiesActive = this.enemies.length;
+    const alliesVisible = this.visibleAllyCount();
+    const engagements = this.activeEngagements();
+    const activeWaveId = this.encounter?.state?.activeWaveId ?? null;
+    const resolved = this.resolvedWaveCount();
+    const total = this.encounter?.config?.waves?.length ?? 0;
+    const signature = `${enemiesActive}|${alliesVisible}|${engagements}|${this.exchanges}|${activeWaveId ?? ""}|${resolved}|${total}|${this.bossExposed ? 1 : 0}`;
     if (signature === this.runtimeSignature) return;
     this.runtimeSignature = signature;
-    this.onRuntimeState?.(runtime);
+    this.onRuntimeState?.({
+      mode: "realtime-3d",
+      enemiesActive,
+      alliesVisible,
+      engagements,
+      exchanges: this.exchanges,
+      activeWaveId,
+      resolved,
+      total,
+      bossExposed: this.bossExposed,
+    });
   }
 
   // Compatibility wrapper: visual effects must not establish or remove encounter units.
@@ -1562,7 +1621,7 @@ export class RealtimeBattle {
     }
     if (this.running && !this.raf) {
       this.lastTime = performance.now();
-      this.raf = requestAnimationFrame((time) => this.frame(time));
+      this.raf = requestAnimationFrame(this.rafCallback);
     }
   }
 

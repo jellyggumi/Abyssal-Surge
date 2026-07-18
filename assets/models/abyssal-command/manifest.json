@@ -1,9 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "pack": "abyssal-command-low-poly",
   "source": "abyssal-command-resource-pack.blend",
-  "coordinateSystem": "Blender Z-up; ground-center pivots",
+  "sourceSha256": "0e7f6b051eaf6fb6d92d416bb53b934078d642266cde74864d23bc31b9e781b4",
+  "coordinateSystem": "Blender Z-up; ground-center pivots; authored forward is -Y",
   "rendering": "Flat-shaded PBR GLB resources with embedded albedo and tangent-space normal textures; no external texture URLs",
+  "build": {
+    "cycle": "20260718-resource-refinement",
+    "generator": "scripts/build_abyssal_command_assets.py",
+    "method": "Headless Blender procedural low-poly assembly with rigid body/equipment control animation",
+    "recipe": "Generate triangulated UV0 primitives; add azimuth-readable asymmetric equipment; ground lowest mesh bound to Z=0 at authored XY origin; parent unit pieces to body/equipment rigid controls; export selected collection as GLB with NLA tracks, tangents, animations, and embedded images.",
+    "blenderFps": 30
+  },
   "textures": {
     "embeddedInGlb": true,
     "uvSet": "UV0",
@@ -12,37 +20,51 @@
       {
         "family": "ash-cloth",
         "albedo": "textures/ash-cloth-albedo.png",
-        "normal": "textures/ash-cloth-normal.png"
+        "albedoSha256": "2db52cd0d02c335b8aae79b98974239814957d85d071e3220513d4273642e22a",
+        "normal": "textures/ash-cloth-normal.png",
+        "normalSha256": "5c2bbf6a764dad159c186798fd31dde6e68d082e9253c7172ec533233301abe7"
       },
       {
         "family": "cinder-ember",
         "albedo": "textures/cinder-ember-albedo.png",
-        "normal": "textures/cinder-ember-normal.png"
+        "albedoSha256": "c2ba8025b34f4a5cf7115bd33a06ae66c0cbdcc38245305efeb8f847232b3630",
+        "normal": "textures/cinder-ember-normal.png",
+        "normalSha256": "3059beccbabe115c76a65ad9b995c06b6f8c515f9a65524051e6416c2012bc62"
       },
       {
         "family": "cold-steel",
         "albedo": "textures/cold-steel-albedo.png",
-        "normal": "textures/cold-steel-normal.png"
+        "albedoSha256": "7ea9525599c246437f575e6eeedfdee7bbc27808443aa66f44127ac55e218bee",
+        "normal": "textures/cold-steel-normal.png",
+        "normalSha256": "dd8a59af013bf1f4efe67b6f88b3680d4e62e6d1517698fa8c46e19db6f80b8f"
       },
       {
         "family": "gate-gold",
         "albedo": "textures/gate-gold-albedo.png",
-        "normal": "textures/gate-gold-normal.png"
+        "albedoSha256": "9d1393c374508e2c009f62f6a1d3c28048de703ac2f4798f391c7a71cacfec71",
+        "normal": "textures/gate-gold-normal.png",
+        "normalSha256": "8c924d38621e15bc85bdacfc67352842cc6b970d0c9a0086119c9fdb41f2e5b3"
       },
       {
         "family": "old-bone",
         "albedo": "textures/old-bone-albedo.png",
-        "normal": "textures/old-bone-normal.png"
+        "albedoSha256": "94c607ff0fc194c72d77b67619facc34392e6cafec62cdf807cb90dc9035e55e",
+        "normal": "textures/old-bone-normal.png",
+        "normalSha256": "1445e94d450f519e824df7356fbb17764cc7d8760404cb16f1267838eab1bf6a"
       },
       {
         "family": "violet-rift",
         "albedo": "textures/violet-rift-albedo.png",
-        "normal": "textures/violet-rift-normal.png"
+        "albedoSha256": "cba0cf2fa55a3ae074d3d848704a831f240c3237e8dc23e4310153cf3eaba962",
+        "normal": "textures/violet-rift-normal.png",
+        "normalSha256": "48c208548ccb10669c9d4f8666557d5022f4c5202e19f38ce77df53e7e0768e8"
       },
       {
         "family": "void-obsidian",
         "albedo": "textures/void-obsidian-albedo.png",
-        "normal": "textures/void-obsidian-normal.png"
+        "albedoSha256": "fbef6b9630452d624f3d31e6c2d92493f85bf6d68ed39a850e3341ef59eea71b",
+        "normal": "textures/void-obsidian-normal.png",
+        "normalSha256": "dbdce512fadc532a17e78eb8debb1c4f908122977e6695a5adbb959291f20edb"
       }
     ]
   },
@@ -51,10 +73,33 @@
       "id": "shade",
       "category": "unit",
       "path": "units/shade.glb",
+      "sha256": "af5253687c0e143ce2cb6046efcac10a758e012922f5a32578120edd9a29e231",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.008482,
+      "measurements": {
+        "boundsMin": [
+          -0.7313,
+          -0.38,
+          -0.0
+        ],
+        "boundsMax": [
+          0.7313,
+          0.5331,
+          2.2615
+        ],
+        "dimensions": [
+          1.4626,
+          0.9131,
+          2.2615
+        ],
+        "meshPieces": 11,
+        "vertices": 109,
+        "triangles": 174
+      },
       "textureFamilies": [
         "ash-cloth",
         "cold-steel",
+        "violet-rift",
         "void-obsidian"
       ],
       "actions": [
@@ -70,14 +115,45 @@
         "Strike",
         "Special",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "rigid-control",
+        "controls": [
+          "shade-body-control",
+          "shade-equipment-control"
+        ],
+        "animation": "root plus secondary body/equipment transforms"
+      }
     },
     {
       "id": "possessed",
       "category": "unit",
       "path": "units/possessed.glb",
+      "sha256": "4e0ff1eca26f12be1e083cf65f02daaa6f3060f7efd511b92a59ba6c5b6d66ce",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.13,
+      "measurements": {
+        "boundsMin": [
+          -0.6578,
+          -0.43,
+          0.0
+        ],
+        "boundsMax": [
+          0.7105,
+          0.53,
+          2.125
+        ],
+        "dimensions": [
+          1.3683,
+          0.96,
+          2.125
+        ],
+        "meshPieces": 10,
+        "vertices": 183,
+        "triangles": 330
+      },
       "textureFamilies": [
+        "gate-gold",
         "violet-rift",
         "void-obsidian"
       ],
@@ -94,14 +170,45 @@
         "Strike",
         "Special",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "rigid-control",
+        "controls": [
+          "possessed-body-control",
+          "possessed-equipment-control"
+        ],
+        "animation": "root plus secondary body/equipment transforms"
+      }
     },
     {
       "id": "scout",
       "category": "unit",
       "path": "units/scout.glb",
+      "sha256": "9e858b5cb0c2d5017c4498888412f11886b4514ee95f566f9545cd7fd3cc10ce",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.006341,
+      "measurements": {
+        "boundsMin": [
+          -0.3831,
+          -0.3,
+          -0.0
+        ],
+        "boundsMax": [
+          0.8531,
+          0.5648,
+          2.0048
+        ],
+        "dimensions": [
+          1.2362,
+          0.8648,
+          2.0048
+        ],
+        "meshPieces": 10,
+        "vertices": 112,
+        "triangles": 184
+      },
       "textureFamilies": [
+        "ash-cloth",
         "cinder-ember",
         "cold-steel",
         "void-obsidian"
@@ -119,16 +226,47 @@
         "Strike",
         "Special",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "rigid-control",
+        "controls": [
+          "scout-body-control",
+          "scout-equipment-control"
+        ],
+        "animation": "root plus secondary body/equipment transforms"
+      }
     },
     {
       "id": "guard",
       "category": "unit",
       "path": "units/guard.glb",
+      "sha256": "f823ff603fe2c71e2b5f7bb6fda6616c945326c185a235035a8f9a0ddc6e9819",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.24,
+      "measurements": {
+        "boundsMin": [
+          -0.97,
+          -0.3736,
+          0.0
+        ],
+        "boundsMax": [
+          0.9034,
+          0.27,
+          2.035
+        ],
+        "dimensions": [
+          1.8734,
+          0.6436,
+          2.035
+        ],
+        "meshPieces": 11,
+        "vertices": 144,
+        "triangles": 248
+      },
       "textureFamilies": [
         "cold-steel",
         "gate-gold",
+        "violet-rift",
         "void-obsidian"
       ],
       "actions": [
@@ -144,16 +282,47 @@
         "Strike",
         "Special",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "rigid-control",
+        "controls": [
+          "guard-body-control",
+          "guard-equipment-control"
+        ],
+        "animation": "root plus secondary body/equipment transforms"
+      }
     },
     {
       "id": "reinforce",
       "category": "unit",
       "path": "units/reinforce.glb",
+      "sha256": "0bcc891b237ac77fb061e726f51cd8811052ee82e30ad4235ff529203f9335bb",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.04,
+      "measurements": {
+        "boundsMin": [
+          -0.8882,
+          -0.54,
+          0.0
+        ],
+        "boundsMax": [
+          1.1503,
+          0.64,
+          2.6924
+        ],
+        "dimensions": [
+          2.0385,
+          1.18,
+          2.6924
+        ],
+        "meshPieces": 14,
+        "vertices": 136,
+        "triangles": 216
+      },
       "textureFamilies": [
         "cinder-ember",
         "cold-steel",
+        "gate-gold",
         "old-bone",
         "void-obsidian"
       ],
@@ -170,13 +339,43 @@
         "Strike",
         "Special",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "rigid-control",
+        "controls": [
+          "reinforce-body-control",
+          "reinforce-equipment-control"
+        ],
+        "animation": "root plus secondary body/equipment transforms"
+      }
     },
     {
       "id": "cinder-warden",
       "category": "boss",
       "path": "bosses/cinder-warden.glb",
+      "sha256": "c09446d57ded4b5b869e7a7122a4d568305226054fcb555b34efa46c8565c5de",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.115772,
+      "measurements": {
+        "boundsMin": [
+          -0.99,
+          -0.8,
+          0.0
+        ],
+        "boundsMax": [
+          1.3406,
+          0.8,
+          3.1321
+        ],
+        "dimensions": [
+          2.3306,
+          1.6,
+          3.1321
+        ],
+        "meshPieces": 6,
+        "vertices": 188,
+        "triangles": 356
+      },
       "textureFamilies": [
         "cinder-ember",
         "gate-gold",
@@ -192,13 +391,40 @@
         "Idle",
         "Attack",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "veil-tactician",
       "category": "boss",
       "path": "bosses/veil-tactician.glb",
+      "sha256": "d46423216e92312ea11aa2d7fe04754df1733f5ba27859b49d4740d195481c14",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.055,
+      "measurements": {
+        "boundsMin": [
+          -1.431,
+          -0.82,
+          0.0
+        ],
+        "boundsMax": [
+          0.905,
+          0.82,
+          2.94
+        ],
+        "dimensions": [
+          2.336,
+          1.64,
+          2.94
+        ],
+        "meshPieces": 8,
+        "vertices": 311,
+        "triangles": 602
+      },
       "textureFamilies": [
         "cold-steel",
         "gate-gold",
@@ -214,13 +440,40 @@
         "Idle",
         "Attack",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "gate-sovereign",
       "category": "boss",
       "path": "bosses/gate-sovereign.glb",
+      "sha256": "93a358677a06b227e113d971541949934fc77242e512efa9bad9b3a82f1e4d9e",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.013447,
+      "measurements": {
+        "boundsMin": [
+          -1.7118,
+          -0.5,
+          0.0
+        ],
+        "boundsMax": [
+          1.7118,
+          0.5,
+          3.392
+        ],
+        "dimensions": [
+          3.4236,
+          1.0,
+          3.392
+        ],
+        "meshPieces": 11,
+        "vertices": 254,
+        "triangles": 472
+      },
       "textureFamilies": [
         "cold-steel",
         "gate-gold",
@@ -236,13 +489,40 @@
         "Idle",
         "Attack",
         "Defeat"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "rift-portal",
       "category": "prop",
       "path": "props/rift-portal.glb",
+      "sha256": "3df41622bde83b7113fd62108ff01730a7386ca21f5e62d38896764ae5b3b11b",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.01,
+      "measurements": {
+        "boundsMin": [
+          -1.18,
+          -0.45,
+          0.0
+        ],
+        "boundsMax": [
+          1.18,
+          0.45,
+          2.62
+        ],
+        "dimensions": [
+          2.36,
+          0.9,
+          2.62
+        ],
+        "meshPieces": 3,
+        "vertices": 200,
+        "triangles": 396
+      },
       "textureFamilies": [
         "cold-steel",
         "violet-rift",
@@ -255,13 +535,40 @@
       "actionClips": [
         "Idle",
         "Activate"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "command-obelisk",
       "category": "prop",
       "path": "props/command-obelisk.glb",
+      "sha256": "a5445d47455a585cf99dc167732ba100be162c9ba97f87f2b9264c1a9947e00b",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.0,
+      "measurements": {
+        "boundsMin": [
+          -0.6505,
+          -0.6505,
+          0.0
+        ],
+        "boundsMax": [
+          0.6505,
+          0.6505,
+          2.6
+        ],
+        "dimensions": [
+          1.3011,
+          1.3011,
+          2.6
+        ],
+        "meshPieces": 3,
+        "vertices": 28,
+        "triangles": 44
+      },
       "textureFamilies": [
         "cold-steel",
         "violet-rift",
@@ -274,13 +581,40 @@
       "actionClips": [
         "Idle",
         "Activate"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "soul-extractor",
       "category": "prop",
       "path": "props/soul-extractor.glb",
+      "sha256": "b4ab5540c16bcedb06c15ba6dd8b3cf4a05276668d4eb1755d25024551f8115a",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.0,
+      "measurements": {
+        "boundsMin": [
+          -0.95,
+          -0.95,
+          0.0
+        ],
+        "boundsMax": [
+          0.95,
+          0.95,
+          1.554
+        ],
+        "dimensions": [
+          1.9,
+          1.9,
+          1.554
+        ],
+        "meshPieces": 5,
+        "vertices": 102,
+        "triangles": 184
+      },
       "textureFamilies": [
         "cold-steel",
         "gate-gold",
@@ -293,13 +627,40 @@
       "actionClips": [
         "Idle",
         "Activate"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "echo-throne",
       "category": "prop",
       "path": "props/echo-throne.glb",
+      "sha256": "4683ce02905fe481d83a38a99c00daea75709e3f33c764e8c39def8362d41d01",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.44,
+      "measurements": {
+        "boundsMin": [
+          -0.725,
+          -0.56,
+          -0.0
+        ],
+        "boundsMax": [
+          0.725,
+          0.59,
+          2.565
+        ],
+        "dimensions": [
+          1.45,
+          1.15,
+          2.565
+        ],
+        "meshPieces": 5,
+        "vertices": 106,
+        "triangles": 196
+      },
       "textureFamilies": [
         "gate-gold",
         "violet-rift",
@@ -312,26 +673,80 @@
       "actionClips": [
         "Idle",
         "Activate"
-      ]
+      ],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "cinder-span",
       "category": "terrain",
       "path": "terrain/cinder-span.glb",
+      "sha256": "a45e587295182c80086ade837cb458f32d68e948283c3c3d6889635bb086a043",
       "pivot": "ground-center",
+      "groundOffsetApplied": 0.39,
+      "measurements": {
+        "boundsMin": [
+          -2.6,
+          -1.35,
+          -0.0
+        ],
+        "boundsMax": [
+          2.6,
+          1.35,
+          0.65
+        ],
+        "dimensions": [
+          5.2,
+          2.7,
+          0.65
+        ],
+        "meshPieces": 6,
+        "vertices": 48,
+        "triangles": 72
+      },
       "textureFamilies": [
         "ash-cloth",
         "cold-steel",
         "void-obsidian"
       ],
       "actions": [],
-      "actionClips": []
+      "actionClips": [],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "veil-citadel",
       "category": "terrain",
       "path": "terrain/veil-citadel.glb",
+      "sha256": "ac9ebee41357d170f9566ceeb9b12b71f91a9b7cd02f1a78757adc7791384e99",
       "pivot": "ground-center",
+      "groundOffsetApplied": 0.26,
+      "measurements": {
+        "boundsMin": [
+          -2.2,
+          -1.7,
+          0.0
+        ],
+        "boundsMax": [
+          2.2,
+          1.7,
+          1.06
+        ],
+        "dimensions": [
+          4.4,
+          3.4,
+          1.06
+        ],
+        "meshPieces": 6,
+        "vertices": 72,
+        "triangles": 120
+      },
       "textureFamilies": [
         "ash-cloth",
         "cold-steel",
@@ -339,19 +754,51 @@
         "void-obsidian"
       ],
       "actions": [],
-      "actionClips": []
+      "actionClips": [],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     },
     {
       "id": "echo-throne-steps",
       "category": "terrain",
       "path": "terrain/echo-throne-steps.glb",
+      "sha256": "2700b493fdfec8042c8ba0aaa03c2d50171d512303be879cef1ecc9464292658",
       "pivot": "ground-center",
+      "groundOffsetApplied": -0.0,
+      "measurements": {
+        "boundsMin": [
+          -11.0,
+          -4.0,
+          0.0
+        ],
+        "boundsMax": [
+          11.0,
+          4.0,
+          0.84
+        ],
+        "dimensions": [
+          22.0,
+          8.0,
+          0.84
+        ],
+        "meshPieces": 3,
+        "vertices": 24,
+        "triangles": 36
+      },
       "textureFamilies": [
         "gate-gold",
         "void-obsidian"
       ],
       "actions": [],
-      "actionClips": []
+      "actionClips": [],
+      "rig": {
+        "type": "root-transform",
+        "controls": [],
+        "animation": "root transform"
+      }
     }
   ]
 }

@@ -1,0 +1,163 @@
+{
+  "project": "abyssal-forge-vox",
+  "topic": "How Abyssal Surge turns 3D source assets into a playable dark-fantasy battlefield",
+  "language": "en",
+  "title_en": "FROM ASSET TO ABYSS",
+  "title_ko": "에셋에서 심연으로",
+  "aspect": "16:9",
+  "resolution": "960x540",
+  "fps": 24,
+  "duration_seconds": 24,
+  "style": "collage",
+  "provider": "local_fallback",
+  "theme": "custom-dark-fantasy-constructivist",
+  "collage_style": "custom-dark-fantasy-constructivist",
+  "arc": "hook_payoff",
+  "ending": "hard_cut",
+  "image_model": "google/nano-banana-2/text-to-image",
+  "video_model": "google/gemini-omni-flash/image-to-video",
+  "motion_style": "punchy",
+  "constraints": "strict",
+  "voice": {
+    "voice_id": "Eddy (English (US))",
+    "language": "en",
+    "speed": 1.0,
+    "fallback": "macOS say"
+  },
+  "music": "dark ritual percussion and low strings, instrumental, no vocals",
+  "mix": {
+    "music": 0.22,
+    "voice": 1.0
+  },
+  "watermark": "ABYSSAL SURGE · RESOURCE REFINEMENT",
+  "beats": [
+    {
+      "id": 1,
+      "role": "hook",
+      "title_en": "ASSETS ≠ ARMIES",
+      "title_ko": "에셋 ≠ 군대",
+      "title_cn": "에셋 ≠ 군대",
+      "bg": "void black with oxidized-violet accent",
+      "feel": "urgent, revelatory, dark editorial",
+      "hook": "outcome_tease",
+      "scene": "Raw 3D source renders arrive as isolated paper specimens before becoming game-readable pieces.",
+      "narration": "These are only source assets: a gate, a citadel, a sovereign. They do not make a battlefield—yet.",
+      "shots": [
+        {
+          "id": "a",
+          "dur": 3,
+          "title": true,
+          "shot_size": "EST_WIDE",
+          "camera_move": "push_in",
+          "scene": "A torn contact sheet of the Gate Sovereign, Veil Citadel, and source material swatches, isolated on a void-black paper field.",
+          "element_motion": "The three specimen cards settle at staggered depths, violet registration marks pulse, tape corners flutter, and tiny paper shards scatter once while all lettering remains fixed."
+        },
+        {
+          "id": "b",
+          "dur": 3,
+          "title": false,
+          "shot_size": "DETAIL",
+          "camera_move": "pan",
+          "scene": "A close paper strip tracks from a 3D idle render to a texture swatch and a blank tactical grid stamped NOT YET PLAYABLE.",
+          "element_motion": "Texture scraps slide under the specimen, a rigid paper arrow travels left-to-right once, halftone dots pulse, and the final red stamp settles without moving the text."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "role": "context",
+      "title_en": "CUT INTO SYSTEMS",
+      "title_ko": "시스템으로 자른다",
+      "title_cn": "시스템으로 자른다",
+      "bg": "bone-paper cream with cold-steel blue",
+      "feel": "precise, forensic, engineered",
+      "hook": null,
+      "scene": "Source art is decomposed into readable silhouettes, action atlases, and landmarks.",
+      "narration": "Each render is cut into readable silhouettes, atlases, actions, and tactical landmarks.",
+      "shots": [
+        {
+          "id": "a",
+          "dur": 3,
+          "title": true,
+          "shot_size": "WIDE",
+          "camera_move": "parallax",
+          "scene": "A workshop-board collage separates a sovereign render, unit atlas, action icon, and citadel landmark into four labeled paper layers.",
+          "element_motion": "The atlas rows offset in shallow parallax, scissors marks trace around the sovereign, action tabs hinge open, and violet ink misregistration breathes gently."
+        },
+        {
+          "id": "b",
+          "dur": 3,
+          "title": false,
+          "shot_size": "CLOSE",
+          "camera_move": "tilt",
+          "scene": "A vertical inspection of silhouettes and atlas cells, ending on a clean cut-out pinned above a tactical tile.",
+          "element_motion": "Atlas cells tick downward like a contact sheet, the clean silhouette pops into focus, tape edges lift, and two paper labels settle into alignment."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "role": "build",
+      "title_en": "RULES MAKE WAR",
+      "title_ko": "규칙이 전장을 만든다",
+      "title_cn": "규칙이 전장을 만든다",
+      "bg": "bruise purple with ember-orange signal marks",
+      "feel": "escalating, tactical, legible",
+      "hook": null,
+      "scene": "Capture, possession, and domain rules connect the visual pieces into player decisions.",
+      "narration": "Then capture, possession, and domain rules connect those pieces into decisions the player can see.",
+      "shots": [
+        {
+          "id": "a",
+          "dur": 3,
+          "title": true,
+          "shot_size": "WIDE",
+          "camera_move": "pull_out",
+          "scene": "A tactical board reveals three torn action cards—CAPTURE, POSSESS, DOMAIN—wired by paper arrows into a battlefield map.",
+          "element_motion": "Action cards slap down in sequence, rigid arrows extend between them, command pips flicker, and a single violet signal ribbon crosses the board then exits."
+        },
+        {
+          "id": "b",
+          "dur": 3,
+          "title": false,
+          "shot_size": "CLOSE",
+          "camera_move": "element",
+          "scene": "A close cut-in on a capture icon transforming a neutral node into a violet-controlled landmark without changing the underlying art.",
+          "element_motion": "One capture seal slides into the node, control rings pulse outward, two unit cut-outs pivot toward the objective, and scraps settle on the beat."
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "role": "payoff",
+      "title_en": "THE ABYSS PLAYS",
+      "title_ko": "심연이 움직인다",
+      "title_cn": "심연이 움직인다",
+      "bg": "starless teal-black opening into sovereign violet",
+      "feel": "triumphant, ominous, resolved",
+      "hook": null,
+      "scene": "The assembled dark-fantasy battlefield now answers player movement with readable tactical consequences.",
+      "narration": "Now the same dark-fantasy art answers every move. Source assets become a playable Abyssal Surge battlefield.",
+      "shots": [
+        {
+          "id": "a",
+          "dur": 3,
+          "title": true,
+          "shot_size": "EST_WIDE",
+          "camera_move": "push_in",
+          "scene": "The finished battlefield collage combines the portal, units, capture ring, and dark-fantasy skyline into one playable tableau.",
+          "element_motion": "Units advance in short paper steps, the capture ring radiates, portal fragments orbit as rigid scraps, and embers drift behind the stable headline."
+        },
+        {
+          "id": "b",
+          "dur": 3,
+          "title": false,
+          "shot_size": "WIDE",
+          "camera_move": "static",
+          "scene": "A locked-off final battlefield with the bilingual film title and a hard-cut-ready Abyssal Surge seal.",
+          "element_motion": "Only low ember flicker, subtle paper breathing, and a final seal pulse; camera and bilingual title remain perfectly locked for the payoff."
+        }
+      ]
+    }
+  ]
+}

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Generate original Abyssal Surge audio through explicitly selected remote APIs.
+"""Generate and validate original Abyssal Surge runtime audio.
 
-The script is offline-safe by default: only `--generate` on a generation command
-may read credentials or send a network request.
+Remote providers are opt-in. The ``procedural`` command is the explicit
+credential-free path: it synthesizes deterministic PCM locally, transcodes it
+to delivery MP3 with ffmpeg, and validates the exact promoted bytes.
 """
 
 from __future__ import annotations
 
+from array import array
 import argparse
 import base64
 import datetime as datetime_module
@@ -63,6 +65,7 @@ class AudioDetails:
     codec: str
     sample_rate_hz: int
     channels: int
+    bitrate_kbps: int
     duration_ms: int
 
 # These are original setting prompts, not third-party character or soundtrack prompts.
@@ -87,6 +90,55 @@ SFX_PROMPTS = {
         "building into a restrained wordless choir swell over deep brass, with a cold "
         "metallic shimmer suggesting a dimensional gate. Ominous, epic, mysterious, "
         "cinematic dark fantasy tone. No lyrics, no spoken words, seamless loop-friendly."
+    ),
+}
+
+@dataclass(frozen=True)
+class ProceduralCue:
+    """Deterministic local synthesis recipe for one shipped runtime cue."""
+
+    role: str
+    duration_seconds: float
+    prompt: str
+    recipe: str
+
+
+PROCEDURAL_CUES: Final[Mapping[str, ProceduralCue]] = {
+    "breach-alert": ProceduralCue(
+        role="sfx",
+        duration_seconds=2.4,
+        prompt=(
+            "Original Abyssal Surge breach alarm: urgent abyssal siren, three warning pulses, "
+            "one low hull-strike impact. No speech, no borrowed melody."
+        ),
+        recipe=(
+            "44.1 kHz mono PCM; swept 620 Hz siren with second harmonic, 92 Hz sub pulse, "
+            "deterministic xorshift noise grit, attack/release envelope; MP3 128 kbps."
+        ),
+    ),
+    "wave-spawn": ProceduralCue(
+        role="sfx",
+        duration_seconds=1.5,
+        prompt=(
+            "Original Abyssal Surge wave-spawn signal: fast spectral rise, portal impact, "
+            "short metallic confirmation tone. No speech, no borrowed melody."
+        ),
+        recipe=(
+            "44.1 kHz mono PCM; quadratic 110-420 Hz chirp, 68 Hz exponential portal impact, "
+            "740 Hz confirmation partial, deterministic xorshift noise; MP3 128 kbps."
+        ),
+    ),
+    "battle-bgm": ProceduralCue(
+        role="music",
+        duration_seconds=24.0,
+        prompt=(
+            "Original Abyssal Surge battle underscore: tense low drones, restrained two-second "
+            "war pulse, cold stereo overtones; loopable, no speech, no borrowed melody."
+        ),
+        recipe=(
+            "44.1 kHz stereo PCM; phase-aligned 55/82.5/110 Hz drones, alternating 165/220 Hz "
+            "stereo overtones and a two-second 52 Hz exponential pulse; edge crossfade; MP3 128 kbps."
+        ),
     ),
 }
 
@@ -203,7 +255,7 @@ def inspect_audio(path: Path) -> AudioDetails:
         "-select_streams",
         "a:0",
         "-show_entries",
-        "format=format_name,duration:stream=codec_type,codec_name,sample_rate,channels",
+        "format=format_name,duration,bit_rate:stream=codec_type,codec_name,sample_rate,channels,bit_rate",
         "-of",
         "json",
         str(path),
@@ -225,10 +277,17 @@ def inspect_audio(path: Path) -> AudioDetails:
         codec = stream["codec_name"]
         sample_rate_hz = int(stream["sample_rate"])
         channels = int(stream["channels"])
+        bitrate_bps = int(stream.get("bit_rate") or payload["format"].get("bit_rate") or 0)
     except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise MediaGenerationError("ffprobe returned incomplete audio metadata") from error
-    if not math.isfinite(duration_seconds) or duration_seconds <= 0 or sample_rate_hz <= 0 or channels <= 0:
-        raise MediaGenerationError("ffprobe returned invalid audio duration or stream metadata")
+    if (
+        not math.isfinite(duration_seconds)
+        or duration_seconds <= 0
+        or sample_rate_hz <= 0
+        or channels <= 0
+        or bitrate_bps <= 0
+    ):
+        raise MediaGenerationError("ffprobe returned invalid audio duration, bitrate, or stream metadata")
     if "mp3" in format_names and codec == "mp3":
         media_type = "audio/mpeg"
     elif "wav" in format_names and codec.startswith("pcm_"):
@@ -242,6 +301,7 @@ def inspect_audio(path: Path) -> AudioDetails:
         codec=codec,
         sample_rate_hz=sample_rate_hz,
         channels=channels,
+        bitrate_kbps=round(bitrate_bps / 1000),
         duration_ms=round(duration_seconds * 1000),
     )
 
@@ -290,6 +350,11 @@ def validate_audio_file(path: Path, role: str) -> tuple[AudioDetails, int]:
         raise MediaGenerationError(
             f"{role} duration must be {profile.min_duration_ms}–{profile.max_duration_ms} ms; "
             f"observed {details.duration_ms} ms"
+        )
+    if details.media_type == "audio/mpeg" and abs(details.bitrate_kbps - profile.bitrate_kbps) > 2:
+        raise MediaGenerationError(
+            f"{role} MP3 bitrate must be {profile.bitrate_kbps} kbps; "
+            f"observed {details.bitrate_kbps} kbps"
         )
     if details.media_type == "audio/mpeg" and size > profile.max_output_bytes:
         raise MediaGenerationError(
@@ -407,6 +472,11 @@ def validate_runtime_output(path: Path, profile: AudioProfile) -> tuple[AudioDet
             f"Runtime output must be 44100 Hz/{profile.channels} channel MP3; "
             f"observed {details.sample_rate_hz} Hz/{details.channels} channels"
         )
+    if abs(details.bitrate_kbps - profile.bitrate_kbps) > 2:
+        raise MediaGenerationError(
+            f"Runtime output must be {profile.bitrate_kbps} kbps MP3; "
+            f"observed {details.bitrate_kbps} kbps"
+        )
     if not profile.min_duration_ms <= details.duration_ms <= profile.max_duration_ms:
         raise MediaGenerationError("Runtime output duration changed outside its approved role limit")
     if size > profile.max_output_bytes:
@@ -451,6 +521,165 @@ def import_provenance(args: argparse.Namespace) -> dict[str, str]:
         if value is not None:
             provenance[field] = required_text(value, field, 500)
     return provenance
+
+
+def _edge_envelope(t: float, duration: float, attack: float, release: float) -> float:
+    return min(1.0, t / attack, max(0.0, (duration - t) / release))
+
+
+def _procedural_frame(cue_id: str, t: float, duration: float, noise: float) -> tuple[float, ...]:
+    """Return one deterministic normalized PCM frame for a reviewed cue recipe."""
+    tau = math.tau
+    if cue_id == "breach-alert":
+        envelope = _edge_envelope(t, duration, 0.025, 0.22)
+        siren_phase = tau * (620.0 * t + (180.0 / (tau * 1.25)) * math.sin(tau * 1.25 * t))
+        warning_gate = 0.42 + (0.58 if math.sin(tau * 1.25 * t) >= 0 else 0.0)
+        impact_t = max(0.0, t - 0.12)
+        impact = math.exp(-5.0 * impact_t) * math.sin(tau * 92.0 * impact_t) if t >= 0.12 else 0.0
+        value = envelope * (
+            warning_gate * (0.36 * math.sin(siren_phase) + 0.13 * math.sin(2.0 * siren_phase))
+            + 0.27 * impact
+            + 0.035 * noise
+        )
+        return (value,)
+    if cue_id == "wave-spawn":
+        envelope = _edge_envelope(t, duration, 0.018, 0.18)
+        chirp_phase = tau * (110.0 * t + 0.5 * (310.0 / duration) * t * t)
+        impact_t = max(0.0, t - 0.62)
+        impact = math.exp(-7.5 * impact_t) * math.sin(tau * 68.0 * impact_t) if t >= 0.62 else 0.0
+        confirmation = (
+            math.exp(-8.0 * impact_t) * math.sin(tau * 740.0 * impact_t)
+            if t >= 0.62
+            else 0.0
+        )
+        value = envelope * (
+            (0.12 + 0.34 * t / duration) * math.sin(chirp_phase)
+            + 0.34 * impact
+            + 0.16 * confirmation
+            + 0.045 * noise * min(1.0, t * 4.0)
+        )
+        return (value,)
+
+    edge = _edge_envelope(t, duration, 0.18, 0.18)
+    pulse_t = t % 2.0
+    pulse = math.exp(-4.8 * pulse_t) * math.sin(tau * 52.0 * pulse_t)
+    drone = (
+        0.20 * math.sin(tau * 55.0 * t)
+        + 0.13 * math.sin(tau * 82.5 * t)
+        + 0.08 * math.sin(tau * 110.0 * t)
+    )
+    slow_motion = 0.72 + 0.28 * math.sin(tau * t / 8.0)
+    left = edge * (slow_motion * drone + 0.22 * pulse + 0.055 * math.sin(tau * 165.0 * t))
+    right = edge * (
+        slow_motion * (0.18 * math.sin(tau * 55.0 * t + 0.22) + 0.14 * math.sin(tau * 82.5 * t))
+        + 0.22 * pulse
+        + 0.055 * math.sin(tau * 220.0 * t)
+    )
+    return (left, right)
+
+
+def synthesize_procedural_wav(cue_id: str, destination: Path) -> None:
+    """Stream deterministic non-silent 16-bit PCM to a local staging WAV."""
+    cue = PROCEDURAL_CUES[cue_id]
+    sample_rate = 44_100
+    channels = profile_for(cue.role).channels
+    total_frames = round(cue.duration_seconds * sample_rate)
+    noise_state = 0xA5B35705 ^ sum(ord(character) << (index % 16) for index, character in enumerate(cue_id))
+    peak = 0
+    try:
+        with wave.open(str(destination), "wb") as output:
+            output.setnchannels(channels)
+            output.setsampwidth(2)
+            output.setframerate(sample_rate)
+            for chunk_start in range(0, total_frames, 4096):
+                chunk_end = min(total_frames, chunk_start + 4096)
+                samples = array("h")
+                for frame_index in range(chunk_start, chunk_end):
+                    noise_state ^= (noise_state << 13) & 0xFFFFFFFF
+                    noise_state ^= noise_state >> 17
+                    noise_state ^= (noise_state << 5) & 0xFFFFFFFF
+                    noise_state &= 0xFFFFFFFF
+                    noise = noise_state / 0x7FFFFFFF - 1.0
+                    frame = _procedural_frame(
+                        cue_id,
+                        frame_index / sample_rate,
+                        cue.duration_seconds,
+                        noise,
+                    )
+                    for value in frame:
+                        pcm = round(max(-0.94, min(0.94, value)) * 32767)
+                        peak = max(peak, abs(pcm))
+                        samples.append(pcm)
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                output.writeframesraw(samples.tobytes())
+            output.writeframes(b"")
+    except (OSError, wave.Error) as error:
+        raise MediaGenerationError(f"Could not synthesize procedural PCM: {error}") from error
+    if peak < 1024:
+        raise MediaGenerationError("Procedural synthesis produced an invalid near-silent signal")
+
+
+def generate_procedural(args: argparse.Namespace) -> None:
+    """Generate one credential-free original cue and print its provenance record."""
+    cue = PROCEDURAL_CUES[args.cue_id]
+    destination = ensure_runtime_destination(args.output)
+    if destination.exists() and not args.replace:
+        raise MediaGenerationError(
+            f"Refusing to replace existing audio without --replace: {destination.relative_to(PROJECT_ROOT)}"
+        )
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temporary:
+            temporary_path = Path(temporary.name)
+        synthesize_procedural_wav(args.cue_id, temporary_path)
+        source_details, source_size = validate_audio_file(temporary_path, cue.role)
+        output_details, output_size, output_sha256 = transcode_wav_atomically(
+            temporary_path,
+            destination,
+            profile_for(cue.role),
+        )
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+    output_path = destination.relative_to(PROJECT_ROOT).as_posix()
+    generated_at = datetime_module.datetime.now(datetime_module.timezone.utc).isoformat()
+    record = {
+        "mode": "procedural",
+        "network": "not-used",
+        "generated_at": generated_at,
+        "cue_id": args.cue_id,
+        "role": cue.role,
+        "prompt": cue.prompt,
+        "recipe": cue.recipe,
+        "input": {
+            "generator": "deterministic-local-pcm",
+            "bytes": source_size,
+            **audio_facts(source_details),
+        },
+        "output": {
+            "path": output_path,
+            "bytes": output_size,
+            "sha256": output_sha256,
+            **audio_facts(output_details),
+        },
+        "manifest_record": {
+            "filename": output_path,
+            "media_type": "audio/mpeg",
+            "bytes": output_size,
+            "generated_by": (
+                "Local deterministic procedural synthesis via "
+                f"scripts/generate_game_audio.py (cue_id={args.cue_id})"
+            ),
+            "source_key_art": [],
+            "source_assets": [],
+            "derivation": f"Prompt: {cue.prompt} Procedure: {cue.recipe}",
+            "sha256": output_sha256,
+        },
+    }
+    print(json.dumps(record, ensure_ascii=False, sort_keys=True))
+
 
 
 class RejectRedirects(urllib.request.HTTPRedirectHandler):
@@ -733,6 +962,19 @@ def build_parser() -> argparse.ArgumentParser:
     imported.add_argument("--imported-by", help="Accountable importing operator")
     imported.add_argument("--replace", action="store_true", help="Explicitly replace an existing runtime file")
     imported.set_defaults(handler=import_audio)
+
+    procedural = subcommands.add_parser(
+        "procedural",
+        help="Synthesize a deterministic original cue locally, transcode to MP3, and print provenance",
+    )
+    procedural.add_argument("--cue-id", choices=sorted(PROCEDURAL_CUES), required=True)
+    procedural.add_argument(
+        "--output",
+        required=True,
+        help="Relative runtime target, exactly assets/audio/<name>.mp3",
+    )
+    procedural.add_argument("--replace", action="store_true", help="Explicitly replace an existing runtime file")
+    procedural.set_defaults(handler=generate_procedural)
 
     elevenlabs = subcommands.add_parser("elevenlabs-sfx", help="Opt-in remote generation of an original SFX as MP3")
     elevenlabs.add_argument("--output", required=True, help="Explicit destination .mp3 filename")

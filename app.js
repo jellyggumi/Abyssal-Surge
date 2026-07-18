@@ -73,7 +73,17 @@ const CUE_BY_EFFECT = Object.freeze({
   possess: "assets/audio/possess.mp3",
   domain: "assets/audio/domain.mp3",
   assault: "assets/audio/assault.mp3",
-  reward: "assets/audio/reward.mp3"
+  reward: "assets/audio/reward.mp3",
+  "breach-alert": "assets/audio/breach-alert.mp3",
+  "wave-spawn": "assets/audio/wave-spawn.mp3"
+});
+const ENCOUNTER_CUE_BY_EVENT = Object.freeze({
+  breach: "breach-alert",
+  "start-wave": "wave-spawn"
+});
+const MUSIC_BY_SCENE = Object.freeze({
+  lobby: "assets/audio/bgm-theme.mp3",
+  battle: "assets/audio/battle-bgm.mp3"
 });
 const NARRATION = Object.freeze({
   intro: Object.freeze({
@@ -207,6 +217,8 @@ const CINEMATIC_COPY = Object.freeze({
     loading: "선택형 시네마틱을 불러오는 중입니다…",
     playing: "시네마틱이 음소거 상태로 재생 중입니다. 소리는 기본 컨트롤에서 켤 수 있습니다.",
     ready: "시네마틱을 재생할 준비가 되었습니다. 기본 컨트롤에서 재생을 누르세요.",
+    paused: "시네마틱이 일시 정지되었습니다. 기본 컨트롤이나 재생 버튼으로 계속할 수 있습니다.",
+    ended: "시네마틱 재생이 끝났습니다. 재생 버튼을 누르면 처음부터 다시 볼 수 있습니다.",
     unavailable: "시네마틱을 사용할 수 없습니다. 텍스트 캠페인 브리핑과 시각 설명문은 계속 사용할 수 있습니다."
   }),
   en: Object.freeze({
@@ -219,6 +231,8 @@ const CINEMATIC_COPY = Object.freeze({
     loading: "Loading optional cinematic…",
     playing: "Cinematic is playing muted. Use native controls to enable sound.",
     ready: "Cinematic is ready. Press play in its native controls.",
+    paused: "Cinematic paused. Continue with the native controls or the play button.",
+    ended: "Cinematic ended. Press the play button to watch again from the beginning.",
     unavailable: "Cinematic unavailable. The text campaign briefing and visual transcript remain available."
   })
 });
@@ -328,6 +342,7 @@ const elements = Object.freeze({
   retry: document.querySelector("#retry-stage"),
   returnToLobby: document.querySelector("#return-to-lobby"),
   resultOverlay: document.querySelector("#view-result"),
+  toggleFullscreen: document.querySelector("#toggle-fullscreen"),
   briefing: document.querySelector("#stage-briefing"),
   briefingPlayerJob: document.querySelector("#briefing-player-job"),
   briefingStage: document.querySelector("#briefing-stage"),
@@ -397,6 +412,7 @@ const elements = Object.freeze({
   narratorAtlas: document.querySelector("#narrator-atlas"),
   cinematic: document.querySelector("#campaign-cinematic"),
   cinematicButton: document.querySelector("#play-cinematic"),
+  cinematicFallback: document.querySelector("#cinematic-fallback"),
   cinematicTranscriptToggle: document.querySelector("#toggle-cinematic-transcript"),
   cinematicTranscript: document.querySelector("#cinematic-transcript"),
   cinematicTranscriptHeading: document.querySelector("#cinematic-transcript-heading"),
@@ -421,6 +437,10 @@ let cuePlayer = null;
 let ambiencePlayer = null;
 let narrationPlayer = null;
 let narrationRun = 0;
+let lastCueEffect = "";
+let lastCueStartedAt = 0;
+let bgmEnabled = false;
+let bgmSceneRun = 0;
 let cinematicStatusKey = "optional";
 let liquidEtherBackground = null;
 let liquidEtherLoad = null;
@@ -1316,6 +1336,8 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
     }
 
     campaign = result.state;
+    const encounterCue = ENCOUNTER_CUE_BY_EVENT[event.type];
+    if (encounterCue) playCue(encounterCue);
     const encounter = currentEncounter();
     if (campaign.status !== "active" || encounter?.bossExposed || encounter?.spawningStopped) {
       clearEncounterStartTimer();
@@ -1340,6 +1362,8 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
 function stopBattle() {
   battleSessionId += 1;
   clearEncounterStartTimer();
+  stopBattleAudio();
+  syncBgmScene("lobby");
   window.clearInterval(cooldownTimer);
   battleStartedAt = 0;
   rendererRuntime = null;
@@ -1424,6 +1448,7 @@ async function startBattle() {
     }
   }
   if (sessionId !== battleSessionId || campaign?.status !== "active" || !visualizer) return;
+  syncBgmScene("battle");
   synchronizeBattleRenderer();
   projectBattleRuntime();
   render();
@@ -1552,6 +1577,15 @@ function renderCooldown(button, action, available) {
   const timer = button.querySelector(".cooldown-timer");
   if (overlay) overlay.hidden = !cooling;
   if (timer) timer.textContent = `${(remaining / 1000).toFixed(1)}s`;
+  return { cooling, enabled };
+}
+
+function setResourceMeter(element, value, maximum) {
+  const meter = element?.closest("[data-resource]");
+  if (!meter) return;
+  const max = Math.max(1, Number(maximum) || 1);
+  const progress = Math.max(0, Math.min(1, (Number(value) || 0) / max));
+  meter.style.setProperty("--resource-progress", `${Math.round(progress * 100)}%`);
 }
 
 
@@ -1617,13 +1651,17 @@ function render() {
   elements.legion.textContent = `${state.legion} / ${state.capacity}`;
   elements.nodes.textContent = `${state.nodes} / ${stage.nodeGoal}`;
   elements.integrity.textContent = `${state.integrity} / ${benefits.maxIntegrity}`;
-  
+  setResourceMeter(elements.souls, state.souls, stage.progression?.materializeCost ?? Math.max(1, state.souls));
+  setResourceMeter(elements.legion, state.legion, state.capacity);
+  setResourceMeter(elements.nodes, state.nodes, stage.nodeGoal);
+  setResourceMeter(elements.integrity, state.integrity, benefits.maxIntegrity);
   const bossNameKo = translate(`stage.${stage.id}.bossName`) || stage.bossName;
   elements.bossLabel.textContent = lang === "ko"
     ? `${bossNameKo} 보호벽`
     : `${stage.bossName} ward`;
     
   elements.boss.textContent = `${state.bossHealth} / ${stage.bossHealth}`;
+  setResourceMeter(elements.boss, state.bossHealth, stage.bossHealth);
   elements.retry.disabled = campaign.status === "reward" || isComplete;
   elements.complete.hidden = !isComplete;
   
@@ -1667,8 +1705,15 @@ function render() {
     const action = button.dataset.action;
     const isCurrentObjective = action === nextObjectiveAction;
     const isAvailable = available.has(action);
-    renderCooldown(button, action, isAvailable);
+    const { cooling, enabled } = renderCooldown(button, action, isAvailable);
     button.classList.toggle("current-objective", isCurrentObjective);
+    button.dataset.commandState = cooling
+      ? "cooling"
+      : isCurrentObjective && enabled
+        ? "objective"
+        : enabled
+          ? "ready"
+          : "locked";
     if (isCurrentObjective) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
     
@@ -1750,6 +1795,10 @@ function revealCampaign() {
 function playCue(effect) {
   const source = CUE_BY_EFFECT[effect];
   if (!source) return;
+  const now = performance.now();
+  if (effect === lastCueEffect && now - lastCueStartedAt < 150) return;
+  lastCueEffect = effect;
+  lastCueStartedAt = now;
   if (!cuePlayer) {
     cuePlayer = new Audio();
     cuePlayer.preload = "none";
@@ -1759,6 +1808,61 @@ function playCue(effect) {
   cuePlayer.currentTime = 0;
   cuePlayer.src = source;
   cuePlayer.play().catch(() => undefined);
+}
+
+function setBgmTogglePlaying(playing) {
+  elements.bgmToggle?.classList.toggle("is-playing", playing);
+  elements.bgmToggle?.setAttribute("aria-pressed", String(playing));
+}
+
+function playSelectedBgm(run) {
+  const player = elements.bgmPlayer;
+  if (!player) return;
+  player.volume = 0.55;
+  player.play().then(() => {
+    if (run === bgmSceneRun && bgmEnabled) setBgmTogglePlaying(true);
+  }).catch(() => {
+    if (run !== bgmSceneRun) return;
+    bgmEnabled = false;
+    setBgmTogglePlaying(false);
+  });
+}
+
+function syncBgmScene(scene) {
+  const player = elements.bgmPlayer;
+  const source = MUSIC_BY_SCENE[scene];
+  if (!player || !source) return;
+  if (player.getAttribute("src") === source) {
+    player.dataset.audioScene = scene;
+    if (bgmEnabled && player.paused) playSelectedBgm(bgmSceneRun);
+    return;
+  }
+  const run = ++bgmSceneRun;
+  player.pause();
+  player.src = source;
+  player.dataset.audioScene = scene;
+  player.load();
+  if (bgmEnabled) playSelectedBgm(run);
+}
+
+function stopBattleAudio() {
+  lastCueEffect = "";
+  lastCueStartedAt = 0;
+  if (cuePlayer) {
+    cuePlayer.pause();
+    cuePlayer.currentTime = 0;
+    cuePlayer.removeAttribute("src");
+    cuePlayer.load();
+  }
+  if (ambiencePlayer) {
+    ambiencePlayer.pause();
+    ambiencePlayer.currentTime = 0;
+    ambiencePlayer.removeAttribute("src");
+    ambiencePlayer.load();
+    ambiencePlayer = null;
+  }
+  elements.ambience.textContent = translate("battle.toggleAmbience") || "Play ambience";
+  elements.ambience.setAttribute("aria-pressed", "false");
 }
 
 function waitForNarration(ms) {
@@ -1981,6 +2085,15 @@ async function beginNewCampaign() {
 
 async function returnToLobby() {
   if (!campaign) return;
+  if (document.fullscreenElement === elements.screen && typeof document.exitFullscreen === "function") {
+    try {
+      await document.exitFullscreen();
+    } catch {
+      syncFullscreenControl();
+      return;
+    }
+    if (document.fullscreenElement === elements.screen) return;
+  }
   stopBattle();
   stageBriefingOpen = false;
   entryGuidanceStageId = null;
@@ -2088,22 +2201,16 @@ function toggleAmbience() {
 }
 function toggleBgm() {
   const player = elements.bgmPlayer;
-  const toggle = elements.bgmToggle;
-  if (!player || !toggle) return;
-  if (player.paused) {
-    player.volume = 0.55;
-    player.play().then(() => {
-      toggle.classList.add("is-playing");
-      toggle.setAttribute("aria-pressed", "true");
-    }).catch(() => {
-      toggle.classList.remove("is-playing");
-      toggle.setAttribute("aria-pressed", "false");
-    });
-  } else {
+  if (!player || !elements.bgmToggle) return;
+  if (bgmEnabled) {
+    bgmEnabled = false;
+    bgmSceneRun += 1;
     player.pause();
-    toggle.classList.remove("is-playing");
-    toggle.setAttribute("aria-pressed", "false");
+    setBgmTogglePlaying(false);
+    return;
   }
+  bgmEnabled = true;
+  playSelectedBgm(++bgmSceneRun);
 }
 
 
@@ -2135,26 +2242,75 @@ function toggleCinematicTranscript() {
   (open ? elements.cinematicTranscript : elements.cinematicTranscriptToggle).focus();
 }
 
+function syncFullscreenControl() {
+  if (!elements.toggleFullscreen) return;
+  const supported = typeof elements.screen?.requestFullscreen === "function"
+    && typeof document.exitFullscreen === "function";
+  elements.toggleFullscreen.hidden = !supported;
+  const active = document.fullscreenElement === elements.screen;
+  elements.toggleFullscreen.setAttribute("aria-pressed", String(active));
+  const key = active ? "screen.fullscreenExit" : "screen.fullscreenEnter";
+  elements.toggleFullscreen.dataset.i18n = key;
+  elements.toggleFullscreen.textContent = translate(key);
+}
+
+async function toggleFullscreen() {
+  if (!elements.toggleFullscreen || elements.toggleFullscreen.hidden) return;
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await elements.screen.requestFullscreen();
+  } catch {
+    // Browsers may reject fullscreen when the gesture or embed policy disallows it.
+  } finally {
+    syncFullscreenControl();
+  }
+}
+
 function playCinematic() {
   const video = elements.cinematic;
   video.hidden = false;
+  elements.cinematicFallback.hidden = true;
   video.muted = true;
+
+  if (video.getAttribute("src")) {
+    if (video.ended) video.currentTime = 0;
+    elements.cinematicButton.disabled = true;
+    video.play().catch(() => {
+      elements.cinematicButton.disabled = false;
+      setCinematicStatus("ready");
+    });
+    return;
+  }
+
   elements.cinematicButton.disabled = true;
   setCinematicStatus("loading");
-  video.onloadeddata = () => {
-    elements.cinematicButton.disabled = false;
+  video.onplaying = () => {
+    elements.cinematicButton.disabled = true;
     setCinematicStatus("playing");
+  };
+  video.onpause = () => {
+    if (video.ended || cinematicStatusKey === "unavailable" || video.readyState === 0) return;
+    elements.cinematicButton.disabled = false;
+    setCinematicStatus("paused");
+  };
+  video.onended = () => {
+    elements.cinematicButton.disabled = false;
+    setCinematicStatus("ended");
+  };
+  video.onloadeddata = () => {
     video.play().catch(() => {
+      elements.cinematicButton.disabled = false;
       setCinematicStatus("ready");
     });
   };
   video.onerror = () => {
+    setCinematicStatus("unavailable");
     video.pause();
     video.hidden = true;
+    elements.cinematicFallback.hidden = false;
     video.removeAttribute("src");
     video.load();
     elements.cinematicButton.disabled = false;
-    setCinematicStatus("unavailable");
   };
   video.src = "assets/video/abyssal-surge-cinematic.mp4";
   video.load();
@@ -2167,6 +2323,8 @@ function wireControls() {
   elements.returnToLobby.addEventListener("click", () => void returnToLobby());
   elements.returnToLobbyFromResult.addEventListener("click", () => void returnToLobby());
   elements.retry.addEventListener("click", handleRetry);
+  elements.toggleFullscreen?.addEventListener("click", () => void toggleFullscreen());
+  document.addEventListener("fullscreenchange", syncFullscreenControl);
   elements.retryFromResult.addEventListener("click", handleRetry);
   elements.startCombat.addEventListener("click", beginStageCombat);
   elements.briefing.addEventListener("keydown", (event) => {
@@ -2227,6 +2385,7 @@ function wireControls() {
       void handleAction(action);
     }
   });
+  syncFullscreenControl();
 }
 
 function startLiquidEtherBackground() {

@@ -7,11 +7,13 @@ Run from the repository root:
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 from pathlib import Path
 
 import bmesh
 import bpy
+from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "assets" / "models" / "abyssal-command"
@@ -68,7 +70,7 @@ scene = bpy.context.scene
 scene.render.engine = "BLENDER_EEVEE"
 scene.render.fps = 30
 scene["asset_pack"] = "Abyssal Command low-poly dark-fantasy resources"
-scene["version"] = 1
+scene["version"] = 2
 
 
 def texture_image(family: str, role: str) -> bpy.types.Image:
@@ -288,34 +290,77 @@ ACTION_CLIPS_BY_CATEGORY = {
 }
 
 
+def mesh_bounds(collection: bpy.types.Collection) -> tuple[Vector, Vector]:
+    """Return evaluated world-space bounds for the collection's mesh pieces."""
+    points = [
+        obj.matrix_world @ Vector(corner)
+        for obj in collection.objects
+        if obj.type == "MESH"
+        for corner in obj.bound_box
+    ]
+    if not points:
+        return Vector((0.0, 0.0, 0.0)), Vector((0.0, 0.0, 0.0))
+    return (
+        Vector(tuple(min(point[index] for point in points) for index in range(3))),
+        Vector(tuple(max(point[index] for point in points) for index in range(3))),
+    )
+
+
+def ground_collection(collection: bpy.types.Collection) -> float:
+    """Put the lowest evaluated vertex on Z=0 while retaining the authored XY origin."""
+    bpy.context.view_layer.update()
+    minimum, _ = mesh_bounds(collection)
+    offset = -minimum.z
+    if abs(offset) > 1e-6:
+        for piece in collection.objects:
+            if piece.type == "MESH":
+                piece.location.z += offset
+        bpy.context.view_layer.update()
+    collection["ground_offset_applied"] = round(offset, 6)
+    return offset
+
+
+def collection_measurements(collection: bpy.types.Collection) -> dict[str, object]:
+    minimum, maximum = mesh_bounds(collection)
+    dimensions = maximum - minimum
+    mesh_objects = [obj for obj in collection.objects if obj.type == "MESH"]
+    return {
+        "boundsMin": [round(value, 4) for value in minimum],
+        "boundsMax": [round(value, 4) for value in maximum],
+        "dimensions": [round(value, 4) for value in dimensions],
+        "meshPieces": len(mesh_objects),
+        "vertices": sum(len(obj.data.vertices) for obj in mesh_objects),
+        "triangles": sum(len(obj.data.polygons) for obj in mesh_objects),
+    }
+
+
 def clip_keyframes(category: str, clip_name: str) -> dict[str, tuple[tuple[int, tuple[float, float, float]], ...]]:
-    """Return compact 30 fps root-transform keyframes for a reusable clip."""
+    """Return compact 30 fps root motion; locomotion stays in-place for runtime ownership."""
     identity_location = (0.0, 0.0, 0.0)
     identity_rotation = (0.0, 0.0, 0.0)
     identity_scale = (1.0, 1.0, 1.0)
     if clip_name == "Idle":
         return {
-            "location": ((1, identity_location), (15, (0.0, 0.0, 0.035)), (30, identity_location)),
-            "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.radians(3))), (30, identity_rotation)),
-            "scale": ((1, identity_scale), (15, (1.015, 1.015, 1.015)), (30, identity_scale)),
+            "location": ((1, identity_location), (15, (0.0, 0.0, 0.025)), (30, identity_location)),
+            "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.radians(2))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (15, (1.01, 1.01, 1.01)), (30, identity_scale)),
         }
     if clip_name == "Move":
-        # Runtime owns the actor's world transform; locomotion must remain in place.
         return {
-            "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.radians(-4))), (30, identity_rotation)),
-            "scale": ((1, identity_scale), (15, (1.0, 1.0, 0.97)), (30, identity_scale)),
+            "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(-3))), (22, (0.0, 0.0, math.radians(3))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (8, (1.01, 1.0, 0.985)), (22, (0.99, 1.0, 1.015)), (30, identity_scale)),
         }
     if clip_name in {"Strike", "Attack"}:
         return {
             "location": ((1, identity_location), (12, (0.0, 0.04, 0.0)), (24, identity_location)),
-            "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(-18))), (16, (0.0, 0.0, math.radians(24))), (24, identity_rotation)),
-            "scale": ((1, identity_scale), (12, (1.05, 1.05, 1.05)), (24, identity_scale)),
+            "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(-12))), (16, (0.0, 0.0, math.radians(16))), (24, identity_rotation)),
+            "scale": ((1, identity_scale), (12, (1.035, 1.035, 1.035)), (24, identity_scale)),
         }
     if clip_name == "Special":
         return {
-            "location": ((1, identity_location), (15, (0.0, 0.0, 0.12)), (30, identity_location)),
+            "location": ((1, identity_location), (15, (0.0, 0.0, 0.08)), (30, identity_location)),
             "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.tau)), (30, (0.0, 0.0, math.tau * 2))),
-            "scale": ((1, identity_scale), (15, (1.16, 1.16, 1.16)), (30, identity_scale)),
+            "scale": ((1, identity_scale), (15, (1.1, 1.1, 1.1)), (30, identity_scale)),
         }
     if clip_name == "Activate":
         return {
@@ -332,22 +377,51 @@ def clip_keyframes(category: str, clip_name: str) -> dict[str, tuple[tuple[int, 
     raise ValueError(f"Unsupported {category} clip: {clip_name}")
 
 
-def create_layered_action(
-    asset_id: str,
-    root: bpy.types.Object,
-    category: str,
+def control_keyframes(role: str, clip_name: str) -> dict[str, tuple[tuple[int, tuple[float, float, float]], ...]]:
+    """Secondary rigid-control motion keeps the pack light while articulating body and gear."""
+    location = (0.0, 0.0, 0.0)
+    rotation = (0.0, 0.0, 0.0)
+    scale = (1.0, 1.0, 1.0)
+    if role == "body":
+        if clip_name == "Idle":
+            return {"location": ((1, location), (15, (0.0, 0.0, 0.018)), (30, location)), "scale": ((1, scale), (15, (1.0, 1.0, 1.012)), (30, scale))}
+        if clip_name == "Move":
+            return {"location": ((1, location), (8, (0.0, 0.0, 0.035)), (16, location), (24, (0.0, 0.0, 0.035)), (30, location)), "rotation_euler": ((1, rotation), (8, (math.radians(2), 0.0, math.radians(-2))), (24, (math.radians(2), 0.0, math.radians(2))), (30, rotation))}
+        if clip_name == "Strike":
+            return {"rotation_euler": ((1, rotation), (10, (math.radians(-7), 0.0, 0.0)), (17, (math.radians(9), 0.0, 0.0)), (24, rotation))}
+        if clip_name == "Special":
+            return {"scale": ((1, scale), (15, (1.045, 1.045, 1.07)), (30, scale))}
+        if clip_name == "Defeat":
+            return {"rotation_euler": ((1, rotation), (30, (math.radians(9), 0.0, math.radians(-5))))}
+    if clip_name == "Idle":
+        return {"rotation_euler": ((1, rotation), (15, (0.0, math.radians(2), math.radians(-2))), (30, rotation))}
+    if clip_name == "Move":
+        return {"rotation_euler": ((1, rotation), (8, (math.radians(-4), 0.0, math.radians(4))), (22, (math.radians(4), 0.0, math.radians(-4))), (30, rotation))}
+    if clip_name == "Strike":
+        return {"rotation_euler": ((1, rotation), (8, (math.radians(-18), 0.0, math.radians(-10))), (16, (math.radians(26), 0.0, math.radians(12))), (24, rotation))}
+    if clip_name == "Special":
+        return {"rotation_euler": ((1, rotation), (15, (0.0, math.radians(12), math.radians(8))), (30, rotation)), "scale": ((1, scale), (15, (1.08, 1.08, 1.08)), (30, scale))}
+    if clip_name == "Defeat":
+        return {"rotation_euler": ((1, rotation), (30, (math.radians(28), 0.0, math.radians(18))))}
+    raise ValueError(f"Unsupported unit control clip: {clip_name}")
+
+
+def create_transform_action(
+    name: str,
+    target: bpy.types.Object,
     clip_name: str,
+    keyframes: dict[str, tuple[tuple[int, tuple[float, float, float]], ...]],
+    layer_name: str,
 ) -> bpy.types.Action:
-    """Create a Blender 5.1 layered action explicitly targeted at this root."""
-    action = bpy.data.actions.new(f"{asset_id}__{clip_name}")
-    action["asset_id"] = asset_id
+    """Create a Blender 5.1 layered action explicitly targeted at one object."""
+    action = bpy.data.actions.new(name)
     action["clip_name"] = clip_name
     action["fps"] = 30
-    layer = action.layers.new("Root Transform")
-    slot = action.slots.new("OBJECT", root.name)
+    layer = action.layers.new(layer_name)
+    slot = action.slots.new("OBJECT", target.name)
     strip = layer.strips.new(type="KEYFRAME")
     bag = strip.channelbags.new(slot)
-    for data_path, keys in clip_keyframes(category, clip_name).items():
+    for data_path, keys in keyframes.items():
         for index in range(3):
             curve = bag.fcurves.new(data_path, index=index)
             for frame, values in keys:
@@ -356,8 +430,27 @@ def create_layered_action(
     return action
 
 
+def create_layered_action(asset_id: str, root: bpy.types.Object, category: str, clip_name: str) -> bpy.types.Action:
+    action = create_transform_action(
+        f"{asset_id}__{clip_name}",
+        root,
+        clip_name,
+        clip_keyframes(category, clip_name),
+        "Root Transform",
+    )
+    action["asset_id"] = asset_id
+    return action
+
+
+def reparent_preserve_world(obj: bpy.types.Object, parent: bpy.types.Object) -> None:
+    world_matrix = obj.matrix_world.copy()
+    obj.parent = parent
+    obj.matrix_parent_inverse = parent.matrix_world.inverted()
+    obj.matrix_world = world_matrix
+
+
 def create_asset_root(asset_id: str, category: str, collection: bpy.types.Collection) -> bpy.types.Object:
-    """Place an Empty at ground center and make it the transform owner for meshes."""
+    """Place an Empty at the authored XY origin and measured ground plane."""
     root = bpy.data.objects.new(f"{asset_id}-root", None)
     root.empty_display_type = "PLAIN_AXES"
     root.empty_display_size = 0.35
@@ -366,40 +459,84 @@ def create_asset_root(asset_id: str, category: str, collection: bpy.types.Collec
     root["category"] = category
     root["pivot"] = "ground-center"
     collection.objects.link(root)
-
     for piece in list(collection.objects):
-        if piece is root or piece.type != "MESH":
-            continue
-        world_matrix = piece.matrix_world.copy()
-        piece.parent = root
-        piece.matrix_parent_inverse = root.matrix_world.inverted()
-        piece.matrix_world = world_matrix
+        if piece is not root and piece.type == "MESH":
+            reparent_preserve_world(piece, root)
     return root
 
 
-def create_asset_actions(asset_id: str, category: str, root: bpy.types.Object) -> list[bpy.types.Action]:
+EQUIPMENT_TOKENS = ("blade", "spear", "shield", "halberd", "maul", "crystal", "aura", "quiver", "banner", "chain")
+
+
+def create_unit_controls(asset_id: str, collection: bpy.types.Collection, root: bpy.types.Object) -> list[bpy.types.Object]:
+    controls = []
+    for role in ("body", "equipment"):
+        control = bpy.data.objects.new(f"{asset_id}-{role}-control", None)
+        control.empty_display_type = "CIRCLE" if role == "body" else "ARROWS"
+        control.empty_display_size = 0.26 if role == "body" else 0.2
+        control.rotation_mode = "XYZ"
+        control["rig_role"] = role
+        control["rig_type"] = "rigid-control"
+        collection.objects.link(control)
+        reparent_preserve_world(control, root)
+        controls.append(control)
+    body_control, equipment_control = controls
+    for piece in list(collection.objects):
+        if piece.type != "MESH":
+            continue
+        target = equipment_control if any(token in piece.name for token in EQUIPMENT_TOKENS) else body_control
+        reparent_preserve_world(piece, target)
+        piece["rig_role"] = target["rig_role"]
+    return controls
+
+
+def attach_nla(target: bpy.types.Object, action: bpy.types.Action, track_name: str) -> None:
+    animation_data = target.animation_data_create()
+    track = animation_data.nla_tracks.new()
+    track.name = track_name
+    strip = track.strips.new(track_name, 1, action)
+    strip.name = track_name
+    strip.action_frame_start = 1
+    strip.action_frame_end = 30
+
+
+def create_asset_actions(
+    asset_id: str,
+    category: str,
+    root: bpy.types.Object,
+    controls: list[bpy.types.Object],
+) -> list[bpy.types.Action]:
     actions = [
         create_layered_action(asset_id, root, category, clip_name)
         for clip_name in ACTION_CLIPS_BY_CATEGORY[category]
     ]
     if not actions:
         return actions
-
-    animation_data = root.animation_data_create()
-    animation_data.action = actions[0]
+    root.animation_data_create().action = actions[0]
     for action in actions:
-        track = animation_data.nla_tracks.new()
-        track.name = action.name
-        strip = track.strips.new(action.name, 1, action)
-        strip.name = action.name
-        strip.action_frame_start = 1
-        strip.action_frame_end = 30
+        attach_nla(root, action, action.name)
+    for control in controls:
+        role = str(control["rig_role"])
+        for root_action in actions:
+            clip_name = str(root_action["clip_name"])
+            control_action = create_transform_action(
+                f"{asset_id}__{role}__{clip_name}",
+                control,
+                clip_name,
+                control_keyframes(role, clip_name),
+                f"{role.title()} Control",
+            )
+            control.animation_data_create().action = control_action if clip_name == "Idle" else control.animation_data.action
+            attach_nla(control, control_action, root_action.name)
     return actions
 
 
 def register(asset_id: str, category: str, collection: bpy.types.Collection, relative_path: str):
+    ground_offset = ground_collection(collection)
+    measurements = collection_measurements(collection)
     root = create_asset_root(asset_id, category, collection)
-    actions = create_asset_actions(asset_id, category, root)
+    controls = create_unit_controls(asset_id, collection, root) if category == "unit" else []
+    actions = create_asset_actions(asset_id, category, root, controls)
     ASSETS.append(
         {
             "id": asset_id,
@@ -408,62 +545,93 @@ def register(asset_id: str, category: str, collection: bpy.types.Collection, rel
             "root": root,
             "path": relative_path,
             "actions": actions,
+            "controls": controls,
+            "ground_offset": ground_offset,
+            "measurements": measurements,
         }
     )
 
 
 def model_shade():
     collection = make_collection("shade", "unit")
-    cone(collection, "shade-cloak", (0, 0, 0.86), 0.45, 0.18, 1.55, MATS["ash"])
-    ico(collection, "shade-mask", (0, 0, 1.72), 0.26, MATS["void"])
-    cone(collection, "shade-hood", (0, 0, 1.97), 0.31, 0.0, 0.42, MATS["obsidian"])
-    cylinder(collection, "shade-left-blade", (-0.36, 0, 1.12), 0.045, 0.78, MATS["steel"], rotation=(0, math.radians(30), 0))
-    cylinder(collection, "shade-right-blade", (0.36, 0, 1.12), 0.045, 0.78, MATS["steel"], rotation=(0, math.radians(-30), 0))
+    # Needle-thin hood, split cloak tails, and mirrored sickles read as an X from every azimuth.
+    cone(collection, "shade-cloak", (0, 0.05, 0.9), 0.43, 0.17, 1.62, MATS["ash"])
+    cone(collection, "shade-back-tail", (0, 0.24, 0.48), 0.22, 0.05, 0.88, MATS["void"], vertices=6, rotation=(math.radians(10), 0, 0))
+    ico(collection, "shade-mask", (0, -0.03, 1.78), 0.255, MATS["void"])
+    cube(collection, "shade-visor", (0, -0.245, 1.8), (0.31, 0.035, 0.055), MATS["cyan"], rotation=(0, 0, math.radians(-6)))
+    cone(collection, "shade-hood", (0, 0.03, 2.04), 0.32, 0.0, 0.46, MATS["obsidian"])
+    for side, x in (("left", -0.39), ("right", 0.39)):
+        angle = 34 if x < 0 else -34
+        cylinder(collection, f"shade-{side}-blade", (x, -0.06, 1.13), 0.043, 0.92, MATS["steel"], vertices=6, rotation=(0, math.radians(angle), 0))
+        cone(collection, f"shade-{side}-blade-tip", (x * 1.48, -0.06, 1.5), 0.09, 0.0, 0.32, MATS["cyan"], vertices=6, rotation=(0, math.radians(angle), 0))
+        cone(collection, f"shade-{side}-shoulder", (x * 0.73, 0, 1.48), 0.12, 0.0, 0.38, MATS["obsidian"], vertices=6, rotation=(0, math.radians(-62 if x < 0 else 62), 0))
     register("shade", "unit", collection, "units/shade.glb")
 
 
 def model_possessed():
     collection = make_collection("possessed", "unit")
-    cone(collection, "possessed-cloak", (0, 0, 0.86), 0.46, 0.16, 1.55, MATS["void"])
-    ico(collection, "possessed-mask", (0, 0, 1.72), 0.26, MATS["violet"])
-    cone(collection, "possessed-hood", (0, 0, 1.97), 0.31, 0.0, 0.42, MATS["obsidian"])
-    torus(collection, "possessed-aura", (0, 0, 1.15), 0.52, 0.04, MATS["violet"], rotation=(math.radians(90), 0, 0))
-    for index, x in enumerate((-0.34, 0.34)):
-        ico(collection, f"possessed-crystal-{index}", (x, 0.03, 1.2), 0.13, MATS["cyan"])
+    # A front-facing halo and deliberately asymmetric crystal growth separate the caster at 45-degree steps.
+    cone(collection, "possessed-cloak", (0, 0.05, 0.94), 0.48, 0.15, 1.62, MATS["void"])
+    ico(collection, "possessed-mask", (0, -0.04, 1.79), 0.27, MATS["violet"])
+    cube(collection, "possessed-face-rift", (0, -0.255, 1.79), (0.085, 0.035, 0.3), MATS["cyan"], rotation=(0, 0, math.radians(-14)))
+    cone(collection, "possessed-hood", (0, 0.03, 2.04), 0.31, 0.0, 0.43, MATS["obsidian"])
+    torus(collection, "possessed-aura", (0, 0.17, 1.42), 0.58, 0.035, MATS["violet"], rotation=(math.radians(90), 0, 0), major_segments=16)
+    crystal_specs = ((-0.48, 0.04, 1.15, 0.13), (0.39, 0.0, 1.34, 0.2), (0.56, 0.12, 0.92, 0.11))
+    for index, (x, y, z, radius) in enumerate(crystal_specs):
+        cone(collection, f"possessed-crystal-{index}", (x, y, z), radius, 0.0, radius * 3.0, MATS["cyan"], vertices=5, rotation=(0, math.radians(-18 if x < 0 else 18), 0))
+    for index, x in enumerate((-0.24, 0.28)):
+        cylinder(collection, f"possessed-chain-{index}", (x, 0.24, 0.55), 0.025, 0.82, MATS["gold"], vertices=6, rotation=(math.radians(13), math.radians(-8 if x < 0 else 10), 0))
     register("possessed", "unit", collection, "units/possessed.glb")
 
 
 def model_scout():
     collection = make_collection("scout", "unit")
-    cone(collection, "scout-body", (0, 0, 0.72), 0.34, 0.2, 1.25, MATS["steel"])
-    ico(collection, "scout-head", (0, 0, 1.43), 0.22, MATS["void"])
-    cone(collection, "scout-crest", (0, -0.03, 1.72), 0.21, 0.0, 0.36, MATS["ember"], rotation=(math.radians(-12), 0, 0))
-    for index, x in enumerate((-0.24, 0.24)):
-        cylinder(collection, f"scout-leg-{index}", (x, 0, 0.3), 0.065, 0.58, MATS["steel"], rotation=(0, math.radians(-18 if x < 0 else 18), 0))
-    cone(collection, "scout-spear", (0.42, 0, 1.08), 0.045, 0.02, 1.35, MATS["ember"], vertices=6, rotation=(0, math.radians(-22), 0))
+    # Lowest and narrowest unit: forward visor, swept scarf, rear quiver, and a long one-sided spear.
+    cone(collection, "scout-body", (0, 0.02, 0.78), 0.32, 0.18, 1.28, MATS["steel"])
+    ico(collection, "scout-head", (0, -0.03, 1.5), 0.215, MATS["void"])
+    cube(collection, "scout-visor", (0, -0.22, 1.5), (0.3, 0.035, 0.075), MATS["ember"])
+    cone(collection, "scout-crest", (0, 0.02, 1.78), 0.18, 0.0, 0.35, MATS["ember"], rotation=(math.radians(-12), 0, 0))
+    cone(collection, "scout-scarf", (-0.18, 0.24, 1.29), 0.13, 0.025, 0.64, MATS["ash"], vertices=6, rotation=(math.radians(48), math.radians(-18), 0))
+    for index, x in enumerate((-0.2, 0.2)):
+        cylinder(collection, f"scout-leg-{index}", (x, 0, 0.31), 0.06, 0.6, MATS["steel"], vertices=6, rotation=(0, math.radians(-14 if x < 0 else 14), 0))
+    cylinder(collection, "scout-spear", (0.46, -0.04, 1.08), 0.04, 1.58, MATS["steel"], vertices=6, rotation=(0, math.radians(-18), 0))
+    cone(collection, "scout-spear-tip", (0.71, -0.04, 1.82), 0.11, 0.0, 0.34, MATS["ember"], vertices=6, rotation=(0, math.radians(-18), 0))
+    cylinder(collection, "scout-quiver", (-0.23, 0.2, 1.12), 0.09, 0.68, MATS["ash"], vertices=6, rotation=(math.radians(8), math.radians(-12), 0))
     register("scout", "unit", collection, "units/scout.glb")
 
 
 def model_guard():
     collection = make_collection("guard", "unit")
-    cube(collection, "guard-body", (0, 0, 0.8), (0.72, 0.42, 1.25), MATS["steel"], bevel=0.06)
-    ico(collection, "guard-helm", (0, 0, 1.62), 0.31, MATS["obsidian"])
-    cone(collection, "guard-helm-crest", (0, 0, 1.96), 0.18, 0.0, 0.38, MATS["gold"])
-    cylinder(collection, "guard-shield", (-0.52, 0, 1.0), 0.36, 0.11, MATS["obsidian"], vertices=8, rotation=(math.radians(90), 0, 0))
-    cylinder(collection, "guard-halberd", (0.48, 0, 1.1), 0.045, 1.52, MATS["steel"], rotation=(0, math.radians(-20), 0))
+    # Broad square armor, a front-mounted octagonal tower shield, and tall halberd form a stable H silhouette.
+    cube(collection, "guard-body", (0, 0.04, 0.91), (0.72, 0.46, 1.34), MATS["steel"], bevel=0.055)
+    for side, x in (("left", -0.43), ("right", 0.43)):
+        ico(collection, f"guard-{side}-pauldron", (x, 0.02, 1.38), 0.25, MATS["gold"])
+    ico(collection, "guard-helm", (0, -0.02, 1.72), 0.305, MATS["obsidian"])
+    cube(collection, "guard-faceplate", (0, -0.275, 1.69), (0.38, 0.055, 0.24), MATS["steel"])
+    cone(collection, "guard-helm-crest", (0, 0, 2.07), 0.17, 0.0, 0.41, MATS["gold"])
+    cylinder(collection, "guard-shield", (-0.54, -0.12, 1.02), 0.43, 0.12, MATS["obsidian"], vertices=8, rotation=(math.radians(90), 0, 0))
+    torus(collection, "guard-shield-rim", (-0.54, -0.19, 1.02), 0.36, 0.045, MATS["gold"], rotation=(math.radians(90), 0, 0), major_segments=8, minor_segments=4)
+    ico(collection, "guard-shield-boss", (-0.54, -0.28, 1.02), 0.11, MATS["cyan"])
+    cylinder(collection, "guard-halberd", (0.52, 0.02, 1.14), 0.043, 1.72, MATS["steel"], vertices=8, rotation=(0, math.radians(-10), 0))
+    cone(collection, "guard-halberd-blade", (0.66, 0.02, 1.93), 0.15, 0.0, 0.42, MATS["gold"], vertices=6, rotation=(0, math.radians(-68), 0))
     register("guard", "unit", collection, "units/guard.glb")
 
 
 def model_reinforce():
     collection = make_collection("reinforce", "unit")
-    cone(collection, "reinforce-torso", (0, 0, 0.92), 0.58, 0.34, 1.55, MATS["obsidian"])
-    ico(collection, "reinforce-head", (0, 0, 1.86), 0.34, MATS["ember"])
-    for index, x in enumerate((-0.43, 0.43)):
-        ico(collection, f"reinforce-shoulder-{index}", (x, 0, 1.38), 0.28, MATS["steel"])
-    for index, x in enumerate((-0.18, 0.18)):
-        cone(collection, f"reinforce-horn-{index}", (x, 0, 2.22), 0.11, 0.0, 0.66, MATS["bone"], rotation=(0, math.radians(-18 if x < 0 else 18), 0))
-    cube(collection, "reinforce-maul-head", (0.66, 0, 1.25), (0.22, 0.32, 0.48), MATS["ember"], rotation=(0, math.radians(-20), 0))
-    cylinder(collection, "reinforce-maul-shaft", (0.4, 0, 0.89), 0.055, 1.28, MATS["steel"], rotation=(0, math.radians(-20), 0))
+    # Largest footprint and height: horn crown, massive shoulders, planted feet, and an oversized lateral maul.
+    cone(collection, "reinforce-torso", (0, 0.05, 1.02), 0.59, 0.33, 1.68, MATS["obsidian"])
+    ico(collection, "reinforce-head", (0, -0.03, 1.98), 0.34, MATS["ember"])
+    cube(collection, "reinforce-jaw", (0, -0.31, 1.86), (0.42, 0.12, 0.22), MATS["bone"])
+    for side, x in (("left", -0.48), ("right", 0.48)):
+        ico(collection, f"reinforce-{side}-shoulder", (x, 0.02, 1.5), 0.31, MATS["steel"])
+        cone(collection, f"reinforce-{side}-shoulder-spike", (x * 1.32, 0.02, 1.62), 0.13, 0.0, 0.46, MATS["bone"], vertices=6, rotation=(0, math.radians(-70 if x < 0 else 70), 0))
+    for index, x in enumerate((-0.2, 0.2)):
+        cone(collection, f"reinforce-horn-{index}", (x, 0, 2.36), 0.115, 0.0, 0.72, MATS["bone"], vertices=6, rotation=(0, math.radians(-20 if x < 0 else 20), 0))
+        cube(collection, f"reinforce-foot-{index}", (x * 1.5, -0.06, 0.18), (0.28, 0.43, 0.28), MATS["steel"], rotation=(0, 0, math.radians(-5 if x < 0 else 5)), bevel=0.035)
+    cube(collection, "reinforce-belt", (0, -0.01, 0.74), (0.86, 0.5, 0.2), MATS["gold"], bevel=0.03)
+    cube(collection, "reinforce-maul-head", (0.84, -0.04, 1.35), (0.48, 0.5, 0.64), MATS["ember"], rotation=(0, math.radians(-14), 0), bevel=0.045)
+    cylinder(collection, "reinforce-maul-shaft", (0.46, -0.04, 0.86), 0.06, 1.42, MATS["steel"], vertices=8, rotation=(0, math.radians(-28), 0))
     register("reinforce", "unit", collection, "units/reinforce.glb")
 
 
@@ -632,6 +800,14 @@ def texture_families_for(collection: bpy.types.Collection) -> list[str]:
     )
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 for asset in ASSETS:
     collection = asset["collection"]
     root = asset["root"]
@@ -653,12 +829,24 @@ for asset in ASSETS:
         export_apply=True,
     )
 
+bpy.context.preferences.filepaths.save_version = 0
+source_blend = OUTPUT / "abyssal-command-resource-pack.blend"
+bpy.ops.wm.save_as_mainfile(filepath=str(source_blend))
+
 manifest = {
-    "version": 1,
+    "version": 2,
     "pack": "abyssal-command-low-poly",
-    "source": "abyssal-command-resource-pack.blend",
-    "coordinateSystem": "Blender Z-up; ground-center pivots",
+    "source": source_blend.name,
+    "sourceSha256": sha256_file(source_blend),
+    "coordinateSystem": "Blender Z-up; ground-center pivots; authored forward is -Y",
     "rendering": "Flat-shaded PBR GLB resources with embedded albedo and tangent-space normal textures; no external texture URLs",
+    "build": {
+        "cycle": "20260718-resource-refinement",
+        "generator": "scripts/build_abyssal_command_assets.py",
+        "method": "Headless Blender procedural low-poly assembly with rigid body/equipment control animation",
+        "recipe": "Generate triangulated UV0 primitives; add azimuth-readable asymmetric equipment; ground lowest mesh bound to Z=0 at authored XY origin; parent unit pieces to body/equipment rigid controls; export selected collection as GLB with NLA tracks, tangents, animations, and embedded images.",
+        "blenderFps": 30,
+    },
     "textures": {
         "embeddedInGlb": True,
         "uvSet": "UV0",
@@ -667,7 +855,9 @@ manifest = {
             {
                 "family": family,
                 "albedo": str(resources["albedo"].relative_to(OUTPUT)),
+                "albedoSha256": sha256_file(resources["albedo"]),
                 "normal": str(resources["normal"].relative_to(OUTPUT)),
+                "normalSha256": sha256_file(resources["normal"]),
             }
             for family, resources in TEXTURE_RESOURCES.items()
         ],
@@ -677,14 +867,21 @@ manifest = {
             "id": asset["id"],
             "category": asset["category"],
             "path": asset["path"],
+            "sha256": sha256_file(OUTPUT / asset["path"]),
             "pivot": "ground-center",
+            "groundOffsetApplied": round(asset["ground_offset"], 6),
+            "measurements": asset["measurements"],
             "textureFamilies": texture_families_for(asset["collection"]),
             "actions": [action.name for action in asset["actions"]],
             "actionClips": [action["clip_name"] for action in asset["actions"]],
+            "rig": {
+                "type": "rigid-control" if asset["controls"] else "root-transform",
+                "controls": [control.name for control in asset["controls"]],
+                "animation": "root plus secondary body/equipment transforms" if asset["controls"] else "root transform",
+            },
         }
         for asset in ASSETS
     ],
 }
 (OUTPUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-bpy.ops.wm.save_as_mainfile(filepath=str(OUTPUT / "abyssal-command-resource-pack.blend"))
 print(f"ABYSSAL_COMMAND_RESOURCE_PACK_READY assets={len(ASSETS)} output={OUTPUT}")
