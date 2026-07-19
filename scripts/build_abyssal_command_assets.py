@@ -242,6 +242,28 @@ def cube(collection, label, location, dimensions, mat, *, rotation=(0.0, 0.0, 0.
     return apply_material(add_to_collection(obj, collection, label), mat)
 
 
+def panel(collection, label, location, dimensions, mat, *, rotation=(0.0, 0.0, 0.0), taper=0.5, bevel=0.0):
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=location, rotation=rotation)
+    obj = bpy.context.object
+    obj.dimensions = dimensions
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    tx, ty = taper if isinstance(taper, tuple) else (taper, taper)
+    for v in bm.verts:
+        if v.co.z > 0.0:
+            v.co.x *= tx
+            v.co.y *= ty
+    bm.to_mesh(mesh)
+    bm.free()
+    if bevel:
+        modifier = obj.modifiers.new("edge bevel", "BEVEL")
+        modifier.width = bevel
+        modifier.segments = 1
+    return apply_material(add_to_collection(obj, collection, label), mat)
+
+
 def cone(collection, label, location, radius1, radius2, depth, mat, *, vertices=8, rotation=(0.0, 0.0, 0.0)):
     bpy.ops.mesh.primitive_cone_add(
         vertices=vertices,
@@ -320,17 +342,35 @@ def ground_collection(collection: bpy.types.Collection) -> float:
     return offset
 
 
+def evaluated_mesh_counts(mesh_objects: list[bpy.types.Object]) -> tuple[int, int]:
+    """Count the exported geometry after non-destructive modifiers are evaluated."""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    vertices = 0
+    triangles = 0
+    for obj in mesh_objects:
+        evaluated = obj.evaluated_get(depsgraph)
+        mesh = evaluated.to_mesh()
+        try:
+            mesh.calc_loop_triangles()
+            vertices += len(mesh.vertices)
+            triangles += len(mesh.loop_triangles)
+        finally:
+            evaluated.to_mesh_clear()
+    return vertices, triangles
+
+
 def collection_measurements(collection: bpy.types.Collection) -> dict[str, object]:
     minimum, maximum = mesh_bounds(collection)
     dimensions = maximum - minimum
     mesh_objects = [obj for obj in collection.objects if obj.type == "MESH"]
+    vertices, triangles = evaluated_mesh_counts(mesh_objects)
     return {
         "boundsMin": [round(value, 4) for value in minimum],
         "boundsMax": [round(value, 4) for value in maximum],
         "dimensions": [round(value, 4) for value in dimensions],
         "meshPieces": len(mesh_objects),
-        "vertices": sum(len(obj.data.vertices) for obj in mesh_objects),
-        "triangles": sum(len(obj.data.polygons) for obj in mesh_objects),
+        "vertices": vertices,
+        "triangles": triangles,
     }
 
 
@@ -531,7 +571,14 @@ def create_asset_actions(
     return actions
 
 
-def register(asset_id: str, category: str, collection: bpy.types.Collection, relative_path: str):
+def register(
+    asset_id: str,
+    category: str,
+    collection: bpy.types.Collection,
+    relative_path: str,
+    concept_sources: list[str] | None = None,
+    structure_tags: list[str] | None = None,
+):
     ground_offset = ground_collection(collection)
     measurements = collection_measurements(collection)
     root = create_asset_root(asset_id, category, collection)
@@ -548,128 +595,243 @@ def register(asset_id: str, category: str, collection: bpy.types.Collection, rel
             "controls": controls,
             "ground_offset": ground_offset,
             "measurements": measurements,
+            "concept_sources": concept_sources or [],
+            "structure_tags": structure_tags or [],
         }
     )
 
 
 def model_shade():
     collection = make_collection("shade", "unit")
-    # Needle-thin hood, split cloak tails, and mirrored sickles read as an X from every azimuth.
-    cone(collection, "shade-cloak", (0, 0.05, 0.9), 0.43, 0.17, 1.62, MATS["ash"])
-    cone(collection, "shade-back-tail", (0, 0.24, 0.48), 0.22, 0.05, 0.88, MATS["void"], vertices=6, rotation=(math.radians(10), 0, 0))
-    ico(collection, "shade-mask", (0, -0.03, 1.78), 0.255, MATS["void"])
-    cube(collection, "shade-visor", (0, -0.245, 1.8), (0.31, 0.035, 0.055), MATS["cyan"], rotation=(0, 0, math.radians(-6)))
-    cone(collection, "shade-hood", (0, 0.03, 2.04), 0.32, 0.0, 0.46, MATS["obsidian"])
+    # Tapered back and side cloak tails, a high collar, central torso/front cloak, faceted mask, hood, and curved steel blades.
+    panel(collection, "shade-cloak-tails-back", (0, 0.2, 0.5), (0.35, 0.05, 0.9), MATS["ash"], rotation=(math.radians(12), 0, 0), taper=0.7)
+    panel(collection, "shade-cloak-tails-left", (-0.2, 0.1, 0.5), (0.25, 0.05, 0.9), MATS["ash"], rotation=(math.radians(12), math.radians(15), 0), taper=0.7)
+    panel(collection, "shade-cloak-tails-right", (0.2, 0.1, 0.5), (0.25, 0.05, 0.9), MATS["ash"], rotation=(math.radians(12), math.radians(-15), 0), taper=0.7)
+    panel(collection, "shade-torso", (0, 0.05, 1.05), (0.32, 0.22, 0.72), MATS["ash"], taper=(0.8, 0.8))
+    panel(collection, "shade-collar", (0, -0.02, 1.45), (0.45, 0.25, 0.18), MATS["obsidian"], taper=(0.8, 0.8))
+    cube(collection, "shade-mask", (0, -0.1, 1.7), (0.2, 0.12, 0.24), MATS["void"])
+    cube(collection, "shade-visor", (0, -0.17, 1.72), (0.16, 0.04, 0.06), MATS["cyan"])
+    panel(collection, "shade-hood", (0, 0.05, 1.95), (0.42, 0.42, 0.5), MATS["obsidian"], taper=(0.1, 0.1), rotation=(math.radians(-10), 0, 0))
     for side, x in (("left", -0.39), ("right", 0.39)):
         angle = 34 if x < 0 else -34
-        cylinder(collection, f"shade-{side}-blade", (x, -0.06, 1.13), 0.043, 0.92, MATS["steel"], vertices=6, rotation=(0, math.radians(angle), 0))
-        cone(collection, f"shade-{side}-blade-tip", (x * 1.48, -0.06, 1.5), 0.09, 0.0, 0.32, MATS["cyan"], vertices=6, rotation=(0, math.radians(angle), 0))
-        cone(collection, f"shade-{side}-shoulder", (x * 0.73, 0, 1.48), 0.12, 0.0, 0.38, MATS["obsidian"], vertices=6, rotation=(0, math.radians(-62 if x < 0 else 62), 0))
-    register("shade", "unit", collection, "units/shade.glb")
+        panel(collection, f"shade-{side}-shoulder", (x * 0.73, 0, 1.48), (0.2, 0.2, 0.35), MATS["obsidian"], taper=0.4, rotation=(0, math.radians(-62 if x < 0 else 62), 0))
+        panel(collection, f"shade-{side}-blade", (x, -0.06, 1.13), (0.06, 0.03, 1.0), MATS["steel"], taper=(0.8, 0.8), rotation=(0, math.radians(angle), 0))
+        panel(collection, f"shade-{side}-blade-tip", (x * 1.48, -0.06, 1.5), (0.09, 0.02, 0.32), MATS["cyan"], taper=(0.1, 0.1), rotation=(0, math.radians(angle), 0))
+    register(
+        "shade",
+        "unit",
+        collection,
+        "units/shade.glb",
+        concept_sources=["assets/images/ui/concept-tactical-surface.png"],
+        structure_tags=["cloak", "mask", "hood", "sickles"]
+    )
 
 
 def model_possessed():
     collection = make_collection("possessed", "unit")
-    # A front-facing halo and deliberately asymmetric crystal growth separate the caster at 45-degree steps.
-    cone(collection, "possessed-cloak", (0, 0.05, 0.94), 0.48, 0.15, 1.62, MATS["void"])
-    ico(collection, "possessed-mask", (0, -0.04, 1.79), 0.27, MATS["violet"])
-    cube(collection, "possessed-face-rift", (0, -0.255, 1.79), (0.085, 0.035, 0.3), MATS["cyan"], rotation=(0, 0, math.radians(-14)))
-    cone(collection, "possessed-hood", (0, 0.03, 2.04), 0.31, 0.0, 0.43, MATS["obsidian"])
+    # Face rift, layered back/side cloak panels, high collar, and gothic cathedral back spires.
+    panel(collection, "possessed-collar", (0, -0.02, 1.48), (0.52, 0.32, 0.15), MATS["void"], taper=(1.2, 1.2))
+    panel(collection, "possessed-cathedral-spire-left", (-0.32, 0.18, 1.8), (0.1, 0.1, 0.75), MATS["obsidian"], taper=(0.1, 0.1), rotation=(math.radians(-5), math.radians(-10), 0))
+    panel(collection, "possessed-cathedral-spire-right", (0.32, 0.18, 1.8), (0.1, 0.1, 0.75), MATS["obsidian"], taper=(0.1, 0.1), rotation=(math.radians(-5), math.radians(10), 0))
+    panel(collection, "possessed-cathedral-spire-back", (0.0, 0.24, 1.95), (0.12, 0.12, 0.9), MATS["obsidian"], taper=(0.1, 0.1), rotation=(math.radians(-10), 0, 0))
+    cube(collection, "possessed-mask", (0, -0.1, 1.7), (0.24, 0.24, 0.26), MATS["void"])
+    cube(collection, "possessed-face-rift", (0, -0.21, 1.7), (0.05, 0.04, 0.28), MATS["cyan"])
+    panel(collection, "possessed-hood", (0, 0.03, 2.04), (0.42, 0.42, 0.43), MATS["obsidian"], taper=(0.1, 0.1))
     torus(collection, "possessed-aura", (0, 0.17, 1.42), 0.58, 0.035, MATS["violet"], rotation=(math.radians(90), 0, 0), major_segments=16)
-    crystal_specs = ((-0.48, 0.04, 1.15, 0.13), (0.39, 0.0, 1.34, 0.2), (0.56, 0.12, 0.92, 0.11))
-    for index, (x, y, z, radius) in enumerate(crystal_specs):
-        cone(collection, f"possessed-crystal-{index}", (x, y, z), radius, 0.0, radius * 3.0, MATS["cyan"], vertices=5, rotation=(0, math.radians(-18 if x < 0 else 18), 0))
+    panel(collection, "possessed-cloak-left", (-0.25, 0.08, 0.65), (0.32, 0.06, 1.2), MATS["void"], taper=0.6, rotation=(0, math.radians(-8), 0))
+    panel(collection, "possessed-cloak-right", (0.25, 0.08, 0.65), (0.32, 0.06, 1.2), MATS["void"], taper=0.6, rotation=(0, math.radians(8), 0))
+    panel(collection, "possessed-cloak-back", (0, 0.2, 0.6), (0.42, 0.06, 1.2), MATS["void"], taper=0.6)
+    for index, (x, y, z, radius) in enumerate(((-0.48, 0.04, 1.15, 0.13), (0.39, 0.0, 1.34, 0.2), (0.52, 0.12, 0.92, 0.11))):
+        panel(collection, f"possessed-crystal-{index}", (x, y, z), (radius * 2, radius * 2, radius * 3.0), MATS["cyan"], taper=(0.0, 0.0), rotation=(0, math.radians(-18 if x < 0 else 18), 0))
     for index, x in enumerate((-0.24, 0.28)):
         cylinder(collection, f"possessed-chain-{index}", (x, 0.24, 0.55), 0.025, 0.82, MATS["gold"], vertices=6, rotation=(math.radians(13), math.radians(-8 if x < 0 else 10), 0))
-    register("possessed", "unit", collection, "units/possessed.glb")
+    register(
+        "possessed",
+        "unit",
+        collection,
+        "units/possessed.glb",
+        concept_sources=["assets/images/characters/dusk-legion-source.png"],
+        structure_tags=["cloak", "mask", "rift", "crystals", "halo", "chains"]
+    )
 
 
 def model_scout():
     collection = make_collection("scout", "unit")
-    # Lowest and narrowest unit: forward visor, swept scarf, rear quiver, and a long one-sided spear.
-    cone(collection, "scout-body", (0, 0.02, 0.78), 0.32, 0.18, 1.28, MATS["steel"])
-    ico(collection, "scout-head", (0, -0.03, 1.5), 0.215, MATS["void"])
-    cube(collection, "scout-visor", (0, -0.22, 1.5), (0.3, 0.035, 0.075), MATS["ember"])
-    cone(collection, "scout-crest", (0, 0.02, 1.78), 0.18, 0.0, 0.35, MATS["ember"], rotation=(math.radians(-12), 0, 0))
-    cone(collection, "scout-scarf", (-0.18, 0.24, 1.29), 0.13, 0.025, 0.64, MATS["ash"], vertices=6, rotation=(math.radians(48), math.radians(-18), 0))
-    for index, x in enumerate((-0.2, 0.2)):
-        cylinder(collection, f"scout-leg-{index}", (x, 0, 0.31), 0.06, 0.6, MATS["steel"], vertices=6, rotation=(0, math.radians(-14 if x < 0 else 14), 0))
-    cylinder(collection, "scout-spear", (0.46, -0.04, 1.08), 0.04, 1.58, MATS["steel"], vertices=6, rotation=(0, math.radians(-18), 0))
-    cone(collection, "scout-spear-tip", (0.71, -0.04, 1.82), 0.11, 0.0, 0.34, MATS["ember"], vertices=6, rotation=(0, math.radians(-18), 0))
-    cylinder(collection, "scout-quiver", (-0.23, 0.2, 1.12), 0.09, 0.68, MATS["ash"], vertices=6, rotation=(math.radians(8), math.radians(-12), 0))
-    register("scout", "unit", collection, "units/scout.glb")
+    # Low silhouette, forward visor, crest, and triple-panel back cape with a single spear.
+    panel(collection, "scout-body", (0, 0.02, 0.88), (0.42, 0.32, 0.75), MATS["steel"], taper=(0.7, 0.7))
+    ico(collection, "scout-head", (0, -0.02, 1.5), 0.2, MATS["void"])
+    cube(collection, "scout-visor", (0, -0.18, 1.52), (0.24, 0.03, 0.08), MATS["ember"])
+    panel(collection, "scout-crest", (0, 0.02, 1.76), (0.08, 0.25, 0.32), MATS["ember"], taper=(0.2, 0.2), rotation=(math.radians(-15), 0, 0))
+    panel(collection, "scout-cape-back", (0.0, 0.22, 0.95), (0.4, 0.04, 0.9), MATS["ash"], taper=0.7, rotation=(math.radians(20), 0, 0))
+    panel(collection, "scout-cape-left", (-0.18, 0.18, 0.95), (0.24, 0.04, 0.82), MATS["ash"], taper=0.7, rotation=(math.radians(20), math.radians(12), 0))
+    panel(collection, "scout-cape-right", (0.18, 0.18, 0.95), (0.24, 0.04, 0.82), MATS["ash"], taper=0.7, rotation=(math.radians(20), math.radians(-12), 0))
+    for index, x in enumerate((-0.18, 0.18)):
+        cylinder(collection, f"scout-leg-{index}", (x, 0, 0.35), 0.05, 0.7, MATS["steel"], vertices=6, rotation=(0, math.radians(-10 if x < 0 else 10), 0))
+    cylinder(collection, "scout-spear", (0.46, -0.04, 1.08), 0.03, 1.58, MATS["steel"], vertices=6, rotation=(0, math.radians(-18), 0))
+    panel(collection, "scout-spear-tip", (0.71, -0.04, 1.82), (0.12, 0.04, 0.42), MATS["ember"], taper=(0.0, 0.0), rotation=(0, math.radians(-18), 0))
+    cylinder(collection, "scout-quiver", (-0.23, 0.2, 1.12), 0.08, 0.68, MATS["ash"], vertices=6, rotation=(math.radians(8), math.radians(-12), 0))
+    register(
+        "scout",
+        "unit",
+        collection,
+        "units/scout.glb",
+        concept_sources=["assets/images/ui/concept-tactical-surface.png"],
+        structure_tags=["visor", "crest", "spear", "quiver", "cape"]
+    )
 
 
 def model_guard():
     collection = make_collection("guard", "unit")
-    # Broad square armor, a front-mounted octagonal tower shield, and tall halberd form a stable H silhouette.
-    cube(collection, "guard-body", (0, 0.04, 0.91), (0.72, 0.46, 1.34), MATS["steel"], bevel=0.055)
-    for side, x in (("left", -0.43), ("right", 0.43)):
-        ico(collection, f"guard-{side}-pauldron", (x, 0.02, 1.38), 0.25, MATS["gold"])
-    ico(collection, "guard-helm", (0, -0.02, 1.72), 0.305, MATS["obsidian"])
-    cube(collection, "guard-faceplate", (0, -0.275, 1.69), (0.38, 0.055, 0.24), MATS["steel"])
-    cone(collection, "guard-helm-crest", (0, 0, 2.07), 0.17, 0.0, 0.41, MATS["gold"])
-    cylinder(collection, "guard-shield", (-0.54, -0.12, 1.02), 0.43, 0.12, MATS["obsidian"], vertices=8, rotation=(math.radians(90), 0, 0))
-    torus(collection, "guard-shield-rim", (-0.54, -0.19, 1.02), 0.36, 0.045, MATS["gold"], rotation=(math.radians(90), 0, 0), major_segments=8, minor_segments=4)
-    ico(collection, "guard-shield-boss", (-0.54, -0.28, 1.02), 0.11, MATS["cyan"])
-    cylinder(collection, "guard-halberd", (0.52, 0.02, 1.14), 0.043, 1.72, MATS["steel"], vertices=8, rotation=(0, math.radians(-10), 0))
-    cone(collection, "guard-halberd-blade", (0.66, 0.02, 1.93), 0.15, 0.0, 0.42, MATS["gold"], vertices=6, rotation=(0, math.radians(-68), 0))
-    register("guard", "unit", collection, "units/guard.glb")
+    # Plated sentinel, octagonal tower shield, halberd, gold chest chevron, simple planted legs/boots, and side tassets.
+    cube(collection, "guard-body", (0, 0.02, 1.05), (0.64, 0.38, 0.9), MATS["steel"], bevel=0.04)
+    panel(collection, "guard-chest-chevron", (0.0, -0.21, 1.12), (0.28, 0.05, 0.22), MATS["gold"], taper=(1.2, 0.8), rotation=(math.radians(10), 0, 0))
+    panel(collection, "guard-tasset-left", (-0.38, 0.05, 0.56), (0.25, 0.12, 0.52), MATS["steel"], taper=(0.7, 0.7), rotation=(0, math.radians(-15), 0))
+    panel(collection, "guard-tasset-right", (0.38, 0.05, 0.56), (0.25, 0.12, 0.52), MATS["steel"], taper=(0.7, 0.7), rotation=(0, math.radians(15), 0))
+    for side, x in (("left", -0.42), ("right", 0.42)):
+        panel(collection, f"guard-{side}-pauldron", (x, 0.02, 1.42), (0.24, 0.24, 0.26), MATS["gold"], taper=(0.8, 0.8))
+    for index, x in enumerate((-0.18, 0.18)):
+        cylinder(collection, f"guard-leg-{index}", (x, 0, 0.32), 0.08, 0.64, MATS["steel"], vertices=6)
+        cube(collection, f"guard-boot-{index}", (x, -0.06, 0.08), (0.22, 0.35, 0.16), MATS["obsidian"])
+    cube(collection, "guard-helm", (0, -0.02, 1.68), (0.26, 0.26, 0.26), MATS["obsidian"], bevel=0.03)
+    cube(collection, "guard-faceplate", (0, -0.16, 1.68), (0.28, 0.04, 0.16), MATS["steel"])
+    panel(collection, "guard-helm-crest", (0, 0.02, 1.95), (0.06, 0.22, 0.32), MATS["gold"], taper=(0.2, 0.2))
+    panel(collection, "guard-shield", (-0.56, -0.15, 1.0), (0.68, 0.08, 1.15), MATS["obsidian"], taper=(0.95, 0.95))
+    panel(collection, "guard-shield-rim", (-0.56, -0.2, 1.0), (0.74, 0.04, 1.2), MATS["gold"], taper=(0.95, 0.95))
+    cube(collection, "guard-shield-boss", (-0.56, -0.24, 1.0), (0.18, 0.06, 0.18), MATS["cyan"])
+    cylinder(collection, "guard-halberd", (0.54, 0.02, 1.14), 0.04, 1.72, MATS["steel"], vertices=8, rotation=(0, math.radians(-8), 0))
+    panel(collection, "guard-halberd-blade", (0.68, 0.02, 1.95), (0.24, 0.03, 0.46), MATS["gold"], taper=(0.1, 0.1), rotation=(0, math.radians(-8), 0))
+    register(
+        "guard",
+        "unit",
+        collection,
+        "units/guard.glb",
+        concept_sources=[
+            "assets/images/ui/boss-cinder-warden.png",
+            "assets/images/resource-refinement/gti/abyssal-surge-resource-forging-hero-frame.png"
+        ],
+        structure_tags=["shield", "halberd", "chevron", "tassets", "pauldron"]
+    )
 
 
 def model_reinforce():
     collection = make_collection("reinforce", "unit")
-    # Largest footprint and height: horn crown, massive shoulders, planted feet, and an oversized lateral maul.
-    cone(collection, "reinforce-torso", (0, 0.05, 1.02), 0.59, 0.33, 1.68, MATS["obsidian"])
-    ico(collection, "reinforce-head", (0, -0.03, 1.98), 0.34, MATS["ember"])
-    cube(collection, "reinforce-jaw", (0, -0.31, 1.86), (0.42, 0.12, 0.22), MATS["bone"])
-    for side, x in (("left", -0.48), ("right", 0.48)):
-        ico(collection, f"reinforce-{side}-shoulder", (x, 0.02, 1.5), 0.31, MATS["steel"])
-        cone(collection, f"reinforce-{side}-shoulder-spike", (x * 1.32, 0.02, 1.62), 0.13, 0.0, 0.46, MATS["bone"], vertices=6, rotation=(0, math.radians(-70 if x < 0 else 70), 0))
-    for index, x in enumerate((-0.2, 0.2)):
-        cone(collection, f"reinforce-horn-{index}", (x, 0, 2.36), 0.115, 0.0, 0.72, MATS["bone"], vertices=6, rotation=(0, math.radians(-20 if x < 0 else 20), 0))
-        cube(collection, f"reinforce-foot-{index}", (x * 1.5, -0.06, 0.18), (0.28, 0.43, 0.28), MATS["steel"], rotation=(0, 0, math.radians(-5 if x < 0 else 5)), bevel=0.035)
-    cube(collection, "reinforce-belt", (0, -0.01, 0.74), (0.86, 0.5, 0.2), MATS["gold"], bevel=0.03)
-    cube(collection, "reinforce-maul-head", (0.84, -0.04, 1.35), (0.48, 0.5, 0.64), MATS["ember"], rotation=(0, math.radians(-14), 0), bevel=0.045)
-    cylinder(collection, "reinforce-maul-shaft", (0.46, -0.04, 0.86), 0.06, 1.42, MATS["steel"], vertices=8, rotation=(0, math.radians(-28), 0))
-    register("reinforce", "unit", collection, "units/reinforce.glb")
+    # Humanoid armored brute with helm, chest rift, massive shoulders, side tassets, and lateral maul.
+    cube(collection, "reinforce-helm", (0, -0.02, 2.05), (0.34, 0.34, 0.34), MATS["obsidian"], bevel=0.04)
+    panel(collection, "reinforce-horn-0", (-0.22, 0.02, 2.38), (0.11, 0.11, 0.62), MATS["bone"], taper=(0.0, 0.0), rotation=(0, math.radians(-25), 0))
+    panel(collection, "reinforce-horn-1", (0.22, 0.02, 2.38), (0.11, 0.11, 0.62), MATS["bone"], taper=(0.0, 0.0), rotation=(0, math.radians(25), 0))
+    cube(collection, "reinforce-chest-rift", (0.0, -0.29, 1.48), (0.1, 0.05, 0.42), MATS["ember"])
+    panel(collection, "reinforce-tasset-left", (-0.42, 0.05, 0.88), (0.32, 0.15, 0.58), MATS["steel"], taper=(0.7, 0.7), rotation=(0, math.radians(-12), 0))
+    panel(collection, "reinforce-tasset-right", (0.42, 0.05, 0.88), (0.32, 0.15, 0.58), MATS["steel"], taper=(0.7, 0.7), rotation=(0, math.radians(12), 0))
+    panel(collection, "reinforce-torso-upper", (0, 0.02, 1.52), (0.76, 0.48, 0.64), MATS["steel"], taper=(0.85, 0.85))
+    panel(collection, "reinforce-torso-lower", (0, 0.02, 1.05), (0.64, 0.42, 0.45), MATS["steel"], taper=(1.1, 1.1))
+    cube(collection, "reinforce-belt", (0, 0.01, 0.82), (0.78, 0.46, 0.12), MATS["gold"], bevel=0.02)
+    cylinder(collection, "reinforce-upper-leg-left", (-0.28, 0.02, 0.62), 0.13, 0.42, MATS["obsidian"], vertices=6, rotation=(0, math.radians(-8), 0))
+    cylinder(collection, "reinforce-upper-leg-right", (0.28, 0.02, 0.62), 0.13, 0.42, MATS["obsidian"], vertices=6, rotation=(0, math.radians(8), 0))
+    cylinder(collection, "reinforce-lower-leg-left", (-0.32, -0.02, 0.32), 0.11, 0.42, MATS["steel"], vertices=6)
+    cylinder(collection, "reinforce-lower-leg-right", (0.32, -0.02, 0.32), 0.11, 0.42, MATS["steel"], vertices=6)
+    cube(collection, "reinforce-boot-left", (-0.35, -0.1, 0.11), (0.28, 0.48, 0.22), MATS["steel"], bevel=0.03)
+    cube(collection, "reinforce-boot-right", (0.35, -0.1, 0.11), (0.28, 0.48, 0.22), MATS["steel"], bevel=0.03)
+    for side, x in (("left", -0.52), ("right", 0.52)):
+        panel(collection, f"reinforce-{side}-shoulder", (x, 0.02, 1.68), (0.34, 0.34, 0.34), MATS["steel"], taper=(0.7, 0.7))
+    cylinder(collection, "reinforce-maul-shaft", (0.58, -0.06, 1.05), 0.05, 1.92, MATS["steel"], vertices=8, rotation=(0, math.radians(-15), 0))
+    panel(collection, "reinforce-maul-head", (0.86, -0.08, 1.82), (0.42, 0.42, 0.64), MATS["ember"], taper=(0.8, 0.8), rotation=(0, math.radians(-15), 0))
+    register(
+        "reinforce",
+        "unit",
+        collection,
+        "units/reinforce.glb",
+        concept_sources=[
+            "assets/images/ui/boss-cinder-warden.png",
+            "assets/images/resource-refinement/gti/abyssal-surge-resource-forging-hero-frame.png"
+        ],
+        structure_tags=["helm", "rift", "maul", "tassets", "brute"]
+    )
 
 
 def model_cinder_warden():
     collection = make_collection("cinder-warden", "boss")
-    cone(collection, "warden-robe", (0, 0, 1.15), 0.8, 0.4, 2.05, MATS["ember"])
-    ico(collection, "warden-skull", (0, 0, 2.35), 0.44, MATS["bone"], subdivisions=2)
-    for index, x in enumerate((-0.36, 0.36)):
-        cone(collection, f"warden-horn-{index}", (x, 0, 2.78), 0.16, 0.0, 0.88, MATS["obsidian"], rotation=(0, math.radians(-22 if x < 0 else 22), 0))
-    torus(collection, "warden-fire-ring", (0, 0, 1.4), 0.93, 0.06, MATS["ember"], rotation=(math.radians(90), 0, 0), major_segments=16)
-    cylinder(collection, "warden-staff", (0.88, 0, 1.35), 0.07, 2.55, MATS["gold"], rotation=(0, math.radians(-18), 0))
-    register("cinder-warden", "boss", collection, "bosses/cinder-warden.glb")
+    # Plated volcanic knight with helm, chest rift, wrapping mantle plates, and gold staff.
+    cube(collection, "warden-helm", (0, -0.02, 2.38), (0.38, 0.38, 0.42), MATS["obsidian"], bevel=0.05)
+    panel(collection, "warden-helm-crest", (0, 0.05, 2.72), (0.08, 0.32, 0.38), MATS["ember"], taper=(0.2, 0.2))
+    cube(collection, "warden-chest-rift", (0.0, -0.32, 1.65), (0.12, 0.06, 0.52), MATS["ember"])
+    panel(collection, "warden-mantle-left", (-0.55, 0.02, 2.05), (0.38, 0.38, 0.35), MATS["obsidian"], taper=(0.6, 0.6), rotation=(0, math.radians(-15), 0))
+    panel(collection, "warden-mantle-right", (0.55, 0.02, 2.05), (0.38, 0.38, 0.35), MATS["obsidian"], taper=(0.6, 0.6), rotation=(0, math.radians(15), 0))
+    panel(collection, "warden-mantle-back", (0.0, 0.28, 2.08), (0.75, 0.25, 0.45), MATS["obsidian"], taper=(0.8, 0.8))
+    panel(collection, "warden-torso-upper", (0, 0.02, 1.65), (0.82, 0.52, 0.68), MATS["steel"], taper=(0.8, 0.8))
+    panel(collection, "warden-robe-left", (-0.38, 0.1, 0.88), (0.42, 0.15, 1.55), MATS["ember"], taper=0.6, rotation=(0, math.radians(-10), 0))
+    panel(collection, "warden-robe-right", (0.38, 0.1, 0.88), (0.42, 0.15, 1.55), MATS["ember"], taper=0.6, rotation=(0, math.radians(10), 0))
+    panel(collection, "warden-robe-back", (0, 0.25, 0.85), (0.58, 0.15, 1.55), MATS["ember"], taper=0.6)
+    torus(collection, "warden-fire-ring", (0, 0.22, 1.45), 0.93, 0.05, MATS["ember"], rotation=(math.radians(90), 0, 0), major_segments=16)
+    cylinder(collection, "warden-staff", (0.88, 0, 1.35), 0.06, 2.55, MATS["gold"], rotation=(0, math.radians(-15), 0))
+    panel(collection, "warden-staff-head", (1.28, 0, 2.45), (0.35, 0.12, 0.55), MATS["ember"], taper=(0.1, 0.1), rotation=(0, math.radians(-15), 0))
+    register(
+        "cinder-warden",
+        "boss",
+        collection,
+        "bosses/cinder-warden.glb",
+        concept_sources=["assets/images/ui/boss-cinder-warden.png"],
+        structure_tags=["helm", "rift", "mantle", "staff", "robe"]
+    )
 
 
 def model_veil_tactician():
     collection = make_collection("veil-tactician", "boss")
-    cone(collection, "tactician-robe", (0, 0, 1.08), 0.82, 0.25, 2.05, MATS["violet"])
-    ico(collection, "tactician-mask", (0, 0, 2.25), 0.38, MATS["gold"], subdivisions=2)
-    cone(collection, "tactician-hood", (0, 0, 2.62), 0.5, 0.0, 0.75, MATS["void"])
-    for index, z in enumerate((1.3, 1.65, 1.98)):
-        torus(collection, f"tactician-sigil-{index}", (0, 0, z), 0.87 - index * 0.12, 0.035, MATS["cyan"], rotation=(math.radians(90), 0, 0), major_segments=12)
-    cylinder(collection, "tactician-scepter", (-0.88, 0, 1.38), 0.065, 2.65, MATS["steel"], rotation=(0, math.radians(18), 0))
-    ico(collection, "tactician-scepter-core", (-1.27, 0, 2.5), 0.18, MATS["cyan"])
-    register("veil-tactician", "boss", collection, "bosses/veil-tactician.glb")
+    # Hooded faceted-mask caster with mask runes, scepter, and magic sigil rings.
+    cube(collection, "tactician-mask", (0, -0.16, 2.15), (0.32, 0.15, 0.42), MATS["gold"], bevel=0.04)
+    cube(collection, "tactician-mask-rune-center", (0.0, -0.24, 2.15), (0.045, 0.03, 0.26), MATS["cyan"])
+    cube(collection, "tactician-mask-rune-left", (-0.075, -0.24, 2.2), (0.04, 0.03, 0.12), MATS["cyan"], rotation=(0, 0, math.radians(-18)))
+    cube(collection, "tactician-mask-rune-right", (0.075, -0.24, 2.2), (0.04, 0.03, 0.12), MATS["cyan"], rotation=(0, 0, math.radians(18)))
+    panel(collection, "tactician-hood", (0, 0.05, 2.45), (0.56, 0.52, 0.58), MATS["void"], taper=(0.2, 0.2), rotation=(math.radians(-8), 0, 0))
+    panel(collection, "tactician-collar", (0, -0.02, 1.88), (0.64, 0.38, 0.18), MATS["void"], taper=(1.1, 1.1))
+    panel(collection, "tactician-robe-left", (-0.35, 0.08, 0.95), (0.45, 0.15, 1.7), MATS["violet"], taper=0.5, rotation=(0, math.radians(-12), 0))
+    panel(collection, "tactician-robe-right", (0.35, 0.08, 0.95), (0.45, 0.15, 1.7), MATS["violet"], taper=0.5, rotation=(0, math.radians(12), 0))
+    panel(collection, "tactician-robe-back", (0, 0.22, 0.9), (0.6, 0.15, 1.7), MATS["violet"], taper=0.5)
+    torus(collection, "tactician-sigil-0", (0, 0.18, 1.4), 0.85, 0.03, MATS["cyan"], rotation=(math.radians(90), 0, 0), major_segments=12)
+    torus(collection, "tactician-sigil-1", (0, 0.18, 1.75), 0.7, 0.03, MATS["cyan"], rotation=(math.radians(90), 0, 0), major_segments=12)
+    cylinder(collection, "tactician-scepter", (-0.88, 0, 1.38), 0.055, 2.65, MATS["steel"], rotation=(0, math.radians(15), 0))
+    panel(collection, "tactician-scepter-head", (-1.22, 0, 2.48), (0.28, 0.28, 0.42), MATS["gold"], taper=(0.2, 0.2), rotation=(0, math.radians(15), 0))
+    ico(collection, "tactician-scepter-core", (-1.22, 0, 2.68), 0.15, MATS["cyan"])
+    register(
+        "veil-tactician",
+        "boss",
+        collection,
+        "bosses/veil-tactician.glb",
+        concept_sources=["assets/images/ui/boss-veil-tactician.png"],
+        structure_tags=["mask", "runes", "hood", "scepter", "sigils"]
+    )
 
 
 def model_gate_sovereign():
     collection = make_collection("gate-sovereign", "boss")
-    cube(collection, "sovereign-torso", (0, 0, 1.25), (1.25, 0.72, 1.65), MATS["obsidian"], bevel=0.1)
-    ico(collection, "sovereign-head", (0, 0, 2.36), 0.5, MATS["gold"], subdivisions=2)
-    for index, x in enumerate((-0.52, -0.2, 0.2, 0.52)):
-        cone(collection, f"sovereign-crown-{index}", (x, 0, 2.92 + abs(x) * 0.16), 0.1, 0.0, 0.78, MATS["gold"], rotation=(0, math.radians(-12 if x < 0 else 12), 0))
-    for index, x in enumerate((-1.07, 1.07)):
-        cube(collection, f"sovereign-wing-{index}", (x, 0.05, 1.85), (0.82, 0.18, 1.5), MATS["void"], rotation=(0, math.radians(-20 if x < 0 else 20), 0), bevel=0.04)
-        torus(collection, f"sovereign-wing-rift-{index}", (x * 1.05, 0.0, 1.95), 0.36, 0.04, MATS["violet"], rotation=(math.radians(90), 0, 0))
-    cube(collection, "sovereign-blade", (1.15, 0, 1.22), (0.18, 0.16, 2.45), MATS["steel"], rotation=(0, math.radians(-15), 0))
-    register("gate-sovereign", "boss", collection, "bosses/gate-sovereign.glb")
-
+    # Cathedral-gate headdress, face/face-rift, pointed cathedral arch peak/spires with tall restrained ember vertical rift, and crown.
+    cube(collection, "sovereign-face", (0, -0.15, 2.32), (0.35, 0.15, 0.45), MATS["gold"], bevel=0.03)
+    cube(collection, "sovereign-face-rift", (0.0, -0.23, 2.32), (0.08, 0.03, 0.24), MATS["violet"])
+    panel(collection, "sovereign-gate-arch-left", (-0.46, 0.1, 1.95), (0.18, 0.18, 1.5), MATS["obsidian"], taper=(0.85, 0.85))
+    panel(collection, "sovereign-gate-arch-right", (0.46, 0.1, 1.95), (0.18, 0.18, 1.5), MATS["obsidian"], taper=(0.85, 0.85))
+    panel(collection, "sovereign-gate-arch-top-left", (-0.24, 0.1, 2.92), (0.18, 0.18, 0.64), MATS["obsidian"], taper=(0.5, 0.5), rotation=(0, math.radians(-35), 0))
+    panel(collection, "sovereign-gate-arch-top-right", (0.24, 0.1, 2.92), (0.18, 0.18, 0.64), MATS["obsidian"], taper=(0.5, 0.5), rotation=(0, math.radians(35), 0))
+    panel(collection, "sovereign-gate-arch-spire", (0.0, 0.1, 3.25), (0.12, 0.12, 0.52), MATS["obsidian"], taper=(0.1, 0.1))
+    cube(collection, "sovereign-gate-rift", (0.0, 0.05, 2.05), (0.28, 0.04, 1.35), MATS["ember"])
+    panel(collection, "sovereign-crown-center", (0.0, -0.05, 2.68), (0.15, 0.15, 0.45), MATS["gold"], taper=(0.1, 0.1))
+    panel(collection, "sovereign-crown-left", (-0.22, -0.05, 2.62), (0.1, 0.1, 0.38), MATS["gold"], taper=(0.1, 0.1), rotation=(0, math.radians(-15), 0))
+    panel(collection, "sovereign-crown-right", (0.22, -0.05, 2.62), (0.1, 0.1, 0.38), MATS["gold"], taper=(0.1, 0.1), rotation=(0, math.radians(15), 0))
+    cube(collection, "sovereign-torso", (0, 0.02, 1.25), (1.1, 0.64, 1.35), MATS["obsidian"], bevel=0.08)
+    panel(collection, "sovereign-robe-back", (0.0, 0.25, 0.55), (0.68, 0.1, 1.1), MATS["obsidian"], taper=0.6)
+    panel(collection, "sovereign-robe-left", (-0.32, 0.12, 0.55), (0.42, 0.1, 1.1), MATS["obsidian"], taper=0.6, rotation=(0, math.radians(-10), 0))
+    panel(collection, "sovereign-robe-right", (0.32, 0.12, 0.55), (0.42, 0.1, 1.1), MATS["obsidian"], taper=0.6, rotation=(0, math.radians(10), 0))
+    panel(collection, "sovereign-wing-left", (-1.1, 0.08, 1.82), (0.75, 0.12, 1.45), MATS["void"], taper=0.6, rotation=(0, math.radians(-25), 0))
+    panel(collection, "sovereign-wing-right", (1.1, 0.08, 1.82), (0.75, 0.12, 1.45), MATS["void"], taper=0.6, rotation=(0, math.radians(25), 0))
+    torus(collection, "sovereign-wing-rift-left", (-1.1, 0.0, 1.95), 0.36, 0.04, MATS["violet"], rotation=(math.radians(90), 0, 0))
+    torus(collection, "sovereign-wing-rift-right", (1.1, 0.0, 1.95), 0.36, 0.04, MATS["violet"], rotation=(math.radians(90), 0, 0))
+    cube(collection, "sovereign-blade", (1.15, 0, 1.22), (0.15, 0.12, 2.45), MATS["steel"], rotation=(0, math.radians(-15), 0))
+    register(
+        "gate-sovereign",
+        "boss",
+        collection,
+        "bosses/gate-sovereign.glb",
+        concept_sources=["assets/images/ui/boss-gate-sovereign.png"],
+        structure_tags=["face", "gate-arch", "gate-rift", "crown", "wings"]
+    )
 
 def prop_rift_portal():
     collection = make_collection("rift-portal", "prop")
@@ -841,10 +1003,10 @@ manifest = {
     "coordinateSystem": "Blender Z-up; ground-center pivots; authored forward is -Y",
     "rendering": "Flat-shaded PBR GLB resources with embedded albedo and tangent-space normal textures; no external texture URLs",
     "build": {
-        "cycle": "20260718-resource-refinement",
+        "cycle": "20260719-concept-silhouette-polish",
         "generator": "scripts/build_abyssal_command_assets.py",
-        "method": "Headless Blender procedural low-poly assembly with rigid body/equipment control animation",
-        "recipe": "Generate triangulated UV0 primitives; add azimuth-readable asymmetric equipment; ground lowest mesh bound to Z=0 at authored XY origin; parent unit pieces to body/equipment rigid controls; export selected collection as GLB with NLA tracks, tangents, animations, and embedded images.",
+        "method": "Headless Blender procedural low-poly assembly aligned with concept source silhouettes and readable negative space",
+        "recipe": "Generate concept-derived UV0 primitives (including tapered panels for armor/capes/arches); construct unique layered silhouettes for units and bosses; restrain emissive accents; parent unit pieces to body/equipment controls; export collections as GLB with NLA tracks, tangents, and embedded textures.",
         "blenderFps": 30,
     },
     "textures": {
@@ -872,6 +1034,8 @@ manifest = {
             "groundOffsetApplied": round(asset["ground_offset"], 6),
             "measurements": asset["measurements"],
             "textureFamilies": texture_families_for(asset["collection"]),
+            "conceptSources": asset["concept_sources"],
+            "structureTags": asset["structure_tags"],
             "actions": [action.name for action in asset["actions"]],
             "actionClips": [action["clip_name"] for action in asset["actions"]],
             "rig": {

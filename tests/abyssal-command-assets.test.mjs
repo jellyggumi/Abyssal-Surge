@@ -32,6 +32,44 @@ function packFilePath(relativePath, label) {
   return filePath;
 }
 
+function projectFilePath(relativePath, label) {
+  assert.equal(typeof relativePath, "string", `${label} must be a string path`);
+  assert.ok(relativePath.length > 0, `${label} must not be empty`);
+  assert.ok(!isAbsolute(relativePath), `${label} must be project-relative`);
+  assert.ok(!relativePath.includes("\\"), `${label} must use project-relative POSIX separators`);
+
+  const segments = relativePath.split("/");
+  assert.ok(
+    segments.every((segment) => segment !== "" && segment !== "." && segment !== ".."),
+    `${label} must not contain empty, current-directory, or parent-directory segments`,
+  );
+
+  const filePath = resolve(PROJECT_ROOT, relativePath);
+  const relation = relative(PROJECT_ROOT, filePath);
+  assert.ok(
+    relation !== "" && relation !== ".." && !relation.startsWith(`..${sep}`) && !isAbsolute(relation),
+    `${label} must resolve inside the project`,
+  );
+  return filePath;
+}
+
+async function assertPresentProjectFile(relativePath, label, canonicalProjectRoot) {
+  const filePath = projectFilePath(relativePath, label);
+  const [file, canonicalFilePath] = await Promise.all([stat(filePath), realpath(filePath)]);
+  assert.ok(file.isFile(), `${label} must resolve to a regular file`);
+  assert.ok(file.size > 0, `${label} must not be empty`);
+
+  const canonicalRelation = relative(canonicalProjectRoot, canonicalFilePath);
+  assert.ok(
+    canonicalRelation !== "" &&
+      canonicalRelation !== ".." &&
+      !canonicalRelation.startsWith(`..${sep}`) &&
+      !isAbsolute(canonicalRelation),
+    `${label} must not resolve through a symlink outside the project`,
+  );
+  return filePath;
+}
+
 async function assertPresentPackFile(relativePath, label, canonicalPackDirectory) {
   const filePath = packFilePath(relativePath, label);
   const [file, canonicalFilePath] = await Promise.all([stat(filePath), realpath(filePath)]);
@@ -349,6 +387,191 @@ test("Abyssal Command units use the runtime clip vocabulary and keep Move at the
       }
     }
   }
+});
+
+test("Abyssal Command combat assets retain their in-repo concept provenance", async () => {
+  const canonicalProjectRoot = await realpath(PROJECT_ROOT);
+  const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+  const expectedConceptSources = {
+    shade: ["assets/images/ui/concept-tactical-surface.png"],
+    possessed: ["assets/images/characters/dusk-legion-source.png"],
+    scout: ["assets/images/ui/concept-tactical-surface.png"],
+    guard: ["assets/images/resource-refinement/gti/abyssal-surge-resource-forging-hero-frame.png"],
+    reinforce: ["assets/images/resource-refinement/gti/abyssal-surge-resource-forging-hero-frame.png"],
+    "cinder-warden": ["assets/images/ui/boss-cinder-warden.png"],
+    "veil-tactician": ["assets/images/ui/boss-veil-tactician.png"],
+    "gate-sovereign": ["assets/images/ui/boss-gate-sovereign.png"],
+  };
+  const combatAssets = manifest.assets.filter(({ category }) => category === "unit" || category === "boss");
+  assert.deepEqual(
+    combatAssets.map(({ id }) => id).sort(),
+    Object.keys(expectedConceptSources).sort(),
+    "the concept provenance gate must cover the complete combat roster",
+  );
+
+  const missingProvenance = [];
+  for (const asset of combatAssets) {
+    if (!Array.isArray(asset.conceptSources) || asset.conceptSources.length === 0) {
+      missingProvenance.push(`${asset.id} must declare non-empty conceptSources`);
+      continue;
+    }
+    for (const expectedSource of expectedConceptSources[asset.id]) {
+      if (!asset.conceptSources.includes(expectedSource)) {
+        missingProvenance.push(`${asset.id} conceptSources must include ${expectedSource}`);
+      }
+    }
+    for (const [index, source] of asset.conceptSources.entries()) {
+      await assertPresentProjectFile(source, `${asset.id} concept source ${index}`, canonicalProjectRoot);
+    }
+  }
+  assert.deepEqual(missingProvenance, [], "every combat asset must retain its canonical concept source provenance");
+});
+
+test("Abyssal Command combat GLBs retain layered concept motifs within geometry budgets", async () => {
+  const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+  const contracts = {
+    shade: {
+      minimumMeshPieces: 8,
+      motifs: [
+        { label: "mask", tokens: ["mask"] },
+        { label: "hood", tokens: ["hood"] },
+        { label: "collar", tokens: ["collar"] },
+        { label: "cloak tails", tokens: ["cloak", "tail"], minimum: 2 },
+      ],
+    },
+    possessed: {
+      minimumMeshPieces: 8,
+      motifs: [
+        { label: "face rift", tokens: ["face", "rift"] },
+        { label: "cathedral spires", tokens: ["cathedral", "spire"], minimum: 2 },
+        { label: "collar", tokens: ["collar"] },
+      ],
+    },
+    scout: {
+      minimumMeshPieces: 7,
+      motifs: [
+        { label: "visor", tokens: ["visor"] },
+        { label: "spear", tokens: ["spear"] },
+        { label: "cape", tokens: ["cape"] },
+      ],
+    },
+    guard: {
+      minimumMeshPieces: 10,
+      motifs: [
+        { label: "shield", tokens: ["shield"] },
+        { label: "halberd", tokens: ["halberd"] },
+        { label: "chest chevron", tokens: ["chest", "chevron"] },
+        { label: "tassets", tokens: ["tasset"], minimum: 2 },
+      ],
+    },
+    reinforce: {
+      minimumMeshPieces: 10,
+      motifs: [
+        { label: "helm", tokens: ["helm"] },
+        { label: "chest rift", tokens: ["chest", "rift"] },
+        { label: "maul", tokens: ["maul"] },
+        { label: "tassets", tokens: ["tasset"], minimum: 2 },
+      ],
+    },
+    "cinder-warden": {
+      minimumMeshPieces: 9,
+      motifs: [
+        { label: "helm", tokens: ["helm"] },
+        { label: "chest rift", tokens: ["chest", "rift"] },
+        { label: "mantle", tokens: ["mantle"] },
+        { label: "staff", tokens: ["staff"] },
+      ],
+    },
+    "veil-tactician": {
+      minimumMeshPieces: 8,
+      motifs: [
+        { label: "mask", tokens: ["mask"], excludedTokens: ["rune"] },
+        { label: "mask runes", tokens: ["mask", "rune"], minimum: 2 },
+        { label: "hood", tokens: ["hood"] },
+        { label: "scepter", tokens: ["scepter"] },
+      ],
+    },
+    "gate-sovereign": {
+      minimumMeshPieces: 10,
+      motifs: [
+        { label: "face", tokens: ["face"] },
+        { label: "gate arch", tokens: ["gate", "arch"] },
+        { label: "gate rift", tokens: ["gate", "rift"] },
+        { label: "crown", tokens: ["crown"] },
+      ],
+    },
+  };
+  const combatAssets = manifest.assets.filter(({ category }) => category === "unit" || category === "boss");
+  assert.deepEqual(
+    combatAssets.map(({ id }) => id).sort(),
+    Object.keys(contracts).sort(),
+    "the structural gate must cover the complete combat roster",
+  );
+
+  const missingMotifs = [];
+  for (const asset of combatAssets) {
+    const label = `${asset.id} GLB`;
+    const { gltf } = parseGlb(await readFile(packFilePath(asset.path, label)), label);
+    const contract = contracts[asset.id];
+    const meshPieceNames = (gltf.nodes ?? [])
+      .filter(({ mesh }) => Number.isInteger(mesh))
+      .map(({ name }) => (typeof name === "string" ? name.toLowerCase() : ""));
+    assert.ok(Array.isArray(gltf.meshes), `${label} must declare meshes`);
+    assert.ok(
+      asset.measurements.meshPieces >= contract.minimumMeshPieces,
+      `${label} measured mesh-piece count must retain its archetype's layered silhouette floor`,
+    );
+    assert.ok(
+      gltf.meshes.length >= contract.minimumMeshPieces,
+      `${label} must retain at least ${contract.minimumMeshPieces} separate mesh pieces for its layered silhouette`,
+    );
+
+    let triangles = 0;
+    for (const [meshIndex, mesh] of gltf.meshes.entries()) {
+      assert.ok(Array.isArray(mesh.primitives) && mesh.primitives.length > 0, `${label} mesh ${meshIndex} must have primitives`);
+      for (const [primitiveIndex, primitive] of mesh.primitives.entries()) {
+        assert.equal(primitive.mode ?? 4, 4, `${label} mesh ${meshIndex} primitive ${primitiveIndex} must use triangles`);
+        const elementAccessorIndex = primitive.indices ?? primitive.attributes?.POSITION;
+        const elementAccessor = gltf.accessors?.[elementAccessorIndex];
+        assert.ok(
+          elementAccessor && Number.isInteger(elementAccessor.count) && elementAccessor.count > 0,
+          `${label} mesh ${meshIndex} primitive ${primitiveIndex} must expose triangle elements`,
+        );
+        assert.equal(
+          elementAccessor.count % 3,
+          0,
+          `${label} mesh ${meshIndex} primitive ${primitiveIndex} triangle elements must form complete faces`,
+        );
+        triangles += elementAccessor.count / 3;
+      }
+    }
+    const triangleBudget = asset.category === "unit" ? 900 : 1800;
+    assert.ok(
+      asset.measurements.triangles <= triangleBudget,
+      `${label} measured triangles must stay within its ${triangleBudget}-triangle ${asset.category} budget`,
+    );
+    assert.ok(triangles <= triangleBudget, `${label} must stay within its ${triangleBudget}-triangle ${asset.category} budget`);
+
+    const minimumZ = asset.measurements.boundsMin?.[2];
+    assert.ok(
+      Number.isFinite(minimumZ) && Math.abs(minimumZ) <= 1e-4,
+      `${label} measured lower bound must remain grounded at Z=0`,
+    );
+    assert.equal(asset.pivot, "ground-center", `${label} must retain its ground-center pivot`);
+
+    for (const motif of contract.motifs) {
+      const matchingNames = meshPieceNames.filter(
+        (name) =>
+          motif.tokens.every((token) => name.includes(token)) &&
+          !(motif.excludedTokens ?? []).some((token) => name.includes(token)),
+      );
+      const minimum = motif.minimum ?? 1;
+      if (matchingNames.length < minimum) {
+        missingMotifs.push(`${asset.id} requires ${minimum} named ${motif.label} mesh piece${minimum === 1 ? "" : "s"}`);
+      }
+    }
+  }
+  assert.deepEqual(missingMotifs, [], "combat GLBs must expose every concept-defining named motif family");
 });
 
 test("Abyssal Command GLBs preserve normal-map texture bindings and tangent attributes", async () => {
