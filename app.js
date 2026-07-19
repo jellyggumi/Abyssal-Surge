@@ -2264,7 +2264,11 @@ function render() {
     : (lang === "ko" ? translate(`stage.${stage.id}.objective`) || stage.objective : stage.objective);
     
   const hasRewardCarryMessage = campaign.lastMessage.endsWith(` carries into ${stage.title}.`);
-  const stageEntryOrder = entryGuidanceStageId === stage.id && campaign.status === "active" && state.hunted === 0 && !state.extracted;
+  const stageEntryOrder = entryGuidanceStageId === stage.id
+    && campaign.status === "active"
+    && state.hunted === 0
+    && !state.extracted
+    && (campaign.lastMessage === "Campaign started." || hasRewardCarryMessage);
   
   const translatedLastMessage = translateStatusMessage(campaign.lastMessage, lang);
   let statusText = "";

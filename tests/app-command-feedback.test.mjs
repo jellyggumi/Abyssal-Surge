@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
-import { STAGES } from "../campaign-state.js";
+import { STAGES, createCampaign, reserveCommand, startCampaign } from "../campaign-state.js";
 import { translate, translations } from "../i18n.js";
 
 async function loadBattleVisualTrigger({ hasRenderer = false } = {}) {
@@ -481,6 +481,9 @@ async function loadTacticalHudProjection({
   activePlacementMode = null,
   includeReserveControls = false,
   executeReserved = null,
+  campaignState = null,
+  entryGuidanceStageId = null,
+  reserveCommandImpl = null,
 } = {}) {
   const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const reserveContract = includeReserveControls
@@ -499,6 +502,14 @@ async function loadTacticalHudProjection({
     /\/\/ 1\. Render Marks Value[\s\S]*?(?=\n  \/\/ 6\. Update Minimap Snapshot)/,
   );
   assert.ok(tacticalProjection, "app runtime must expose the tactical HUD projection");
+  const statusProjection = campaignState
+    ? source.match(
+      /  const hasRewardCarryMessage = campaign\.lastMessage\.endsWith[\s\S]*?elements\.status\.textContent = statusText;/,
+    )
+    : [""];
+  if (campaignState) {
+    assert.ok(statusProjection, "app runtime must expose the campaign status projection");
+  }
 
   let document;
   const selectorAttribute = /\[([^\]=]+)(?:="([^"]*)")?\]/g;
@@ -683,6 +694,7 @@ async function loadTacticalHudProjection({
       reserveButtons[button.dataset.reserveAction] = button;
     }
   }
+  const campaignStatus = append(body, "p", { id: "campaign-status" });
   append(body, "strong", { id: "tactical-marks-value" });
   const queueContainer = append(body, "ol", { id: "command-reservation-queue" });
   const deploymentContainer = append(body, "div", { id: "tactical-deployment-controls" });
@@ -706,7 +718,7 @@ async function loadTacticalHudProjection({
     skillButtons[skill] = button;
   }
 
-  let campaign = {
+  let campaign = campaignState ?? {
     status: "active",
     progression: {
       marks: progression.marks,
@@ -728,12 +740,16 @@ async function loadTacticalHudProjection({
   const context = vm.createContext({
     activePlacementMode,
     campaign,
+    battleVisualFallback: false,
     currentLang: () => locale,
-    currentStage: () => ({ commands: { hunt: {}, extract: {} } }),
+    entryGuidanceStageId,
+    currentStage: () => campaignState ? STAGES[0] : { commands: { hunt: {}, extract: {} } },
     document,
+    elements: { status: campaignStatus },
     getTacticalProgression: (state) => state.progression,
     persistCampaign: async () => {},
     showTacticalFeedback: (message) => feedbackMessages.push(message),
+    tacticalFeedbackMessage: null,
     startActionCooldown: () => {},
     synchronizeBattleRenderer: () => {},
     translate: (key) => translations[locale][key] ?? "",
@@ -741,6 +757,7 @@ async function loadTacticalHudProjection({
     triggerBattleVisual: () => {},
     reserveCommand: (state, action) => {
       reserveCalls.push(action);
+      if (reserveCommandImpl) return reserveCommandImpl(state, action);
       return {
         accepted: true,
         state: {
@@ -778,8 +795,22 @@ async function loadTacticalHudProjection({
     appFunction(source, "handleReorderReserved", "handleReserveAction"),
     appFunction(source, "handleReserveAction", "handleDeploymentSelect"),
   ];
+  if (campaignState) {
+    definitions.unshift(appFunction(source, "translateStatusMessage", "updateResumeAffordance"));
+  }
+  const renderProjection = campaignState
+    ? `function projectTacticalHud() {
+  const stage = currentStage();
+  const state = campaign.stage;
+  const lang = currentLang();
+${statusProjection[0]}
+}`
+    : `function projectTacticalHud() {
+  const lang = currentLang();
+  ${tacticalProjection[0]}
+}`;
   vm.runInContext(
-    `${definitions.join("\n\n")}\n${delegatedClickWiring[0]}\nfunction projectTacticalHud() {\n  const lang = currentLang();\n  ${tacticalProjection[0]}\n}\nglobalThis.render = projectTacticalHud; globalThis.tacticalHud = { cancel: handleCancelReserved, execute: handleExecuteReserved, reorder: handleReorderReserved, translateReason: translateRejectionReason };`,
+    `${definitions.join("\n\n")}\n${delegatedClickWiring[0]}\n${renderProjection}\nglobalThis.render = projectTacticalHud; globalThis.tacticalHud = { cancel: handleCancelReserved, execute: handleExecuteReserved, reorder: handleReorderReserved, reserve: handleReserveAction, translateReason: translateRejectionReason };`,
     context,
     { filename: "app.js" },
   );
@@ -787,6 +818,7 @@ async function loadTacticalHudProjection({
 
   return {
     body,
+    campaignStatus,
     deploymentButtons,
     document,
     queueContainer,
@@ -799,6 +831,7 @@ async function loadTacticalHudProjection({
     click: (button) => document.dispatchEvent({ type: "click", target: button }),
     execute: (id) => context.tacticalHud.execute(id),
     reorder: (fromIndex, toIndex) => context.tacticalHud.reorder(fromIndex, toIndex),
+    reserve: (action) => context.tacticalHud.reserve(action),
     render: () => context.render(),
     setProgression(next) {
       campaign.progression = {
@@ -1732,6 +1765,41 @@ test("reserved command receipts use locale catalog command names without raw eng
       assert.equal(rendered.includes(raw), false, "Korean reservation feedback must not leak the raw English engine receipt");
       assert.equal(rendered.includes("extract"), false, "Korean reservation feedback must not leak the raw English command identifier");
     }
+  }
+});
+
+test("accepted reservations replace fresh Stage 1 guidance with the localized receipt", async () => {
+  const started = startCampaign(createCampaign());
+  if (!started.accepted) throw new Error(`Unable to start reservation status fixture: ${started.message}`);
+  const contracts = [
+    {
+      locale: "ko",
+      guidance: "첫 명령: 균열 흔적을 두 번 사냥하십시오.",
+      receipt: "추출 명령이 예약되었습니다.",
+    },
+    {
+      locale: "en",
+      guidance: "First order: Hunt two rift spoor.",
+      receipt: "Extract reserved.",
+    },
+  ];
+
+  for (const { locale, guidance, receipt } of contracts) {
+    const fixture = await loadTacticalHudProjection({
+      locale,
+      campaignState: { ...started.state, lastMessage: "Campaign started." },
+      entryGuidanceStageId: STAGES[0].id,
+      reserveCommandImpl: reserveCommand,
+    });
+    assert.equal(fixture.campaignStatus.textContent, guidance, `${locale} fresh Stage 1 must show its entry guidance before a command`);
+
+    await fixture.reserve("extract");
+
+    assert.equal(
+      fixture.campaignStatus.textContent,
+      receipt,
+      `${locale} accepted Extract reservation must replace Stage 1 guidance with its receipt`,
+    );
   }
 });
 
