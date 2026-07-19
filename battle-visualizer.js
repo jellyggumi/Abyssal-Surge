@@ -203,6 +203,9 @@ export class BattleVisualizer {
     this.onActionFocus = typeof options.onActionFocus === "function" ? options.onActionFocus : null;
     this.onSelectionChange = typeof options.onSelectionChange === "function" ? options.onSelectionChange : null;
     this.cachedSelectionSummary = null;
+    this.resolveFeedbackSpeech = typeof options.resolveFeedbackSpeech === "function"
+      ? options.resolveFeedbackSpeech
+      : (cue) => cue?.label ?? "Breach detected";
     this.actionPreview = null;
     this.onEnemyBreach = null; // Legacy callback; encounter events take precedence.
     this.encounter = null;
@@ -1964,7 +1967,7 @@ export class BattleVisualizer {
     if (type === "wave-cleared") this.pendingEncounterEvent = event;
     if (type === "breach") {
       const cue = getCombatAlertCue(type);
-      this.objectFeedback?.emitSpeech("commander", cue?.label ?? "Breach detected");
+      this.objectFeedback?.emitSpeech("commander", this.resolveFeedbackSpeech(cue));
     }
     if (this.onEncounterEvent) this.onEncounterEvent(event);
     else if (type === "breach") this.onEnemyBreach?.();

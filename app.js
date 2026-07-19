@@ -2771,7 +2771,7 @@ function activateBattleFallback(stage, sessionId) {
   fallback = new BattleVisualizer(elements.battleFallbackCanvas, presentation, {
     nodeGoal: stage.nodeGoal,
     feedbackCanvas: elements.battleObjectFeedbackCanvas,
-    resolveFeedbackSpeech: getCombatAlertFeedback,
+    resolveFeedbackSpeech: typeof getCombatAlertFeedback === "function" ? getCombatAlertFeedback : undefined,
     getAvailableActions: getInteractiveBattleActions,
     onAssetStatus: renderBattleAssetStatus,
     onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, fallback),
@@ -2824,7 +2824,7 @@ async function startBattle() {
       battleRenderer = new RealtimeBattle(elements.battleCanvas3d, presentation, {
         nodeGoal: stage.nodeGoal,
         feedbackCanvas: elements.battleObjectFeedbackCanvas,
-        resolveFeedbackSpeech: getCombatAlertFeedback,
+        resolveFeedbackSpeech: typeof getCombatAlertFeedback === "function" ? getCombatAlertFeedback : undefined,
         getAvailableActions: getInteractiveBattleActions,
         onAssetStatus: renderBattleAssetStatus,
         onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, battleRenderer),

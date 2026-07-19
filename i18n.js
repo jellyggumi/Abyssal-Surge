@@ -140,6 +140,7 @@ const translations = {
     "battle.live.bossPhase.active": "보스 단계 {current}/{total} · 체력 {health}/{maximum}",
     "battle.live.enemyGrowth.none": "적 성장: 선언된 단계 없음",
     "battle.live.enemyGrowth.active": "적 성장 {current}/{total} · 활성 {active}명",
+    "combat.alert.breach": "방어선 돌파 감지.",
     "combat.alert.boss-phase-change": "보스 단계가 전환된다.",
     "combat.alert.boss-low-health": "보스 내구도 임계. 마무리 공격을 준비하라.",
     "combat.alert.guardian-shield": "수호막이 전개됐다.",
