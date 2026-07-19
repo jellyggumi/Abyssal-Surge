@@ -102,6 +102,7 @@ const ENCOUNTER_CUE_BY_EVENT = Object.freeze({
   "guardian-guard": "guardian-shield"
 });
 const COMBAT_ALERT_FEEDBACK_KEYS = Object.freeze({
+  "breach-alert": "combat.alert.breach",
   "enemy-ranged-warning": "combat.alert.enemy-ranged-warning",
   "boss-phase-change": "combat.alert.boss-phase-change",
   "summon-evolved": "combat.alert.summon-evolved",
@@ -430,6 +431,7 @@ const elements = Object.freeze({
   waveIndicator: document.querySelector("#battle-wave-indicator"),
   battleCanvas3d: document.querySelector("#battle-canvas-3d"),
   battleFallbackCanvas: document.querySelector("#battle-canvas-fallback"),
+  battleObjectFeedbackCanvas: document.querySelector("#battle-object-feedback-canvas"),
   battleField: document.querySelector("#battle-field"),
   battleBrief: document.querySelector("#battle-tactical-brief"),
   battleOperation: document.querySelector("#battle-operation"),
@@ -2768,6 +2770,8 @@ function activateBattleFallback(stage, sessionId) {
   let fallback = null;
   fallback = new BattleVisualizer(elements.battleFallbackCanvas, presentation, {
     nodeGoal: stage.nodeGoal,
+    feedbackCanvas: elements.battleObjectFeedbackCanvas,
+    resolveFeedbackSpeech: getCombatAlertFeedback,
     getAvailableActions: getInteractiveBattleActions,
     onAssetStatus: renderBattleAssetStatus,
     onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, fallback),
@@ -2819,6 +2823,8 @@ async function startBattle() {
       const presentation = renderBattlePresentation(stage);
       battleRenderer = new RealtimeBattle(elements.battleCanvas3d, presentation, {
         nodeGoal: stage.nodeGoal,
+        feedbackCanvas: elements.battleObjectFeedbackCanvas,
+        resolveFeedbackSpeech: getCombatAlertFeedback,
         getAvailableActions: getInteractiveBattleActions,
         onAssetStatus: renderBattleAssetStatus,
         onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, battleRenderer),
@@ -3694,7 +3700,7 @@ function playSelectedBgm(run) {
 function musicSourceForScene(scene) {
   if (scene === "battle") {
     const stageId = typeof campaign !== "undefined" && campaign ? currentStage()?.id : "";
-    return MUSIC_BY_STAGE[stageId] || MUSIC_BY_SCENE.battle;
+    return (typeof MUSIC_BY_STAGE !== "undefined" && MUSIC_BY_STAGE[stageId]) || MUSIC_BY_SCENE.battle;
   }
   return MUSIC_BY_SCENE[scene];
 }

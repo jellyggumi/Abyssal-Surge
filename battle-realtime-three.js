@@ -378,6 +378,9 @@ export class RealtimeBattle {
     this.onActionFocus = typeof options.onActionFocus === "function" ? options.onActionFocus : null;
     this.onTacticalRequest = typeof options.onTacticalRequest === "function" ? options.onTacticalRequest : null;
     this.onSelectionChange = typeof options.onSelectionChange === "function" ? options.onSelectionChange : null;
+    this.resolveFeedbackSpeech = typeof options.resolveFeedbackSpeech === "function"
+      ? options.resolveFeedbackSpeech
+      : (cue) => cue?.label ?? "Breach detected";
     this.cachedSelectionSummary = null;
     this.placementMode = null;
     this.deploymentsMap = new Map();
@@ -2944,7 +2947,7 @@ export class RealtimeBattle {
     if (type === "wave-cleared") this.pendingEncounterEvent = event;
     if (type === "breach") {
       const cue = getCombatAlertCue(type);
-      this.objectFeedback?.emitSpeech("commander", cue?.label ?? "Breach detected");
+      this.objectFeedback?.emitSpeech("commander", this.resolveFeedbackSpeech(cue));
     }
     if (this.onEncounterEvent) this.onEncounterEvent(event);
     else if (type === "breach") this.onEnemyBreach?.();
@@ -3019,7 +3022,6 @@ export class RealtimeBattle {
   }
 
   syncObjectFeedback({ silent = true } = {}) {
-    console.error("SYNC CALLED", !!this.objectFeedback);
     if (!this.objectFeedback) return;
     const objects = this.feedbackObjects();
     this.objectFeedback.reconcile(objects, { silent });
