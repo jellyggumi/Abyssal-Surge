@@ -2828,27 +2828,44 @@ textarea:focus-visible {
   }
 }
 @media (min-width: 900px) and (min-height: 761px) {
-  /* Let the desktop command dock own its intrinsic content instead of clipping
-     skill, deployment, and reservation controls inside a short grid row. */
+  /* Keep the desktop cockpit inside the visible campaign screen while letting
+     the battlefield own the majority of the available height. */
+  main#game-root:has(#campaign-screen:not([hidden])) {
+    width: calc(100% - 2rem) !important;
+    max-width: 112.5rem !important;
+  }
+
   #campaign-screen {
-    overflow: visible auto !important;
+    overflow: hidden !important;
   }
 
   .cockpit-main {
-    grid-template-rows: 18rem max-content !important;
-    min-height: max-content !important;
-    overflow: visible !important;
+    grid-template-rows: minmax(0, 1fr) minmax(11rem, 24vh) !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   .cockpit-main .battle-field-panel {
-    height: 18rem !important;
-    min-height: 18rem !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  .cockpit-main .canvas-container-3d {
+    height: 100% !important;
+    min-height: 0 !important;
   }
 
   #command-panel.field-command-dock {
-    align-self: start !important;
-    height: max-content !important;
-    min-height: max-content !important;
+    align-self: stretch !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: auto !important;
+  }
+
+  .cockpit-rail {
+    height: auto !important;
+    max-height: none !important;
+    overflow: auto !important;
   }
 }
 @media (max-width: 460px) {
