@@ -29,7 +29,7 @@ import { CampaignMirror } from "./campaign-sync.js";
 import { TacticalMinimap } from "./tactical-minimap.js";
 import { currentLang, translate, translations } from "./i18n.js";
 
-const BUILD_TAG = "abyssal-surge-static-v50";
+const BUILD_TAG = "abyssal-surge-static-v51";
 const DB_NAME = "abyssal-surge-campaign";
 const DB_VERSION = 1;
 const STORE_NAME = "campaigns";
@@ -480,6 +480,17 @@ let visualizer = null;
 let activeFieldFocusedAction = null;
 let activeCommandHoverAction = null;
 let activeCommandFocusAction = null;
+const EMPTY_RENDERER_SELECTION = Object.freeze({
+  count: 0,
+  total: 0,
+  health: 0,
+  maxHealth: 0,
+  possessed: 0,
+  engaged: 0,
+  moving: 0,
+  order: "none",
+});
+let rendererSelectionSummary = EMPTY_RENDERER_SELECTION;
 let minimapInstance = null;
 let minimapFailed = false;
 let activePlacementMode = null;
@@ -728,7 +739,7 @@ async function handleReserveAction(action) {
   const result = reserveCommand(campaign, action);
   if (result.accepted) {
     campaign = result.state;
-    render();
+    showTacticalFeedback(translateStatusMessage(campaign.lastMessage, currentLang()));
     await persistCampaign("persist.campaignSaved");
   } else {
     showTacticalFeedback(translateRejectionReason(result.message));
@@ -910,6 +921,67 @@ function syncMinimap() {
 }
 
 
+function handleRendererSelection(summary, sessionId = battleSessionId) {
+  if (sessionId !== battleSessionId || campaign?.status !== "active") return;
+  const countValue = (value) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+  const order = ["none", "holding", "moving", "engaged", "mixed"].includes(summary?.order)
+    ? summary.order
+    : "none";
+  rendererSelectionSummary = {
+    count: countValue(summary?.count),
+    total: countValue(summary?.total),
+    health: countValue(summary?.health),
+    maxHealth: countValue(summary?.maxHealth),
+    possessed: countValue(summary?.possessed),
+    engaged: countValue(summary?.engaged),
+    moving: countValue(summary?.moving),
+    order,
+  };
+  projectActionFocus(currentActionFocus());
+}
+
+function renderSelectionDossier() {
+  const summary = rendererSelectionSummary ?? EMPTY_RENDERER_SELECTION;
+  const labelEl = document.getElementById("dossier-label");
+  const nameEl = document.getElementById("dossier-name");
+  const roleEl = document.getElementById("dossier-role");
+  const imgEl = document.getElementById("dossier-image");
+  const countEl = document.getElementById("dossier-count");
+  const healthEl = document.getElementById("dossier-health");
+  const orderEl = document.getElementById("dossier-order");
+  const statusEl = document.getElementById("dossier-status");
+  const healthValue = Number.isInteger(summary.health) ? summary.health : summary.health.toFixed(1);
+  const maxHealthValue = Number.isInteger(summary.maxHealth) ? summary.maxHealth : summary.maxHealth.toFixed(1);
+
+  if (labelEl) {
+    labelEl.setAttribute("data-i18n", "command.selectionLabel");
+    labelEl.textContent = translate("command.selectionLabel");
+  }
+  if (nameEl) {
+    const nameKey = summary.count > 0 ? "command.selectionName" : "command.selectionNone";
+    nameEl.setAttribute("data-i18n", nameKey);
+    nameEl.textContent = translate(nameKey);
+  }
+  if (roleEl) {
+    const roleKey = summary.possessed > 0 ? "command.selectionPossessedRole" : "command.selectionRole";
+    roleEl.setAttribute("data-i18n", roleKey);
+    roleEl.textContent = translate(roleKey);
+  }
+  if (imgEl) imgEl.src = "assets/images/ui/action-possess.png";
+  if (countEl) countEl.textContent = `${summary.count} / ${summary.total}`;
+  if (healthEl) healthEl.textContent = `${healthValue} / ${maxHealthValue}`;
+  if (orderEl) {
+    const orderKey = `command.selection.order.${summary.order}`;
+    orderEl.setAttribute("data-i18n", orderKey);
+    orderEl.textContent = translate(orderKey);
+  }
+  if (statusEl) {
+    statusEl.textContent = summary.count > 0
+      ? `${summary.count} ${translate("command.selectionStatus.selected")} · ${translate(`command.selection.order.${summary.order}`)}`
+      : translate("command.selectionStatus.none");
+  }
+}
+
 function currentActionFocus() {
   return activeCommandHoverAction || activeFieldFocusedAction || activeCommandFocusAction;
 }
@@ -945,6 +1017,7 @@ function projectActionFocus(action) {
   const roleEl = document.getElementById("dossier-role");
   const imgEl = document.getElementById("dossier-image");
   const statusEl = document.getElementById("dossier-status");
+  renderSelectionDossier();
 
   if (action) {
     dossier?.setAttribute("data-focused", "true");
@@ -968,20 +1041,7 @@ function projectActionFocus(action) {
     }
   } else {
     dossier?.removeAttribute("data-focused");
-    if (labelEl) {
-      labelEl.setAttribute("data-i18n", "command.selectionLabel");
-      labelEl.textContent = translate("command.selectionLabel");
-    }
-    if (nameEl) {
-      nameEl.setAttribute("data-i18n", "command.selectionName");
-      nameEl.textContent = translate("command.selectionName");
-    }
-    if (roleEl) {
-      roleEl.setAttribute("data-i18n", "command.selectionRole");
-      roleEl.textContent = translate("command.selectionRole");
-    }
-    if (imgEl) imgEl.src = "assets/images/ui/action-possess.png";
-    if (statusEl) statusEl.textContent = "";
+    renderSelectionDossier();
   }
 
   if (typeof window.CustomEvent === "function") {
@@ -1959,6 +2019,7 @@ function stopBattle() {
   window.clearInterval(cooldownTimer);
   battleStartedAt = 0;
   rendererRuntime = null;
+  rendererSelectionSummary = EMPTY_RENDERER_SELECTION;
   encounterEventQueue = Promise.resolve();
   cooldownTimer = 0;
   battleVisualFallback = false;
@@ -2003,6 +2064,7 @@ function activateBattleFallback(stage, sessionId) {
     onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, fallback),
     onRuntimeState: (runtime) => handleRendererRuntime(runtime, sessionId, fallback),
     onActionFocus: (action) => handleActionFocus(action),
+    onSelectionChange: (summary) => handleRendererSelection(summary, sessionId),
     onTacticalRequest: (request) => handleTacticalRequest(request)
   });
   try {
@@ -2031,6 +2093,8 @@ async function startBattle() {
   const sessionId = ++battleSessionId;
   rendererRuntime = null;
   battleVisualFallback = false;
+  rendererSelectionSummary = EMPTY_RENDERER_SELECTION;
+  projectActionFocus(currentActionFocus());
   cooldownTimer = window.setInterval(render, 100);
   let battleRenderer = null;
   const stage = currentStage();
@@ -2051,6 +2115,7 @@ async function startBattle() {
         onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, battleRenderer),
         onRuntimeState: (runtime) => handleRendererRuntime(runtime, sessionId, battleRenderer),
         onActionFocus: (action) => handleActionFocus(action),
+        onSelectionChange: (summary) => handleRendererSelection(summary, sessionId),
         onTacticalRequest: (request) => handleTacticalRequest(request),
         onRendererFailure: () => {
           if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
@@ -2264,11 +2329,7 @@ function render() {
     : (lang === "ko" ? translate(`stage.${stage.id}.objective`) || stage.objective : stage.objective);
     
   const hasRewardCarryMessage = campaign.lastMessage.endsWith(` carries into ${stage.title}.`);
-  const stageEntryOrder = entryGuidanceStageId === stage.id
-    && campaign.status === "active"
-    && state.hunted === 0
-    && !state.extracted
-    && (campaign.lastMessage === "Campaign started." || hasRewardCarryMessage);
+  const stageEntryOrder = entryGuidanceStageId === stage.id && campaign.status === "active" && state.hunted === 0 && !state.extracted;
   
   const translatedLastMessage = translateStatusMessage(campaign.lastMessage, lang);
   let statusText = "";

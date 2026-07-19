@@ -67,6 +67,9 @@ const STAGE_ONE_SOURCE_GLB_RESPONSES = Object.freeze([
   Object.freeze({ path: "/assets/models/abyssal-command/units/guard.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
   Object.freeze({ path: "/assets/models/abyssal-command/units/reinforce.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
   Object.freeze({ path: "/assets/models/abyssal-command/bosses/cinder-warden.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
+  Object.freeze({ path: "/assets/models/abyssal-command/props/soul-extractor.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
+  Object.freeze({ path: "/assets/models/abyssal-command/props/rift-portal.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
+  Object.freeze({ path: "/assets/models/abyssal-command/props/command-obelisk.glb", status: 200, contentType: "model/gltf-binary", fromServiceWorker: true }),
 ]);
 
 const STAGE_ONE_SOURCE_GLB_PATHS = new Set(STAGE_ONE_SOURCE_GLB_RESPONSES.map((response) => response.path));
@@ -82,6 +85,9 @@ const ALL_SOURCE_GLB_PATHS = new Set([
   "/assets/models/abyssal-command/bosses/cinder-warden.glb",
   "/assets/models/abyssal-command/bosses/veil-tactician.glb",
   "/assets/models/abyssal-command/bosses/gate-sovereign.glb",
+  "/assets/models/abyssal-command/props/soul-extractor.glb",
+  "/assets/models/abyssal-command/props/rift-portal.glb",
+  "/assets/models/abyssal-command/props/command-obelisk.glb",
 ]);
 
 
@@ -3680,7 +3686,7 @@ async function verifyStageThreeChecklist(browser, baseUrl) {
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
-const CURRENT_STATIC_CACHE = "abyssal-surge-static-v50";
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v51";
 
 function currentWorkerCacheName() {
   let serviceWorkerSource;

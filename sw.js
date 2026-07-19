@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-surge-static-v50";
+const CACHE_NAME = "abyssal-surge-static-v51";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -45,6 +45,9 @@ const LAZY_SOURCE_BATTLE_PATHS = Object.freeze([
   "/assets/models/abyssal-command/bosses/cinder-warden.glb",
   "/assets/models/abyssal-command/bosses/veil-tactician.glb",
   "/assets/models/abyssal-command/bosses/gate-sovereign.glb",
+  "/assets/models/abyssal-command/props/soul-extractor.glb",
+  "/assets/models/abyssal-command/props/rift-portal.glb",
+  "/assets/models/abyssal-command/props/command-obelisk.glb",
 ]);
 function normalizeGlbBridgeManifestAsset(path) {
   if (typeof path !== "string") return null;

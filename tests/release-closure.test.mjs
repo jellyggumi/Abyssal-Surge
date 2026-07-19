@@ -254,13 +254,17 @@ function runtimeGlbUrls(source) {
 
   const resources = source.match(/const resources = \[(?<entries>[\s\S]*?)\];/);
   assert.ok(resources, "battle-realtime-three.js must declare its direct model resources");
+  const props = source.match(/const props = \[(?<entries>[\s\S]*?)\];/);
+  assert.ok(props, "battle-realtime-three.js must declare its prop model resources");
 
   const stageAssets = [...declaration.groups.entries.matchAll(/(?:terrain|boss): "(?<asset>[^"]+\.glb)"/g)]
     .map((match) => match.groups.asset);
   const directAssets = [...resources.groups.entries.matchAll(/["'](?<asset>[^"']+\.glb)["']/g)]
     .map((match) => match.groups.asset);
+  const propAssets = [...props.groups.entries.matchAll(/["'](?<asset>[^"']+\.glb)["']/g)]
+    .map((match) => match.groups.asset);
 
-  return [...new Set([...stageAssets, ...directAssets])]
+  return [...new Set([...stageAssets, ...directAssets, ...propAssets])]
     .map((asset) => `${modelRoot.groups.root}${asset}`)
     .sort();
 }
@@ -1201,7 +1205,16 @@ test("Pages artifact explicitly allowlists the complete runtime GLB surface", as
   const runtimeGlbs = runtimeGlbUrls(battleRuntime);
   const publishedModels = [...pagesArtifact].filter((path) => path.startsWith("./assets/models/")).sort();
 
-  assert.ok(runtimeGlbs.length > 0, "runtime battle resources must include direct GLB URLs");
+  assert.ok(runtimeGlbs.length > 0, "runtime battle resources must include declared GLB URLs");
+  assert.deepEqual(
+    runtimeGlbs.filter((path) => path.includes("/props/")),
+    [
+      "./assets/models/abyssal-command/props/command-obelisk.glb",
+      "./assets/models/abyssal-command/props/rift-portal.glb",
+      "./assets/models/abyssal-command/props/soul-extractor.glb",
+    ],
+    "runtime GLB surface must retain all three battle prop models",
+  );
   assert.equal(
     pagesArtifact.has("./assets/models"),
     false,
@@ -1215,7 +1228,7 @@ test("Pages artifact explicitly allowlists the complete runtime GLB surface", as
   assert.deepEqual(
     publishedModels,
     runtimeGlbs,
-    "Pages artifact must individually allowlist exactly the complete direct runtime GLB set",
+    "Pages artifact must individually allowlist exactly the complete runtime GLB set",
   );
 });
 
@@ -1317,6 +1330,13 @@ test("literal runtime media URLs are shipped by Pages and covered by the offline
     ...optionalMediaPaths(serviceWorker),
   ]);
   const sourceGlbs = new Set(runtimeGlbUrls(battleRuntime));
+  const lazySourceBattlePaths = serviceWorker.match(
+    /const LAZY_SOURCE_BATTLE_PATHS = Object\.freeze\(\[(?<paths>[\s\S]*?)\]\);/,
+  );
+  assert.ok(lazySourceBattlePaths, "service worker must declare LAZY_SOURCE_BATTLE_PATHS");
+  const offlineGlbs = [...lazySourceBattlePaths.groups.paths.matchAll(/["'](?<path>\/assets\/models\/[^"']+\.glb)["']/g)]
+    .map((match) => `.${match.groups.path}`)
+    .sort();
   const bridgeManifestPath = glbBridgeManifestPath(serviceWorker, battleVisualizer);
   const bridgeRoot = bridgeManifestPath.replace(/\/manifest\.json$/, "");
   const bridgeOutputs = bridgeOutputPaths(
@@ -1338,6 +1358,11 @@ test("literal runtime media URLs are shipped by Pages and covered by the offline
   );
 
   assert.ok(runtimeMedia.length > 0, "app.js and index.html must declare literal runtime media URLs");
+  assert.deepEqual(
+    offlineGlbs,
+    [...sourceGlbs],
+    "service-worker lazy GLB policy must exactly cover the complete runtime GLB set",
+  );
   assert.equal(
     pagesArtifact.has(bridgeRoot),
     true,

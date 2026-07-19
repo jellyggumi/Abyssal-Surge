@@ -852,3 +852,222 @@ test("BattleVisualizer Mobility accelerates only the commander and composes with
     );
   });
 });
+
+test("BattleVisualizer publishes stable aggregate selection summaries and selected defeat", (t) => {
+  const summaries = [];
+  const onSelectionChange = (summary) => summaries.push(summary);
+  const visualizer = makeVisualizer(t, {
+    options: { onSelectionChange },
+  });
+
+  assert.equal(
+    visualizer.onSelectionChange,
+    onSelectionChange,
+    "the fallback constructor must retain the same cockpit callback contract as WebGL",
+  );
+  assert.deepEqual(
+    visualizer.emitSelectionChange(),
+    {
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "the initial fallback summary must be serializable plain data",
+  );
+
+  const moving = {
+    x: 2,
+    y: 3,
+    hp: 3,
+    defeated: false,
+    isPossessed: true,
+    path: [{ x: 4, y: 3 }],
+  };
+  const engaged = { x: 3, y: 3, hp: 1, defeated: false, isPossessed: false, path: null };
+  const enemy = { x: 4, y: 3, hp: 2, defeated: false };
+  visualizer.allies = [moving, engaged];
+  visualizer.selection.add(moving);
+  visualizer.selection.add(engaged);
+  visualizer.engagements.set(engaged, enemy);
+  visualizer.engagements.set(enemy, engaged);
+
+  assert.deepEqual(
+    visualizer.emitSelectionChange(),
+    {
+      count: 2,
+      total: 2,
+      health: 4,
+      maxHealth: 6,
+      possessed: 1,
+      engaged: 1,
+      moving: 1,
+      order: "mixed",
+    },
+    "fallback selection data must use the same health and order semantics as WebGL",
+  );
+  visualizer.emitSelectionChange();
+  assert.equal(summaries.length, 2, "unchanged fallback selection must not duplicate the callback");
+
+  visualizer.defeatUnit(engaged);
+  assert.deepEqual(
+    summaries.at(-1),
+    {
+      count: 1,
+      total: 1,
+      health: 3,
+      maxHealth: 3,
+      possessed: 1,
+      engaged: 0,
+      moving: 1,
+      order: "moving",
+    },
+    "fallback defeat must immediately remove and republish a selected actor",
+  );
+  assert.equal(visualizer.selection.has(engaged), false, "defeated fallback actors must not remain selected");
+
+  visualizer.ctx = {};
+  visualizer.reconcileAllies(0);
+  assert.deepEqual(
+    summaries.at(-1),
+    {
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "fallback authoritative removal must clear and republish the selected set",
+  );
+  assert.equal(visualizer.selection.size, 0, "removed fallback allies must not remain selected");
+});
+
+test("BattleVisualizer direct ally click selects one ally without issuing a ground order", (t) => {
+  const canvas = makePointerCanvas();
+  const summaries = [];
+  const tacticalRequests = [];
+  const visualizer = makeVisualizer(t, {
+    canvas,
+    options: {
+      onSelectionChange: (summary) => summaries.push(summary),
+      onTacticalRequest: (request) => tacticalRequests.push(request),
+    },
+  });
+  const prior = { x: 1, y: 1, hp: 1, defeated: false };
+  const clicked = { x: 4, y: 4, hp: 2, defeated: false };
+  visualizer.allies = [prior, clicked];
+  visualizer.selection.add(prior);
+  visualizer.resolvePointerAlly = () => clicked;
+  visualizer.detectActionAt = () => null;
+  visualizer.requestTacticalActionAt = () => false;
+  visualizer.unprojectToTile = () => ({ x: 8, y: 3 });
+  visualizer.attachPointerHandlers();
+
+  clickCanvasTarget(canvas, { x: 40, y: 40 });
+
+  assert.deepEqual([...visualizer.selection], [clicked], "a fallback ally click must replace the prior selection");
+  assert.deepEqual(tacticalRequests, [], "an ally click must not fall through to commander focus or movement");
+  assert.equal(summaries.at(-1).count, 1, "the direct fallback selection must publish one selected actor");
+  assert.equal(summaries.at(-1).health, 2, "the direct fallback selection must publish the actor's current health");
+});
+
+test("BattleVisualizer marquee emits one summary for the resulting actor set", (t) => {
+  const canvas = makePointerCanvas();
+  const summaries = [];
+  const visualizer = makeVisualizer(t, {
+    canvas,
+    options: { onSelectionChange: (summary) => summaries.push(summary) },
+  });
+  const inside = { x: 2, y: 2, hp: 2, defeated: false };
+  const outside = { x: 8, y: 8, hp: 3, defeated: false };
+  visualizer.allies = [inside, outside];
+  visualizer.project = (x) => (x === inside.x ? { x: 25, y: 25 } : { x: 85, y: 85 });
+  visualizer.detectActionAt = () => null;
+  visualizer.attachPointerHandlers();
+
+  canvas.dispatch("pointerdown", { x: 5, y: 5, pointerId: 9 });
+  canvas.dispatch("pointermove", { x: 55, y: 55, pointerId: 9 });
+  canvas.dispatch("pointerup", { x: 55, y: 55, pointerId: 9 });
+
+  assert.deepEqual([...visualizer.selection], [inside], "fallback marquee must select only allies inside its screen rectangle");
+  assert.deepEqual(
+    summaries,
+    [{
+      count: 1,
+      total: 2,
+      health: 2,
+      maxHealth: 3,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "holding",
+    }],
+    "the completed marquee must publish one holding summary for its selected set",
+  );
+});
+
+test("BattleVisualizer selectAlly publishes only semantic selection changes and clears invalid targets", (t) => {
+  const summaries = [];
+  const visualizer = makeVisualizer(t, {
+    options: { onSelectionChange: (summary) => summaries.push(summary) },
+  });
+  const prior = { x: 1, y: 1, hp: 1, defeated: false };
+  const selected = { x: 2, y: 2, hp: 2, maxHealth: 5, defeated: false };
+  const defeated = { x: 3, y: 3, hp: 3, defeated: true };
+  visualizer.allies = [prior, selected, defeated];
+  visualizer.selection.add(prior);
+
+  const selectedSummary = visualizer.selectAlly(selected);
+  assert.deepEqual([...visualizer.selection], [selected], "the public fallback API must replace the prior set with the requested live ally");
+  assert.deepEqual(
+    selectedSummary,
+    {
+      count: 1,
+      total: 2,
+      health: 2,
+      maxHealth: 5,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "holding",
+    },
+    "direct fallback selection must publish current and maximum health without counting defeated allies",
+  );
+
+  assert.strictEqual(
+    visualizer.selectAlly(selected),
+    selectedSummary,
+    "reselecting the same fallback ally must reuse the stable summary",
+  );
+  assert.equal(summaries.length, 1, "reselecting the same fallback ally must not duplicate the cockpit callback");
+
+  const clearedSummary = visualizer.selectAlly(defeated);
+  assert.equal(visualizer.selection.size, 0, "a defeated fallback ally must clear rather than enter the selected set");
+  assert.deepEqual(
+    clearedSummary,
+    {
+      count: 0,
+      total: 2,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "rejecting an invalid fallback target must publish the cleared selection while preserving the live-force total",
+  );
+  assert.strictEqual(
+    visualizer.selectAlly({ x: 4, y: 4, hp: 1, defeated: false }),
+    clearedSummary,
+    "repeated invalid fallback targets must preserve the stable cleared summary",
+  );
+  assert.equal(summaries.length, 2, "only the fallback selected and cleared semantic states must reach the cockpit");
+});

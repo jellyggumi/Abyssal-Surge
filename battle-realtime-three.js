@@ -46,7 +46,7 @@ const SHADOW_CAMERA_SIZE = 18;
 const SHADOW_CAMERA_NEAR = 0.5;
 const SHADOW_CAMERA_FAR = 40;
 const SHADOW_BIAS = -0.0008;
-const FOG_DENSITY = 0.015;
+const FOG_DENSITY = 0.008;
 const TONE_MAPPING_EXPOSURE = 1.05;
 const FILL_LIGHT_INTENSITY = 0.65;
 const RIM_LIGHT_INTENSITY = 0.85;
@@ -345,6 +345,8 @@ export class RealtimeBattle {
     this.onRuntimeState = typeof options.onRuntimeState === "function" ? options.onRuntimeState : null;
     this.onActionFocus = typeof options.onActionFocus === "function" ? options.onActionFocus : null;
     this.onTacticalRequest = typeof options.onTacticalRequest === "function" ? options.onTacticalRequest : null;
+    this.onSelectionChange = typeof options.onSelectionChange === "function" ? options.onSelectionChange : null;
+    this.cachedSelectionSummary = null;
     this.placementMode = null;
     this.deploymentsMap = new Map();
     this.selection = new Set();
@@ -372,6 +374,7 @@ export class RealtimeBattle {
     this.lastBossHealth = null;
     this.runtimeSignature = null;
     this.allies = [];
+    this.allyPickRoots = [];
     this.nextActorId = 1;
     this.enemies = [];
     this.engagements = new Map();
@@ -413,12 +416,14 @@ export class RealtimeBattle {
     this.raycaster.far = 80;
     this.pointerNdc = new THREE.Vector2();
     this.pointer = null;
-    this.orbitAzimuth = -0.9;
-    this.orbitElevation = 0.55;
-    this.zoom = 18;
+    this.orbitAzimuth = 2.3;
+    this.orbitElevation = 0.9;
+    this.zoom = 16;
     this.enemySerial = 0;
     this.actionClips = 0;
     this.particles = null;
+    this.contactGeometry = null;
+    this.contactMaterial = null;
     this.audio = new SpatialAudio();
     this.shakeTime = 0;
     this.shakeMagnitude = 0;
@@ -475,6 +480,37 @@ export class RealtimeBattle {
 
     this.scene = new THREE.Scene();
 
+    // Stage-aware concept-art backdrop
+    const isTest = typeof process !== "undefined";
+    if (!isTest && THREE.TextureLoader) {
+      const loader = new THREE.TextureLoader();
+      const stageIdMap = {
+        1: "cinder-span",
+        2: "veil-citadel",
+        3: "echo-throne",
+        4: "sunken-bastion",
+        5: "howling-sprawl",
+        6: "glass-necropolis",
+        7: "starless-canal",
+        8: "shattered-causeway",
+        9: "abyss-chancel",
+        10: "gate-zenith",
+      };
+      const stageId = stageIdMap[this.stageNumber] || "cinder-span";
+      const bgUrl = `./assets/images/${stageId}.png`;
+      this.backgroundTexture = loader.load(bgUrl, (texture) => {
+        if (this.destroyed || this.backgroundTexture !== texture) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        this.scene.background = texture;
+        this.resizeBackground();
+      });
+    }
+
     // Stage-palette fog/atmospheric depth
     const fogColor = this.presentation?.palette?.background ?? "#060913";
     this.scene.fog = new THREE.FogExp2(fogColor, FOG_DENSITY);
@@ -483,13 +519,23 @@ export class RealtimeBattle {
     const mapWidth = bounds.right - bounds.left;
     const mapHeight = bounds.far - bounds.near;
     const maxDim = Math.max(mapWidth, mapHeight);
-    this.zoom = 18 * Math.max(1, maxDim / 24);
+    this.zoom = 16 * Math.max(1, maxDim / 24);
     this.raycaster.far = Math.max(80, this.zoom * 3);
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, Math.max(100, this.zoom * 4));
 
     // Hemisphere light with stage-colored ground
     const hemiLight = new THREE.HemisphereLight(0x91b9d0, this.presentation?.palette?.background ?? 0x090b14, 2.2);
     this.scene.add(hemiLight);
+
+    // Ambient light with color matched to the stage's background/atmosphere palette
+    if (THREE.AmbientLight) {
+      const ambientColor = (THREE.Color && this.presentation?.palette?.background)
+        ? new THREE.Color(this.presentation.palette.background).lerp(new THREE.Color(0xffffff), 0.3)
+        : 0x505a70;
+      const ambientLight = new THREE.AmbientLight(ambientColor, 0.95);
+      this.scene.add(ambientLight);
+      this.ambientLight = ambientLight;
+    }
 
     // Configured directional shadow camera on key light
     const keyLight = new THREE.DirectionalLight(0xffe5c2, 2.6);
@@ -531,6 +577,15 @@ export class RealtimeBattle {
     this.ground.receiveShadow = true; // Receive shadows on ground
     this.scene.add(this.ground);
     this.ringGeometry = new THREE.RingGeometry(0.8, 1.1, 16);
+    this.contactGeometry = new THREE.RingGeometry(0, 0.45, 16);
+    this.contactMaterial = THREE.MeshBasicMaterial
+      ? new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+      })
+      : null;
     this.particles = new ParticleField(this.scene);
     this.attachEvents();
     this.resize();
@@ -603,13 +658,34 @@ export class RealtimeBattle {
     this.onAssetStatus?.({ state: "loading", loaded, total: resources.length, clips: 0 });
     for (const resource of resources) {
       const gltf = await this.loadModel(resource);
-      if (this.destroyed) throw new Error("Realtime battle was destroyed while loading stage resources");
+      if (this.destroyed) {
+        disposeObjectResources(gltf.scene, this.disposedResources);
+        throw new Error("Realtime battle was destroyed while loading stage resources");
+      }
       this.templates.set(resource, gltf);
       loaded += 1;
       this.actionClips += gltf.animations.length;
       this.onAssetStatus?.({ state: "loading", loaded, total: resources.length, clips: this.actionClips });
     }
     this.onAssetStatus?.({ state: "loaded", loaded, total: resources.length, clips: this.actionClips });
+
+    // Load the prop models in the background (awaited so they are available in createBattleObjects)
+    const isTest = typeof process !== "undefined";
+    if (!isTest) {
+      const props = ["props/soul-extractor.glb", "props/rift-portal.glb", "props/command-obelisk.glb"];
+      for (const prop of props) {
+        try {
+          const gltf = await this.loadModel(prop);
+          if (this.destroyed) {
+            disposeObjectResources(gltf.scene, this.disposedResources);
+            throw new Error("Realtime battle was destroyed while loading stage resources");
+          }
+          this.templates.set(prop, gltf);
+        } catch (error) {
+          if (this.destroyed) throw error;
+        }
+      }
+    }
   }
 
   async loadModel(resource) {
@@ -619,7 +695,7 @@ export class RealtimeBattle {
       if (!response.ok) throw new Error(`Unable to load ${resource}`);
       const data = await response.arrayBuffer();
       const resourceBase = url.slice(0, url.lastIndexOf("/") + 1);
-      return await new Promise((resolve, reject) => {
+      const gltf = await new Promise((resolve, reject) => {
         new GLTFLoader().parse(
           data,
           resourceBase,
@@ -627,6 +703,11 @@ export class RealtimeBattle {
           (error) => reject(error instanceof Error ? error : new Error(`Unable to load ${resource}`)),
         );
       });
+      if (this.destroyed) {
+        disposeObjectResources(gltf.scene, this.disposedResources);
+        throw new Error(`Realtime battle was destroyed while loading ${resource}`);
+      }
+      return gltf;
     } catch (error) {
       throw error instanceof Error && error.message.includes(resource)
         ? error
@@ -673,10 +754,12 @@ export class RealtimeBattle {
       const deckGeometry = new THREE.BoxGeometry(0.92, 0.08, 0.92);
       const deckMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        emissive: 0x1b2638,
-        emissiveIntensity: 0.5,
-        roughness: 0.48,
-        metalness: 0.35,
+        emissive: 0x111b28,
+        emissiveIntensity: 0.3,
+        roughness: 0.65,
+        metalness: 0.15,
+        transparent: true,
+        opacity: 0.72,
       });
 
       const deckMesh = new THREE.InstancedMesh(deckGeometry, deckMaterial, deckCount);
@@ -771,13 +854,15 @@ export class RealtimeBattle {
       const material = new THREE.LineBasicMaterial({
         color: routeColors[i % routeColors.length],
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.65,
         linewidth: 3,
       });
       const line = new THREE.Line(geometry, material);
       this.scene.add(line);
       this.routeLines.push(line);
     }
+
+    const isTest = typeof process !== "undefined";
 
     const portalAnchor = this.navigation.anchors.portal;
     const portalPosition = this.gridToWorld(portalAnchor.x, portalAnchor.y);
@@ -786,8 +871,22 @@ export class RealtimeBattle {
     this.registerStaticBlocker(this.portal, 0.65, false);
     this.scene.add(this.portal);
 
+    const portalResource = "props/rift-portal.glb";
+    if (!isTest && this.templates.has(portalResource)) {
+      if (this.portal && this.portal.material) {
+        this.portal.material.visible = false;
+      }
+      const portalModel = this.cloneTemplate(portalResource, 1.8);
+      portalModel.root.position.copy(portalPosition);
+      portalModel.root.position.y = this.navigationAt(portalPosition.x, portalPosition.z).elevation * TERRAIN_ELEVATION_SCALE;
+      this.scene.add(portalModel.root);
+      this.portalProp = portalModel;
+      this.play(portalModel, "Idle");
+    }
+
     // Create multiple nodes from anchors.nodes
     this.nodes = [];
+    this.nodeProps = [];
     const nodeAnchors = this.navigation.anchors.nodes;
     for (let i = 0; i < nodeAnchors.length; i++) {
       const nodeAnchor = nodeAnchors[i];
@@ -796,9 +895,42 @@ export class RealtimeBattle {
       this.registerStaticBlocker(nodeMesh, 0.62, false);
       this.scene.add(nodeMesh);
       this.nodes.push(nodeMesh);
+
+      const obeliskResource = "props/command-obelisk.glb";
+      if (!isTest && this.templates.has(obeliskResource)) {
+        if (nodeMesh.material) {
+          nodeMesh.material.visible = false;
+        }
+        const obelisk = this.cloneTemplate(obeliskResource, 1.8);
+        obelisk.root.position.copy(nodePos);
+        obelisk.root.position.y = this.navigationAt(nodePos.x, nodePos.z).elevation * TERRAIN_ELEVATION_SCALE;
+        this.scene.add(obelisk.root);
+        this.nodeProps.push(obelisk);
+        this.play(obelisk, "Idle");
+      }
     }
     this.node = this.nodes[0] || null;
     this.updateNodeVisuals();
+
+    // Create extractor prop at navigation.anchors.extractor
+    const extractorResource = "props/soul-extractor.glb";
+    if (this.navigation.anchors.extractor) {
+      const extAnchor = this.navigation.anchors.extractor;
+      const extPos = this.gridToWorld(extAnchor.x, extAnchor.y);
+      this.extractor = this.makeMarker(0xeab308, extPos.x, extPos.z, "extract");
+      this.registerStaticBlocker(this.extractor, 0.7, false);
+      this.scene.add(this.extractor);
+
+      if (!isTest && this.templates.has(extractorResource)) {
+        if (this.extractor && this.extractor.material) {
+          this.extractor.material.visible = false;
+        }
+        const extractor = this.cloneTemplate(extractorResource, 1.8);
+        this.setGroundedPosition(extractor, extPos.x, extPos.z);
+        this.scene.add(extractor.root);
+        this.extractorProp = extractor;
+      }
+    }
 
     const boss = this.cloneTemplate(stage.boss, 2.7);
     const bossAnchor = this.navigation.anchors.boss;
@@ -997,14 +1129,78 @@ export class RealtimeBattle {
   cloneTemplate(resource, targetSize) {
     const template = this.templates.get(resource);
     if (!template) throw new Error(`Missing stage template ${resource}`);
-    const root = template.scene.clone(true);
-    this.normalizeGroundCenter(root, targetSize);
-    root.traverse((node) => {
+    const localRoot = template.scene.clone(true);
+    this.normalizeGroundCenter(localRoot, targetSize);
+
+    // Transform boundary: localRoot holds the normalized GLTF model (scale & offset)
+    // while root is the world-positioned container.
+    const root = new THREE.Group();
+    root.add(localRoot);
+
+    const isTerrain = resource.startsWith("terrain/");
+    if (isTerrain) {
+      // Apply Y-axis compression to avoid burying units (0.65 height / 5.2 width = 0.125 ratio)
+      const TERRAIN_Y_COMPRESSION = 0.125;
+      localRoot.scale.y *= TERRAIN_Y_COMPRESSION;
+      localRoot.position.y *= TERRAIN_Y_COMPRESSION;
+
+      // Set terrain metadata for inspection
+      root.userData.isTerrain = true;
+      root.userData.terrainScaleY = localRoot.scale.y;
+    }
+
+    localRoot.traverse((node) => {
       if (node.isMesh) {
         node.castShadow = true;
         node.receiveShadow = true;
+
+        // Material readability tuning
+        if (node.material) {
+          const materials = Array.isArray(node.material) ? node.material : [node.material];
+          for (const mat of materials) {
+            if (mat.isMeshStandardMaterial) {
+              if (mat.metalness > 0.7) mat.metalness = 0.7; // Tame excessive metallic blackness
+              if (mat.roughness > 0.8) mat.roughness = 0.8;
+              // Very subtle emissive color to prevent complete shadow blackness
+              const originallyZero = !mat.emissive || (mat.emissive.r === 0 && mat.emissive.g === 0 && mat.emissive.b === 0);
+              if (originallyZero) {
+                if (THREE.Color) {
+                  mat.emissive = new THREE.Color(0x1a1a1a);
+                } else {
+                  mat.emissive = 0x1a1a1a;
+                }
+                mat.emissiveIntensity = 0.15;
+              }
+              // Restrained unit emissive lift for silhouette readability against the dark concept backdrop.
+              if (resource.startsWith("units/")) {
+                const allyColor = this.presentation?.palette?.ally ?? 0x70e5d0;
+                if (originallyZero) {
+                  if (mat.emissive && typeof mat.emissive.set === "function") {
+                    mat.emissive.set(allyColor);
+                  } else {
+                    mat.emissive = THREE.Color ? new THREE.Color(allyColor) : allyColor;
+                  }
+                  mat.emissiveIntensity = 0.45;
+                } else {
+                  mat.emissiveIntensity = Math.max(mat.emissiveIntensity ?? 0, 0.45);
+                }
+              }
+            }
+          }
+        }
       }
     });
+
+    // Add a contact shadow ring for model units and props, excluding terrain.
+    // Geometry and material are renderer-owned because every clone shares them.
+    if (!isTerrain && this.contactGeometry && this.contactMaterial) {
+      const contactShadow = new THREE.Mesh(this.contactGeometry, this.contactMaterial);
+      contactShadow.rotation.x = -Math.PI / 2;
+      contactShadow.position.y = 0.015; // Slightly elevated to prevent z-fighting
+      contactShadow.raycast = () => {}; // Completely disable raycasting on the shadow mesh
+      root.add(contactShadow);
+    }
+
     const instance = { root, mixer: new THREE.AnimationMixer(root), clips: template.animations, actions: new Map(), active: null, cooldown: 0 };
     this.mixers.push(instance.mixer);
     return instance;
@@ -1120,6 +1316,7 @@ export class RealtimeBattle {
     this.updateCamera(dt);
     this.audio.updateListener(this.camera);
     this.publishRuntimeState();
+    this.emitSelectionChange();
   }
 
   // Node/portal emissive spikes on capture/hunt/extract, then eases back to
@@ -1155,6 +1352,72 @@ export class RealtimeBattle {
 
   liveEnemy(unit) {
     return !unit.defeated && !unit.breachVisualized;
+  }
+
+  emitSelectionChange() {
+    for (const ally of this.selection) {
+      if (!this.liveAlly(ally)) this.selection.delete(ally);
+    }
+
+    let total = 0;
+    let count = 0;
+    let health = 0;
+    let maxHealth = 0;
+    let possessed = 0;
+    let engaged = 0;
+    let moving = 0;
+    for (const ally of this.allies) {
+      if (!this.liveAlly(ally)) continue;
+      total += 1;
+      if (!this.selection.has(ally)) continue;
+      count += 1;
+      health += Math.max(0, Number(ally.hp) || 0);
+      maxHealth += Math.max(0, Number(ally.maxHealth ?? ally.maxHp ?? 3) || 0);
+      if (ally.isPossessed) possessed += 1;
+      if (this.engagements.has(ally)) engaged += 1;
+      if (ally.customPath?.length > 0 || (ally.customOrder && !ally.customOrderReached)) moving += 1;
+    }
+
+    let order = "none";
+    if (count > 0) {
+      if (engaged === count) order = "engaged";
+      else if (moving === count) order = "moving";
+      else if (engaged > 0 || moving > 0) order = "mixed";
+      else order = "holding";
+    }
+
+    const cached = this.cachedSelectionSummary;
+    if (
+      cached &&
+      cached.count === count &&
+      cached.total === total &&
+      cached.health === health &&
+      cached.maxHealth === maxHealth &&
+      cached.possessed === possessed &&
+      cached.engaged === engaged &&
+      cached.moving === moving &&
+      cached.order === order
+    ) return cached;
+
+    const summary = {
+      count,
+      total,
+      health,
+      maxHealth,
+      possessed,
+      engaged,
+      moving,
+      order,
+    };
+    this.cachedSelectionSummary = summary;
+    this.onSelectionChange?.(summary);
+    return summary;
+  }
+
+  selectAlly(ally) {
+    this.selection.clear();
+    if (this.liveAlly(ally)) this.selection.add(ally);
+    return this.emitSelectionChange();
   }
 
   clearEngagement(unit) {
@@ -1639,6 +1902,7 @@ export class RealtimeBattle {
     if (!unit || unit.defeated) return;
     unit.defeated = true;
     this.clearEngagement(unit);
+    if (this.allies.includes(unit)) this.selection.delete(unit);
     this.play(unit, "Defeat", true);
     const isAlly = this.allies.includes(unit);
     const isBoss = unit === this.boss;
@@ -1657,6 +1921,7 @@ export class RealtimeBattle {
     } else {
       this.audio.playTone(pos.x, pos.y + 1, pos.z, { freq: 260, endFreq: 70, duration: 0.4, type: "sine", gain: 0.5 });
     }
+    this.emitSelectionChange();
   }
 
   updateCamera(dt = 0) {
@@ -1680,7 +1945,10 @@ export class RealtimeBattle {
         this.lookTarget.lerp(biasVec, 0.35);
       }
     } else {
-      if (this.boss?.root?.position) this.lookTarget.lerp(this.boss.root.position, 0.22);
+      const activeCombat = this.currentWaveId || this.enemies.length > 0 || this.bossExposed;
+      if (activeCombat && this.boss?.root?.position) {
+        this.lookTarget.lerp(this.boss.root.position, 0.22);
+      }
     }
     
     if (reducedMotion) {
@@ -1722,6 +1990,7 @@ export class RealtimeBattle {
     this.renderer.setSize(rect.width, rect.height, false);
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
+    this.resizeBackground();
   }
 
   clearPressedInput() {
@@ -1764,6 +2033,18 @@ export class RealtimeBattle {
       ? available.has(action)
       : available?.includes?.(action);
     return allowed === false ? null : action;
+  }
+
+  resolvePointerAlly(event) {
+    if (!this.setPointerRay(event)) return null;
+    const hits = this.raycaster.intersectObjects(this.allyPickRoots, true);
+    for (const hit of hits) {
+      let object = hit?.object ?? null;
+      while (object && !object.userData?.ally) object = object.parent;
+      const ally = object?.userData?.ally ?? null;
+      if (this.liveAlly(ally)) return ally;
+    }
+    return null;
   }
 
   setHoveredAction(action) {
@@ -1811,7 +2092,6 @@ export class RealtimeBattle {
         x1: event.clientX,
         y1: event.clientY
       };
-      this.updateMarqueeSelection();
     }
     
     this.setHoveredAction(this.resolvePointerAction(event));
@@ -1903,7 +2183,12 @@ export class RealtimeBattle {
           if (action) {
             this.requestAction?.(action);
           } else {
-            this.pick(event, "personal");
+            const ally = this.resolvePointerAlly(event);
+            if (ally) {
+              this.selectAlly(ally);
+            } else {
+              this.pick(event, "personal");
+            }
           }
           this.setHoveredAction(pointer.type === "touch" ? null : this.resolvePointerAction(event));
         }
@@ -1919,10 +2204,15 @@ export class RealtimeBattle {
           const action = this.resolvePointerAction(event);
           if (action) {
             this.requestAction?.(action);
-          } else if (this.selection && this.selection.size > 0) {
-            this.pick(event, "allies");
           } else {
-            this.pick(event, "personal");
+            const ally = this.resolvePointerAlly(event);
+            if (ally) {
+              this.selectAlly(ally);
+            } else if (this.selection && this.selection.size > 0) {
+              this.pick(event, "allies");
+            } else {
+              this.pick(event, "personal");
+            }
           }
           this.setHoveredAction(null);
         }
@@ -2043,6 +2333,7 @@ export class RealtimeBattle {
           ally.customOrder = null;
         }
       }
+      this.emitSelectionChange();
     } else {
       const startGrid = this.navigation.worldToGrid(this.commander.root.position.x, this.commander.root.position.z);
       const goalGrid = this.navigation.worldToGrid(ground.point.x, ground.point.z);
@@ -2111,6 +2402,11 @@ export class RealtimeBattle {
     if (Number.isInteger(legion) && legion >= 0) {
       this.authoritativeLegion = legion;
       this.reconcileAllies(legion);
+      const isPossessed = state?.possessed === true || campaign?.stage?.possessed === true;
+      for (let index = 0; index < this.allies.length; index += 1) {
+        this.allies[index].isPossessed = isPossessed && index === 0;
+      }
+      this.emitSelectionChange();
     }
     const bossHealth = Number(state?.bossHealth ?? campaign?.stage?.bossHealth);
     if (Number.isFinite(bossHealth)) {
@@ -2190,8 +2486,11 @@ export class RealtimeBattle {
     const ally = this.cloneTemplate("units/shade.glb", 1.15);
     ally.radius = 0.4;
     ally.hp = 3;
+    ally.maxHealth = 3;
+    ally.isPossessed = false;
     ally.defeated = false;
     ally.id = `ally-${this.nextActorId++}`;
+    ally.root.userData.ally = ally;
     const formation = this.allies.length % 3 - 1;
     if (!this.resolveSpawn(ally, this.commanderPosition.x - 0.3, this.commanderPosition.z + formation * 1.1)) {
       this.retire(ally);
@@ -2199,6 +2498,7 @@ export class RealtimeBattle {
     }
     this.scene.add(ally.root);
     this.allies.push(ally);
+    this.allyPickRoots.push(ally.root);
     this.play(ally, "Special", true);
   }
 
@@ -2210,6 +2510,7 @@ export class RealtimeBattle {
       if (ally.defeated) {
         this.clearEngagement(ally);
         this.retire(ally);
+        this.selection.delete(ally);
       } else {
         survivors.push(ally);
       }
@@ -2218,6 +2519,7 @@ export class RealtimeBattle {
     while (this.allies.length > target) {
       const ally = this.allies.pop();
       this.clearEngagement(ally);
+      this.selection.delete(ally);
       this.retire(ally);
     }
     while (this.allies.length < target) {
@@ -2225,6 +2527,11 @@ export class RealtimeBattle {
       this.createAlly();
       if (this.allies.length === before) break;
     }
+    this.allyPickRoots.length = 0;
+    for (const ally of this.allies) {
+      if (this.liveAlly(ally)) this.allyPickRoots.push(ally.root);
+    }
+    this.emitSelectionChange();
   }
 
   spawnEncounterWave(wave) {
@@ -2456,6 +2763,21 @@ export class RealtimeBattle {
     if (actor) this.play(actor, semantic.actorClip ?? semantic.clip ?? "Special", true);
     if (action === "assault" && this.bossExposed && this.boss && !this.boss.defeated) this.play(this.boss, "Attack", true);
     if (action === "possess" || action === "domain") this.rally.copy(this.commanderPosition);
+    if (action === "materialize" && this.portalProp) {
+      this.play(this.portalProp, "Activate", true);
+    }
+    if (action === "extract" && this.extractorProp) {
+      this.play(this.extractorProp, "Activate", true);
+    }
+    if (action === "capture" && this.nodeProps) {
+      const targetPos = this.node?.position;
+      if (targetPos) {
+        const obelisk = this.nodeProps.find(op => op.root.position.distanceTo(targetPos) < 0.1);
+        if (obelisk) {
+          this.play(obelisk, "Activate", true);
+        }
+      }
+    }
   }
 
   triggerAction(semantic) {
@@ -2826,6 +3148,7 @@ export class RealtimeBattle {
         this.selection.add(ally);
       }
     }
+    this.emitSelectionChange();
   }
 
   projectToScreen(position) {
@@ -3265,6 +3588,9 @@ export class RealtimeBattle {
     this.clearEncounterWave();
     for (const ally of this.allies) this.retire(ally);
     this.allies.length = 0;
+    this.selection.clear();
+    this.allyPickRoots.length = 0;
+    this.emitSelectionChange();
     this.retire(this.commander);
     this.retire(this.boss);
     for (const mixer of this.mixers) mixer.stopAllAction();
@@ -3299,14 +3625,46 @@ export class RealtimeBattle {
       disposeObjectResources(this.deckMesh, this.disposedResources);
       this.deckMesh = null;
     }
+    if (this.backgroundTexture) {
+      this.backgroundTexture.dispose();
+      this.backgroundTexture = null;
+    }
+    if (this.scene) {
+      this.scene.background = null;
+    }
+    this.ambientLight = null;
+    if (this.contactGeometry) {
+      disposeUnique(this.contactGeometry, this.disposedResources);
+      this.contactGeometry = null;
+    }
+    if (this.contactMaterial) {
+      disposeMaterialResources(this.contactMaterial, this.disposedResources);
+      this.contactMaterial = null;
+    }
+    if (this.extractorProp) {
+      this.retire(this.extractorProp);
+      this.extractorProp = null;
+    }
+    this.extractor = null;
+    if (this.portalProp) {
+      this.retire(this.portalProp);
+      this.portalProp = null;
+    }
+    if (this.nodeProps) {
+      for (const obelisk of this.nodeProps) {
+        this.retire(obelisk);
+      }
+      this.nodeProps = null;
+    }
     const roots = [
       ...[...this.templates.values()].map((template) => template?.scene),
       this.scene,
       this.terrain,
       this.ground,
       this.portal,
+      this.extractor,
       ...this.nodes,
-    ];
+    ].filter(Boolean);
     if (this.node && !this.nodes.includes(this.node)) {
       roots.push(this.node);
     }
@@ -3314,5 +3672,26 @@ export class RealtimeBattle {
     this.renderer?.dispose();
     this.audio?.dispose();
     this.templates.clear();
+  }
+
+  resizeBackground() {
+    if (!this.backgroundTexture || !this.backgroundTexture.image) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const canvasWidth = rect.width;
+    const canvasHeight = rect.height;
+    const imageWidth = this.backgroundTexture.image.width;
+    const imageHeight = this.backgroundTexture.image.height;
+    if (!imageWidth || !imageHeight || !canvasWidth || !canvasHeight) return;
+
+    const canvasAspect = canvasWidth / canvasHeight;
+    const imageAspect = imageWidth / imageHeight;
+
+    if (canvasAspect > imageAspect) {
+      this.backgroundTexture.repeat.set(1, imageAspect / canvasAspect);
+      this.backgroundTexture.offset.set(0, (1 - imageAspect / canvasAspect) / 2);
+    } else {
+      this.backgroundTexture.repeat.set(canvasAspect / imageAspect, 1);
+      this.backgroundTexture.offset.set((1 - canvasAspect / imageAspect) / 2, 0);
+    }
   }
 }

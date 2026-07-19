@@ -181,6 +181,8 @@ export class BattleVisualizer {
     this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
     this.onRuntimeState = typeof options.onRuntimeState === "function" ? options.onRuntimeState : null;
     this.onActionFocus = typeof options.onActionFocus === "function" ? options.onActionFocus : null;
+    this.onSelectionChange = typeof options.onSelectionChange === "function" ? options.onSelectionChange : null;
+    this.cachedSelectionSummary = null;
     this.actionPreview = null;
     this.onEnemyBreach = null; // Legacy callback; encounter events take precedence.
     this.encounter = null;
@@ -413,6 +415,7 @@ export class BattleVisualizer {
     this.lastTime = performance.now();
     this.reconcileEncounterWave();
     this.publishRuntimeState();
+    this.emitSelectionChange();
     if (this.reducedMotion) this.render();
     else this.animate();
     return this;
@@ -984,6 +987,92 @@ export class BattleVisualizer {
 
   // --- selection & orders (screen-space filter loop) ----------------------
 
+  emitSelectionChange() {
+    for (const ally of this.selection) {
+      if (!this.liveAlly(ally)) this.selection.delete(ally);
+    }
+
+    let total = 0;
+    let count = 0;
+    let health = 0;
+    let maxHealth = 0;
+    let possessed = 0;
+    let engaged = 0;
+    let moving = 0;
+    for (const ally of this.allies) {
+      if (!this.liveAlly(ally)) continue;
+      total += 1;
+      if (!this.selection.has(ally)) continue;
+      count += 1;
+      health += Math.max(0, Number(ally.hp) || 0);
+      maxHealth += Math.max(0, Number(ally.maxHealth ?? ally.maxHp ?? 3) || 0);
+      if (ally.isPossessed) possessed += 1;
+      if (this.engagements.has(ally)) engaged += 1;
+      if (ally.path?.length > 0) moving += 1;
+    }
+
+    let order = "none";
+    if (count > 0) {
+      if (engaged === count) order = "engaged";
+      else if (moving === count) order = "moving";
+      else if (engaged > 0 || moving > 0) order = "mixed";
+      else order = "holding";
+    }
+
+    const cached = this.cachedSelectionSummary;
+    if (
+      cached &&
+      cached.count === count &&
+      cached.total === total &&
+      cached.health === health &&
+      cached.maxHealth === maxHealth &&
+      cached.possessed === possessed &&
+      cached.engaged === engaged &&
+      cached.moving === moving &&
+      cached.order === order
+    ) return cached;
+
+    const summary = {
+      count,
+      total,
+      health,
+      maxHealth,
+      possessed,
+      engaged,
+      moving,
+      order,
+    };
+    this.cachedSelectionSummary = summary;
+    this.onSelectionChange?.(summary);
+    return summary;
+  }
+
+  selectAlly(ally) {
+    this.selection.clear();
+    if (this.liveAlly(ally)) this.selection.add(ally);
+    return this.emitSelectionChange();
+  }
+
+  resolvePointerAlly(point) {
+    if (!point) return null;
+    const radius = Math.max(18, this.view.scale * 22);
+    const radiusSquared = radius * radius;
+    let nearest = null;
+    let nearestDistance = radiusSquared;
+    for (const ally of this.allies) {
+      if (!this.liveAlly(ally)) continue;
+      const screen = this.project(ally.x, ally.y, this.elevationAt(ally.x, ally.y));
+      const dx = point.x - screen.x;
+      const dy = point.y - screen.y;
+      const distance = dx * dx + dy * dy;
+      if (distance <= nearestDistance) {
+        nearestDistance = distance;
+        nearest = ally;
+      }
+    }
+    return nearest;
+  }
+
   attachPointerHandlers() {
     const canvasPoint = (event) => {
       const rect = this.canvas.getBoundingClientRect();
@@ -1095,6 +1184,7 @@ export class BattleVisualizer {
             const s = this.project(ally.x, ally.y, this.elevationAt(ally.x, ally.y));
             if (rectContains(dragBox, s.x, s.y)) this.selection.add(ally);
           }
+          this.emitSelectionChange();
         } else if (isTapEligible) {
           if (this.placementMode) {
             const tile = this.unprojectToTile(p.x, p.y);
@@ -1120,27 +1210,29 @@ export class BattleVisualizer {
               }
             }
           } else if (!this.requestTacticalActionAt(p)) {
-            // Only reached when no spatial action (materialize/capture/possess/
-            // extract/hunt/assault) sat under the tap; touch keeps its
-            // pre-contract semantic (move the current selection), while
-            // mouse/pen primary taps drive the commander per the input
-            // contract (secondary click still owns selected-ally rally).
-            const tile = this.unprojectToTile(p.x, p.y);
-            if (tile && this.activePointerType === "touch" && this.selection.size > 0) {
-              if (this.walkable(tile.x, tile.y)) {
-                this.issueFormationMove(tile);
-                this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
-                this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 520, duration: 0.12, type: "sine", gain: 0.6 });
-              }
-            } else if (tile) {
-              this.onTacticalRequest?.({ type: "focus", cell: { x: tile.x, y: tile.y } });
-              if (this.walkable(tile.x, tile.y)) {
-                const start = { x: Math.floor(this.commander.x), y: Math.floor(this.commander.y) };
-                const path = this.findPath(start, tile);
-                if (path && path.length > 1) {
-                  this.commander.path = path.slice(1).map(node => ({ x: node.x + 0.5, y: node.y + 0.5 }));
+            const ally = this.resolvePointerAlly(p);
+            if (ally) {
+              this.selectAlly(ally);
+            } else {
+              // Touch preserves its existing selected-formation move contract;
+              // mouse/pen primary ground taps continue to drive the commander.
+              const tile = this.unprojectToTile(p.x, p.y);
+              if (tile && this.activePointerType === "touch" && this.selection.size > 0) {
+                if (this.walkable(tile.x, tile.y)) {
+                  this.issueFormationMove(tile);
                   this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
-                  this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 600, duration: 0.1, type: "sine", gain: 0.3 });
+                  this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 520, duration: 0.12, type: "sine", gain: 0.6 });
+                }
+              } else if (tile) {
+                this.onTacticalRequest?.({ type: "focus", cell: { x: tile.x, y: tile.y } });
+                if (this.walkable(tile.x, tile.y)) {
+                  const start = { x: Math.floor(this.commander.x), y: Math.floor(this.commander.y) };
+                  const path = this.findPath(start, tile);
+                  if (path && path.length > 1) {
+                    this.commander.path = path.slice(1).map(node => ({ x: node.x + 0.5, y: node.y + 0.5 }));
+                    this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
+                    this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 600, duration: 0.1, type: "sine", gain: 0.3 });
+                  }
                 }
               }
             }
@@ -1252,6 +1344,7 @@ export class BattleVisualizer {
         ally.holdUntil = performance.now() + 6000;
       }
     });
+    this.emitSelectionChange();
   }
 
   // --- public trigger API (unchanged surface) -----------------------------
@@ -1440,6 +1533,11 @@ export class BattleVisualizer {
     if (Number.isInteger(legion) && legion >= 0) {
       this.authoritativeLegion = legion;
       this.reconcileAllies(legion);
+      const isPossessed = state?.possessed === true || campaign?.stage?.possessed === true;
+      for (let index = 0; index < this.allies.length; index += 1) {
+        this.allies[index].isPossessed = isPossessed && index === 0;
+      }
+      this.emitSelectionChange();
     }
     if (stage && Number.isInteger(stage.nodeGoal)) {
       this.nodeGoal = stage.nodeGoal;
@@ -1514,6 +1612,7 @@ export class BattleVisualizer {
         baseSpeed: baseSpeed,
         speed: baseSpeed,
         hp: 3,
+        maxHealth: 3,
         facing: 0,
         path: null,
         holdUntil: 0,
@@ -1544,6 +1643,7 @@ export class BattleVisualizer {
       this.selection.delete(ally);
     }
     this.spawnAlly(target - this.allies.length);
+    this.emitSelectionChange();
   }
 
   spawnEncounterWave(wave) {
@@ -1700,7 +1800,7 @@ export class BattleVisualizer {
   }
 
   liveAlly(unit) {
-    return !unit.defeated;
+    return this.allies.includes(unit) && !unit?.defeated;
   }
 
   liveEnemy(unit) {
@@ -1867,6 +1967,7 @@ export class BattleVisualizer {
     unit.bridgeClipUntil = Number.POSITIVE_INFINITY;
     this.clearEngagement(unit);
     this.selection.delete(unit);
+    this.emitSelectionChange();
   }
 
   updateTowers(dt) {
@@ -2084,6 +2185,7 @@ export class BattleVisualizer {
       this.waveClearedProposed = true;
       this.emitEncounterEvent("wave-cleared");
     }
+    this.emitSelectionChange();
   }
 
   updateParticles(dt) {
@@ -2792,6 +2894,7 @@ export class BattleVisualizer {
     this.actionFx = [];
     this.nodes = [];
     this.selection.clear();
+    this.emitSelectionChange();
     this.unitAtlases.clear();
     this.staticChunks.clear();
     this.terrainTiles = [];

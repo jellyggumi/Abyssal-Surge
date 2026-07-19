@@ -738,6 +738,7 @@ async function loadTacticalHudProjection({
   const executeCalls = [];
   const feedbackMessages = [];
   const context = vm.createContext({
+    STAGES,
     activePlacementMode,
     campaign,
     battleVisualFallback: false,
@@ -748,7 +749,11 @@ async function loadTacticalHudProjection({
     elements: { status: campaignStatus },
     getTacticalProgression: (state) => state.progression,
     persistCampaign: async () => {},
-    showTacticalFeedback: (message) => feedbackMessages.push(message),
+    showTacticalFeedback: (message) => {
+      feedbackMessages.push(message);
+      context.tacticalFeedbackMessage = message;
+      context.render();
+    },
     tacticalFeedbackMessage: null,
     startActionCooldown: () => {},
     synchronizeBattleRenderer: () => {},
@@ -789,15 +794,13 @@ async function loadTacticalHudProjection({
     },
   });
   const definitions = [
+    appFunction(source, "translateStatusMessage", "updateResumeAffordance"),
     appFunction(source, "translateRejectionReason", "showTacticalFeedback"),
     appFunction(source, "handleExecuteReserved", "handleCancelReserved"),
     appFunction(source, "handleCancelReserved", "handleReorderReserved"),
     appFunction(source, "handleReorderReserved", "handleReserveAction"),
     appFunction(source, "handleReserveAction", "handleDeploymentSelect"),
   ];
-  if (campaignState) {
-    definitions.unshift(appFunction(source, "translateStatusMessage", "updateResumeAffordance"));
-  }
   const renderProjection = campaignState
     ? `function projectTacticalHud() {
   const stage = currentStage();
@@ -1942,6 +1945,17 @@ async function loadAudioSceneLifecycle() {
   };
   const context = vm.createContext({
     MUSIC_BY_SCENE: undefined,
+    EMPTY_RENDERER_SELECTION: Object.freeze({
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    }),
+    rendererSelectionSummary: {},
     ambiencePlayer,
     battleSessionId: 4,
     battleStartedAt: 123,
@@ -2140,4 +2154,434 @@ test("cinematic media failure preserves the fallback and the next play request r
   assert.equal(fixture.elements.cinematicFallback.hidden, true);
   assert.deepEqual(fixture.statuses, ["loading", "unavailable", "loading"]);
   assert.deepEqual(fixture.calls, ["load", "pause", "remove:src", "load", "load"]);
+});
+
+async function renderReactGameUiContract() {
+  const source = await readFile(new URL("../react-game-ui.js", import.meta.url), "utf8");
+  let root = null;
+  const container = { style: {} };
+  const createElement = (type, props, ...children) => {
+    if (typeof type === "function") return type(props ?? {});
+    return { type, props: props ?? {}, children: children.flat(Infinity) };
+  };
+  const context = vm.createContext({
+    CustomEvent: class CustomEvent {},
+    document: {
+      documentElement: { dataset: {} },
+      getElementById: (id) => (id === "react-game-root" ? container : null),
+    },
+    window: {
+      React: { createElement },
+      ReactDOM: {
+        render(value) {
+          root = value;
+        },
+      },
+      dispatchEvent() {},
+    },
+  });
+  vm.runInContext(source, context, { filename: "react-game-ui.js" });
+  assert.ok(root, "the React shell must render its public element tree");
+  return root;
+}
+
+function findReactElement(root, id) {
+  if (!root || typeof root !== "object") return null;
+  if (root.props?.id === id) return root;
+  for (const child of root.children ?? []) {
+    const found = findReactElement(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+test("battle cockpit renders stable selection HUD IDs beside the tactical canvas", async () => {
+  const root = await renderReactGameUiContract();
+  const requiredIds = [
+    "dossier-count",
+    "dossier-health",
+    "dossier-order",
+    "dossier-selection-hint",
+  ];
+
+  for (const id of requiredIds) {
+    const element = findReactElement(root, id);
+    assert.ok(element, `the rendered React cockpit must expose #${id}`);
+    assert.notEqual(element.props.hidden, true, `#${id} must remain visible with the tactical canvas`);
+  }
+  assert.equal(
+    findReactElement(root, "dossier-order").props["data-i18n"],
+    "command.selection.order.none",
+    "the initial order value must be localized",
+  );
+  assert.equal(
+    findReactElement(root, "dossier-selection-hint").props["data-i18n"],
+    "command.selectionHint",
+    "the visible selection guidance must be localized",
+  );
+  assert.ok(findReactElement(root, "battle-canvas-3d"), "the selection HUD contract must coexist with the direct renderer canvas");
+  assert.ok(findReactElement(root, "battle-canvas-fallback"), "the selection HUD contract must coexist with the fallback canvas");
+});
+
+test("selection HUD copy is complete and language-specific in Korean and English", () => {
+  const keys = [
+    "command.selectionCount",
+    "command.selectionHealth",
+    "command.selectionOrder",
+    "command.selectionHint",
+    "command.selectionNone",
+    "command.selectionStatus.selected",
+    "command.selectionStatus.none",
+    "command.selectionPossessedRole",
+    "command.selection.order.none",
+    "command.selection.order.holding",
+    "command.selection.order.moving",
+    "command.selection.order.engaged",
+    "command.selection.order.mixed",
+  ];
+
+  for (const key of keys) {
+    assert.match(translations.ko[key] ?? "", /\p{Script=Hangul}/u, `${key} must have Korean HUD copy`);
+    assert.match(translations.en[key] ?? "", /[A-Za-z]/, `${key} must have English HUD copy`);
+    assert.notEqual(translations.ko[key], translations.en[key], `${key} must not reuse one locale's string for both languages`);
+  }
+});
+
+async function loadSelectionDossierRuntime(locale = "en") {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const element = () => {
+    const attributes = new Map();
+    return {
+      attributes,
+      src: "",
+      textContent: "",
+      setAttribute: (name, value) => attributes.set(name, String(value)),
+      removeAttribute: (name) => attributes.delete(name),
+      getAttribute: (name) => attributes.get(name) ?? null,
+    };
+  };
+  const ids = Object.fromEntries([
+    "dossier-label",
+    "dossier-name",
+    "dossier-role",
+    "dossier-image",
+    "dossier-count",
+    "dossier-health",
+    "dossier-order",
+    "dossier-status",
+  ].map((id) => [id, element()]));
+  const dossier = element();
+  const context = vm.createContext({
+    BATTLE_ACTION_SEMANTICS: Object.freeze({
+      assault: Object.freeze({ source: "ally", target: "boss" }),
+    }),
+    campaign: Object.freeze({ status: "active" }),
+    currentLang: () => locale,
+    document: {
+      getElementById: (id) => ids[id] ?? null,
+      querySelector: (selector) => (selector === ".selection-dossier" ? dossier : null),
+      querySelectorAll: () => [],
+    },
+    translate: (key) => translations[locale][key] ?? key,
+    visualizer: null,
+    window: {
+      CustomEvent: class CustomEvent {
+        constructor(type, init) {
+          this.type = type;
+          this.detail = init?.detail;
+        }
+      },
+      dispatchEvent() {},
+    },
+  });
+  const definitions = [
+    appFunction(source, "handleRendererSelection", "renderSelectionDossier"),
+    appFunction(source, "renderSelectionDossier", "currentActionFocus"),
+    appFunction(source, "currentActionFocus", "updateActionFocus"),
+    appFunction(source, "updateActionFocus", "handleActionFocus"),
+    appFunction(source, "handleActionFocus", "projectActionFocus"),
+    terminalAppFunction(source, "projectActionFocus", "let battleSessionId"),
+  ];
+  vm.runInContext(
+    `const EMPTY_RENDERER_SELECTION = Object.freeze({
+      count: 0, total: 0, health: 0, maxHealth: 0,
+      possessed: 0, engaged: 0, moving: 0, order: "none"
+    });
+    let rendererSelectionSummary = EMPTY_RENDERER_SELECTION;
+    let activeFieldFocusedAction = null;
+    let activeCommandHoverAction = null;
+    let activeCommandFocusAction = null;
+    let battleSessionId = 3;
+    ${definitions.join("\n\n")}
+    globalThis.selectionDossierApi = {
+      select: handleRendererSelection,
+      focus: handleActionFocus
+    };`,
+    context,
+    { filename: "app.js" },
+  );
+  return { api: context.selectionDossierApi, dossier, ids };
+}
+
+test("renderer selection survives temporary action-focus dossier previews", async () => {
+  const { api, dossier, ids } = await loadSelectionDossierRuntime("en");
+  api.select({
+    count: 2,
+    total: 3,
+    health: 4,
+    maxHealth: 6,
+    possessed: 1,
+    engaged: 1,
+    moving: 1,
+    order: "mixed",
+  }, 3);
+
+  assert.equal(ids["dossier-count"].textContent, "2 / 3", "the dossier must project actual selected and live totals");
+  assert.equal(ids["dossier-health"].textContent, "4 / 6", "the dossier must project combined selected health");
+  assert.equal(
+    ids["dossier-order"].textContent,
+    translations.en["command.selection.order.mixed"],
+    "the dossier must project the renderer's current order",
+  );
+
+  api.focus("assault");
+  assert.equal(dossier.getAttribute("data-focused"), "true", "action focus must temporarily mark the dossier as a preview");
+  assert.equal(ids["dossier-name"].textContent, translations.en["command.assault.name"], "action focus must show its command preview");
+
+  api.focus(null);
+  assert.equal(dossier.getAttribute("data-focused"), null, "clearing action focus must leave preview mode");
+  assert.equal(ids["dossier-count"].textContent, "2 / 3", "clearing the preview must restore the actual selected count");
+  assert.equal(ids["dossier-health"].textContent, "4 / 6", "clearing the preview must restore actual combined health");
+  assert.equal(ids["dossier-name"].textContent, translations.en["command.selectionName"], "clearing the preview must restore the selected-force identity");
+  assert.equal(
+    ids["dossier-order"].textContent,
+    translations.en["command.selection.order.mixed"],
+    "clearing the preview must restore the renderer's current order",
+  );
+});
+
+test("app passes session-scoped selection callbacks to both battle renderers", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const rendererOptions = [];
+  const selectionCalls = [];
+  const makeRenderer = (kind) => class Renderer {
+    constructor(_canvas, _presentation, options) {
+      this.kind = kind;
+      this.options = options;
+      rendererOptions.push(this);
+    }
+    async init() {}
+    setPlacementMode() {}
+    destroy() {}
+  };
+  const stage = { id: "cinder-span", nodeGoal: 1 };
+  const context = vm.createContext({
+    BattleVisualizer: makeRenderer("fallback"),
+    RealtimeBattle: makeRenderer("realtime"),
+    EMPTY_RENDERER_SELECTION: Object.freeze({
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    }),
+    activateBattleFallback: undefined,
+    activePlacementMode: null,
+    armEncounterWhenPrepared() {},
+    battleSessionId: 0,
+    battleStarting: false,
+    battleVisualFallback: false,
+    campaign: { status: "active" },
+    cooldownTimer: 0,
+    currentActionFocus: () => null,
+    currentStage: () => stage,
+    elements: { battleCanvas3d: {}, battleFallbackCanvas: {} },
+    getAvailableActions: () => [],
+    getBattlePresentation: () => ({ stageNumber: 1 }),
+    getInteractiveBattleActions: () => [],
+    handleAction() {},
+    handleActionFocus() {},
+    handleEncounterEvent() {},
+    handleRendererRuntime() {},
+    handleRendererSelection: (summary, sessionId) => selectionCalls.push({ summary, sessionId }),
+    handleTacticalRequest() {},
+    lastScrolledStageId: "old-stage",
+    pendingBattleRenderer: null,
+    projectActionFocus() {},
+    projectBattleRuntime() {},
+    render() {},
+    renderBattleAssetStatus() {},
+    renderBattlePresentation: () => ({ stageNumber: 1 }),
+    rendererRuntime: {},
+    rendererSelectionSummary: {},
+    syncBgmScene() {},
+    synchronizeBattleRenderer() {},
+    visualizer: null,
+    window: {
+      matchMedia: () => ({ matches: false }),
+      setInterval: () => 1,
+    },
+  });
+  const definitions = [
+    appFunction(source, "activateBattleFallback", "startBattle"),
+    appFunction(source, "startBattle", "battleUiActive"),
+  ];
+  vm.runInContext(
+    `${definitions.join("\n\n")}
+    globalThis.startBattleForSelectionTest = startBattle;
+    globalThis.activateFallbackForSelectionTest = activateBattleFallback;`,
+    context,
+    { filename: "app.js" },
+  );
+
+  await context.startBattleForSelectionTest();
+  const realtime = rendererOptions.find((renderer) => renderer.kind === "realtime");
+  assert.equal(typeof realtime?.options.onSelectionChange, "function", "RealtimeBattle must receive the app selection callback");
+  const realtimeSummary = Object.freeze({ count: 1 });
+  realtime.options.onSelectionChange(realtimeSummary);
+
+  context.activateFallbackForSelectionTest(stage, 8);
+  const fallback = rendererOptions.find((renderer) => renderer.kind === "fallback");
+  assert.equal(typeof fallback?.options.onSelectionChange, "function", "BattleVisualizer must receive the app selection callback");
+  const fallbackSummary = Object.freeze({ count: 2 });
+  fallback.options.onSelectionChange(fallbackSummary);
+
+  assert.deepEqual(
+    selectionCalls,
+    [
+      { summary: realtimeSummary, sessionId: 1 },
+      { summary: fallbackSummary, sessionId: 8 },
+    ],
+    "both callbacks must preserve their renderer session so stale battle events can be rejected",
+  );
+});
+
+test("selection dossier ignores stale renderer clears and projects the active renderer clear", async () => {
+  const { api, dossier, ids } = await loadSelectionDossierRuntime("en");
+  api.select({
+    count: 1,
+    total: 2,
+    health: 2.5,
+    maxHealth: 5,
+    possessed: 1,
+    engaged: 0,
+    moving: 0,
+    order: "holding",
+  }, 3);
+
+  api.select(null, 2);
+  assert.equal(ids["dossier-count"].textContent, "1 / 2", "a prior renderer session must not clear the active selection");
+  assert.equal(ids["dossier-health"].textContent, "2.5 / 5", "a stale clear must preserve the active renderer health projection");
+
+  api.select(null, 3);
+  assert.equal(dossier.getAttribute("data-focused"), null, "an active renderer clear must leave the dossier in selection mode");
+  assert.equal(ids["dossier-count"].textContent, "0 / 0", "an active renderer clear must reset selected and live counts");
+  assert.equal(ids["dossier-health"].textContent, "0 / 0", "an active renderer clear must reset aggregate health");
+  assert.equal(ids["dossier-name"].textContent, translations.en["command.selectionNone"], "an active renderer clear must restore the empty-selection identity");
+  assert.equal(ids["dossier-order"].textContent, translations.en["command.selection.order.none"], "an active renderer clear must reset the order projection");
+  assert.equal(ids["dossier-status"].textContent, translations.en["command.selectionStatus.none"], "an active renderer clear must publish the empty-selection status");
+});
+
+function responsiveCssBlock(source, header) {
+  const normalized = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const blocks = [];
+  let searchIndex = 0;
+  while (searchIndex < normalized.length) {
+    const headerIndex = normalized.indexOf(header, searchIndex);
+    if (headerIndex === -1) break;
+    const openIndex = normalized.indexOf("{", headerIndex + header.length);
+    assert.notEqual(openIndex, -1, `${header} must open a CSS block`);
+    let depth = 1;
+    for (let index = openIndex + 1; index < normalized.length; index += 1) {
+      if (normalized[index] === "{") depth += 1;
+      if (normalized[index] === "}") depth -= 1;
+      if (depth === 0) {
+        blocks.push(normalized.slice(openIndex + 1, index));
+        searchIndex = index + 1;
+        break;
+      }
+    }
+    assert.equal(depth, 0, `${header} must close its CSS block`);
+  }
+  assert.ok(blocks.length > 0, `stylesheet must retain ${header}`);
+  return blocks.join("\n");
+}
+
+function responsiveCssRules(source) {
+  const rules = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const openIndex = source.indexOf("{", cursor);
+    if (openIndex === -1) break;
+    const selector = source.slice(cursor, openIndex).trim();
+    let depth = 1;
+    let closeIndex = openIndex + 1;
+    for (; closeIndex < source.length && depth > 0; closeIndex += 1) {
+      if (source[closeIndex] === "{") depth += 1;
+      if (source[closeIndex] === "}") depth -= 1;
+    }
+    assert.equal(depth, 0, `${selector} must close its CSS rule`);
+    rules.push({
+      selector,
+      body: source.slice(openIndex + 1, closeIndex - 1),
+    });
+    cursor = closeIndex;
+  }
+  return rules;
+}
+
+function responsiveCssDeclaration(rule, property) {
+  const declaration = rule?.body
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${property}:`));
+  return declaration?.slice(declaration.indexOf(":") + 1).trim();
+}
+
+test("short-landscape stylesheet retains explicit canvas, dossier, and command flow rules", async () => {
+  const styles = await readFile(new URL("../react-game-ui.css", import.meta.url), "utf8");
+  const compactRules = responsiveCssRules(
+    responsiveCssBlock(styles, "@media (min-width: 900px) and (max-height: 760px)"),
+  );
+  const ruleFor = (rules, selector) => rules.find((rule) => rule.selector === selector);
+  const cockpit = ruleFor(compactRules, ".cockpit-main");
+  const battlefield = compactRules.find(({ selector }) => (
+    selector.split(",").map((entry) => entry.trim()).includes(".cockpit-main .battle-field-panel")
+  ));
+  const commands = ruleFor(compactRules, "#command-panel.field-command-dock");
+  const dossier = ruleFor(compactRules, ".field-command-dock .selection-dossier");
+
+  assert.equal(
+    responsiveCssDeclaration(cockpit, "grid-template-rows"),
+    "minmax(7.5rem, 1fr) auto !important",
+    "landscapes through 760px tall must reserve a viable field row followed by the intrinsic command row",
+  );
+  assert.equal(
+    responsiveCssDeclaration(battlefield, "min-height"),
+    "0 !important",
+    "the field and canvas must be allowed to shrink instead of forcing the dossier and commands over them",
+  );
+  assert.equal(
+    responsiveCssDeclaration(battlefield, "aspect-ratio"),
+    "auto !important",
+    "short landscapes must release the canvas aspect floor that previously collapsed the available rows",
+  );
+  assert.equal(
+    responsiveCssDeclaration(commands, "grid-template-areas"),
+    '"selection commands" !important',
+    "the compact command row must keep the selection dossier and controls side by side",
+  );
+  assert.equal(
+    responsiveCssDeclaration(commands, "height"),
+    "auto !important",
+    "the compact command row must remain in intrinsic layout flow instead of covering the canvas",
+  );
+  assert.equal(
+    responsiveCssDeclaration(dossier, "display"),
+    "grid !important",
+    "the selected-unit dossier must remain reachable in short landscape",
+  );
 });

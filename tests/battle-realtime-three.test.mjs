@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 import { RealtimeBattle } from "../battle-realtime-three.js";
+import { GLTFLoader } from "../vendor/loaders/GLTFLoader.js";
 
 function makeRoot(x = 0, z = 0) {
   return {
@@ -43,7 +44,7 @@ function makeRetirableMixer() {
     uncacheAction() {},
   };
 }
-async function initializeRendererPresentation() {
+async function initializeRendererPresentation(stageNumber = 7, { deferBackground = false } = {}) {
   const source = await readFile(new URL("../battle-realtime-three.js", import.meta.url), "utf8");
   const definition = source.match(/  async init\(\) \{[\s\S]*?\n  \}(?=\n\n  attachEvents\(\))/);
   assert.ok(definition, "renderer module must expose its initialization behavior");
@@ -56,6 +57,15 @@ async function initializeRendererPresentation() {
       return this;
     }
   }
+  class Color {
+    constructor(value) {
+      this.value = value;
+    }
+    lerp(other, alpha) {
+      this.lerped = { value: other.value, alpha };
+      return this;
+    }
+  }
   class WebGLRenderer {
     constructor(options) {
       this.options = options;
@@ -63,6 +73,7 @@ async function initializeRendererPresentation() {
     }
     setPixelRatio(value) { this.pixelRatio = value; }
     setClearColor(color, alpha) { this.clearColor = { color, alpha }; }
+    dispose() {}
   }
   class Scene {
     constructor() { this.children = []; }
@@ -79,6 +90,12 @@ async function initializeRendererPresentation() {
   }
   class HemisphereLight {
     constructor(...parameters) { this.parameters = parameters; }
+  }
+  class AmbientLight {
+    constructor(...parameters) {
+      this.parameters = parameters;
+      this.isAmbientLight = true;
+    }
   }
   class DirectionalLight {
     constructor(...parameters) {
@@ -104,17 +121,41 @@ async function initializeRendererPresentation() {
   class RingGeometry {
     constructor(...parameters) { this.parameters = parameters; }
   }
-  class ParticleField {}
+  class ParticleField {
+    dispose() {}
+  }
+  const backgroundLoads = [];
+  const pendingBackgroundLoads = [];
+  class TextureLoader {
+    load(url, onLoad) {
+      const texture = {
+        url,
+        image: { width: 1600, height: 900 },
+        repeat: { set() {} },
+        offset: { set() {} },
+        disposeCalls: 0,
+        dispose() { this.disposeCalls += 1; },
+      };
+      backgroundLoads.push(texture);
+      if (deferBackground) pendingBackgroundLoads.push(() => onLoad?.(texture));
+      else queueMicrotask(() => onLoad?.(texture));
+      return texture;
+    }
+  }
 
   const THREE = {
     ACESFilmicToneMapping: Symbol("ACESFilmicToneMapping"),
     PCFSoftShadowMap: Symbol("PCFSoftShadowMap"),
     SRGBColorSpace: Symbol("SRGBColorSpace"),
+    ClampToEdgeWrapping: Symbol("ClampToEdgeWrapping"),
+    Color,
+    TextureLoader,
     WebGLRenderer,
     Scene,
     FogExp2,
     PerspectiveCamera,
     HemisphereLight,
+    AmbientLight,
     DirectionalLight,
     PlaneGeometry,
     MeshStandardMaterial,
@@ -149,9 +190,11 @@ async function initializeRendererPresentation() {
       contextRequests.push(args);
       return args[0] === "webgl2" ? webgl2Context : null;
     },
+    removeEventListener() {},
   };
   const battle = {
     canvas,
+    stageNumber,
     presentation: {
       palette: { accent: "#f0a040", ally: "#70e5d0", background: "#101827" },
     },
@@ -159,22 +202,53 @@ async function initializeRendererPresentation() {
     authoritativeLegion: null,
     navigation: { bounds: { left: -12, right: 12, near: -6, far: 6 } },
     raycaster: {},
+    backgroundResizeCalls: 0,
     attachEvents() {},
     updateCamera() {},
     resize() {},
+    resizeBackground() { this.backgroundResizeCalls += 1; },
     async loadStageAssets() {},
     createBattleObjects() {},
     reconcileEncounterWave() {},
     syncBossExposure() {},
     publishRuntimeState() {},
+    destroy: RealtimeBattle.prototype.destroy,
+    clearHover() {},
+    clearActionPreview() {},
+    clearEncounterWave() {},
+    retire() {},
+    bound: {},
+    emitSelectionChange() {},
+    allies: [],
+    selection: new Set(),
+    allyPickRoots: [],
+    commander: null,
+    boss: null,
+    mixers: [],
+    staticBlockers: [],
+    disposedResources: new Set(),
+    templates: new Map(),
+    nodes: [],
     frame() {},
   };
   await context.initialize.call(battle);
-  return { battle, THREE, types: { FogExp2, RingGeometry }, canvas, contextRequests, webgl2Context };
+  return {
+    battle,
+    THREE,
+    types: { AmbientLight, FogExp2, RingGeometry },
+    canvas,
+    contextRequests,
+    webgl2Context,
+    backgroundLoads,
+    completeBackgroundLoad() {
+      pendingBackgroundLoads.shift()?.();
+    },
+    pendingBackgroundLoads,
+  };
 }
 
 test("RealtimeBattle initialization applies atmospheric rendering and configured tactical markers", async () => {
-  const { battle, THREE, types, canvas, contextRequests, webgl2Context } = await initializeRendererPresentation();
+  const { battle, THREE, types, canvas, contextRequests, webgl2Context, backgroundLoads } = await initializeRendererPresentation();
   assert.equal(contextRequests.length, 1, "realtime initialization must make exactly one context request");
   const [contextType, contextAttributes] = contextRequests[0];
   assert.equal(contextType, "webgl2", "realtime initialization must require WebGL2");
@@ -189,6 +263,18 @@ test("RealtimeBattle initialization applies atmospheric rendering and configured
     webgl2Context,
     "WebGLRenderer must receive the exact context returned by the battle canvas",
   );
+  assert.deepEqual(
+    battle.renderer.clearColor,
+    { color: "#101827", alpha: 1 },
+    "installing a concept-art backdrop must preserve the opaque stage clear-color contract",
+  );
+  assert.equal(backgroundLoads.length, 1, "browser initialization must request one stage backdrop texture");
+  assert.equal(backgroundLoads[0].url, "./assets/images/starless-canal.png", "stage 7 must select its authored concept-art backdrop");
+  assert.equal(battle.scene.background, backgroundLoads[0], "the loaded backdrop texture must become the scene background");
+  assert.equal(backgroundLoads[0].colorSpace, THREE.SRGBColorSpace, "backdrop textures must use the renderer output color space");
+  assert.equal(backgroundLoads[0].wrapS, THREE.ClampToEdgeWrapping, "backdrop textures must clamp horizontally");
+  assert.equal(backgroundLoads[0].wrapT, THREE.ClampToEdgeWrapping, "backdrop textures must clamp vertically");
+  assert.equal(battle.backgroundResizeCalls, 1, "installing the backdrop must fit it to the canvas through the public resize seam");
 
   assert.equal(battle.renderer.toneMapping, THREE.ACESFilmicToneMapping, "realtime rendering must use ACES filmic tone mapping");
   assert.deepEqual(
@@ -198,6 +284,7 @@ test("RealtimeBattle initialization applies atmospheric rendering and configured
   );
   assert.equal(battle.scene.fog instanceof types.FogExp2, true, "realtime rendering must use exponential atmospheric fog");
   assert.equal(battle.scene.fog.color, "#101827", "fog must use the active stage background palette");
+  assert.equal(battle.ambientLight instanceof types.AmbientLight, true, "browser initialization must install the optional readability fill light");
   assert.equal(battle.ground.receiveShadow, true, "the tactical ground must receive unit and marker shadows");
 
   const shadowCamera = battle.keyLight.shadow.camera;
@@ -215,6 +302,34 @@ test("RealtimeBattle initialization applies atmospheric rendering and configured
     [0.8, 1.1, 16],
     "marker rings must retain a visible annulus with enough segments to read as circular",
   );
+});
+
+test("RealtimeBattle rejects a deferred backdrop completion after destroy and disposes the late texture", async (t) => {
+  const priorDocument = globalThis.document;
+  globalThis.document = { removeEventListener() {} };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+  });
+
+  const {
+    battle,
+    backgroundLoads,
+    completeBackgroundLoad,
+    pendingBackgroundLoads,
+  } = await initializeRendererPresentation(7, { deferBackground: true });
+  const [texture] = backgroundLoads;
+  assert.equal(pendingBackgroundLoads.length, 1, "the fixture must hold one backdrop completion past initialization");
+
+  battle.raf = 0;
+  battle.destroy();
+  assert.equal(texture.disposeCalls, 1, "destroy must dispose the loader-returned backdrop texture");
+
+  completeBackgroundLoad();
+
+  assert.equal(battle.scene.background, null, "a backdrop completed after destroy must not reattach to the dead scene");
+  assert.equal(texture.disposeCalls, 2, "the deferred completion must dispose its late texture before returning");
+  assert.equal(battle.backgroundResizeCalls, 0, "a rejected late backdrop must not resize a destroyed renderer");
 });
 
 test("RealtimeBattle resize reapplies DPR tiers without changing the canvas dimensions or skipping projection updates", () => {
@@ -1673,6 +1788,61 @@ test("RealtimeBattle retire() disposes boss-identity-tint material clones withou
   assert.equal(disposedCount, 1, "retire() must dispose exactly the boss-identity-tint clone, not the template-shared material");
 });
 
+
+
+test("RealtimeBattle updateCamera default target branch keeps commander target before combat and blends to boss when active", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+
+  battle.camera = {
+    position: new THREE.Vector3(),
+    lookAt(target) {}
+  };
+
+  // Set positions within bounds (bounds are x: [-12, 12], z: [-6, 6])
+  battle.commanderPosition.set(2, 0, 1);
+  battle.boss = {
+    root: {
+      position: new THREE.Vector3(8, 0, 4)
+    }
+  };
+
+  // 1. Before combat starts, target should be commanderPosition
+  battle.updateCamera(100);
+  assert.ok(Math.abs(battle.cameraTarget.x - 2) < 1e-5);
+  assert.ok(Math.abs(battle.cameraTarget.z - 1) < 1e-5);
+
+  // Reset target
+  battle.cameraTarget.set(0, 0, 0);
+
+  // 2. Active wave starts
+  battle.currentWaveId = "wave-1";
+  battle.updateCamera(100);
+  // Expected target is lerp( (2,0,1), (8,0,4), 0.22 ) -> (3.32, 0, 1.66)
+  assert.ok(Math.abs(battle.cameraTarget.x - 3.32) < 1e-5);
+  assert.ok(Math.abs(battle.cameraTarget.z - 1.66) < 1e-5);
+
+  // Reset and deactivate wave
+  battle.cameraTarget.set(0, 0, 0);
+  battle.currentWaveId = null;
+
+  // 3. Enemies exist
+  battle.enemies = [{ defeated: false }];
+  battle.updateCamera(100);
+  assert.ok(Math.abs(battle.cameraTarget.x - 3.32) < 1e-5);
+  assert.ok(Math.abs(battle.cameraTarget.z - 1.66) < 1e-5);
+
+  // Reset and remove enemies
+  battle.cameraTarget.set(0, 0, 0);
+  battle.enemies = [];
+
+  // 4. Boss exposed
+  battle.bossExposed = true;
+  battle.updateCamera(100);
+  assert.ok(Math.abs(battle.cameraTarget.x - 3.32) < 1e-5);
+  assert.ok(Math.abs(battle.cameraTarget.z - 1.66) < 1e-5);
+});
+
 test("RealtimeBattle destroy disposes shared WebGL resources once and remains idempotent", (t) => {
   const priorDocument = globalThis.document;
   globalThis.document = { removeEventListener() {} };
@@ -1681,12 +1851,23 @@ test("RealtimeBattle destroy disposes shared WebGL resources once and remains id
     else globalThis.document = priorDocument;
   });
 
-  const disposals = { geometry: 0, material: 0, texture: 0, ring: 0, shadow: 0, renderer: 0, particles: 0, audio: 0 };
+  const disposals = { geometry: 0, material: 0, texture: 0, background: 0, contact: 0, ring: 0, shadow: 0, renderer: 0, particles: 0, audio: 0 };
   const texture = { isTexture: true, dispose: () => { disposals.texture += 1; } };
+  const backgroundTexture = { dispose: () => { disposals.background += 1; } };
   const material = { map: texture, dispose: () => { disposals.material += 1; } };
   const geometry = { dispose: () => { disposals.geometry += 1; } };
+  const contactGeometry = { dispose: () => { disposals.contact += 1; } };
   const ringGeometry = { dispose: () => { disposals.ring += 1; } };
   const sharedMesh = { isMesh: true, geometry, material };
+  const propRemovals = [];
+  const makeProp = (name) => ({
+    root: {
+      traverse(visit) { visit({ isMesh: false }); },
+      removeFromParent() { propRemovals.push(name); },
+    },
+    mixer: makeRetirableMixer(),
+    actions: new Map(),
+  });
   const canvas = { removeEventListener() {} };
   const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
   battle.scene = {
@@ -1707,16 +1888,266 @@ test("RealtimeBattle destroy disposes shared WebGL resources once and remains id
   battle.audio = { dispose: () => { disposals.audio += 1; } };
   battle.ringGeometry = ringGeometry;
   battle.keyLight = { shadow: { dispose: () => { disposals.shadow += 1; } } };
+  battle.backgroundTexture = backgroundTexture;
+  battle.scene.background = backgroundTexture;
+  battle.contactGeometry = contactGeometry;
+  battle.extractorProp = makeProp("extractor");
+  battle.portalProp = makeProp("portal");
+  battle.nodeProps = [makeProp("node-1"), makeProp("node-2")];
+  battle.node = null;
 
   battle.destroy();
   battle.destroy();
 
   assert.deepEqual(
     disposals,
-    { geometry: 1, material: 1, texture: 1, ring: 1, shadow: 1, renderer: 1, particles: 1, audio: 1 },
-    "destroy must release each shared GPU resource once even when the scene exposes it through multiple meshes and destroy is repeated",
+    { geometry: 1, material: 1, texture: 1, background: 1, contact: 1, ring: 1, shadow: 1, renderer: 1, particles: 1, audio: 1 },
+    "destroy must release each shared WebGL resource once even when the scene exposes it through multiple meshes and destroy is repeated",
   );
+  assert.deepEqual(
+    propRemovals,
+    ["extractor", "portal", "node-1", "node-2"],
+    "destroy must retire each browser-only prop root exactly once",
+  );
+  assert.equal(battle.backgroundTexture, null, "destroy must relinquish the background texture reference");
+  assert.equal(battle.scene.background, null, "destroy must clear the scene background reference");
+  assert.equal(battle.contactGeometry, null, "destroy must relinquish the contact-ring geometry reference");
+  assert.equal(battle.extractorProp, null, "destroy must relinquish the extractor prop reference");
+  assert.equal(battle.portalProp, null, "destroy must relinquish the portal prop reference");
+  assert.equal(battle.nodeProps, null, "destroy must relinquish the node prop collection");
 });
+
+test("RealtimeBattle shares one contact-shadow material across clones and disposes it only at destroy", async (t) => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    writable: true,
+    value: { removeEventListener() {} },
+  });
+  t.after(() => {
+    if (documentDescriptor) Object.defineProperty(globalThis, "document", documentDescriptor);
+    else delete globalThis.document;
+  });
+
+  const disposals = { contactGeometry: 0, contactMaterial: 0, templateGeometry: 0, templateMaterial: 0 };
+  const canvas = { removeEventListener() {} };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  battle.scene = new THREE.Scene();
+  battle.contactGeometry = new THREE.RingGeometry(0, 0.45, 16);
+  battle.contactGeometry.dispose = () => { disposals.contactGeometry += 1; };
+  battle.contactMaterial = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.5,
+    depthWrite: false,
+  });
+  battle.contactMaterial.dispose = () => { disposals.contactMaterial += 1; };
+
+  const templateGeometry = new THREE.BoxGeometry(1, 1, 1);
+  templateGeometry.dispose = () => { disposals.templateGeometry += 1; };
+  const templateMaterial = new THREE.MeshStandardMaterial();
+  templateMaterial.dispose = () => { disposals.templateMaterial += 1; };
+  const templateScene = new THREE.Group();
+  templateScene.add(new THREE.Mesh(templateGeometry, templateMaterial));
+  battle.templates.set("units/shade.glb", { scene: templateScene, animations: [] });
+
+  const first = battle.cloneTemplate("units/shade.glb", 1.25);
+  const second = battle.cloneTemplate("units/shade.glb", 1.25);
+  const firstShadow = first.root.children.find((child) => child.material === battle.contactMaterial);
+  const secondShadow = second.root.children.find((child) => child.material === battle.contactMaterial);
+
+  assert.ok(firstShadow, "the first clone must attach a contact shadow using the battle-owned material");
+  assert.ok(secondShadow, "the second clone must attach a contact shadow using the battle-owned material");
+  assert.equal(firstShadow.material, secondShadow.material, "all clone contact shadows must share one material instead of allocating per instance");
+
+  battle.retire(first);
+  battle.retire(second);
+  assert.deepEqual(
+    disposals,
+    { contactGeometry: 0, contactMaterial: 0, templateGeometry: 0, templateMaterial: 0 },
+    "retiring instances must not dispose battle-shared contact or template resources",
+  );
+
+  battle.destroy();
+  battle.destroy();
+  assert.deepEqual(
+    disposals,
+    { contactGeometry: 1, contactMaterial: 1, templateGeometry: 1, templateMaterial: 1 },
+    "destroy must dispose every shared contact and template resource exactly once and remain idempotent",
+  );
+  assert.equal(battle.contactGeometry, null, "destroy must relinquish the shared contact geometry");
+  assert.equal(battle.contactMaterial, null, "destroy must relinquish the shared contact material");
+});
+
+test("RealtimeBattle disposes parsed GLTF resources when loading completes after destroy", async (t) => {
+  const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const fetchDescriptor = Object.getOwnPropertyDescriptor(globalThis, "fetch");
+  const originalParse = GLTFLoader.prototype.parse;
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    writable: true,
+    value: { removeEventListener() {} },
+  });
+
+  const disposals = { geometry: 0, material: 0, texture: 0 };
+  const texture = { isTexture: true, dispose() { disposals.texture += 1; } };
+  const material = { map: texture, dispose() { disposals.material += 1; } };
+  const geometry = { dispose() { disposals.geometry += 1; } };
+  const parsedScene = {
+    traverse(visit) {
+      visit({ isMesh: true, geometry, material });
+    },
+  };
+  const { promise: parseStarted, resolve: markParseStarted } = Promise.withResolvers();
+  let completeParse;
+
+  GLTFLoader.prototype.parse = function parse(_data, _resourceBase, onLoad) {
+    completeParse = () => onLoad({ scene: parsedScene, animations: [] });
+    markParseStarted();
+  };
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    writable: true,
+    value: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }),
+  });
+  t.after(() => {
+    GLTFLoader.prototype.parse = originalParse;
+    if (documentDescriptor) Object.defineProperty(globalThis, "document", documentDescriptor);
+    else delete globalThis.document;
+    if (fetchDescriptor) Object.defineProperty(globalThis, "fetch", fetchDescriptor);
+    else delete globalThis.fetch;
+  });
+
+  const battle = new RealtimeBattle({ removeEventListener() {} }, { stageNumber: 1 });
+  const loading = battle.loadModel("props/soul-extractor.glb");
+  await parseStarted;
+  battle.destroy();
+  completeParse();
+
+  await assert.rejects(
+    loading,
+    /Realtime battle was destroyed while loading props\/soul-extractor\.glb/,
+    "a late parsed GLTF must reject with teardown context rather than escape into the destroyed battle",
+  );
+  assert.deepEqual(
+    disposals,
+    { geometry: 1, material: 1, texture: 1 },
+    "late GLTF teardown must dispose parsed geometry, material, and texture exactly once",
+  );
+  assert.equal(battle.templates.has("props/soul-extractor.glb"), false, "a late GLTF must never enter the destroyed battle template cache");
+});
+
+test("RealtimeBattle preserves marker fallbacks when each optional prop template is absent", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const optionalResources = [
+    "props/soul-extractor.glb",
+    "props/rift-portal.glb",
+    "props/command-obelisk.glb",
+  ];
+  const mandatoryResources = [
+    "terrain/cinder-span.glb",
+    "units/shade.glb",
+    "units/scout.glb",
+    "units/guard.glb",
+    "units/reinforce.glb",
+    "bosses/cinder-warden.glb",
+  ];
+  const makeTemplate = () => {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+    return { scene, animations: [] };
+  };
+
+  for (const missingResource of optionalResources) {
+    const battle = new RealtimeBattle(null, { stageNumber: 1 });
+    battle.scene = new THREE.Scene();
+    battle.ringGeometry = null;
+    battle.contactGeometry = null;
+    battle.contactMaterial = null;
+    for (const resource of [...mandatoryResources, ...optionalResources]) {
+      if (resource !== missingResource) battle.templates.set(resource, makeTemplate());
+    }
+    const cloneCalls = [];
+    const cloneTemplate = battle.cloneTemplate;
+    battle.cloneTemplate = (...args) => {
+      cloneCalls.push(args[0]);
+      return cloneTemplate.call(battle, ...args);
+    };
+
+    assert.equal(
+      battle.templates.has(missingResource),
+      false,
+      `fixture must omit the optional ${missingResource} template`,
+    );
+
+
+
+    const savedProcess = globalThis.process;
+    try {
+      globalThis.process = undefined;
+      assert.doesNotThrow(
+        () => battle.createBattleObjects(),
+        `missing optional ${missingResource} must not collapse battle object creation`,
+      );
+    } finally {
+      globalThis.process = savedProcess;
+    }
+    assert.equal(
+      cloneCalls.includes(missingResource),
+      false,
+      `missing optional ${missingResource} must not attempt a model clone`,
+    );
+
+
+    assert.ok(battle.commander?.root, `missing optional ${missingResource} must still create the commander`);
+    assert.ok(battle.boss?.root, `missing optional ${missingResource} must still create the boss`);
+    assert.ok(battle.portal, `missing optional ${missingResource} must retain the portal marker`);
+    assert.ok(battle.extractor, `missing optional ${missingResource} must retain the extractor marker`);
+    assert.ok(battle.nodes.length > 0, `missing optional ${missingResource} must retain command-node markers`);
+
+    if (missingResource === "props/rift-portal.glb") {
+      assert.equal(battle.portalProp, undefined, "a missing portal prop must not create a model instance");
+      assert.notEqual(battle.portal.material.visible, false, "a missing portal prop must leave the materialize marker visible");
+      assert.equal(battle.portal.userData.semantic, "materialize", "the portal fallback must retain its command semantic");
+    } else if (missingResource === "props/soul-extractor.glb") {
+      assert.equal(battle.extractorProp, undefined, "a missing extractor prop must not create a model instance");
+      assert.notEqual(battle.extractor.material.visible, false, "a missing extractor prop must leave the extract marker visible");
+      assert.equal(battle.extractor.userData.semantic, "extract", "the extractor fallback must retain its command semantic");
+    } else {
+      assert.deepEqual(battle.nodeProps, [], "a missing obelisk prop must not create node model instances");
+      assert.equal(
+        battle.nodes.every((node) => node.material.visible !== false),
+        true,
+        "missing obelisk props must leave every command-node marker visible",
+      );
+    }
+    if (missingResource !== "props/rift-portal.glb") {
+      assert.ok(battle.portalProp?.root, "a present portal template must create a model instance");
+      assert.equal(battle.portal.material.visible, false, "a present portal prop must hide the materialize marker");
+    }
+    if (missingResource !== "props/soul-extractor.glb") {
+      assert.ok(battle.extractorProp?.root, "a present extractor template must create a model instance");
+      assert.equal(battle.extractor.material.visible, false, "a present extractor prop must hide the extract marker");
+    }
+    if (missingResource !== "props/command-obelisk.glb") {
+      assert.equal(
+        battle.nodeProps.length,
+        battle.nodes.length,
+        "present obelisk templates must create one model instance per command node",
+      );
+      assert.equal(
+        battle.nodes.every((node) => node.material.visible === false),
+        true,
+        "present obelisk props must hide every command-node marker",
+      );
+    }
+
+
+    battle.audio.dispose();
+  }
+});
+
 
 function makeRealtimeTowerScenario({ fortificationLevel = 1, distance = 1 } = {}) {
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
@@ -1869,4 +2300,475 @@ test("RealtimeBattle Mobility accelerates only the commander and composes with t
       "terrain movement effects must remain multiplicative with commander Mobility",
     );
   });
+});
+
+test("RealtimeBattle publishes stable selection summaries and removes a defeated selected ally", () => {
+  const summaries = [];
+  const onSelectionChange = (summary) => summaries.push(summary);
+  const battle = new RealtimeBattle(
+    null,
+    { stageNumber: 1 },
+    { onSelectionChange },
+  );
+
+  assert.equal(
+    battle.onSelectionChange,
+    onSelectionChange,
+    "the constructor must retain the selection callback supplied by the cockpit",
+  );
+  assert.deepEqual(
+    battle.emitSelectionChange(),
+    {
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "the first publication must describe an empty battlefield selection with plain scalar data",
+  );
+
+  const moving = {
+    ...makeUnit({ hp: 3 }),
+    isPossessed: true,
+    customOrder: { x: 4, y: 0, z: 2 },
+    customOrderReached: false,
+  };
+  const engaged = makeUnit({ hp: 1 });
+  const enemy = makeUnit();
+  battle.allies = [moving, engaged];
+  battle.selection.add(moving);
+  battle.selection.add(engaged);
+  battle.engagements.set(engaged, enemy);
+  battle.engagements.set(enemy, engaged);
+
+  const selected = battle.emitSelectionChange();
+  assert.deepEqual(
+    selected,
+    {
+      count: 2,
+      total: 2,
+      health: 4,
+      maxHealth: 6,
+      possessed: 1,
+      engaged: 1,
+      moving: 1,
+      order: "mixed",
+    },
+    "the dossier summary must aggregate the actual selected actors rather than campaign legion totals",
+  );
+  assert.equal(summaries.length, 2, "empty and selected states must each publish once");
+
+  battle.emitSelectionChange();
+  assert.equal(summaries.length, 2, "an unchanged scalar selection state must not publish twice");
+
+  battle.defeat(engaged);
+  assert.deepEqual(
+    summaries.at(-1),
+    {
+      count: 1,
+      total: 1,
+      health: 3,
+      maxHealth: 3,
+      possessed: 1,
+      engaged: 0,
+      moving: 1,
+      order: "moving",
+    },
+    "defeat must remove a selected actor and immediately republish the surviving selection",
+  );
+  assert.equal(battle.selection.has(engaged), false, "a defeated ally must not remain selected");
+
+  battle.scene = {};
+  battle.templates.set("units/shade.glb", {});
+  battle.retire = () => {};
+  battle.reconcileAllies(0);
+  assert.deepEqual(
+    summaries.at(-1),
+    {
+      count: 0,
+      total: 0,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "authoritative ally removal must clear and republish the selected set",
+  );
+  assert.equal(battle.selection.size, 0, "removed authoritative allies must not remain selected");
+});
+
+test("RealtimeBattle direct ally click replaces selection without issuing a ground order", () => {
+  const summaries = [];
+  const battle = new RealtimeBattle(
+    {
+      style: {},
+      focus() {},
+      setPointerCapture() {},
+      hasPointerCapture: () => true,
+      releasePointerCapture() {},
+    },
+    { stageNumber: 1 },
+    { onSelectionChange: (summary) => summaries.push(summary) },
+  );
+  const prior = makeUnit({ hp: 1 });
+  const clicked = makeUnit({ hp: 2 });
+  battle.allies = [prior, clicked];
+  battle.selection.add(prior);
+  battle.updateMarqueeSelection = () => {};
+  battle.resolvePointerAction = () => null;
+  battle.resolvePointerAlly = () => clicked;
+  let groundOrders = 0;
+  battle.pick = () => {
+    groundOrders += 1;
+  };
+  const pointer = {
+    button: 0,
+    clientX: 32,
+    clientY: 24,
+    pointerId: 7,
+    pointerType: "mouse",
+    timeStamp: 100,
+  };
+
+  battle.onPointerDown(pointer);
+  battle.onPointerUp({ ...pointer, timeStamp: 150 });
+
+  assert.deepEqual([...battle.selection], [clicked], "a primary ally click must select exactly the hit ally");
+  assert.equal(groundOrders, 0, "the same ally click must not fall through to commander ground movement");
+  assert.equal(summaries.at(-1).count, 1, "direct selection must publish the selected count");
+  assert.equal(summaries.at(-1).health, 2, "direct selection must publish the selected ally's health");
+});
+
+test("RealtimeBattle primary empty-ground click preserves ally selection while focusing and moving the commander", () => {
+  const tacticalRequests = [];
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const battle = new RealtimeBattle(
+    canvas,
+    { stageNumber: 1 },
+    { onTacticalRequest: (request) => tacticalRequests.push(request) },
+  );
+  const commanderCell = { x: 3, y: 5 };
+  const targetCell = { x: 12, y: 2 };
+  const commanderWorld = battle.navigation.gridToWorld(commanderCell.x + 0.5, commanderCell.y + 0.5);
+  const targetWorld = battle.navigation.gridToWorld(targetCell.x + 0.5, targetCell.y + 0.5);
+  assert.ok(
+    battle.navigation.findPath(commanderCell, targetCell)?.length > 1,
+    "the fixture must provide a legal commander route",
+  );
+
+  const ally = makeUnit({ x: commanderWorld.x + 1, z: commanderWorld.z });
+  battle.commander = makeUnit({ x: commanderWorld.x, z: commanderWorld.z });
+  battle.allies = [ally];
+  battle.selection.add(ally);
+  battle.camera = {};
+  battle.ground = {};
+  battle.scene = { add() {} };
+  battle.resolvePointerAction = () => null;
+  battle.resolvePointerAlly = () => null;
+  battle.updateFocusHighlight = () => {};
+  battle.raycaster = {
+    intersectObject: () => [{ point: { x: targetWorld.x, y: 0, z: targetWorld.z } }],
+  };
+  battle.particles = { emit() {} };
+  battle.audio = { playTone() {} };
+  const pointer = {
+    button: 0,
+    clientX: 50,
+    clientY: 50,
+    pointerId: 8,
+    pointerType: "mouse",
+    timeStamp: 100,
+  };
+
+  battle.onPointerDown(pointer);
+  battle.onPointerUp({ ...pointer, timeStamp: 150 });
+
+  assert.deepEqual([...battle.selection], [ally], "primary mouse ground movement must preserve the selected ally");
+  assert.deepEqual(
+    battle.focusedCell,
+    targetCell,
+    "the same ground click must focus the target tactical cell",
+  );
+  assert.deepEqual(
+    tacticalRequests,
+    [{ type: "focus", cell: targetCell }],
+    "the same ground click must publish commander focus exactly once",
+  );
+  assert.deepEqual(
+    { x: battle.commanderOrder.x, z: battle.commanderOrder.z },
+    { x: targetWorld.x, z: targetWorld.z },
+    "the same ground click must queue commander movement to the focused cell",
+  );
+});
+
+test("RealtimeBattle marquee publishes its selected actor set once", () => {
+  const summaries = [];
+  const battle = new RealtimeBattle(
+    null,
+    { stageNumber: 1 },
+    { onSelectionChange: (summary) => summaries.push(summary) },
+  );
+  const inside = makeUnit({ hp: 2 });
+  const outside = makeUnit({ hp: 3 });
+  battle.allies = [inside, outside];
+  battle.isMarqueeSelecting = true;
+  battle.marqueeRect = { x0: 0, y0: 0, x1: 50, y1: 50 };
+  battle.projectToScreen = (position) => (
+    position === inside.root.position ? { x: 25, y: 25 } : { x: 75, y: 75 }
+  );
+
+  battle.updateMarqueeSelection();
+  battle.updateMarqueeSelection();
+
+  assert.deepEqual([...battle.selection], [inside], "marquee selection must contain only live allies inside its screen rectangle");
+  assert.deepEqual(
+    summaries,
+    [{
+      count: 1,
+      total: 2,
+      health: 2,
+      maxHealth: 3,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "holding",
+    }],
+    "an unchanged marquee must emit one aggregate holding summary",
+  );
+});
+
+test("RealtimeBattle selectAlly publishes only semantic selection changes and clears invalid targets", () => {
+  const summaries = [];
+  const battle = new RealtimeBattle(
+    null,
+    { stageNumber: 1 },
+    { onSelectionChange: (summary) => summaries.push(summary) },
+  );
+  const prior = makeUnit({ hp: 1 });
+  const selected = { ...makeUnit({ hp: 2 }), maxHealth: 5 };
+  const defeated = { ...makeUnit({ hp: 3 }), defeated: true };
+  battle.allies = [prior, selected, defeated];
+  battle.selection.add(prior);
+
+  const selectedSummary = battle.selectAlly(selected);
+  assert.deepEqual([...battle.selection], [selected], "the public API must replace the prior set with the requested live ally");
+  assert.deepEqual(
+    selectedSummary,
+    {
+      count: 1,
+      total: 2,
+      health: 2,
+      maxHealth: 5,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "holding",
+    },
+    "direct selection must publish the selected ally's current and maximum health without counting defeated allies",
+  );
+
+  assert.strictEqual(
+    battle.selectAlly(selected),
+    selectedSummary,
+    "reselecting the same ally must reuse the stable summary",
+  );
+  assert.equal(summaries.length, 1, "reselecting the same ally must not duplicate the cockpit callback");
+
+  const clearedSummary = battle.selectAlly(defeated);
+  assert.equal(battle.selection.size, 0, "a defeated ally must clear rather than enter the selected set");
+  assert.deepEqual(
+    clearedSummary,
+    {
+      count: 0,
+      total: 2,
+      health: 0,
+      maxHealth: 0,
+      possessed: 0,
+      engaged: 0,
+      moving: 0,
+      order: "none",
+    },
+    "rejecting an invalid direct target must publish the cleared selection while preserving the live-force total",
+  );
+  assert.strictEqual(
+    battle.selectAlly({ ...makeUnit(), id: "foreign" }),
+    clearedSummary,
+    "repeated invalid direct targets must preserve the stable cleared summary",
+  );
+  assert.equal(summaries.length, 2, "only the selected and cleared semantic states must reach the cockpit");
+});
+
+test("RealtimeBattle cloneTemplate wraps GLTF content in a wrapper root to preserve local offset on positioning", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+
+  // Create a mock template scene with a mesh
+  const templateScene = new THREE.Group();
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshStandardMaterial()
+  );
+  templateScene.add(mesh);
+
+  battle.templates.set("units/shade.glb", {
+    scene: templateScene,
+    animations: []
+  });
+
+  const instance = battle.cloneTemplate("units/shade.glb", 2);
+
+  // The returned instance.root must be a wrapper Group
+  assert.ok(instance.root instanceof THREE.Group, "instance.root must be a Group wrapper");
+  assert.notStrictEqual(instance.root, templateScene, "instance.root must not be the template scene itself");
+
+  // The wrapper root must contain the localRoot (normalized GLTF scene) as a child
+  const localRoot = instance.root.children[0];
+  assert.ok(localRoot, "instance.root wrapper must contain the localRoot child");
+  assert.ok(localRoot instanceof THREE.Group || localRoot instanceof THREE.Object3D, "localRoot child must be a 3D object");
+
+  // The localRoot must have the normalization scale and position offsets applied to its local transform
+  assert.ok(localRoot.position.x !== 0 || localRoot.position.y !== 0 || localRoot.position.z !== 0, "localRoot position must have local offset applied");
+  assert.ok(localRoot.scale.x !== 1, "localRoot scale must be normalized");
+
+  // Now, position the instance.root in world space (e.g. at (10, 5, 20))
+  instance.root.position.set(10, 5, 20);
+
+  // The wrapper root position is updated, but localRoot's offset is intact
+  assert.deepEqual(
+    { x: instance.root.position.x, y: instance.root.position.y, z: instance.root.position.z },
+    { x: 10, y: 5, z: 20 },
+    "instance.root must be at the world-positioned coordinates"
+  );
+  assert.ok(localRoot.position.x !== 0 || localRoot.position.y !== 0 || localRoot.position.z !== 0, "localRoot offset must be preserved");
+});
+
+test("RealtimeBattle cloneTemplate applies anisotropic Y compression only to terrain resources", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+
+  // Setup mock scene with BoxGeometry (5.2 x 0.65 x 2.7)
+  const templateScene = new THREE.Group();
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(5.2, 0.65, 2.7),
+    new THREE.MeshStandardMaterial()
+  );
+  templateScene.add(mesh);
+
+  battle.templates.set("terrain/cinder-span.glb", {
+    scene: templateScene,
+    animations: []
+  });
+
+  const instance = battle.cloneTemplate("terrain/cinder-span.glb", 22);
+  const localRoot = instance.root.children[0];
+
+  // X and Z scale must remain identical (isotropic in X/Z)
+  assert.equal(localRoot.scale.x, localRoot.scale.z, "X and Z scale must remain identical");
+  // Y scale must be compressed by 0.125 compared to X/Z scale
+  assert.ok(Math.abs(localRoot.scale.y - localRoot.scale.x * 0.125) < 1e-6, "Y scale must be compressed by 0.125");
+  // Since geometry is centered, the min Y relative to the center is -0.65 / 2 = -0.325.
+  // Position Y = -this.box.min.y * scale * 0.125 = 0.325 * localRoot.scale.y
+  const expectedPosY = 0.325 * localRoot.scale.x * 0.125;
+  assert.ok(Math.abs(localRoot.position.y - expectedPosY) < 1e-5, "position y offset must be scaled correctly on Y axis");
+});
+
+test("RealtimeBattle cloneTemplate applies emissive readability lift to unit resources", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+
+  // Case 1: Unit with zero emissive and custom presentation palette
+  const presentation = {
+    stageNumber: 7,
+    palette: {
+      ally: "#00ffff"
+    }
+  };
+  const battle = new RealtimeBattle(null, { stageNumber: 7 });
+  battle.presentation = presentation;
+
+  const unitScene1 = new THREE.Group();
+  const matZero = new THREE.MeshStandardMaterial({
+    emissive: new THREE.Color(0x000000)
+  });
+  const meshZero = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matZero);
+  unitScene1.add(meshZero);
+
+  battle.templates.set("units/test-zero.glb", {
+    scene: unitScene1,
+    animations: []
+  });
+
+  const instanceZero = battle.cloneTemplate("units/test-zero.glb", 1);
+  const clonedMatZero = instanceZero.root.children[0].children[0].material;
+  assert.equal(clonedMatZero.emissive.getHex(), 0x00ffff, "zero emissive unit uses the presentation ally color");
+  assert.equal(clonedMatZero.emissiveIntensity, 0.45, "zero emissive unit raises intensity to 0.45");
+
+  // Case 2: Unit with nonzero emissive and default fallback palette (no presentation)
+  const battleDefault = new RealtimeBattle(null, { stageNumber: 1 });
+  const unitScene2 = new THREE.Group();
+  const matNonzero = new THREE.MeshStandardMaterial({
+    emissive: new THREE.Color(0xff0000),
+    emissiveIntensity: 0.1
+  });
+  const meshNonzero = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matNonzero);
+  unitScene2.add(meshNonzero);
+
+  battleDefault.templates.set("units/test-nonzero.glb", {
+    scene: unitScene2,
+    animations: []
+  });
+
+  const instanceNonzero = battleDefault.cloneTemplate("units/test-nonzero.glb", 1);
+  const clonedMatNonzero = instanceNonzero.root.children[0].children[0].material;
+  assert.equal(clonedMatNonzero.emissive.getHex(), 0xff0000, "nonzero emissive color is preserved");
+  assert.equal(clonedMatNonzero.emissiveIntensity, 0.45, "nonzero emissive intensity floor is raised to 0.45");
+
+  // Case 3: Unit with high nonzero emissive intensity (e.g. 0.8)
+  const unitScene3 = new THREE.Group();
+  const matHigh = new THREE.MeshStandardMaterial({
+    emissive: new THREE.Color(0xff0000),
+    emissiveIntensity: 0.8
+  });
+  const meshHigh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matHigh);
+  unitScene3.add(meshHigh);
+
+  battleDefault.templates.set("units/test-high.glb", {
+    scene: unitScene3,
+    animations: []
+  });
+
+  const instanceHigh = battleDefault.cloneTemplate("units/test-high.glb", 1);
+  const clonedMatHigh = instanceHigh.root.children[0].children[0].material;
+  assert.equal(clonedMatHigh.emissive.getHex(), 0xff0000, "nonzero emissive color is preserved");
+  assert.equal(clonedMatHigh.emissiveIntensity, 0.8, "high emissive intensity is preserved");
+
+  // Case 4: Non-unit asset with zero emissive
+  const propScene = new THREE.Group();
+  const matProp = new THREE.MeshStandardMaterial({
+    emissive: new THREE.Color(0x000000)
+  });
+  const meshProp = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matProp);
+  propScene.add(meshProp);
+
+  battleDefault.templates.set("props/test.glb", {
+    scene: propScene,
+    animations: []
+  });
+
+  const instanceProp = battleDefault.cloneTemplate("props/test.glb", 1);
+  const clonedMatProp = instanceProp.root.children[0].children[0].material;
+  assert.equal(clonedMatProp.emissive.getHex(), 0x1a1a1a, "non-unit asset gets the fallback 0x1a1a1a color");
+  assert.equal(clonedMatProp.emissiveIntensity, 0.15, "non-unit asset gets the fallback 0.15 intensity");
 });

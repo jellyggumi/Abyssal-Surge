@@ -469,13 +469,26 @@
         },
           e('div', { className: 'selection-dossier', 'aria-label': '선택 부대', 'data-i18n-aria': 'command.selectionAria' },
             e('img', { id: 'dossier-image', src: 'assets/images/ui/action-possess.png', alt: '' }),
-            e('div', null,
+            e('div', { className: 'dossier-copy' },
               e('span', { id: 'dossier-label', 'data-i18n': 'command.selectionLabel' }, '선택 부대'),
-              ' ',
-              e('strong', { id: 'dossier-name', 'data-i18n': 'command.selectionName' }, '그림자 군단'),
-              ' ',
+              e('strong', { id: 'dossier-name', 'data-i18n': 'command.selectionNone' }, '선택 없음'),
               e('small', { id: 'dossier-role', 'data-i18n': 'command.selectionRole' }, '황혼의 감시자 · 전선 지휘관'),
-              e('span', { id: 'dossier-status', className: 'dossier-status', 'aria-live': 'polite' })
+              e('dl', { id: 'dossier-stats', className: 'dossier-stats' },
+                e('div', null,
+                  e('dt', { 'data-i18n': 'command.selectionCount' }, '선택 수'),
+                  e('dd', { id: 'dossier-count' }, '0 / 0')
+                ),
+                e('div', null,
+                  e('dt', { 'data-i18n': 'command.selectionHealth' }, '통합 체력'),
+                  e('dd', { id: 'dossier-health' }, '0 / 0')
+                ),
+                e('div', null,
+                  e('dt', { 'data-i18n': 'command.selectionOrder' }, '현재 명령'),
+                  e('dd', { id: 'dossier-order', 'data-i18n': 'command.selection.order.none' }, '대기')
+                )
+              ),
+              e('p', { id: 'dossier-selection-hint', className: 'dossier-selection-hint', 'data-i18n': 'command.selectionHint' }, '아군을 클릭하거나 드래그해 선택 · 우클릭으로 집결'),
+              e('span', { id: 'dossier-status', className: 'dossier-status', 'aria-live': 'polite', 'aria-atomic': 'true' })
             )
           ),
           e('div', { className: 'section-heading' },

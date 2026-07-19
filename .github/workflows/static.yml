@@ -75,6 +75,9 @@ jobs:
         assets/models/abyssal-command/bosses/cinder-warden.glb
         assets/models/abyssal-command/bosses/veil-tactician.glb
         assets/models/abyssal-command/bosses/gate-sovereign.glb
+        assets/models/abyssal-command/props/soul-extractor.glb
+        assets/models/abyssal-command/props/rift-portal.glb
+        assets/models/abyssal-command/props/command-obelisk.glb
     steps:
       - name: Checkout requested committed revision
         uses: actions/checkout@v4
@@ -141,7 +144,10 @@ jobs:
             assets/models/abyssal-command/units/guard.glb assets/models/abyssal-command/units/reinforce.glb \
             assets/models/abyssal-command/bosses/cinder-warden.glb \
             assets/models/abyssal-command/bosses/veil-tactician.glb \
-            assets/models/abyssal-command/bosses/gate-sovereign.glb; do
+            assets/models/abyssal-command/bosses/gate-sovereign.glb \
+            assets/models/abyssal-command/props/soul-extractor.glb \
+            assets/models/abyssal-command/props/rift-portal.glb \
+            assets/models/abyssal-command/props/command-obelisk.glb; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done
