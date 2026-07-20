@@ -93,6 +93,13 @@
 - Pages 배포 allowlist(`.github/workflows/static.yml`)에 새 텍스처 2개(`void-obsidian-albedo.png`, `void-obsidian-normal.png`)를 추가했습니다.
 - `node --test tests/boss-strike.test.mjs`는 신규 6건(스테이지별 패턴 데이터 검증, assault와의 독립성, 웨이브 없는 스테이지 지원, 보스 처치 후 거부, stageId 불일치 거부, aegis 우선 흡수)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 463/463 통과했습니다.
 
+### 2026-07-20 무제한 사냥 상한 — 탈취·처치·지형변화 채집
+
+- **Hunt/Extract는 이제 스테이지당 유한 자원입니다.** `STANDARD_PROGRESSION.maxExtractions`(14)로 상한을 두고, `campaign-state.js`의 `hunt` 분기가 새 사이클 시작 시(`hunted === 0`) 상한 도달 여부를 검사합니다. 상한값은 실측으로 도출했습니다: 빈 군단을 가득 채우는 데 최대 3사이클, 소환 레시피 하나를 신선한 스테이지에서 순수 사냥만으로 완전 진화(essenceCosts 합계 24 ÷ 사이클당 2 essence)하는 데 12사이클, 거기에 그 스테이지 자체 최소 경제 1사이클을 더한 값이 실측 상한선입니다 — `scripts/run-campaign-balance-sim.mjs` 퍼저(150,000회 연산)로 `findings: []`(발견된 익스플로잇 0건), `optimal`/`greedy-economy` 100% 승률, 결정론 이중 실행 일치까지 확인했습니다.
+- **탈취·처치·지형변화가 채집 소스입니다.** `capture` 성공 시 사이클 1회 환급("영토 산출"), 웨이브 처치(`wave-cleared`) 시 1회 환급("처치 드랍"), 보스가 처음 노출되는 순간(`bossExposed` 전이) 추가로 1회 더 환급("지형변화 광맥")됩니다 — 무제한 반복 클릭이 아니라 실제 전투/점령 참여가 사냥 여지를 되돌려줍니다.
+- 상한 도달 시 거부 메시지는 한/영 완전 로컬라이즈됩니다(`tactical.rejection.extractionsExhausted`, `i18n.js` + `app.js` 폴백 카탈로그 양쪽).
+- `node --test tests/farming-cap.test.mjs`는 신규 4건(상한 도달 후 무변이 거부, capture 환급, wave-clear·boss-exposed 이중 환급, 스테이지별 리셋)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 467/467 통과했습니다.
+
 ## 프로젝트 구조
 
 ```text
@@ -125,6 +132,6 @@ python3 -m http.server 8000
 
 ## 검증 상태와 패키징 범위
 
-**v0.3.0 릴리스:** RealtimeBattle WebGL/GLB 경로가 기본이며 Canvas는 대체 경로입니다. 규칙 엔진과 유닛 커버리지는 10개 스테이지에 걸치며, 10개 스테이지 전부가 보스 위협 자동공격 패턴과 지상 PBR 텍스처를 갖습니다. 브라우저 검증은 Stage 1–3 전투·보상·저장 왕복과 Stage 4 브리핑 전이까지 실제로 실행했으며, 10개 스테이지 전체를 브라우저에서 완료했다고 주장하지 않습니다. 무제한 Hunt 파밍 상한과 스테이지당 목표 플레이 볼륨 확장은 다음 밸런스 사이클로 이월된 상태입니다.
+**v0.3.1 릴리스:** RealtimeBattle WebGL/GLB 경로가 기본이며 Canvas는 대체 경로입니다. 규칙 엔진과 유닛 커버리지는 10개 스테이지에 걸치며, 10개 스테이지 전부가 보스 위협 자동공격 패턴, 지상 PBR 텍스처, 그리고 탈취·처치·지형변화로 환급되는 유한 Hunt/Extract 상한(스테이지당 최대 14사이클, 실측 기반)을 갖습니다. 브라우저 검증은 Stage 1–3 전투·보상·저장 왕복과 Stage 4 브리핑 전이까지 실제로 실행했으며, 10개 스테이지 전체를 브라우저에서 완료했다고 주장하지 않습니다. 스테이지당 목표 플레이 볼륨(~5분) 확장과 전용 스킬 시스템은 다음 밸런스 사이클로 이월된 상태입니다.
 
 APK는 향후 선택 가능한 패키징 경로이며, 이 저장소는 APK 산출물이나 설치 가능한 Android 빌드를 제공한다고 주장하지 않습니다.

@@ -19,7 +19,18 @@ const STANDARD_PROGRESSION = Object.freeze({
   huntGoal: 2,
   soulsPerExtract: 4,
   materializeCost: 2,
-  materializeSummon: 2
+  materializeSummon: 2,
+  // Bounded, not infinite: filling a legion from empty needs 3 extraction
+  // cycles in the worst case (10 slots / 2 per materialize / 2 materializes
+  // per 4-soul extract); fully evolving one campaign-wide summon recipe from
+  // a single fresh stage (essenceCosts sum 24, 2 essence/extract) needs 12,
+  // plus 1 more cycle to fund that same stage's own minimal legion economy
+  // if essence is ground out before any combat/capture refund lands. The cap
+  // covers that combined worst case with a small margin; capture, wave
+  // clears, and the boss's own terrain-change exposure (see the
+  // "kill-drop"/"territory"/"mineral vein" refunds below) still add more for
+  // anyone who fights for it instead of idling at the extractor.
+  maxExtractions: 14
 });
 const SUMMON_ESSENCE_PER_EXTRACT = 2;
 const freezeRecipe = (recipe) => Object.freeze({
@@ -878,6 +889,11 @@ function makeStageState(stage, rewards, entryIntegrity) {
   const integrity = clamp(entryIntegrity, 0, benefits.maxIntegrity);
   const state = {
     hunted: 0,
+    // Hunt/Extract is a bounded resource, not an infinite grind: each stage
+    // starts with `progression.maxExtractions` cycles and only capture,
+    // clearing a wave, or the boss's own terrain-change exposure (see the
+    // "kill-drop"/"territory"/"mineral vein" refunds below) reopen more.
+    extractions: 0,
     extracted: false,
     souls: 0,
     legion: Math.min(entry.legion, capacity),
@@ -1149,6 +1165,9 @@ function checkAndApplyActionMutations(draft, action) {
   const summonProgression = sanitizeSummonProgression(state.progression);
 
   if (action === "hunt") {
+    if (current.hunted === 0 && (current.extractions ?? 0) >= progression.maxExtractions) {
+      return "This spoor is exhausted. Capture ground, clear a wave, or expose the boss to open a fresh vein.";
+    }
     if (current.hunted >= progression.huntGoal) return "The spoor is fully mapped. Extract the gathered shade.";
     const message = current.hunted === 0 ? "You find a heatless footprint in the cinders." : "The second trace exposes the rift's pulse.";
     current.hunted += 1;
@@ -1156,6 +1175,7 @@ function checkAndApplyActionMutations(draft, action) {
       current.extracted = true;
       current.hunted = 0;
       current.souls += progression.soulsPerExtract;
+      current.extractions = (current.extractions ?? 0) + 1;
       summonProgression.essence += SUMMON_ESSENCE_PER_EXTRACT;
       draft.lastMessage = `The second spoor opens into a soul cache before the rift can close (+${SUMMON_ESSENCE_PER_EXTRACT} summon essence).`;
     } else {
@@ -1166,6 +1186,7 @@ function checkAndApplyActionMutations(draft, action) {
     current.extracted = true;
     current.hunted = 0;
     current.souls += progression.soulsPerExtract;
+    current.extractions = (current.extractions ?? 0) + 1;
     summonProgression.essence += SUMMON_ESSENCE_PER_EXTRACT;
     draft.lastMessage = `Four volatile shades tear free from the rift (+${SUMMON_ESSENCE_PER_EXTRACT} summon essence).`;
   } else if (action === "materialize") {
@@ -1185,6 +1206,9 @@ function checkAndApplyActionMutations(draft, action) {
       return current.legion < 2 ? "A legion of at least two shades must anchor the node." : "Every required node is already held.";
     }
     current.nodes += 1;
+    // Territory yield: seizing ground reopens one hunting cycle instead of
+    // requiring a trip back to the extractor node.
+    current.extractions = Math.max(0, (current.extractions ?? 0) - 1);
     draft.lastMessage = `The node bends beneath the legion's banner (${current.nodes}/${stage.nodeGoal}).`;
   } else if (action === "possess") {
     const command = stage.commands.possess;
@@ -1326,9 +1350,17 @@ export function applyEncounterEvent(state, event) {
     targetWave.cleared = true;
     draft.progression.marks += 2;
     targetEncounter.activeWaveId = null;
+    // Kill-drop: clearing a wave's hostiles reopens one hunting cycle, same
+    // as capturing ground — the field itself is the resource, not a menu.
+    draft.stage.extractions = Math.max(0, (draft.stage.extractions ?? 0) - 1);
     const allCleared = targetEncounter.waves.every((wave) => wave.cleared);
     targetEncounter.bossExposed = allCleared;
     targetEncounter.spawningStopped = allCleared;
+    if (allCleared) {
+      // Terrain-change mineral: the field visibly changes once the boss is
+      // exposed (spawning stops, the ground shifts) — a one-time larger vein.
+      draft.stage.extractions = Math.max(0, (draft.stage.extractions ?? 0) - 1);
+    }
     draft.lastMessage = allCleared
       ? `${stage.bossName} is exposed. Spawning has stopped.`
       : `${configuredWave.id} wave cleared. The next wave remains on approach.`;

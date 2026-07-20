@@ -579,6 +579,7 @@ function translateRejectionReason(msg, lang) {
       "tactical.rejection.occupied": "해당 칸에는 이미 배치물이 있습니다.",
       "tactical.rejection.outOfBounds": "배치 가능한 범위를 벗어났습니다.",
       "tactical.rejection.extractRequiresSpoor": "추출하려면 포자 흔적 2개가 필요합니다.",
+      "tactical.rejection.extractionsExhausted": "이 스테이지의 포자가 고갈되었습니다. 거점을 점령하거나, 웨이브를 처치하거나, 보스를 노출시키면 새 광맥이 열립니다.",
       "tactical.rejection.protectedArea": "보호 구역에는 배치할 수 없습니다.",
       "tactical.rejection.protectedAnchor": "핵심 전장 지점에는 배치할 수 없습니다.",
       "tactical.rejection.protectedBase": "보호된 기지 또는 생성 구역에는 배치할 수 없습니다.",
@@ -601,6 +602,7 @@ function translateRejectionReason(msg, lang) {
       "tactical.rejection.occupied": "That cell is already occupied.",
       "tactical.rejection.outOfBounds": "That cell is outside the deployment area.",
       "tactical.rejection.extractRequiresSpoor": "Two spoor marks are required before extraction.",
+      "tactical.rejection.extractionsExhausted": "This spoor is exhausted. Capture ground, clear a wave, or expose the boss to open a fresh vein.",
       "tactical.rejection.protectedArea": "That cell is in a protected area.",
       "tactical.rejection.protectedAnchor": "Critical battlefield anchors cannot receive deployments.",
       "tactical.rejection.protectedBase": "Protected base and spawn areas cannot receive deployments.",
@@ -705,6 +707,9 @@ function translateRejectionReason(msg, lang) {
 
   if (msg === "Two spoor marks are required before extraction.") {
     return t("tactical.rejection.extractRequiresSpoor");
+  }
+  if (msg === "This spoor is exhausted. Capture ground, clear a wave, or expose the boss to open a fresh vein.") {
+    return t("tactical.rejection.extractionsExhausted");
   }
 
   if (msg === "A summon recipe is required." || msg === "That summon recipe does not exist.") {
