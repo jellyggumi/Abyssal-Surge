@@ -269,12 +269,16 @@ test("RealtimeBattle initialization applies atmospheric rendering and configured
     { color: "#101827", alpha: 1 },
     "installing a concept-art backdrop must preserve the opaque stage clear-color contract",
   );
-  assert.equal(backgroundLoads.length, 1, "browser initialization must request one stage backdrop texture");
+  assert.equal(backgroundLoads.length, 3, "browser initialization must request the stage backdrop plus the shared void-obsidian ground albedo/normal pair");
   assert.equal(backgroundLoads[0].url, "./assets/images/starless-canal.png", "stage 7 must select its authored concept-art backdrop");
   assert.equal(battle.scene.background, backgroundLoads[0], "the loaded backdrop texture must become the scene background");
   assert.equal(backgroundLoads[0].colorSpace, THREE.SRGBColorSpace, "backdrop textures must use the renderer output color space");
   assert.equal(backgroundLoads[0].wrapS, THREE.ClampToEdgeWrapping, "backdrop textures must clamp horizontally");
   assert.equal(backgroundLoads[0].wrapT, THREE.ClampToEdgeWrapping, "backdrop textures must clamp vertically");
+  assert.equal(backgroundLoads[1].url, "./assets/models/abyssal-command/textures/void-obsidian-albedo.png", "the deck ground must request the shared void-obsidian albedo map");
+  assert.equal(backgroundLoads[1].colorSpace, THREE.SRGBColorSpace, "the ground albedo map must use the renderer output color space");
+  assert.equal(backgroundLoads[2].url, "./assets/models/abyssal-command/textures/void-obsidian-normal.png", "the deck ground must request the matching void-obsidian normal map");
+  assert.equal(backgroundLoads[2].colorSpace, undefined, "normal maps must stay in linear space, never sRGB");
   assert.equal(battle.backgroundResizeCalls, 1, "installing the backdrop must fit it to the canvas through the public resize seam");
 
   assert.equal(battle.renderer.toneMapping, THREE.ACESFilmicToneMapping, "realtime rendering must use ACES filmic tone mapping");
@@ -320,7 +324,7 @@ test("RealtimeBattle rejects a deferred backdrop completion after destroy with i
     pendingBackgroundLoads,
   } = await initializeRendererPresentation(7, { deferBackground: true });
   const [texture] = backgroundLoads;
-  assert.equal(pendingBackgroundLoads.length, 1, "the fixture must hold one backdrop completion past initialization");
+  assert.equal(pendingBackgroundLoads.length, 3, "the fixture must hold the backdrop plus the shared void-obsidian ground albedo/normal completions past initialization");
 
   battle.raf = 0;
   battle.destroy();

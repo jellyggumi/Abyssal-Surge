@@ -235,6 +235,41 @@ export const BOSS_PHASES = freezeDeep({
   ]
 });
 
+/**
+ * Boss attack-pattern shapes. Every stage boss declares one of these types in
+ * its `bossPattern.type` (see campaign-state.js STAGES). The catalog is pure
+ * presentation/UX metadata — reach, wind-up feel, and a HUD icon key — so a
+ * renderer can tell melee/ranged/aoe bosses apart at a glance without any
+ * per-boss special-casing. Damage numbers and cooldowns stay stage data;
+ * this catalog never carries a number that changes an outcome.
+ */
+export const BOSS_ATTACK_PATTERNS = freezeDeep({
+  melee: {
+    id: "melee",
+    label: "Melee cleave",
+    telegraph: "short wind-up, close reach",
+    iconKey: "boss-pattern-melee"
+  },
+  ranged: {
+    id: "ranged",
+    label: "Ranged bolt",
+    telegraph: "longer wind-up, long reach",
+    iconKey: "boss-pattern-ranged"
+  },
+  aoe: {
+    id: "aoe",
+    label: "Area pulse",
+    telegraph: "slow wind-up, radial burst",
+    iconKey: "boss-pattern-aoe"
+  }
+});
+
+/** Return the frozen pattern catalog entry for a boss pattern type, or null. */
+export function resolveBossAttackPattern(type) {
+  const id = normalizedKey(type);
+  return id ? BOSS_ATTACK_PATTERNS[id] ?? null : null;
+}
+
 const DEFAULT_PHASE_COUNT = 3;
 const INVALID_BOSS_PHASE = freezeDeep({
   accepted: false,
@@ -413,7 +448,8 @@ export const COMBAT_ALERT_CUES = freezeDeep({
   "guardian-guard": { id: "guardian-shield", event: "guardian-guard", severity: "warning", channel: "audio-visual", label: "Guardian shield active" },
   "enemy-ranged-warning": { id: "enemy-ranged-warning", event: "enemy-ranged-warning", severity: "warning", channel: "audio-visual", label: "Ranged threat acquiring target" },
   "summon-evolution": { id: "summon-evolved", event: "summon-evolution", severity: "info", channel: "audio-visual", label: "Summon evolution accepted" },
-  "summon-evolved": { id: "summon-evolved", event: "summon-evolved", severity: "info", channel: "audio-visual", label: "Summon evolution accepted" }
+  "summon-evolved": { id: "summon-evolved", event: "summon-evolved", severity: "info", channel: "audio-visual", label: "Summon evolution accepted" },
+  "boss-strike": { id: "breach-alert", event: "boss-strike", severity: "critical", channel: "audio-visual", label: "Boss strikes at range" }
 });
 
 export const ALERT_CUES = COMBAT_ALERT_CUES;

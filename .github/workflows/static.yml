@@ -83,6 +83,8 @@ jobs:
         assets/models/abyssal-command/props/rift-portal.glb
         assets/models/abyssal-command/props/command-obelisk.glb
         assets/models/abyssal-command/props/echo-throne.glb
+        assets/models/abyssal-command/textures/void-obsidian-albedo.png
+        assets/models/abyssal-command/textures/void-obsidian-normal.png
     steps:
       - name: Checkout requested committed revision
         uses: actions/checkout@v4
@@ -154,7 +156,9 @@ jobs:
             assets/models/abyssal-command/props/soul-extractor.glb \
             assets/models/abyssal-command/props/rift-portal.glb \
             assets/models/abyssal-command/props/command-obelisk.glb \
-            assets/models/abyssal-command/props/echo-throne.glb; do
+            assets/models/abyssal-command/props/echo-throne.glb \
+            assets/models/abyssal-command/textures/void-obsidian-albedo.png \
+            assets/models/abyssal-command/textures/void-obsidian-normal.png; do
             git cat-file -e "${PAGES_REVISION}:${file}"
             test -f "$file"
           done

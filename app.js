@@ -90,6 +90,7 @@ const CUE_BY_EFFECT = Object.freeze({
 const ENCOUNTER_CUE_BY_EVENT = Object.freeze({
   breach: "breach-alert",
   "start-wave": "wave-spawn",
+  "boss-strike": "breach-alert",
   "enemy-ranged-warning": "enemy-ranged-warning",
   "boss-phase-shift": "boss-phase-change",
   "summon-evolved": "summon-evolved",

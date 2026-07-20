@@ -83,6 +83,15 @@
 - **행동 커맨드 근접 게이팅:** `getCommandReadiness()`가 실제 커맨더-앵커 거리를 측정하도록 WebGL·Canvas 렌더러 양쪽에 구현했습니다(`ACTION_INTERACTION_RADIUS = 3.0`, 포탈/추출기/거점/보스와 동일 좌표계 사용). 범위를 벗어나면 `reason: "out-of-range"`를 반환하고, `app.js`의 `evaluateQueuedCommandReadiness`는 이 사유만 750ms 타임아웃 우회 대상에서 제외해 실제로 근접해야만 실행되도록 했습니다. 첫 진입 시 1회 `tactical.rejection.outOfRange` 안내(한/영 `i18n.js` 추가)를 띄우고, 재진입 시 반복하지 않습니다.
 - **캔버스 직접 조작(기믹 클릭) 버그 수정:** WebGL 렌더러에서 커맨드 노드 마커의 `userData.semantic`이 `null`로 남아있어 클릭해도 Capture가 발동하지 않던 문제를 고쳤습니다(`"capture"`로 고정). 포탈·추출기 마커는 `userData.semanticGroup`(`["materialize","domain"]`, `["hunt","extract"]`)을 추가로 얻어, `resolvePointerAction`이 현재 `getAvailableActions()`에서 허용된 후보로 동적 해석합니다 — 이전엔 추출기 클릭이 항상 Extract로만 고정되어 Hunt를 캔버스에서 직접 발동할 방법이 없었습니다. 호버 하이라이트(`updateMarkerPulses`)도 동일한 동적 해석을 사용합니다. Canvas 폴백 렌더러는 이미 `tacticalActionAt()`에서 동일 동작을 구현하고 있어 변경하지 않았습니다.
 - `node --test tests/battle-realtime-three.test.mjs tests/battle-visualizer.test.mjs tests/command-queue-realtime.test.mjs`는 신규 5건(마커 시맨틱 태깅, `resolvePointerAction` 그룹 해석, WebGL/Canvas `getCommandReadiness` 거리 게이팅, out-of-range 대기열 타임아웃 면제)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 457/457 통과했습니다.
+- `node --test tests/battle-realtime-three.test.mjs tests/battle-visualizer.test.mjs tests/command-queue-realtime.test.mjs`는 신규 5건(마커 시맨틱 태깅, `resolvePointerAction` 그룹 해석, WebGL/Canvas `getCommandReadiness` 거리 게이팅, out-of-range 대기열 타임아웃 면제)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 457/457 통과했습니다.
+
+### 2026-07-20 보스 위협 자동공격 및 지상 텍스처 완성
+
+- **보스 자동공격("boss-strike"):** 10개 스테이지 전부에 보스별 `bossPattern`(`type: melee|ranged|aoe`, `triggerRange`, `cooldownSeconds`, `damage`)을 선언했습니다. `campaign-state.js`의 `applyEncounterEvent`에 새 `"boss-strike"` 분기를 추가해, 플레이어의 `assault` 명령과 완전히 독립적으로 — 노출·점령·빙의 여부, 웨이브 유무(veil-citadel·echo-throne 포함)와 무관하게 — 커맨더가 사거리 안에 머무르면 보스가 자체 쿨다운으로 피해를 입힙니다. `combat-systems.js`에 `BOSS_ATTACK_PATTERNS` 카탈로그(멜리/원거리/광역 텔레그래프·아이콘 키)를 추가해 보스별 공격 타입을 데이터로 구분합니다.
+- **위협 범위 가독성:** `battle-realtime-three.js`가 보스 주위에 `triggerRange` 크기의 반투명 danger ring을 배치하고, 쿨다운이 찰수록 밝아지도록 해 "곧 맞는다"를 텍스트가 아니라 바닥에서 읽을 수 있게 했습니다.
+- **지상 PBR 텍스처 적용:** 이전 리소스 정제 사이클에서 생성만 되고 실제 씬에는 한 번도 적용되지 않았던 `void-obsidian` 알베도·노멀 맵을, 모든 스테이지의 모든 걸을 수 있는 배틀필드 데크 타일에 실제로 로드·적용했습니다(`presentation-spec.md`의 mass/role/energy 재질 언어를 따름). GLB 유닛·보스·지형은 이미 임베디드 텍스처를 갖고 있었고, 실제로 단색이었던 것은 손수 만든 데크 프리미티브뿐이었습니다.
+- Pages 배포 allowlist(`.github/workflows/static.yml`)에 새 텍스처 2개(`void-obsidian-albedo.png`, `void-obsidian-normal.png`)를 추가했습니다.
+- `node --test tests/boss-strike.test.mjs`는 신규 6건(스테이지별 패턴 데이터 검증, assault와의 독립성, 웨이브 없는 스테이지 지원, 보스 처치 후 거부, stageId 불일치 거부, aegis 우선 흡수)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 463/463 통과했습니다.
 
 ## 프로젝트 구조
 
@@ -116,6 +125,6 @@ python3 -m http.server 8000
 
 ## 검증 상태와 패키징 범위
 
-**v0.2.1 릴리스:** RealtimeBattle WebGL/GLB 경로가 기본이며 Canvas는 대체 경로입니다. 규칙 엔진과 유닛 커버리지는 10개 스테이지에 걸칩니다. 브라우저 검증은 Stage 1–3 전투·보상·저장 왕복과 Stage 4 브리핑 전이까지 실제로 실행했으며, 10개 스테이지 전체를 브라우저에서 완료했다고 주장하지 않습니다.
+**v0.3.0 릴리스:** RealtimeBattle WebGL/GLB 경로가 기본이며 Canvas는 대체 경로입니다. 규칙 엔진과 유닛 커버리지는 10개 스테이지에 걸치며, 10개 스테이지 전부가 보스 위협 자동공격 패턴과 지상 PBR 텍스처를 갖습니다. 브라우저 검증은 Stage 1–3 전투·보상·저장 왕복과 Stage 4 브리핑 전이까지 실제로 실행했으며, 10개 스테이지 전체를 브라우저에서 완료했다고 주장하지 않습니다. 무제한 Hunt 파밍 상한과 스테이지당 목표 플레이 볼륨 확장은 다음 밸런스 사이클로 이월된 상태입니다.
 
 APK는 향후 선택 가능한 패키징 경로이며, 이 저장소는 APK 산출물이나 설치 가능한 Android 빌드를 제공한다고 주장하지 않습니다.

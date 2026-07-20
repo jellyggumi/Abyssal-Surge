@@ -312,6 +312,11 @@ function runtimeGlbUrls(source) {
     .map((asset) => `${modelRoot.groups.root}${asset}`)
     .sort();
 }
+function runtimePbrTextureUrls(source) {
+  return [...source.matchAll(/["'](?<asset>\.\/assets\/models\/abyssal-command\/textures\/[^"']+\.png)["']/g)]
+    .map((match) => match.groups.asset)
+    .sort();
+}
 function glbBridgeManifestPath(serviceWorker, battleVisualizer) {
   const serviceWorkerDeclaration = serviceWorker.match(
     /const GLB_BRIDGE_MANIFEST = "(?<path>\.\/assets\/images\/battle\/glb\/manifest\.json)";/,
@@ -1240,16 +1245,19 @@ test("React cinematic captions and transcript release surfaces are explicitly pu
   assert.equal(pagesArtifact.has(`./${captionsPath}`), true, `Cinematic captions must be individually allowlisted by Pages: ${captionsPath}`);
   assert.equal(pagesArtifact.has("./react-game-ui.js"), true, "Pages artifact must include the React transcript document owner");
 });
-test("Pages artifact explicitly allowlists the complete runtime GLB surface", async () => {
+test("Pages artifact explicitly allowlists the complete runtime GLB and PBR ground-texture surface", async () => {
   const [workflow, battleRuntime] = await Promise.all([
     readProjectFile(".github/workflows/static.yml"),
     readProjectFile("battle-realtime-three.js"),
   ]);
   const pagesArtifact = archivePaths(workflow);
   const runtimeGlbs = runtimeGlbUrls(battleRuntime);
+  const runtimeTextures = runtimePbrTextureUrls(battleRuntime);
+  const runtimeModelAssets = [...new Set([...runtimeGlbs, ...runtimeTextures])].sort();
   const publishedModels = [...pagesArtifact].filter((path) => path.startsWith("./assets/models/")).sort();
 
   assert.ok(runtimeGlbs.length > 0, "runtime battle resources must include declared GLB URLs");
+  assert.ok(runtimeTextures.length > 0, "runtime battle resources must include the declared shared ground PBR textures");
   assert.deepEqual(
     runtimeGlbs.filter((path) => path.includes("/props/")),
     [
@@ -1272,8 +1280,8 @@ test("Pages artifact explicitly allowlists the complete runtime GLB surface", as
   );
   assert.deepEqual(
     publishedModels,
-    runtimeGlbs,
-    "Pages artifact must individually allowlist exactly the complete runtime GLB set",
+    runtimeModelAssets,
+    "Pages artifact must individually allowlist exactly the complete runtime GLB set plus the shared ground PBR textures",
   );
 });
 

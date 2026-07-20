@@ -411,6 +411,15 @@ export class RealtimeBattle {
     this.pendingEncounterEvent = null;
     this.encounterEventKeys = new Set();
     this.bossExposed = false;
+    // Boss auto-attack ("boss-strike"): declarative per-stage pattern data
+    // (see campaign-state.js STAGES[*].bossPattern), a countdown owned by
+    // this renderer (mirrors how wave-start timing is renderer-owned), and
+    // whether the commander is currently standing inside triggerRange — the
+    // last flag drives the danger-ring HUD read in updateBossStrike().
+    this.bossPattern = null;
+    this.bossStrikeCooldownRemaining = 0;
+    this.bossStrikeArmed = false;
+    this.bossThreatRing = null;
     this.feedbackCanvas = options.feedbackCanvas ?? null;
     this.objectFeedback = this.feedbackCanvas
       ? new ObjectFeedbackLayer(this.feedbackCanvas, { reducedMotion: this.presentation?.reducedMotion ?? false })
@@ -573,6 +582,24 @@ export class RealtimeBattle {
         this.scene.background = texture;
         this.resizeBackground();
       });
+    }
+
+    // Battlefield deck surface (documented material semantics in
+    // presentation-spec.md: void-obsidian carries "mass"). Every walkable
+    // tile in every stage reuses this one shared texture pair, so this is
+    // the highest-impact fix for "flat, textureless resources" — the ground
+    // under every unit's feet on every stage, not just one prop.
+    this.groundAlbedoTexture = null;
+    this.groundNormalTexture = null;
+    if (!isTest && THREE.TextureLoader) {
+      const pbrLoader = new THREE.TextureLoader();
+      const albedo = pbrLoader.load("./assets/models/abyssal-command/textures/void-obsidian-albedo.png");
+      albedo.colorSpace = THREE.SRGBColorSpace;
+      albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
+      const normalMap = pbrLoader.load("./assets/models/abyssal-command/textures/void-obsidian-normal.png");
+      normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
+      this.groundAlbedoTexture = albedo;
+      this.groundNormalTexture = normalMap;
     }
 
     // Stage-palette fog/atmospheric depth
@@ -824,6 +851,8 @@ export class RealtimeBattle {
       const deckGeometry = new THREE.BoxGeometry(0.92, 0.08, 0.92);
       const deckMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
+        map: this.groundAlbedoTexture ?? null,
+        normalMap: this.groundNormalTexture ?? null,
         emissive: THREE.Color && this.presentation?.palette?.background
           ? new THREE.Color(this.presentation.palette.background).multiplyScalar(0.4)
           : new THREE.Color(0x060913),
@@ -1024,6 +1053,29 @@ export class RealtimeBattle {
     this.interactives.push(boss.root);
     this.syncBossExposure();
     this.play(boss, "Idle");
+    // Threat-range ring: a flat ground ring at bossPattern.triggerRange so
+    // the player can *see* the boss's auto-attack range before ever taking
+    // damage from it. updateBossStrike() brightens this ring as the boss's
+    // cooldown counts down, so "about to hit you" is a visible read, not a
+    // guess.
+    if (stage.bossPattern && THREE.RingGeometry && THREE.MeshBasicMaterial) {
+      const range = Math.max(0.5, Number(stage.bossPattern.triggerRange) || 4.5);
+      const threatColor = this.presentation?.palette?.hostile ?? "#ff7f79";
+      const ringGeom = new THREE.RingGeometry(range - 0.12, range, 48);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: threatColor,
+        transparent: true,
+        opacity: 0.2,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const threatRing = new THREE.Mesh(ringGeom, ringMat);
+      threatRing.rotation.x = -Math.PI / 2;
+      threatRing.position.set(bossPosition.x, 0.03, bossPosition.z);
+      threatRing.raycast = () => {};
+      this.scene.add(threatRing);
+      this.bossThreatRing = threatRing;
+    }
 
     const commander = this.cloneTemplate("units/shade.glb", 1.25);
     commander.radius = 0.42;
@@ -1441,6 +1493,7 @@ export class RealtimeBattle {
     this.moveCommander(dt);
     this.updateAllies(dt);
     this.updateEnemies(dt);
+    this.updateBossStrike(dt);
     this.updateTracers?.(dt);
     this.updateTowers?.(dt);
     this.updateZoneAmbience?.(dt);
@@ -1460,6 +1513,72 @@ export class RealtimeBattle {
     this.audio.updateListener(this.camera);
     this.publishRuntimeState();
     this.emitSelectionChange();
+  }
+
+  // Boss auto-attack: fires independently of any player command whenever the
+  // commander has been standing inside bossPattern.triggerRange for a full
+  // cooldown window. campaign-state.js's applyEncounterEvent "boss-strike"
+  // branch is the authoritative damage application; this method only decides
+  // *when* to ask for it and how the wind-up reads on screen.
+  updateBossStrike(dt) {
+    const pattern = this.bossPattern;
+    const boss = this.boss;
+    if (!pattern || !boss || boss.defeated || !(boss.hp > 0) || !this.commanderPosition) {
+      this.bossStrikeArmed = false;
+      return;
+    }
+    const bossPos = boss.root?.position;
+    if (!bossPos) return;
+    const dx = this.commanderPosition.x - bossPos.x;
+    const dz = this.commanderPosition.z - bossPos.z;
+    const distance = Math.hypot(dx, dz);
+    const triggerRange = Number(pattern.triggerRange) || 4.5;
+    const cooldownSeconds = Math.max(0.5, Number(pattern.cooldownSeconds) || 5);
+    const inThreatRange = distance <= triggerRange;
+    this.bossStrikeArmed = inThreatRange;
+
+    if (this.bossThreatRing?.material) {
+      // Wind-up read: the ring brightens as the cooldown empties, so a
+      // player watching the ground (not just a health bar) can tell a hit
+      // is imminent and still has time to step back out of triggerRange.
+      const readiness = inThreatRange ? 1 - clamp(this.bossStrikeCooldownRemaining / cooldownSeconds, 0, 1) : 0;
+      this.bossThreatRing.material.opacity = 0.14 + readiness * 0.5;
+    }
+
+    if (!inThreatRange) {
+      // Stepping out lets the wind-up relax instead of firing the instant
+      // the player steps back in, rewarding a deliberate approach.
+      this.bossStrikeCooldownRemaining = Math.max(this.bossStrikeCooldownRemaining, cooldownSeconds * 0.5);
+      return;
+    }
+    this.bossStrikeCooldownRemaining -= dt;
+    if (this.bossStrikeCooldownRemaining > 0) return;
+
+    this.bossStrikeCooldownRemaining = cooldownSeconds;
+    this.playBossStrikeEffect(pattern);
+    this.onEncounterEvent?.({ type: "boss-strike", stageId: this.stageId });
+  }
+
+  playBossStrikeEffect(pattern) {
+    if (!this.boss?.root) return;
+    const p = this.boss.root.position;
+    const hostileColor = this.presentation?.palette?.hostile ?? "#ff7f79";
+    this.play(this.boss, "Attack", true);
+    this.particles?.emit(p.x, 0.9, p.z, hostileColor, pattern.type === "aoe" ? 30 : 18, {
+      speedMin: 1.2,
+      speedMax: pattern.type === "ranged" ? 5.2 : 3.4,
+      life: 0.5,
+      gravity: 2,
+      upBias: 0.7
+    });
+    this.audio?.playTone?.(p.x, 0.8, p.z, {
+      freq: pattern.type === "aoe" ? 120 : 260,
+      endFreq: pattern.type === "aoe" ? 60 : 130,
+      duration: 0.22,
+      type: "sawtooth",
+      gain: 0.5
+    });
+    this.shakeCamera?.(pattern.type === "aoe" ? 0.16 : 0.08, 0.14);
   }
 
   // Node/portal emissive spikes on capture/hunt/extract, then eases back to
@@ -3146,6 +3265,10 @@ export class RealtimeBattle {
 
   applyCampaignState({ campaign, stage, encounter, state } = {}) {
     if (this.destroyed) return;
+    // bossPattern is stage config (campaign-state.js), not runtime state, so
+    // it only needs to be re-latched when a stage changes, not every frame.
+    this.bossPattern = stage?.bossPattern ?? null;
+    this.stageId = stage?.id ?? this.stageId ?? null;
     const config = encounter?.config ?? stage?.encounter ?? null;
     const encounterState = encounter?.state ?? state?.encounter ?? state ?? campaign?.stage?.encounter ?? encounter ?? null;
     const stageId = encounter?.stageId ?? stage?.id ?? campaign?.stageId ?? null;
@@ -4649,6 +4772,18 @@ export class RealtimeBattle {
     if (this.deckMesh) {
       disposeObjectResources(this.deckMesh, this.disposedResources);
       this.deckMesh = null;
+    }
+    // groundAlbedoTexture/groundNormalTexture are disposed directly (not only
+    // via deckMaterial) because they are requested during init() and must not
+    // leak if destroy() runs before createBattleObjects() ever assigns them
+    // to a material — the same reasoning backgroundTexture uses below.
+    if (this.groundAlbedoTexture) {
+      disposeUnique(this.groundAlbedoTexture, this.disposedResources);
+      this.groundAlbedoTexture = null;
+    }
+    if (this.groundNormalTexture) {
+      disposeUnique(this.groundNormalTexture, this.disposedResources);
+      this.groundNormalTexture = null;
     }
     if (this.backgroundTexture) {
       disposeUnique(this.backgroundTexture, this.disposedResources);

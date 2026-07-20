@@ -97,6 +97,10 @@ export const STAGES = Object.freeze([
     nodeGoal: 1,
     bossName: "Cinder Warden",
     bossHealth: 8,
+    // Independent boss threat: while the stage is active, the boss strikes
+    // anyone who lingers inside triggerRange on its own cooldown, regardless
+    // of exposure/possession — see applyEncounterEvent's "boss-strike" branch.
+    bossPattern: Object.freeze({ type: "melee", triggerRange: 4.5, cooldownSeconds: 5, damage: 1 }),
     rewardIntegrityRestore: 1,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -147,6 +151,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 2,
     bossName: "Veil Tactician",
     bossHealth: 10,
+    bossPattern: Object.freeze({ type: "ranged", triggerRange: 6, cooldownSeconds: 6, damage: 1 }),
     rewardIntegrityRestore: 1,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -188,6 +193,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 1,
     bossName: "Gate Sovereign",
     bossHealth: 17,
+    bossPattern: Object.freeze({ type: "aoe", triggerRange: 5, cooldownSeconds: 7, damage: 2 }),
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -227,6 +233,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 1,
     bossName: "Tide Warden",
     bossHealth: 12,
+    bossPattern: Object.freeze({ type: "melee", triggerRange: 4.5, cooldownSeconds: 5, damage: 1 }),
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -275,6 +282,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 1,
     bossName: "Pack Herald",
     bossHealth: 14,
+    bossPattern: Object.freeze({ type: "ranged", triggerRange: 6.5, cooldownSeconds: 5.5, damage: 1 }),
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -325,6 +333,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 2,
     bossName: "Requiem Choir",
     bossHealth: 16,
+    bossPattern: Object.freeze({ type: "aoe", triggerRange: 5.5, cooldownSeconds: 6, damage: 2 }),
     rewardIntegrityRestore: 3,
     entryIntegrityFloor: 7,
     progression: STANDARD_PROGRESSION,
@@ -376,6 +385,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 2,
     bossName: "Lantern Tyrant",
     bossHealth: 18,
+    bossPattern: Object.freeze({ type: "ranged", triggerRange: 7, cooldownSeconds: 5.5, damage: 2 }),
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -427,6 +437,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 2,
     bossName: "Bridge Colossus",
     bossHealth: 20,
+    bossPattern: Object.freeze({ type: "melee", triggerRange: 5, cooldownSeconds: 5, damage: 2 }),
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
     commands: Object.freeze({
@@ -478,6 +489,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 3,
     bossName: "Veiled Concordat",
     bossHealth: 22,
+    bossPattern: Object.freeze({ type: "aoe", triggerRange: 6, cooldownSeconds: 6, damage: 2 }),
     bossPhaseCount: 4,
     rewardIntegrityRestore: 3,
     progression: STANDARD_PROGRESSION,
@@ -530,6 +542,7 @@ export const STAGES = Object.freeze([
     nodeGoal: 3,
     bossName: "Abyss Regent",
     bossHealth: 26,
+    bossPattern: Object.freeze({ type: "aoe", triggerRange: 6.5, cooldownSeconds: 5, damage: 3 }),
     bossPhaseCount: 4,
     rewardIntegrityRestore: 1,
     progression: STANDARD_PROGRESSION,
@@ -985,6 +998,17 @@ function assertStateShape(state) {
   }
 }
 
+// --- State-check readability guide -----------------------------------------
+// canAct           -> is the campaign even accepting commands right now?
+// guardAction       -> is this action legal for the active stage at all?
+// guardAssault      -> may THIS assault specifically resolve (boss exposed,
+//                      nodes held, possession requirement met)? Position/
+//                      range is intentionally NOT checked here — that is a
+//                      presentation-layer precondition enforced before this
+//                      reducer is ever called (renderer proximity gate +
+//                      canvas-only dispatch; see battle-realtime-three.js
+//                      getCommandReadiness/"out-of-range" and updateBossStrike).
+// -----------------------------------------------------------------------------
 function canAct(state) {
   return state.status === "active";
 }
@@ -1036,6 +1060,11 @@ export function startCampaign(state = createCampaign()) {
   return accepted(next, next.lastMessage, "awaken");
 }
 
+/**
+ * Gate for the player-initiated "assault" action only. This does NOT gate the
+ * boss's own "boss-strike" auto-attack (see applyEncounterEvent) — a boss can
+ * hit an unprepared player even while none of these conditions are met.
+ */
 function guardAssault(state, stage, current) {
   const assault = stage.commands.assault;
   const encounter = encounterState(current, stage);
@@ -1232,8 +1261,23 @@ export function applyEncounterEvent(state, event) {
   if (!event || typeof event !== "object" || typeof event.type !== "string") return rejected(state, "Encounter event is invalid.");
 
   const stage = activeStage(state);
-  if (!stage.encounter) return rejected(state, "This stage has no declared encounter.");
   if (event.stageId !== stage.id) return rejected(state, "Encounter event belongs to a different stage.");
+
+  // Boss auto-attack: the boss threatens anyone inside its declared strike
+  // range on its own initiative — independent of wave-clear, possession, or
+  // exposure state, and valid even on stages with no wave encounter at all
+  // (e.g. veil-citadel, echo-throne). The renderer decides *when* to raise
+  // this event (proximity + cooldown, the same pattern wave-start timing
+  // already uses); this reducer only decides whether the damage is valid.
+  if (event.type === "boss-strike") {
+    const pattern = stage.bossPattern;
+    if (!pattern) return rejected(state, "This boss has no declared attack pattern.");
+    if (state.stage.bossHealth <= 0) return rejected(state, "The boss is already broken.");
+    const next = transition(state, (draft) => applyBreach(draft, pattern.damage), { kind: "encounter", event: clone(event) });
+    return accepted(next, next.lastMessage, "boss-strike");
+  }
+
+  if (!stage.encounter) return rejected(state, "This stage has no declared encounter.");
   const encounter = encounterState(state.stage, stage);
 
   if (event.type === "boss-assault") {
