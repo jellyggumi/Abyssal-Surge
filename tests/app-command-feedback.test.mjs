@@ -3087,6 +3087,7 @@ test("app passes session-scoped selection callbacks to both battle renderers", a
     activePlacementMode: null,
     armEncounterWhenPrepared() {},
     battleSessionId: 0,
+    BATTLE_RENDERER_INIT_TIMEOUT_MS: 25000,
     battleStarting: false,
     battleVisualFallback: false,
     campaign: { status: "active" },
@@ -3118,6 +3119,7 @@ test("app passes session-scoped selection callbacks to both battle renderers", a
     window: {
       matchMedia: () => ({ matches: false }),
       setInterval: () => 1,
+      setTimeout: () => 0,
     },
   });
   const definitions = [
@@ -3152,6 +3154,91 @@ test("app passes session-scoped selection callbacks to both battle renderers", a
     ],
     "both callbacks must preserve their renderer session so stale battle events can be rejected",
   );
+});
+
+test("startBattle falls back to the Canvas2D renderer instead of leaving every command permanently disabled when RealtimeBattle.init() never settles", async () => {
+  const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const rendererKinds = [];
+  const RealtimeBattleNeverResolves = class {
+    constructor() { rendererKinds.push("realtime-constructed"); }
+    // Simulates a genuinely stuck load (huge GLBs on a slow connection):
+    // this promise is intentionally never resolved or rejected.
+    init() { return new Promise(() => {}); }
+    setPlacementMode() {}
+    destroy() { rendererKinds.push("realtime-destroyed"); }
+  };
+  const BattleVisualizerFallback = class {
+    constructor() { rendererKinds.push("fallback-constructed"); }
+    init() {}
+    setPlacementMode() {}
+    destroy() {}
+  };
+  const stage = { id: "cinder-span", nodeGoal: 1 };
+  const context = vm.createContext({
+    BattleVisualizer: BattleVisualizerFallback,
+    RealtimeBattle: RealtimeBattleNeverResolves,
+    EMPTY_RENDERER_SELECTION: Object.freeze({ count: 0 }),
+    activateBattleFallback: undefined,
+    activePlacementMode: null,
+    armEncounterWhenPrepared() {},
+    battleSessionId: 0,
+    // Keep the fixture fast: prove the fallback fires once init() has
+    // genuinely not settled, without a real multi-second wait.
+    BATTLE_RENDERER_INIT_TIMEOUT_MS: 20,
+    battleStarting: false,
+    battleVisualFallback: false,
+    campaign: { status: "active" },
+    cooldownTimer: 0,
+    currentActionFocus: () => null,
+    currentStage: () => stage,
+    elements: { battleCanvas3d: {}, battleFallbackCanvas: {} },
+    getAvailableActions: () => [],
+    getBattlePresentation: () => ({ stageNumber: 1 }),
+    getInteractiveBattleActions: () => [],
+    handleAction() {},
+    handleActionFocus() {},
+    handleEncounterEvent() {},
+    handleRendererRuntime() {},
+    handleRendererSelection() {},
+    handleTacticalRequest() {},
+    lastScrolledStageId: "old-stage",
+    pendingBattleRenderer: null,
+    projectActionFocus() {},
+    projectBattleRuntime() {},
+    render() {},
+    renderBattleAssetStatus() {},
+    renderBattlePresentation: () => ({ stageNumber: 1 }),
+    rendererRuntime: {},
+    rendererSelectionSummary: {},
+    syncBgmScene() {},
+    synchronizeBattleRenderer() {},
+    visualizer: null,
+    window: {
+      matchMedia: () => ({ matches: false }),
+      setInterval: () => 1,
+      setTimeout: (fn, ms) => setTimeout(fn, ms),
+    },
+  });
+  const definitions = [
+    appFunction(source, "activateBattleFallback", "startBattle"),
+    appFunction(source, "startBattle", "battleUiActive"),
+  ];
+  vm.runInContext(
+    `${definitions.join("\n\n")}
+    globalThis.startBattleForTimeoutTest = startBattle;`,
+    context,
+    { filename: "app.js" },
+  );
+
+  await context.startBattleForTimeoutTest();
+
+  assert.deepEqual(
+    rendererKinds,
+    ["realtime-constructed", "realtime-destroyed", "fallback-constructed"],
+    "a RealtimeBattle whose init() never settles must be destroyed and replaced by the Canvas2D fallback instead of leaving visualizer null (and every command button disabled) forever",
+  );
+  assert.equal(context.visualizer instanceof BattleVisualizerFallback, true, "the fallback renderer must become the active visualizer");
+  assert.equal(context.battleStarting, false, "battleStarting must clear so battleUiActive() -- and every command button -- can become true again");
 });
 
 test("selection dossier ignores stale renderer clears and projects the active renderer clear", async () => {

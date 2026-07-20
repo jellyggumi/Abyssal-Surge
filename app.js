@@ -1227,6 +1227,16 @@ const COMMAND_QUEUE_TICK_MS = 100;
 const COMMAND_ACK_MIN_MS = 250;
 const COMMAND_RENDERER_ACK_TIMEOUT_MS = 750;
 const COMMAND_DUPLICATE_WINDOW_MS = 250;
+// The WebGL renderer's init() fetches every required GLB (terrain/units/
+// boss) with a bare, timeout-free fetch(). Those assets have grown large
+// enough (PBR-textured GLBs, tens of MB) that on a slow or real-world
+// connection the returned promise can simply never settle in practice,
+// leaving battleUiActive() false forever -- every command button (Hunt,
+// Extract, ...) reads as permanently disabled/non-functional with no
+// feedback at all. Bound the wait so a genuinely stuck load falls back to
+// the Canvas2D renderer through the same onRendererFailure/catch path a
+// real load error already takes, instead of leaving the player stuck.
+const BATTLE_RENDERER_INIT_TIMEOUT_MS = 25000;
 const queuedCommandRuntime = new Map();
 const seenCommandRequests = new Map();
 let commandExecutionTimer = 0;
@@ -2917,7 +2927,15 @@ async function startBattle() {
         },
       });
       pendingBattleRenderer = battleRenderer;
-      await battleRenderer.init();
+      await Promise.race([
+        battleRenderer.init(),
+        new Promise((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error("Realtime battle renderer init timed out")),
+            BATTLE_RENDERER_INIT_TIMEOUT_MS,
+          );
+        }),
+      ]);
       if (sessionId !== battleSessionId || campaign?.status !== "active") {
         battleRenderer.destroy();
         return;
