@@ -2903,6 +2903,52 @@ test("renderer selection mirrors order and status into the battlefield HUD", asy
   );
 });
 
+test("selection portrait reflects the renderer's reported selection kind instead of a fixed image regardless of what is selected", async () => {
+  const { api, ids } = await loadSelectionDossierRuntime("en");
+
+  api.select({
+    count: 0, total: 0, health: 0, maxHealth: 0,
+    possessed: 0, engaged: 0, moving: 0, order: "none", kind: "none",
+  }, 3);
+  assert.equal(
+    ids["dossier-image"].src,
+    "assets/images/ui/action-materialize.png",
+    "no selection must show the generic legion portrait, not the possess icon",
+  );
+  assert.equal(ids["battle-selection-image"].src, "assets/images/ui/action-materialize.png");
+
+  api.select({
+    count: 1, total: 1, health: 3, maxHealth: 3,
+    possessed: 0, engaged: 0, moving: 0, order: "holding", kind: "shade",
+  }, 3);
+  assert.equal(
+    ids["dossier-image"].src,
+    "assets/images/ui/action-materialize.png",
+    "a plain shade ally selection must show the generic legion portrait",
+  );
+
+  api.select({
+    count: 1, total: 1, health: 3, maxHealth: 3,
+    possessed: 1, engaged: 0, moving: 0, order: "holding", kind: "possessed",
+  }, 3);
+  assert.equal(
+    ids["dossier-image"].src,
+    "assets/images/ui/action-possess.png",
+    "the possessed ally alone must show the possess portrait, distinct from a plain shade ally",
+  );
+  assert.equal(ids["battle-selection-image"].src, "assets/images/ui/action-possess.png");
+
+  api.select({
+    count: 2, total: 2, health: 6, maxHealth: 6,
+    possessed: 1, engaged: 0, moving: 0, order: "holding", kind: "mixed",
+  }, 3);
+  assert.equal(
+    ids["dossier-image"].src,
+    "assets/images/ui/action-materialize.png",
+    "a mixed possessed+shade selection must fall back to the generic legion portrait, not falsely claim possessed",
+  );
+});
+
 test("app passes session-scoped selection callbacks to both battle renderers", async () => {
   const source = await readFile(new URL("../app.js", import.meta.url), "utf8");
   const rendererOptions = [];

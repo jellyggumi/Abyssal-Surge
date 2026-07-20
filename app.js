@@ -1047,6 +1047,9 @@ function handleRendererSelection(summary, sessionId = battleSessionId) {
   const order = ["none", "holding", "moving", "engaged", "mixed"].includes(summary?.order)
     ? summary.order
     : "none";
+  const kind = ["none", "shade", "possessed", "mixed"].includes(summary?.kind)
+    ? summary.kind
+    : "none";
   rendererSelectionSummary = {
     count: countValue(summary?.count),
     total: countValue(summary?.total),
@@ -1056,6 +1059,7 @@ function handleRendererSelection(summary, sessionId = battleSessionId) {
     engaged: countValue(summary?.engaged),
     moving: countValue(summary?.moving),
     order,
+    kind,
   };
   projectActionFocus(currentActionFocus());
 }
