@@ -2553,6 +2553,28 @@ textarea:focus-visible {
     padding: 0 !important;
   }
 
+  /* Promote the command-reservation queue directly under the seven-command
+     row instead of leaving it after skills/summon-evolution/deployment,
+     where it previously required scrolling the whole compact dock to reach
+     (see the earlier #command-panel overflow-y:auto fix -- this is the
+     content that fix made reachable; ordering it first makes it reachable
+     without scrolling at all in the common case). */
+  .field-command-dock .tactical-reservations {
+    order: 0 !important;
+  }
+
+  .field-command-dock #tactical-skill-controls {
+    order: 1 !important;
+  }
+
+  .field-command-dock #summon-evolution-controls {
+    order: 2 !important;
+  }
+
+  .field-command-dock #tactical-deployment-controls {
+    order: 3 !important;
+  }
+
   .field-command-dock .section-heading h3,
   .field-command-dock .command-hint {
     display: none !important;
