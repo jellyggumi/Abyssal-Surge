@@ -402,6 +402,217 @@ test("RealtimeBattle resize reapplies DPR tiers without changing the canvas dime
   }
 });
 
+async function makeCameraFramingScenario(t, { width, height }) {
+  const THREE = await import("../vendor/three.module.min.js");
+  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const rect = { width, height };
+  const canvas = {
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: rect.width, height: rect.height };
+    },
+  };
+
+  const viewport = {
+    devicePixelRatio: 2,
+    innerWidth: width,
+    matchMedia: () => ({ matches: true }),
+  };
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    writable: true,
+    value: viewport,
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    writable: true,
+    value: { activeElement: canvas },
+  });
+  t.after(() => {
+    if (windowDescriptor) Object.defineProperty(globalThis, "window", windowDescriptor);
+    else delete globalThis.window;
+    if (documentDescriptor) Object.defineProperty(globalThis, "document", documentDescriptor);
+    else delete globalThis.document;
+  });
+
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  battle.renderer = {
+    setPixelRatio() {},
+    setSize() {},
+  };
+  battle.camera = new THREE.PerspectiveCamera(48, 1, 0.1, 120);
+  battle.commanderPosition.copy(battle.boundsCenter);
+  battle.resize();
+  battle.updateCamera(1);
+  battle.camera.updateMatrixWorld(true);
+
+  const { left, right, near, far } = battle.navigation.bounds;
+  const corners = [
+    { name: "near-left", x: left, z: near },
+    { name: "near-right", x: right, z: near },
+    { name: "far-left", x: left, z: far },
+    { name: "far-right", x: right, z: far },
+  ].map(({ name, x, z }) => {
+    const y = battle.navigationAt(x, z).elevation * 0.42;
+    return {
+      name,
+      projected: new THREE.Vector3(x, y, z).project(battle.camera),
+    };
+  });
+
+  return {
+    battle,
+    corners,
+    setViewport(nextWidth, nextHeight) {
+      rect.width = nextWidth;
+      rect.height = nextHeight;
+      viewport.innerWidth = nextWidth;
+    },
+  };
+}
+
+test("RealtimeBattle projection-aware framing keeps every battlefield corner inside its safe NDC limit", async (t) => {
+  const viewports = [
+    { name: "wide 16:9 canvas", width: 1280, height: 720 },
+    { name: "tall mobile canvas", width: 390, height: 844 },
+  ];
+
+  for (const viewport of viewports) {
+    await t.test(viewport.name, async (t) => {
+      const { battle, corners } = await makeCameraFramingScenario(t, viewport);
+      const finiteValues = [
+        ...battle.camera.position,
+        ...battle.cameraTarget,
+        ...battle.lookTarget,
+        ...battle.cameraOffset,
+        battle.zoom,
+        battle.minFitZoom,
+        ...corners.flatMap(({ projected }) => [projected.x, projected.y, projected.z]),
+      ];
+
+      assert.ok(
+        finiteValues.every(Number.isFinite),
+        "fit, target, position, and projected-corner math must remain finite",
+      );
+      for (const { name, projected } of corners) {
+        assert.ok(
+          Math.abs(projected.x) <= 0.84 && Math.abs(projected.y) <= 0.84,
+          `${name} must remain inside the documented ±0.84 safe NDC bounds; received (${projected.x}, ${projected.y}) at zoom ${battle.zoom} and aspect ${battle.camera.aspect}`,
+        );
+        assert.ok(
+          projected.z >= -1 && projected.z <= 1,
+          `${name} must remain inside the camera near/far clip volume; received depth ${projected.z}`,
+        );
+      }
+    });
+  }
+});
+
+test("RealtimeBattle resize clamps manual zoom to the projection fit minimum without discarding a larger user zoom", async (t) => {
+  const { battle, setViewport } = await makeCameraFramingScenario(t, { width: 1280, height: 720 });
+  const wideMinimumFit = battle.minFitZoom;
+
+  battle.onWheel({ deltaY: 250, preventDefault() {} });
+  const wideUserZoom = battle.zoom;
+  assert.ok(wideUserZoom > wideMinimumFit, "the wheel input must establish a manual zoom above the wide fit minimum");
+
+  setViewport(390, 844);
+  battle.resize();
+  assert.ok(
+    battle.minFitZoom > wideUserZoom,
+    "the tall viewport must require more distance than the user's prior wide-screen zoom",
+  );
+  assert.equal(
+    battle.zoom,
+    battle.minFitZoom,
+    "resizing must clamp a previously manual zoom to the new projection-safe minimum",
+  );
+
+  battle.onWheel({ deltaY: 250, preventDefault() {} });
+  const tallUserZoom = battle.zoom;
+  battle.resize();
+  assert.ok(tallUserZoom > battle.minFitZoom, "the wheel input must establish a manual zoom above the tall fit minimum");
+  assert.equal(
+    battle.zoom,
+    tallUserZoom,
+    "resizing must preserve a user's wider zoom when it already clears the projection-safe minimum",
+  );
+});
+
+test("RealtimeBattle mobile orbit fit keeps every sampled map point safe and wheel zoom cannot undercut it", async (t) => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const focusCases = [
+    { name: "overview", cell: null },
+    { name: "near-left focus", cell: { x: 0, y: 0 } },
+    { name: "far-right focus", cell: { x: 23, y: 11 } },
+  ];
+
+  for (const focusCase of focusCases) {
+    await t.test(focusCase.name, async (t) => {
+      const { battle } = await makeCameraFramingScenario(t, { width: 390, height: 844 });
+      battle.scene = new THREE.Scene();
+      battle.orbitAzimuth = 0.8;
+      battle.orbitElevation = 0.9;
+      battle.focusTacticalCell(focusCase.cell);
+      battle.updateCamera(1);
+      battle.camera.updateMatrixWorld(true);
+
+      const projectMapSamples = () => {
+        const samples = [];
+        for (let gridY = 0; gridY <= battle.navigation.height; gridY += 1) {
+          for (let gridX = 0; gridX <= battle.navigation.width; gridX += 1) {
+            const world = battle.navigation.gridToWorld(gridX, gridY);
+            const elevation = battle.navigationAt(world.x, world.z).elevation * 0.42;
+            samples.push({
+              gridX,
+              gridY,
+              projected: new THREE.Vector3(world.x, elevation, world.z).project(battle.camera),
+            });
+          }
+        }
+        return samples;
+      };
+      const assertSafeProjection = (samples, phase) => {
+        const finiteValues = [
+          battle.zoom,
+          battle.minFitZoom,
+          ...battle.camera.position,
+          ...battle.cameraTarget,
+          ...battle.lookTarget,
+          ...samples.flatMap(({ projected }) => [projected.x, projected.y, projected.z]),
+        ];
+        assert.ok(
+          finiteValues.every(Number.isFinite),
+          `${focusCase.name} ${phase} fit must not publish non-finite camera or projection values`,
+        );
+        for (const { gridX, gridY, projected } of samples) {
+          assert.ok(
+            Math.abs(projected.x) <= 0.84 && Math.abs(projected.y) <= 0.84,
+            `${focusCase.name} ${phase} grid sample (${gridX}, ${gridY}) must remain inside ±0.84 NDC; received (${projected.x}, ${projected.y}) at zoom ${battle.zoom}`,
+          );
+        }
+      };
+
+      assertSafeProjection(projectMapSamples(), "automatic");
+      const fittedMinimum = battle.minFitZoom;
+      battle.onWheel({ deltaY: -1_000_000, preventDefault() {} });
+      assert.equal(
+        battle.zoom,
+        fittedMinimum,
+        `${focusCase.name} zoom-in input must clamp at the verified mobile fit minimum`,
+      );
+      battle.updateCamera(1);
+      battle.camera.updateMatrixWorld(true);
+      assert.ok(
+        battle.zoom >= battle.minFitZoom,
+        `${focusCase.name} manual zoom must never remain below a recomputed fit minimum`,
+      );
+      assertSafeProjection(projectMapSamples(), "wheel-clamped");
+    });
+  }
+});
+
+
 
 test("RealtimeBattle safely ignores playback requests from clip-less runtime bindings", () => {
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
@@ -1683,6 +1894,59 @@ test("RealtimeBattle runtime presentation assets render the possessed campaign a
     "unpossessed allies must retain the ordinary shade identity",
   );
 });
+
+test("RealtimeBattle command-obelisk clones own highlight materials while retaining template-shared geometry", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const disposals = { sharedGeometry: 0, templateMaterial: 0, firstMaterial: 0, secondMaterial: 0 };
+  const sharedGeometry = new THREE.BoxGeometry(1, 2, 1);
+  sharedGeometry.dispose = () => { disposals.sharedGeometry += 1; };
+  const templateMaterial = new THREE.MeshStandardMaterial({
+    color: 0x334455,
+    emissive: 0x111111,
+    emissiveIntensity: 0.25,
+  });
+  templateMaterial.dispose = () => { disposals.templateMaterial += 1; };
+  const templateScene = new THREE.Group();
+  const templateMesh = new THREE.Mesh(sharedGeometry, templateMaterial);
+  templateMesh.name = "command-obelisk-mesh";
+  templateScene.add(templateMesh);
+
+  const battle = new RealtimeBattle(null, { stageNumber: 3, reducedMotion: true });
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  battle.templates.set("props/command-obelisk.glb", { scene: templateScene, animations: [] });
+
+  const first = battle.cloneTemplate("props/command-obelisk.glb", 1.8);
+  const second = battle.cloneTemplate("props/command-obelisk.glb", 1.8);
+  const firstMesh = first.root.getObjectByName("command-obelisk-mesh");
+  const secondMesh = second.root.getObjectByName("command-obelisk-mesh");
+
+  assert.strictEqual(firstMesh.geometry, sharedGeometry, "first clone must reuse immutable template geometry");
+  assert.strictEqual(secondMesh.geometry, sharedGeometry, "second clone must reuse immutable template geometry");
+  assert.notStrictEqual(firstMesh.material, secondMesh.material, "distinct obelisk clones must not share mutable highlight material state");
+  assert.notStrictEqual(firstMesh.material, templateMaterial, "first obelisk must not mutate the cached template material");
+  assert.notStrictEqual(secondMesh.material, templateMaterial, "second obelisk must not mutate the cached template material");
+
+  battle.applyInteractiveHighlight(first.root, "capture", true, false, 0.5, 0);
+  battle.applyInteractiveHighlight(second.root, "capture", false, false, 0.5, 0);
+
+  assert.ok(
+    firstMesh.material.emissiveIntensity > secondMesh.material.emissiveIntensity,
+    "hovering one obelisk must not raise the idle clone's emissive intensity",
+  );
+  assert.equal(templateMaterial.emissiveIntensity, 0.25, "clone highlighting must leave the cached template material unchanged");
+
+  firstMesh.material.dispose = () => { disposals.firstMaterial += 1; };
+  secondMesh.material.dispose = () => { disposals.secondMaterial += 1; };
+  battle.retire(first);
+
+  assert.deepEqual(
+    disposals,
+    { sharedGeometry: 0, templateMaterial: 0, firstMaterial: 1, secondMaterial: 0 },
+    "retiring one obelisk must release only its owned material and keep template geometry plus the live clone intact",
+  );
+});
+
 
 test("RealtimeBattle runtime presentation assets activate one cached echo-throne clone on Domain replay", async () => {
   const THREE = await import("../vendor/three.module.min.js");

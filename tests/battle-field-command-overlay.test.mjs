@@ -157,6 +157,7 @@ class StaticElement {
 
   querySelector(selector) {
     if (this._queries.has(selector)) return this._queries.get(selector);
+    if (selector.startsWith(".") && this.classList.contains(selector.slice(1))) return this;
     const attributeSelector = /^\[([^=\]]+)="([^"]+)"\]$/.exec(selector);
     if (attributeSelector && this.getAttribute(attributeSelector[1]) === attributeSelector[2]) return this;
     if (selector === "button" && this.tagName === "BUTTON") return this;
@@ -463,6 +464,58 @@ function localizedReceiptPrefix(i18n, locale) {
   return i18n.translations[locale]["fieldOverlay.relayPrefix"];
 }
 
+function cssBlock(source, header) {
+  const normalized = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const headerIndex = normalized.indexOf(header);
+  assert.notEqual(headerIndex, -1, `stylesheet must retain ${header}`);
+  const openIndex = normalized.indexOf("{", headerIndex + header.length);
+  assert.notEqual(openIndex, -1, `${header} must open a CSS block`);
+  let depth = 1;
+  for (let index = openIndex + 1; index < normalized.length; index += 1) {
+    if (normalized[index] === "{") depth += 1;
+    if (normalized[index] === "}") depth -= 1;
+    if (depth === 0) return normalized.slice(openIndex + 1, index);
+  }
+  assert.fail(`${header} must close its CSS block`);
+}
+
+function cssRules(source) {
+  const rules = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const openIndex = source.indexOf("{", cursor);
+    if (openIndex === -1) break;
+    const selector = source.slice(cursor, openIndex).trim();
+    let depth = 1;
+    let closeIndex = openIndex + 1;
+    for (; closeIndex < source.length && depth > 0; closeIndex += 1) {
+      if (source[closeIndex] === "{") depth += 1;
+      if (source[closeIndex] === "}") depth -= 1;
+    }
+    assert.equal(depth, 0, `${selector} must close its CSS rule`);
+    const body = source.slice(openIndex + 1, closeIndex - 1);
+    if (selector.startsWith("@")) rules.push(...cssRules(body));
+    else rules.push({ selector, body });
+    cursor = closeIndex;
+  }
+  return rules;
+}
+
+function cssRuleFor(rules, expectedSelector) {
+  return rules.find(({ selector }) => (
+    selector.split(",").map((entry) => entry.trim()).includes(expectedSelector)
+  ));
+}
+
+function cssDeclaration(rule, property) {
+  return rule?.body
+    .split(";")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${property}:`))
+    ?.slice(property.length + 1)
+    .trim();
+}
+
 test("overlay presentation omits proxy routes and decorative frames while retaining activation affordances", async () => {
   const [moduleSource, stylesheet] = await Promise.all([
     readFile(new URL("../battle-field-command-overlay.js", import.meta.url), "utf8"),
@@ -505,6 +558,116 @@ test("overlay presentation omits proxy routes and decorative frames while retain
     /#battle-field \.ashen-field-command__activate\[data-focused="true"\]\s*\{[^}]*box-shadow\s*:/s,
     "matching spatial focus must retain an active activation affordance",
   );
+});
+
+test("the field overlay exclusively paints objective, threat, and result inside responsive battlefield bounds", async () => {
+  const [moduleSource, stylesheet] = await Promise.all([
+    readFile(new URL("../battle-field-command-overlay.js", import.meta.url), "utf8"),
+    readFile(new URL("../battle-field-command-overlay.css", import.meta.url), "utf8"),
+  ]);
+  const markup = moduleSource.match(/overlay\.innerHTML = `([\s\S]*?)`;/)?.[1] ?? "";
+  const hooks = [...markup.matchAll(/data-field-overlay="([^"]+)"/g)].map((match) => match[1]);
+  const classTokens = [...markup.matchAll(/class="([^"]+)"/g)]
+    .flatMap((match) => match[1].split(/\s+/).filter(Boolean));
+
+  for (const hook of ["objective", "confirmed-result"]) {
+    assert.equal(
+      hooks.filter((candidate) => candidate === hook).length,
+      1,
+      `the active overlay must expose exactly one ${hook} owner`,
+    );
+  }
+  for (const className of [
+    "ashen-field-command__standard",
+    "ashen-field-command__watch",
+    "ashen-field-command__hostile",
+    "ashen-field-command__pressure",
+    "ashen-field-command__result",
+    "ashen-field-command__result-copy",
+  ]) {
+    assert.equal(
+      classTokens.filter((candidate) => candidate === className).length,
+      1,
+      `the active overlay must expose exactly one .${className} surface`,
+    );
+  }
+
+  const rules = cssRules(stylesheet.replace(/\/\*[\s\S]*?\*\//g, ""));
+  for (const legacySelector of ["#battle-mission-guide", ".battle-screen-ui", "#battle-screen-ui"]) {
+    assert.equal(
+      cssDeclaration(cssRuleFor(rules, legacySelector), "display"),
+      "none !important",
+      `${legacySelector} must remain source-only so it cannot double-paint the field objective`,
+    );
+  }
+
+  const battlefieldRule = cssRuleFor(rules, "#battle-field");
+  assert.equal(cssDeclaration(battlefieldRule, "position"), "relative", "the battlefield must establish the overlay containing block");
+  assert.equal(cssDeclaration(battlefieldRule, "overflow"), "hidden", "the battlefield must clip field HUD content at its bounds");
+
+  const overlayRule = cssRuleFor(rules, "#battle-field .ashen-field-command");
+  assert.equal(cssDeclaration(overlayRule, "position"), "absolute", "the field overlay must stay out of canvas layout flow");
+  assert.equal(cssDeclaration(overlayRule, "inset"), "0", "the field overlay must use the battlefield edges as its containing bounds");
+  assert.equal(cssDeclaration(overlayRule, "display"), "grid", "the authoritative field surfaces must share one grid owner");
+  assert.equal(cssDeclaration(overlayRule, "pointer-events"), "none", "the presentation layer must not intercept battlefield input");
+  assert.equal(
+    (cssDeclaration(overlayRule, "grid-template-columns")?.match(/minmax\(0,/g) ?? []).length,
+    2,
+    "both desktop field columns must be allowed to shrink without intrinsic overflow",
+  );
+  assert.match(
+    cssDeclaration(overlayRule, "grid-template-rows") ?? "",
+    /\b1fr\b/,
+    "the desktop overlay must leave a flexible center row for the battlefield",
+  );
+
+  const activationRule = cssRuleFor(rules, "#battle-field .ashen-field-command__activate");
+  assert.equal(cssDeclaration(activationRule, "pointer-events"), "auto", "the native command proxy must remain actionable");
+
+  const tacticalRule = cssRuleFor(rules, "#battle-field .ashen-field-command__tactical");
+  assert.equal(cssDeclaration(tacticalRule, "position"), "absolute", "the tactical readout must remain edge-aligned within the battlefield");
+  assert.equal(cssDeclaration(tacticalRule, "left"), "50%", "the desktop tactical readout must center from its containing block");
+  assert.equal(cssDeclaration(tacticalRule, "transform"), "translateX(-50%)", "desktop tactical centering must account for its own width");
+
+  const mobileRules = cssRules(cssBlock(stylesheet, "@media (max-width: 899px)"));
+  const mobileOverlayRule = cssRuleFor(mobileRules, "#battle-field .ashen-field-command");
+  assert.equal(
+    (cssDeclaration(mobileOverlayRule, "grid-template-columns")?.match(/minmax\(0,\s*1fr\)/g) ?? []).length,
+    2,
+    "both compact field columns must share available width without forcing overflow",
+  );
+  const mobileTacticalRule = cssRuleFor(mobileRules, "#battle-field .ashen-field-command__tactical");
+  for (const edge of ["right", "bottom", "left"]) {
+    assert.notEqual(
+      cssDeclaration(mobileTacticalRule, edge),
+      undefined,
+      `the compact tactical readout must declare its ${edge} containment edge`,
+    );
+  }
+  assert.equal(cssDeclaration(mobileTacticalRule, "transform"), "none", "compact edge alignment must not retain desktop translation");
+  assert.equal(cssDeclaration(mobileTacticalRule, "box-sizing"), "border-box", "compact readout width must include its own border and padding");
+  assert.equal(cssDeclaration(mobileTacticalRule, "overflow"), "hidden", "compact tactical copy must remain inside the battlefield");
+  assert.equal(cssDeclaration(mobileTacticalRule, "width"), "auto", "opposing compact edges must own the tactical readout width");
+});
+
+test("mounting retains one live field owner instead of stacking duplicate overlays", { concurrency: false }, async () => {
+  const fixture = createStaticOverlayFixture();
+
+  await withMountedOverlay(fixture, async (overlay, _i18n, overlayModule) => {
+    const duplicate = overlayModule.mountFieldCommandOverlay({
+      root: fixture.field,
+      container: fixture.container,
+      commands: fixture.commandPanel,
+    });
+    assert.equal(duplicate, null, "a second mount into the battlefield must be rejected");
+    assert.equal(fixture.container.children.length, 1, "the battlefield must retain exactly one painted field overlay");
+
+    for (const selector of ['[data-field-overlay="relay-receipt"]', '[data-field-overlay="tactical-readout"]']) {
+      const liveRegion = overlay.querySelector(selector);
+      assert.equal(liveRegion.getAttribute("role"), "status", `${selector} must retain status semantics`);
+      assert.equal(liveRegion.getAttribute("aria-live"), "polite", `${selector} must announce updates without interrupting`);
+    }
+  });
 });
 
 test("selectCurrentCommand resolves marked and enabled commands in priority order", () => {
@@ -1050,7 +1213,7 @@ test("mounted overlay copies the selected native command and delegates activatio
   });
 });
 
-test("spatial focus highlights the proxy activation only for its active native command", { concurrency: false }, async () => {
+test("spatial focus decorates only the active proxy without retargeting field activation", { concurrency: false }, async () => {
   const materialize = staticCommand({
     action: "materialize",
     name: "Materialize",
@@ -1078,6 +1241,9 @@ test("spatial focus highlights the proxy activation only for its active native c
       null,
       "a different spatial action must not visually claim that the proxy activation will issue it",
     );
+    activation.click();
+    assert.equal(materialize.clickCount, 1, "spatial focus must not retarget the proxy away from its active native command");
+    assert.equal(domain.clickCount, 0, "a focused non-current command must not be activated by the field proxy");
 
     fixture.dispatch("abyssal:spatial-focus", { detail: { action: "materialize" } });
     assert.equal(
@@ -1090,5 +1256,9 @@ test("spatial focus highlights the proxy activation only for its active native c
       "true",
       "the proxy activation may highlight only when spatial focus matches its active native command",
     );
+
+    fixture.dispatch("abyssal:spatial-focus", { detail: {} });
+    assert.equal(overlay.getAttribute("data-spatial-focused"), null, "leaving spatial focus must clear the overlay focus owner");
+    assert.equal(activation.getAttribute("data-focused"), null, "leaving spatial focus must clear the activation highlight");
   });
 });

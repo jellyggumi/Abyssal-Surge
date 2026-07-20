@@ -33,7 +33,7 @@ import { TacticalMinimap } from "./tactical-minimap.js";
 import { currentLang, translate, translations } from "./i18n.js";
 import { getCombatAlertCue, resolveBossPhase } from "./combat-systems.js";
 
-const BUILD_TAG = "abyssal-surge-static-v54";
+const BUILD_TAG = "abyssal-surge-static-v55";
 const DB_NAME = "abyssal-surge-campaign";
 const DB_VERSION = 1;
 const STORE_NAME = "campaigns";
@@ -1935,12 +1935,26 @@ function getChecklistLabel(item, lang) {
 
 function translateStatusMessage(msg, lang) {
   if (!msg) return "";
+  const executedMatch = msg.match(/^Executed reserved command:\s*([^.]+)\.(?:\s*(.+))?$/);
+  if (executedMatch) {
+    if (lang !== "ko") return msg;
+    const action = executedMatch[1].trim();
+    const detail = executedMatch[2] ? executedMatch[2].trim() : "";
+    const commandName = translate(`command.${action}.name`, lang) || action;
+    const translatedDetail = detail ? translateStatusMessage(detail, lang) : "";
+    return translatedDetail
+      ? `예약된 ${commandName} 명령 실행: ${translatedDetail}`
+      : `예약된 ${commandName} 명령 실행.`;
+  }
   const reservedMatch = msg.match(/^Reserved command:\s*(.+)\.$/);
   if (reservedMatch) {
     const commandName = translate(`command.${reservedMatch[1]}.name`, lang) || reservedMatch[1];
     return translate("queue.reservedReceipt", lang).replace("{command}", commandName);
   }
   if (lang !== "ko") return msg;
+  const summonEssenceMatch = msg.match(/\(\+(\d+) summon essence\)\.?$/);
+  const localizedSummonEssence = summonEssenceMatch ? ` (+${summonEssenceMatch[1]} 소환 정수)` : "";
+
 
   if (msg.includes("The abyss answers when you are ready.")) {
     return "준비가 되면 심연이 답할 것입니다.";
@@ -1985,11 +1999,11 @@ function translateStatusMessage(msg, lang) {
     const dmg = msg.replace("An abyssal breach tears ", "").replace(" integrity.", "").trim();
     return `심연의 균열이 발생하여 군주 내구도가 ${dmg}만큼 감소했습니다.`;
   }
-  if (msg.includes("The second spoor opens into a soul cache before the rift can close.")) {
-    return "균열이 닫히기 전에 두 번째 흔적이 그림자 은닉처로 열렸습니다.";
+  if (msg.startsWith("The second spoor opens into a soul cache before the rift can close")) {
+    return `균열이 닫히기 전에 두 번째 흔적이 그림자 은닉처로 열렸습니다.${localizedSummonEssence}`;
   }
-  if (msg.includes("Four volatile shades tear free from the rift.")) {
-    return "네 명의 불안정한 그림자가 균열에서 흘러나왔습니다.";
+  if (msg.startsWith("Four volatile shades tear free from the rift")) {
+    return `네 명의 불안정한 그림자가 균열에서 흘러나왔습니다.${localizedSummonEssence}`;
   }
   if (msg.includes("shadow answer your call.") || msg.includes("shadow answers your call.")) {
     const num = msg.split(" ")[0];

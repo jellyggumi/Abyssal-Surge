@@ -469,7 +469,12 @@ export class RealtimeBattle {
     this.orbitAzimuth = 2.3;
     this.orbitElevation = 0.9;
     this.zoom = 16;
+    this.safeNdcLimit = 0.84;
+    this.minFitZoom = 16;
     this.hasManualZoomed = false;
+    this._fitSamplePoints = null;
+    this._fitCamera = null;
+    this._fitProjectionScratch = null;
     this.enemySerial = 0;
     this.actionClips = 0;
     this.particles = null;
@@ -579,8 +584,11 @@ export class RealtimeBattle {
     this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, Math.max(120, this.zoom * 4));
     this.raycaster.far = Math.max(100, this.zoom * 3);
 
-    // Hemisphere light with stage-colored ground
-    const hemiLight = new THREE.HemisphereLight(0x91b9d0, this.presentation?.palette?.background ?? 0x090b14, 2.2);
+    // Hemisphere light with slightly lifted stage-colored ground to prevent crushed shadows
+    const groundColor = (THREE.Color && this.presentation?.palette?.background)
+      ? new THREE.Color(this.presentation.palette.background).lerp(new THREE.Color(0x3a4868), 0.35)
+      : 0x1c2333;
+    const hemiLight = new THREE.HemisphereLight(0x91b9d0, groundColor, 2.2);
     this.scene.add(hemiLight);
 
     // Ambient light with color matched to the stage's background/atmosphere palette
@@ -917,8 +925,9 @@ export class RealtimeBattle {
       const material = new THREE.LineBasicMaterial({
         color: routeColors[i % routeColors.length],
         transparent: true,
-        opacity: 0.65,
-        linewidth: 3,
+        opacity: 0.95,
+        depthWrite: false,
+        depthTest: true,
       });
       const line = new THREE.Line(geometry, material);
       this.scene.add(line);
@@ -1293,7 +1302,24 @@ export class RealtimeBattle {
     }
 
     const instance = { root, mixer: new THREE.AnimationMixer(root), clips: template.animations, actions: new Map(), active: null, cooldown: 0 };
+    if (resource === "props/command-obelisk.glb") this.ownCommandObeliskMaterials(instance);
     this.mixers.push(instance.mixer);
+    return instance;
+  }
+
+  ownCommandObeliskMaterials(instance) {
+    instance?.root?.traverse?.((node) => {
+      if (!node.isMesh || !node.material) return;
+      const sourceMaterials = Array.isArray(node.material) ? node.material : [node.material];
+      const ownedMaterials = sourceMaterials.map((material) => {
+        if (!material || material === this.contactMaterial) return material;
+        const owned = material.clone();
+        owned.userData = owned.userData || {};
+        owned.userData.isCommandObeliskOwnedMaterial = true;
+        return owned;
+      });
+      node.material = Array.isArray(node.material) ? ownedMaterials : ownedMaterials[0];
+    });
     return instance;
   }
 
@@ -1417,10 +1443,62 @@ export class RealtimeBattle {
   updateMarkerPulses(dt) {
     this.nodePulse = Math.max(0.8, this.nodePulse - dt * 3.2);
     this.portalPulse = Math.max(0.8, this.portalPulse - dt * 3.2);
-    if (this.portal && this.portal.material) {
-      this.portal.material.emissiveIntensity = this.portalPulse;
-    }
+
     this.updateNodeVisuals();
+
+    const available = this.getAvailableActions ? this.getAvailableActions() : null;
+    const hasAction = (sem) => {
+      if (!sem || !available) return false;
+      return typeof available.has === "function" ? available.has(sem) : available.includes(sem);
+    };
+
+    // 1. Portal
+    if (this.portal) {
+      const sem = "materialize";
+      const isHovered = this.lastHoveredAction === sem;
+      const isAct = hasAction(sem);
+      this.applyInteractiveHighlight(this.portal, sem, isHovered, isAct, this.portalPulse, dt);
+      if (this.portalProp) {
+        this.applyInteractiveHighlight(this.portalProp.root, sem, isHovered, isAct, this.portalPulse, dt);
+      }
+    }
+
+    // 2. Extractor
+    if (this.extractor) {
+      const sem = "extract";
+      const isHovered = this.lastHoveredAction === sem;
+      const isAct = hasAction(sem);
+      this.applyInteractiveHighlight(this.extractor, sem, isHovered, isAct, 0.8, dt);
+      if (this.extractorProp) {
+        this.applyInteractiveHighlight(this.extractorProp.root, sem, isHovered, isAct, 0.8, dt);
+      }
+    }
+
+    // 3. Nodes
+    if (this.nodes) {
+      for (let i = 0; i < this.nodes.length; i++) {
+        const nodeMesh = this.nodes[i];
+        if (!nodeMesh) continue;
+        const sem = nodeMesh.userData.semantic;
+        const isHovered = sem && this.lastHoveredAction === sem;
+        const isAct = sem && hasAction(sem);
+        let baseInt = 0.2;
+        if (i < this.capturedCount) baseInt = 0.5;
+        else if (i === this.capturedCount) baseInt = this.nodePulse;
+        this.applyInteractiveHighlight(nodeMesh, sem, isHovered, isAct, baseInt, dt);
+        if (this.nodeProps && this.nodeProps[i]) {
+          this.applyInteractiveHighlight(this.nodeProps[i].root, sem, isHovered, isAct, baseInt, dt);
+        }
+      }
+    }
+
+    // 4. Boss
+    if (this.boss && this.boss.root && !this.previewActionSemantic) {
+      const sem = this.boss.root.userData.semantic || "assault";
+      const isHovered = this.lastHoveredAction === sem;
+      const isAct = this.bossExposed && hasAction(sem);
+      this.applyInteractiveHighlight(this.boss.root, sem, isHovered, isAct, 0.55, dt);
+    }
   }
 
   // Slow drifting embers/motes in the stage's accent color — cheap
@@ -2113,24 +2191,56 @@ export class RealtimeBattle {
       }
     }
     
+    // 1. Original cameraTarget tracking logic: lerp and clamp directly to lookTarget
     if (reducedMotion) {
       this.cameraTarget.copy(this.lookTarget);
     } else {
       this.cameraTarget.lerp(this.lookTarget, alpha);
     }
-    
     const bounds = this.navigation.bounds;
     const maxTargetOffsetFactor = 0.4;
     this.cameraTarget.x = clamp(this.cameraTarget.x, bounds.left * maxTargetOffsetFactor, bounds.right * maxTargetOffsetFactor);
     this.cameraTarget.z = clamp(this.cameraTarget.z, bounds.near * maxTargetOffsetFactor, bounds.far * maxTargetOffsetFactor);
+
+    // 2. Compute visualTarget (bounds-centered overview with dead-zone / bias towards cameraTarget)
+    const displacement = new THREE.Vector3().subVectors(this.cameraTarget, this.boundsCenter);
+    displacement.y = 0;
+    const distance = displacement.length();
+    const deadZone = 3.5;
+    const maxBias = 2.5;
+    let biasFactor = 0;
+    if (distance > deadZone) {
+      biasFactor = Math.min(maxBias, (distance - deadZone) * 0.55);
+    }
+    const visualTarget = this.boundsCenter.clone();
+    if (distance > 0.001 && biasFactor > 0) {
+      visualTarget.add(displacement.normalize().multiplyScalar(biasFactor));
+    }
+    visualTarget.y = this.cameraTarget.y;
+
+    // 3. Dynamic projection-aware fit zoom calculation based on visualTarget and cameraTarget
+    this.minFitZoom = this.computeMinFitZoom(
+      visualTarget,
+      this.cameraTarget,
+      this.orbitElevation,
+      this.orbitAzimuth,
+      this.camera.aspect
+    );
+    if (!this.hasManualZoomed) {
+      this.zoom = this.minFitZoom;
+    } else {
+      this.zoom = Math.max(this.zoom, this.minFitZoom);
+    }
+    this.syncCameraRange();
+
     const horizontal = Math.cos(this.orbitElevation) * this.zoom;
     this.cameraOffset.set(
       Math.cos(this.orbitAzimuth) * horizontal,
       Math.sin(this.orbitElevation) * this.zoom,
       Math.sin(this.orbitAzimuth) * horizontal,
     );
-    this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
-    
+    // Position camera using visualTarget
+    this.camera.position.copy(visualTarget).add(this.cameraOffset);
     if (this.shakeTime > 0 && !reducedMotion) {
       this.shakeTime = Math.max(0, this.shakeTime - dt);
       const strength = this.shakeMagnitude * (this.shakeDuration > 0 ? this.shakeTime / this.shakeDuration : 0);
@@ -2154,19 +2264,180 @@ export class RealtimeBattle {
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
     
+    this.minFitZoom = this.computeMinFitZoom(
+      this.cameraTarget || this.boundsCenter,
+      this.cameraTarget || this.boundsCenter,
+      this.orbitElevation,
+      this.orbitAzimuth,
+      this.camera.aspect
+    );
     if (!this.hasManualZoomed) {
-      const bounds = this.navigation.bounds;
-      const mapWidth = bounds.right - bounds.left;
-      const mapHeight = bounds.far - bounds.near;
-      const aspect = this.camera.aspect || 1;
-      const fovRad = 48 * Math.PI / 360;
-      const tanFOV = Math.tan(fovRad);
-      const zoomToFitWidth = (mapWidth * 1.15) / (2 * tanFOV * aspect);
-      const zoomToFitHeight = (mapHeight * 1.15) / (2 * tanFOV);
-      this.zoom = clamp(Math.max(zoomToFitWidth, zoomToFitHeight), 12, 24);
+      this.zoom = this.minFitZoom;
+    } else {
+      this.zoom = Math.max(this.zoom, this.minFitZoom);
     }
-    
+    this.syncCameraRange();
+
     this.resizeBackground();
+  }
+
+  fitSamplePoints() {
+    if (this._fitSamplePoints) return this._fitSamplePoints;
+
+    const bounds = this.navigation.bounds;
+    const points = [];
+    const addPoint = (x, z) => {
+      const elevation = typeof this.navigationAt === "function"
+        ? this.navigationAt(x, z).elevation * TERRAIN_ELEVATION_SCALE
+        : 0;
+      points.push(new THREE.Vector3(x, elevation, z));
+    };
+    addPoint(bounds.left, bounds.near);
+    addPoint(bounds.left, bounds.far);
+    addPoint(bounds.right, bounds.near);
+    addPoint(bounds.right, bounds.far);
+
+    const anchors = this.navigation.anchors;
+    const addAnchor = (anchor) => {
+      if (!anchor) return;
+      const point = this.gridToWorld(anchor.x, anchor.y);
+      addPoint(point.x, point.z);
+    };
+    addAnchor(anchors?.portal);
+    for (const node of anchors?.nodes ?? []) addAnchor(node);
+    addAnchor(anchors?.extractor);
+    addAnchor(anchors?.boss);
+
+    this._fitSamplePoints = Object.freeze(points);
+    return this._fitSamplePoints;
+  }
+
+  syncCameraRange() {
+    if (!Number.isFinite(this.zoom) || this.zoom <= 0) return;
+    const cameraFar = Math.max(120, this.zoom * 4);
+    if (this.camera && Number.isFinite(this.camera.far) && this.camera.far < cameraFar) {
+      this.camera.far = cameraFar;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.raycaster) {
+      this.raycaster.far = Math.max(100, this.zoom * 3);
+    }
+  }
+
+  computeMinFitZoom(target, lookTarget, elevation, azimuth, aspect) {
+    const fitTarget = lookTarget || target;
+    const fitAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+    const inputs = [
+      target?.x, target?.y, target?.z,
+      fitTarget?.x, fitTarget?.y, fitTarget?.z,
+      elevation, azimuth,
+    ];
+    if (!inputs.every(Number.isFinite)) {
+      throw new RangeError("Camera fit requires finite targets and orbit angles");
+    }
+
+    const points = this.fitSamplePoints();
+    const tempCam = this._fitCamera || (this._fitCamera = new THREE.PerspectiveCamera(48, fitAspect, 0.1, 1e9));
+    const projected = this._fitProjectionScratch || (this._fitProjectionScratch = new THREE.Vector3());
+    if (tempCam.aspect !== fitAspect) {
+      tempCam.aspect = fitAspect;
+      tempCam.updateProjectionMatrix();
+    }
+
+    const limit = this.safeNdcLimit = 0.84;
+    const checkZoom = (zoom) => {
+      if (!Number.isFinite(zoom) || zoom <= 0) return false;
+      const horizontal = Math.cos(elevation) * zoom;
+      tempCam.position.set(
+        target.x + Math.cos(azimuth) * horizontal,
+        target.y + Math.sin(elevation) * zoom,
+        target.z + Math.sin(azimuth) * horizontal,
+      );
+      tempCam.lookAt(fitTarget);
+      tempCam.updateMatrixWorld(true);
+
+      for (const point of points) {
+        projected.copy(point).project(tempCam);
+        if (
+          !Number.isFinite(projected.x)
+          || !Number.isFinite(projected.y)
+          || !Number.isFinite(projected.z)
+          || Math.abs(projected.x) > limit
+          || Math.abs(projected.y) > limit
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    let low = 9;
+    if (checkZoom(low)) return low;
+
+    let high = low * 2;
+    let highFits = checkZoom(high);
+    for (let expansion = 0; !highFits && expansion < 32; expansion += 1) {
+      low = high;
+      high *= 2;
+      if (!Number.isFinite(high)) break;
+      highFits = checkZoom(high);
+    }
+    if (!highFits) {
+      throw new RangeError("Unable to establish a finite projection-safe camera fit");
+    }
+
+    for (let iteration = 0; iteration < 24; iteration += 1) {
+      const mid = (low + high) * 0.5;
+      if (checkZoom(mid)) high = mid;
+      else low = mid;
+    }
+    if (!checkZoom(high)) {
+      throw new RangeError("Camera fit search lost its verified upper bound");
+    }
+    return high;
+  }
+
+
+  applyInteractiveHighlight(root, semantic, isHovered, isActionable, baseIntensity, dt) {
+    if (!root) return;
+
+    const reducedMotion = this.presentation?.reducedMotion ?? false;
+    const time = performance.now() * 0.001;
+
+    let emissiveIntensityMul = 1.0;
+    let scaleMul = 1.0;
+
+    if (isHovered) {
+      emissiveIntensityMul = reducedMotion ? 1.8 : 1.8 + Math.sin(time * 16.0) * 0.35;
+      scaleMul = reducedMotion ? 1.08 : 1.08 + Math.sin(time * 12.0) * 0.04;
+    } else if (isActionable) {
+      emissiveIntensityMul = reducedMotion ? 1.3 : 1.3 + Math.sin(time * 8.0) * 0.2;
+      scaleMul = reducedMotion ? 1.02 : 1.02 + Math.sin(time * 6.0) * 0.02;
+    }
+
+    const targetEmissiveIntensity = baseIntensity * emissiveIntensityMul;
+
+    root.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of materials) {
+          if (mat.isMeshStandardMaterial || mat.isMeshBasicMaterial) {
+            if ("emissiveIntensity" in mat) {
+              mat.emissiveIntensity = targetEmissiveIntensity;
+            }
+          }
+        }
+      }
+    });
+
+    if (!Object.prototype.hasOwnProperty.call(root.userData, "originalScale")) {
+      root.userData.originalScale = root.scale.clone ? root.scale.clone() : new THREE.Vector3(1, 1, 1);
+    }
+    if (!isHovered && !isActionable) {
+      root.scale.copy(root.userData.originalScale);
+    } else {
+      root.scale.copy(root.userData.originalScale).multiplyScalar(scaleMul);
+    }
   }
 
   clearPressedInput() {
@@ -2284,6 +2555,8 @@ export class RealtimeBattle {
           gapSize: 0.12,
           transparent: true,
           opacity: 0.95,
+          depthWrite: false,
+          depthTest: true,
         })
       );
       const endpoint = new THREE.Mesh(
@@ -2293,6 +2566,8 @@ export class RealtimeBattle {
           transparent: true,
           opacity: 0.95,
           side: THREE.DoubleSide,
+          depthWrite: false,
+          depthTest: true,
         })
       );
       endpoint.rotation.x = -Math.PI / 2;
@@ -2308,6 +2583,12 @@ export class RealtimeBattle {
     preview.line.visible = true;
     const last = points[points.length - 1];
     preview.endpoint.position.copy(last);
+
+    const reducedMotion = this.presentation?.reducedMotion ?? false;
+    const time = performance.now() * 0.001;
+    const endpointPulse = reducedMotion ? 1.0 : 1.0 + Math.sin(time * 12.0) * 0.15;
+    preview.endpoint.scale.setScalar(endpointPulse);
+
     preview.endpoint.visible = true;
     preview.path = path;
     preview.target = { x: Math.floor(goalGrid.x), y: Math.floor(goalGrid.y) };
@@ -2517,7 +2798,9 @@ export class RealtimeBattle {
   onWheel(event) {
     if (document.activeElement !== this.canvas) return;
     event.preventDefault();
-    this.zoom = clamp(this.zoom + event.deltaY * 0.012, 9, 30);
+    const minZ = this.minFitZoom || 9;
+    const maxZ = Math.max(30, minZ + 10);
+    this.zoom = clamp(this.zoom + event.deltaY * 0.012, minZ, maxZ);
     this.hasManualZoomed = true;
   }
 
@@ -2871,7 +3154,9 @@ export class RealtimeBattle {
       if (!node.isMesh) return;
       const materials = Array.isArray(node.material) ? node.material : [node.material];
       for (const material of materials) {
-        if (material?.userData?.isRuntimeAssetClone) {
+        if (material?.userData?.isCommandObeliskOwnedMaterial) {
+          disposeUnique(material, disposed);
+        } else if (material?.userData?.isRuntimeAssetClone) {
           disposeUnique(node.geometry, disposed);
           disposeMaterialResources(material, disposed);
         } else if (material?.userData?.isBossIdentityTint || material?.userData?.isBossPhaseTint) {
@@ -3727,6 +4012,14 @@ export class RealtimeBattle {
         }
       }
     }
+
+    // Update active route preview endpoint pulse continuously
+    if (this.routePreviewActive && this.routePreview?.endpoint) {
+      const reducedMotion = this.presentation?.reducedMotion ?? false;
+      const time = performance.now() * 0.001;
+      const endpointPulse = reducedMotion ? 1.0 : 1.0 + Math.sin(time * 12.0) * 0.15;
+      this.routePreview.endpoint.scale.setScalar(endpointPulse);
+    }
   }
 
   updateMarqueeVisual() {
@@ -3811,7 +4104,9 @@ export class RealtimeBattle {
           dashSize: 0.2,
           gapSize: 0.1,
           transparent: true,
-          opacity: 0.8
+          opacity: 0.95,
+          depthWrite: false,
+          depthTest: true
         });
         this.commanderPathLine = new THREE.Line(geom, mat);
         this.scene.add(this.commanderPathLine);

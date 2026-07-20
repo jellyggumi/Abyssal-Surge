@@ -1786,6 +1786,78 @@ test("accepted first and second Hunt results are fully localized in Korean mode"
   }
 });
 
+test("composite executed reserved-command receipts localize commands, results, and extraction economy without leaking engine copy", async () => {
+  const translateStatus = await loadStatusTranslator();
+  const cases = [
+    {
+      action: "hunt",
+      detail: "You find a heatless footprint in the cinders.",
+      localizedDetail: "잿더미에서 열기 없는 흔적 하나를 발견했습니다. 균열을 특정하려면 한 번 더 사냥하십시오.",
+      actionableInstruction: "한 번 더 사냥하십시오.",
+      economyReceipt: false,
+    },
+    {
+      action: "hunt",
+      detail: "The second spoor opens into a soul cache before the rift can close (+1 summon essence).",
+      localizedDetail: "균열이 닫히기 전에 두 번째 흔적이 그림자 은닉처로 열렸습니다.",
+      economyReceipt: true,
+    },
+    {
+      action: "extract",
+      detail: "Four volatile shades tear free from the rift (+1 summon essence).",
+      localizedDetail: "네 명의 불안정한 그림자가 균열에서 흘러나왔습니다.",
+      economyReceipt: true,
+    },
+  ];
+
+  for (const { action, detail, localizedDetail, actionableInstruction, economyReceipt } of cases) {
+    const raw = `Executed reserved command: ${action}. ${detail}`;
+    const localizedCommand = translations.ko[`command.${action}.name`];
+    const rendered = translateStatus(raw, "ko");
+    const localizedPrefix = `예약된 ${localizedCommand} 명령 실행: ${localizedDetail}`;
+
+    if (economyReceipt) {
+      assert.equal(
+        rendered.startsWith(localizedPrefix),
+        true,
+        `${action} extraction feedback must compose its localized command name and result`,
+      );
+      assert.equal(
+        rendered.includes("+1 소환 정수"),
+        true,
+        `${action} extraction feedback must retain the earned summon-essence amount in Korean`,
+      );
+      assert.doesNotMatch(
+        rendered,
+        /[A-Za-z]/,
+        `${action} extraction feedback must contain no raw English engine sentence or economy label`,
+      );
+      assert.doesNotMatch(
+        rendered,
+        /summon essence/i,
+        `${action} extraction feedback must not leak the English summon-essence label`,
+      );
+    } else {
+      assert.equal(
+        rendered,
+        localizedPrefix,
+        `${action} execution feedback must compose its localized command name and result`,
+      );
+    }
+    if (actionableInstruction) {
+      assert.equal(
+        rendered.includes(actionableInstruction),
+        true,
+        `${action} execution feedback must retain the localized next action`,
+      );
+    }
+    assert.equal(rendered.includes("Executed reserved command"), false, "Korean execution feedback must not leak the English receipt");
+    assert.equal(rendered.includes(detail), false, `${action} execution feedback must not leak the raw English engine result`);
+    assert.equal(rendered.includes(action), false, `${action} execution feedback must not leak the raw command identifier`);
+    assert.equal(translateStatus(raw, "en"), raw, "English execution feedback must preserve the original composite receipt");
+  }
+});
+
 test("reserved command receipts use locale catalog command names without raw engine copy", async () => {
   const translateStatus = await loadStatusTranslator();
   const raw = "Reserved command: extract.";
@@ -3016,8 +3088,8 @@ test("short-landscape stylesheet retains explicit canvas, dossier, and command f
 
   assert.equal(
     responsiveCssDeclaration(cockpit, "grid-template-rows"),
-    "minmax(7.5rem, 1fr) auto !important",
-    "landscapes through 760px tall must reserve a viable field row followed by the intrinsic command row",
+    "minmax(0, 1fr) 14rem !important",
+    "landscapes through 760px tall must let the field shrink while reserving a 14rem command row",
   );
   assert.equal(
     responsiveCssDeclaration(battlefield, "min-height"),
@@ -3031,13 +3103,13 @@ test("short-landscape stylesheet retains explicit canvas, dossier, and command f
   );
   assert.equal(
     responsiveCssDeclaration(commands, "grid-template-areas"),
-    '"selection commands" !important',
-    "the compact command row must keep the selection dossier and controls side by side",
+    "none !important",
+    "the compact command dock must release its desktop grid areas for the flex-column cutover",
   );
   assert.equal(
     responsiveCssDeclaration(commands, "height"),
-    "auto !important",
-    "the compact command row must remain in intrinsic layout flow instead of covering the canvas",
+    "100% !important",
+    "the compact command dock must fill the reserved 14rem row without covering the canvas",
   );
   assert.equal(
     responsiveCssDeclaration(dossier, "display"),
