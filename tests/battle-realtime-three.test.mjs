@@ -612,6 +612,81 @@ test("RealtimeBattle mobile orbit fit keeps every sampled map point safe and whe
   }
 });
 
+test("RealtimeBattle computeMinFitZoom rejects depth-clipped points in a dense mobile sample set", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  const target = new THREE.Vector3(0, 0, 0);
+  const lookTarget = target.clone();
+  const elevation = 0.9;
+  const azimuth = 0.8;
+  const aspect = 390 / 844;
+  const denseSamples = [];
+
+  for (let gridY = 0; gridY <= battle.navigation.height; gridY += 1) {
+    for (let gridX = 0; gridX <= battle.navigation.width; gridX += 1) {
+      const world = battle.navigation.gridToWorld(gridX, gridY);
+      const y = battle.navigationAt(world.x, world.z).elevation * 0.42;
+      denseSamples.push(new THREE.Vector3(world.x, y, world.z));
+    }
+  }
+  battle.fitSamplePoints = () => denseSamples;
+
+  const lateralFit = battle.computeMinFitZoom(target, lookTarget, elevation, azimuth, aspect);
+  const clippedDistance = lateralFit + 0.05;
+  const clippedHorizontal = Math.cos(elevation) * clippedDistance;
+  const depthClippedSample = new THREE.Vector3(
+    target.x + Math.cos(azimuth) * clippedHorizontal,
+    target.y + Math.sin(elevation) * clippedDistance,
+    target.z + Math.sin(azimuth) * clippedHorizontal,
+  );
+  denseSamples.push(depthClippedSample);
+
+  const cameraAtLateralFit = new THREE.PerspectiveCamera(48, aspect, 0.1, 1e9);
+  const lateralHorizontal = Math.cos(elevation) * lateralFit;
+  cameraAtLateralFit.position.set(
+    target.x + Math.cos(azimuth) * lateralHorizontal,
+    target.y + Math.sin(elevation) * lateralFit,
+    target.z + Math.sin(azimuth) * lateralHorizontal,
+  );
+  cameraAtLateralFit.lookAt(lookTarget);
+  cameraAtLateralFit.updateMatrixWorld(true);
+  const clippedProjection = depthClippedSample.clone().project(cameraAtLateralFit);
+  assert.ok(
+    clippedProjection.z < -1 || clippedProjection.z > 1,
+    `the axial regression sample must be outside the clip volume at the lateral-only fit; received z=${clippedProjection.z}`,
+  );
+  assert.ok(
+    Math.abs(clippedProjection.x) <= 0.84 && Math.abs(clippedProjection.y) <= 0.84,
+    "the regression sample must isolate depth rejection rather than fail the existing lateral bounds",
+  );
+
+  const depthSafeFit = battle.computeMinFitZoom(target, lookTarget, elevation, azimuth, aspect);
+  assert.ok(
+    depthSafeFit > lateralFit,
+    `a depth-clipped sample must expand the mobile fit beyond ${lateralFit}; received ${depthSafeFit}`,
+  );
+
+  const fittedCamera = new THREE.PerspectiveCamera(48, aspect, 0.1, 1e9);
+  const fittedHorizontal = Math.cos(elevation) * depthSafeFit;
+  fittedCamera.position.set(
+    target.x + Math.cos(azimuth) * fittedHorizontal,
+    target.y + Math.sin(elevation) * depthSafeFit,
+    target.z + Math.sin(azimuth) * fittedHorizontal,
+  );
+  fittedCamera.lookAt(lookTarget);
+  fittedCamera.updateMatrixWorld(true);
+  for (const sample of denseSamples) {
+    const projected = sample.clone().project(fittedCamera);
+    assert.ok(
+      Math.abs(projected.x) <= 0.84
+        && Math.abs(projected.y) <= 0.84
+        && projected.z >= -1
+        && projected.z <= 1,
+      `the returned mobile fit must contain every dense sample in x, y, and z; received (${projected.x}, ${projected.y}, ${projected.z})`,
+    );
+  }
+});
+
 
 
 test("RealtimeBattle safely ignores playback requests from clip-less runtime bindings", () => {
@@ -1944,6 +2019,111 @@ test("RealtimeBattle command-obelisk clones own highlight materials while retain
     disposals,
     { sharedGeometry: 0, templateMaterial: 0, firstMaterial: 1, secondMaterial: 0 },
     "retiring one obelisk must release only its owned material and keep template geometry plus the live clone intact",
+  );
+});
+
+test("RealtimeBattle highlighted portal, extractor, boss, and obelisk clones isolate and retire their materials", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const disposals = {
+    geometry: 0,
+    texture: 0,
+    templateMaterial: 0,
+  };
+  const sharedGeometry = new THREE.BoxGeometry(1, 2, 1);
+  sharedGeometry.dispose = () => { disposals.geometry += 1; };
+  const sharedTexture = new THREE.Texture();
+  sharedTexture.dispose = () => { disposals.texture += 1; };
+  const templateMaterial = new THREE.MeshStandardMaterial({
+    color: 0x334455,
+    emissive: 0x111111,
+    emissiveIntensity: 0.25,
+    metalness: 0.2,
+    roughness: 0.6,
+    map: sharedTexture,
+  });
+  templateMaterial.dispose = () => { disposals.templateMaterial += 1; };
+  const templateScene = new THREE.Group();
+  const templateMesh = new THREE.Mesh(sharedGeometry, templateMaterial);
+  templateMesh.name = "interactive-template-mesh";
+  templateScene.add(templateMesh);
+
+  const cases = [
+    { resource: "props/rift-portal.glb", semantic: "materialize" },
+    { resource: "props/soul-extractor.glb", semantic: "extract" },
+    { resource: "bosses/cinder-warden.glb", semantic: "assault" },
+    { resource: "props/command-obelisk.glb", semantic: "capture" },
+  ];
+  const battle = new RealtimeBattle(null, { stageNumber: 1, reducedMotion: true });
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  for (const { resource } of cases) {
+    battle.templates.set(resource, { scene: templateScene, animations: [] });
+  }
+
+  const instances = cases.map(({ resource, semantic }) => {
+    const first = battle.cloneTemplate(resource, 1.8);
+    const second = battle.cloneTemplate(resource, 1.8);
+    const firstMesh = first.root.getObjectByName("interactive-template-mesh");
+    const secondMesh = second.root.getObjectByName("interactive-template-mesh");
+    return { resource, semantic, first, second, firstMesh, secondMesh };
+  });
+  const runtimeMaterials = instances.flatMap(({ firstMesh, secondMesh }) => [
+    firstMesh.material,
+    secondMesh.material,
+  ]);
+
+  assert.equal(
+    new Set([templateMaterial, ...runtimeMaterials]).size,
+    1 + runtimeMaterials.length,
+    "every highlighted runtime clone must own a material distinct from its template and every sibling",
+  );
+  for (const { resource, firstMesh, secondMesh } of instances) {
+    assert.strictEqual(firstMesh.geometry, sharedGeometry, `${resource} must retain template-shared geometry`);
+    assert.strictEqual(secondMesh.geometry, sharedGeometry, `${resource} sibling must retain template-shared geometry`);
+    assert.strictEqual(firstMesh.material.map, sharedTexture, `${resource} must retain its template-shared texture`);
+    assert.strictEqual(secondMesh.material.map, sharedTexture, `${resource} sibling must retain its template-shared texture`);
+  }
+
+  for (const { semantic, first, second, firstMesh, secondMesh } of instances) {
+    const siblingBaseline = secondMesh.material.emissiveIntensity;
+    battle.applyInteractiveHighlight(first.root, semantic, true, false, 0.8, 0);
+    assert.ok(
+      firstMesh.material.emissiveIntensity > siblingBaseline,
+      `${semantic} hover must visibly mutate the targeted clone`,
+    );
+    assert.equal(
+      secondMesh.material.emissiveIntensity,
+      siblingBaseline,
+      `${semantic} hover must not leak into its sibling clone`,
+    );
+    assert.equal(
+      templateMaterial.emissiveIntensity,
+      0.25,
+      `${semantic} hover must not mutate the cached GLB template`,
+    );
+  }
+
+  const ownedDisposals = new Map();
+  for (const material of runtimeMaterials) {
+    ownedDisposals.set(material, 0);
+    material.dispose = () => ownedDisposals.set(material, ownedDisposals.get(material) + 1);
+  }
+  for (const { first, second } of instances) {
+    battle.retire(first);
+    battle.retire(first);
+    battle.retire(second);
+    battle.retire(second);
+  }
+
+  assert.equal(
+    [...ownedDisposals.values()].every((count) => count === 1),
+    true,
+    "retire must dispose every runtime-owned material exactly once even when retirement is repeated",
+  );
+  assert.deepEqual(
+    disposals,
+    { geometry: 0, texture: 0, templateMaterial: 0 },
+    "retire must preserve cached template materials and template-shared geometry and textures",
   );
 });
 
@@ -3946,6 +4126,110 @@ test("RealtimeBattle boss phase transitions own their tint and emit one visual/a
   assert.equal(templateDisposals, 0, "retiring the boss must not dispose the template-shared source material");
   geometry.dispose();
   originalTemplateDispose();
+});
+
+test("RealtimeBattle marker pulses compose with the latest authoritative boss phase scale and emissive baseline", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const templateMaterial = new THREE.MeshStandardMaterial({
+    color: 0x473544,
+    emissive: 0x19080d,
+    emissiveIntensity: 0.3,
+  });
+  const templateScene = new THREE.Group();
+  const templateMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), templateMaterial);
+  templateMesh.name = "boss-phase-highlight-mesh";
+  templateScene.add(templateMesh);
+
+  const battle = new RealtimeBattle(null, {
+    stageNumber: 1,
+    reducedMotion: true,
+    palette: { hostile: "#ff204e" },
+  });
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  battle.templates.set("bosses/cinder-warden.glb", { scene: templateScene, animations: [] });
+  battle.boss = battle.cloneTemplate("bosses/cinder-warden.glb", 2.7);
+  battle.boss.root.userData.semantic = "assault";
+  battle.reconcileAllies = () => {};
+  battle.emitSelectionChange = () => {};
+  battle.applyEncounter = () => {};
+  battle.reconcileDeployments = () => {};
+  battle.updateNodeVisuals = () => {};
+  battle.syncObjectFeedback = () => {};
+  battle.particles = { emit() {} };
+  battle.audio = { playTone() {} };
+  battle.play = () => {};
+  let availableActions = new Set();
+  battle.getAvailableActions = () => availableActions;
+  const bossMesh = battle.boss.root.getObjectByName("boss-phase-highlight-mesh");
+  const closeTo = (actual, expected, message) => {
+    assert.ok(
+      Math.abs(actual - expected) <= 1e-10,
+      `${message}; expected ${expected}, received ${actual}`,
+    );
+  };
+
+  battle.applyCampaignState({
+    state: { bossHealth: 10, bossMaxHealth: 10, bossPhaseCount: 3 },
+  });
+  const initialPhaseScale = battle.boss.root.scale.x;
+  const initialPhaseIntensity = bossMesh.material.emissiveIntensity;
+  battle.bossExposed = false;
+  battle.lastHoveredAction = null;
+  battle.updateMarkerPulses(1 / 60);
+
+  battle.applyCampaignState({
+    state: { bossHealth: 2, bossMaxHealth: 10, bossPhaseCount: 3 },
+  });
+  const authoritativeScale = battle.boss.root.scale.x;
+  const authoritativeIntensity = bossMesh.material.emissiveIntensity;
+  assert.ok(authoritativeScale > initialPhaseScale, "a later authoritative boss phase must increase the boss scale");
+  assert.ok(
+    authoritativeIntensity > initialPhaseIntensity,
+    "reduced authoritative boss health and phase must raise the emissive baseline",
+  );
+
+  battle.bossExposed = true;
+  availableActions = new Set(["assault"]);
+  battle.updateMarkerPulses(1 / 60);
+  closeTo(
+    battle.boss.root.scale.x,
+    authoritativeScale * 1.02,
+    "actionable emphasis must multiply the latest authoritative phase scale",
+  );
+  closeTo(
+    bossMesh.material.emissiveIntensity,
+    authoritativeIntensity * 1.3,
+    "actionable emphasis must multiply the latest authoritative phase and health emissive baseline",
+  );
+
+  battle.lastHoveredAction = "assault";
+  battle.updateMarkerPulses(1 / 60);
+  closeTo(
+    battle.boss.root.scale.x,
+    authoritativeScale * 1.08,
+    "hover emphasis must multiply the latest authoritative phase scale",
+  );
+  closeTo(
+    bossMesh.material.emissiveIntensity,
+    authoritativeIntensity * 1.8,
+    "hover emphasis must multiply the latest authoritative phase and health emissive baseline",
+  );
+
+  battle.lastHoveredAction = null;
+  battle.bossExposed = false;
+  availableActions = new Set();
+  battle.updateMarkerPulses(1 / 60);
+  closeTo(
+    battle.boss.root.scale.x,
+    authoritativeScale,
+    "clearing emphasis must restore the latest authoritative phase scale",
+  );
+  closeTo(
+    bossMesh.material.emissiveIntensity,
+    authoritativeIntensity,
+    "clearing emphasis must restore the latest authoritative phase and health emissive baseline",
+  );
 });
 
 test("RealtimeBattle boss phase traversal preserves shared contact resources", async () => {

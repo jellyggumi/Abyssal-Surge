@@ -1038,24 +1038,28 @@ export class RealtimeBattle {
     if (this.stageNumber <= 3) return;
     const hex = this.presentation?.palette?.hostile;
     if (!hex) return;
+    this.ownRuntimeMaterials(root);
     const tint = new THREE.Color(hex);
     root.traverse((node) => {
       if (!node.isMesh) return;
       if (this.contactGeometry && node.geometry === this.contactGeometry) return;
-      if (this.contactMaterial && (node.material === this.contactMaterial || (Array.isArray(node.material) && node.material.includes(this.contactMaterial)))) return;
-      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      const wasArray = Array.isArray(node.material);
+      const materials = wasArray ? node.material : [node.material];
+      if (materials.includes(this.contactMaterial)) return;
       const tinted = materials.map((material) => {
-        if (!material) return material;
-        const clone = material.clone();
-        clone.userData.isBossIdentityTint = true;
-        if (clone.color) clone.color.lerp(tint, 0.55);
-        if ("emissive" in clone) {
-          clone.emissive = tint.clone();
-          clone.emissiveIntensity = 0.55;
+        if (!material || material === this.contactMaterial) return material;
+        material.userData = material.userData || {};
+        material.userData.isBossIdentityTint = true;
+        if (material.color) material.color.lerp(tint, 0.55);
+        if ("emissive" in material) {
+          if (material.emissive?.copy) material.emissive.copy(tint);
+          else material.emissive = tint.clone();
+          material.emissiveIntensity = 0.55;
+          material.userData.runtimeEmissiveIntensityBase = 0.55;
         }
-        return clone;
+        return material;
       });
-      node.material = tinted.length === 1 ? tinted[0] : tinted;
+      node.material = wasArray ? tinted : tinted[0];
     });
   }
 
@@ -1206,6 +1210,11 @@ export class RealtimeBattle {
     const template = this.templates.get(resource);
     if (!template) throw new Error(`Missing stage template ${resource}`);
     const localRoot = template.scene.clone(true);
+    const ownsHighlightMaterials = resource === "props/rift-portal.glb"
+      || resource === "props/soul-extractor.glb"
+      || resource === "props/command-obelisk.glb"
+      || resource.startsWith("bosses/");
+    if (ownsHighlightMaterials) this.ownRuntimeMaterials(localRoot);
     this.normalizeGroundCenter(localRoot, targetSize);
 
     // Transform boundary: localRoot holds the normalized GLTF model (scale & offset)
@@ -1286,6 +1295,9 @@ export class RealtimeBattle {
                 }
               }
             }
+            if (mat?.userData?.isRuntimeOwnedMaterial) {
+              mat.userData.runtimeEmissiveIntensityBase = Number(mat.emissiveIntensity) || 0;
+            }
           }
         }
       }
@@ -1302,25 +1314,32 @@ export class RealtimeBattle {
     }
 
     const instance = { root, mixer: new THREE.AnimationMixer(root), clips: template.animations, actions: new Map(), active: null, cooldown: 0 };
-    if (resource === "props/command-obelisk.glb") this.ownCommandObeliskMaterials(instance);
     this.mixers.push(instance.mixer);
     return instance;
   }
 
-  ownCommandObeliskMaterials(instance) {
-    instance?.root?.traverse?.((node) => {
+  ownRuntimeMaterials(root) {
+    const ownedBySource = new Map();
+    root?.traverse?.((node) => {
       if (!node.isMesh || !node.material) return;
-      const sourceMaterials = Array.isArray(node.material) ? node.material : [node.material];
+      const wasArray = Array.isArray(node.material);
+      const sourceMaterials = wasArray ? node.material : [node.material];
+      if (node.geometry === this.contactGeometry || sourceMaterials.includes(this.contactMaterial)) return;
       const ownedMaterials = sourceMaterials.map((material) => {
-        if (!material || material === this.contactMaterial) return material;
-        const owned = material.clone();
-        owned.userData = owned.userData || {};
-        owned.userData.isCommandObeliskOwnedMaterial = true;
+        if (!material || material === this.contactMaterial || material.userData?.isRuntimeOwnedMaterial) return material;
+        let owned = ownedBySource.get(material);
+        if (!owned) {
+          owned = material.clone();
+          owned.userData = owned.userData || {};
+          owned.userData.isRuntimeOwnedMaterial = true;
+          ownedBySource.set(material, owned);
+        }
         return owned;
       });
-      node.material = Array.isArray(node.material) ? ownedMaterials : ownedMaterials[0];
+      node.material = wasArray ? ownedMaterials : ownedMaterials[0];
     });
-    return instance;
+    if (root?.userData) delete root.userData.interactiveHighlightMaterials;
+    return root;
   }
 
   normalizeGroundCenter(root, targetSize) {
@@ -2362,6 +2381,8 @@ export class RealtimeBattle {
           !Number.isFinite(projected.x)
           || !Number.isFinite(projected.y)
           || !Number.isFinite(projected.z)
+          || projected.z < -1
+          || projected.z > 1
           || Math.abs(projected.x) > limit
           || Math.abs(projected.y) > limit
         ) {
@@ -2415,28 +2436,49 @@ export class RealtimeBattle {
       scaleMul = reducedMotion ? 1.02 : 1.02 + Math.sin(time * 6.0) * 0.02;
     }
 
-    const targetEmissiveIntensity = baseIntensity * emissiveIntensityMul;
-
-    root.traverse((child) => {
-      if (child.isMesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        for (const mat of materials) {
-          if (mat.isMeshStandardMaterial || mat.isMeshBasicMaterial) {
-            if ("emissiveIntensity" in mat) {
-              mat.emissiveIntensity = targetEmissiveIntensity;
+    root.userData = root.userData || {};
+    let materials = root.userData.interactiveHighlightMaterials;
+    if (!materials) {
+      materials = [];
+      root.traverse((child) => {
+        if (!child.isMesh || !child.material) return;
+        if (Array.isArray(child.material)) {
+          for (const material of child.material) {
+            if ((material?.isMeshStandardMaterial || material?.isMeshBasicMaterial) && "emissiveIntensity" in material) {
+              materials.push(material);
             }
           }
+        } else if (
+          (child.material.isMeshStandardMaterial || child.material.isMeshBasicMaterial)
+          && "emissiveIntensity" in child.material
+        ) {
+          materials.push(child.material);
         }
-      }
-    });
-
-    if (!Object.prototype.hasOwnProperty.call(root.userData, "originalScale")) {
-      root.userData.originalScale = root.scale.clone ? root.scale.clone() : new THREE.Vector3(1, 1, 1);
+      });
+      root.userData.interactiveHighlightMaterials = materials;
     }
-    if (!isHovered && !isActionable) {
-      root.scale.copy(root.userData.originalScale);
+
+    const bossPhaseScale = Number(root.userData.bossPhaseScale);
+    const composesBossPhase = root === this.boss?.root && Number.isFinite(bossPhaseScale) && bossPhaseScale > 0;
+    for (const material of materials) {
+      const authoritativeIntensity = composesBossPhase
+        ? Number(material.userData?.bossPhaseEmissiveIntensity)
+        : Number.NaN;
+      const intensityBase = Number.isFinite(authoritativeIntensity) ? authoritativeIntensity : baseIntensity;
+      material.emissiveIntensity = intensityBase * emissiveIntensityMul;
+    }
+
+    if (composesBossPhase) {
+      root.scale.setScalar(bossPhaseScale * scaleMul);
     } else {
-      root.scale.copy(root.userData.originalScale).multiplyScalar(scaleMul);
+      if (!Object.prototype.hasOwnProperty.call(root.userData, "originalScale")) {
+        root.userData.originalScale = root.scale.clone ? root.scale.clone() : new THREE.Vector3(1, 1, 1);
+      }
+      if (!isHovered && !isActionable) {
+        root.scale.copy(root.userData.originalScale);
+      } else {
+        root.scale.copy(root.userData.originalScale).multiplyScalar(scaleMul);
+      }
     }
   }
 
@@ -2956,6 +2998,7 @@ export class RealtimeBattle {
     if (!this.boss?.root) return;
     const root = this.boss.root;
     root.userData = root.userData || {};
+    this.ownRuntimeMaterials(root);
     this.boss.phase = phase;
     this.boss.phaseIndex = phaseIndex;
     this.boss.phaseCue = phase.phaseCue ?? null;
@@ -2963,39 +3006,46 @@ export class RealtimeBattle {
     const baseScale = Number(root.userData.bossPhaseBaseScale) || root.scale?.x || 1;
     root.userData.bossPhaseBaseScale = baseScale;
     const phaseScale = 1 + Math.min(0.12, phaseIndex * 0.035);
-    root.scale?.setScalar?.(baseScale * phaseScale);
+    const bossPhaseScale = baseScale * phaseScale;
+    root.userData.bossPhaseScale = bossPhaseScale;
+    root.scale?.setScalar?.(bossPhaseScale);
 
     const hostileColor = new THREE.Color(this.presentation?.palette?.hostile ?? "#ff7f79");
     const tintAmount = Math.min(0.24, phaseIndex * 0.07 + (1 - normalizedHealth) * 0.1);
     root.traverse?.((node) => {
       if (!node.isMesh) return;
-      const materials = Array.isArray(node.material) ? node.material : [node.material];
-      if (node.geometry === this.contactGeometry || materials.includes(this.contactMaterial)) return;
+      if (node.geometry === this.contactGeometry) return;
+      const wasArray = Array.isArray(node.material);
+      const materials = wasArray ? node.material : [node.material];
+      if (materials.includes(this.contactMaterial)) return;
       const ownedMaterials = materials.map((material) => {
-        if (!material) return material;
-        let owned = material;
-        if (!material.userData?.isBossIdentityTint && !material.userData?.isBossPhaseTint) {
-          owned = material.clone();
-          owned.userData.isBossPhaseTint = true;
+        if (!material || material === this.contactMaterial) return material;
+        material.userData = material.userData || {};
+        material.userData.isBossPhaseTint = true;
+        if (!material.userData.bossPhaseBaseColor && material.color?.clone) material.userData.bossPhaseBaseColor = material.color.clone();
+        if (!material.userData.bossPhaseBaseEmissive && material.emissive?.clone) material.userData.bossPhaseBaseEmissive = material.emissive.clone();
+        if (!Object.prototype.hasOwnProperty.call(material.userData, "bossPhaseBaseEmissiveIntensity")) {
+          const runtimeBase = Number(material.userData.runtimeEmissiveIntensityBase);
+          material.userData.bossPhaseBaseEmissiveIntensity = Number.isFinite(runtimeBase)
+            ? runtimeBase
+            : Number(material.emissiveIntensity) || 0;
         }
-        if (!owned.userData) owned.userData = {};
-        if (!owned.userData.bossPhaseBaseColor && owned.color?.clone) owned.userData.bossPhaseBaseColor = owned.color.clone();
-        if (!owned.userData.bossPhaseBaseEmissive && owned.emissive?.clone) owned.userData.bossPhaseBaseEmissive = owned.emissive.clone();
-        if (!Object.prototype.hasOwnProperty.call(owned.userData, "bossPhaseBaseEmissiveIntensity")) {
-          owned.userData.bossPhaseBaseEmissiveIntensity = Number(owned.emissiveIntensity) || 0;
+        if (material.color?.copy && material.userData.bossPhaseBaseColor) {
+          material.color.copy(material.userData.bossPhaseBaseColor).lerp(hostileColor, tintAmount);
         }
-        if (owned.color?.copy && owned.userData.bossPhaseBaseColor) {
-          owned.color.copy(owned.userData.bossPhaseBaseColor).lerp(hostileColor, tintAmount);
+        if (material.emissive?.copy && material.userData.bossPhaseBaseEmissive) {
+          material.emissive.copy(material.userData.bossPhaseBaseEmissive).lerp(hostileColor, Math.min(0.45, tintAmount * 1.8));
         }
-        if (owned.emissive?.copy && owned.userData.bossPhaseBaseEmissive) {
-          owned.emissive.copy(owned.userData.bossPhaseBaseEmissive).lerp(hostileColor, Math.min(0.45, tintAmount * 1.8));
+        if ("emissiveIntensity" in material) {
+          const phaseIntensity = material.userData.bossPhaseBaseEmissiveIntensity
+            + phaseIndex * 0.08
+            + (1 - normalizedHealth) * 0.12;
+          material.userData.bossPhaseEmissiveIntensity = phaseIntensity;
+          material.emissiveIntensity = phaseIntensity;
         }
-        if ("emissiveIntensity" in owned) {
-          owned.emissiveIntensity = owned.userData.bossPhaseBaseEmissiveIntensity + phaseIndex * 0.08 + (1 - normalizedHealth) * 0.12;
-        }
-        return owned;
+        return material;
       });
-      node.material = ownedMaterials.length === 1 ? ownedMaterials[0] : ownedMaterials;
+      node.material = wasArray ? ownedMaterials : ownedMaterials[0];
     });
 
     const cue = String(phase.phaseCue?.clip ?? phase.phaseCue ?? "").toLowerCase();
@@ -3154,12 +3204,14 @@ export class RealtimeBattle {
       if (!node.isMesh) return;
       const materials = Array.isArray(node.material) ? node.material : [node.material];
       for (const material of materials) {
-        if (material?.userData?.isCommandObeliskOwnedMaterial) {
-          disposeUnique(material, disposed);
-        } else if (material?.userData?.isRuntimeAssetClone) {
+        if (material?.userData?.isRuntimeAssetClone) {
           disposeUnique(node.geometry, disposed);
           disposeMaterialResources(material, disposed);
-        } else if (material?.userData?.isBossIdentityTint || material?.userData?.isBossPhaseTint) {
+        } else if (
+          material?.userData?.isRuntimeOwnedMaterial
+          || material?.userData?.isBossIdentityTint
+          || material?.userData?.isBossPhaseTint
+        ) {
           disposeUnique(material, disposed);
         }
       }

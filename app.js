@@ -33,7 +33,7 @@ import { TacticalMinimap } from "./tactical-minimap.js";
 import { currentLang, translate, translations } from "./i18n.js";
 import { getCombatAlertCue, resolveBossPhase } from "./combat-systems.js";
 
-const BUILD_TAG = "abyssal-surge-static-v55";
+const BUILD_TAG = "abyssal-surge-static-v56";
 const DB_NAME = "abyssal-surge-campaign";
 const DB_VERSION = 1;
 const STORE_NAME = "campaigns";
