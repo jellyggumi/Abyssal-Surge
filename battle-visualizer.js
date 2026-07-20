@@ -31,6 +31,14 @@ import { resolveEnemyPattern, resolveBossPhase, getCombatAlertCue } from "./comb
 
 let rendererRequestSequence = 0;
 
+// Backing-store resolution cap for the Canvas2D tilemap. Raised from the
+// previous 2x cap so tile edges and unit silhouettes stay crisp while
+// zoomed in (mouse wheel) on high-DPI displays instead of upscaling a
+// lower-resolution bitmap. computeView() and buildStaticLayer() must agree
+// on this value — the static chunk canvases are baked at this DPR and drawn
+// back through a context transform set to the same DPR.
+const CANVAS_DPR_CAP = 3;
+
 // Keyed by navigation.zones[].kind (hazard/current/high-ground/cover/flank/
 // objective/exposed) so the battlefield tint always identifies the actual
 // gimmick, matching the hues tactical-minimap.js uses for the same kinds.
@@ -281,6 +289,9 @@ export class BattleVisualizer {
     };
     globalThis.document?.addEventListener?.("visibilitychange", this.handleVisibilityChange);
     this.view = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 };
+    // Multiplier on top of the auto-fit scale computed in computeView(),
+    // driven by mouse-wheel zoom. 1 = auto-fit (unchanged default framing).
+    this.manualZoom = 1;
     this.terrainMode = TILEMAP_RENDER_MODE.CHUNK;
     this.staticChunks = new Map();
     this.staticChunksList = [];
@@ -536,7 +547,7 @@ export class BattleVisualizer {
   computeView() {
     const cssW = Math.max(this.canvas.clientWidth, 1);
     const cssH = Math.max(this.canvas.clientHeight, 1);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, CANVAS_DPR_CAP);
     this.canvas.width = Math.round(cssW * dpr);
     this.canvas.height = Math.round(cssH * dpr);
     this.view.width = cssW;
@@ -556,15 +567,21 @@ export class BattleVisualizer {
 
     const defaultScale = Math.min(cssW / worldW, cssH / worldH);
     if (this.focusCell) {
-      const zoomScale = defaultScale * 2.0;
+      const zoomScale = defaultScale * 2.0 * this.manualZoom;
       this.view.scale = zoomScale;
       const cellCenter = worldToScreen(this.focusCell.x + 0.5, this.focusCell.y + 0.5, this.elevationAt(this.focusCell.x + 0.5, this.focusCell.y + 0.5));
       this.view.offsetX = cssW / 2 - cellCenter.x * zoomScale;
       this.view.offsetY = cssH / 2 - cellCenter.y * zoomScale;
     } else {
-      this.view.scale = defaultScale;
-      this.view.offsetX = (cssW - worldW * defaultScale) / 2 - minX * defaultScale;
-      this.view.offsetY = (cssH - worldH * defaultScale) / 2 - minY * defaultScale;
+      const scale = defaultScale * this.manualZoom;
+      this.view.scale = scale;
+      // Keep the world point currently at screen-center fixed while zooming
+      // (mouse-wheel zoom-to-center), instead of re-centering on the whole
+      // map bounds every time manualZoom changes.
+      const centerWorldX = minX + worldW / 2;
+      const centerWorldY = minY + worldH / 2;
+      this.view.offsetX = cssW / 2 - centerWorldX * scale;
+      this.view.offsetY = cssH / 2 - centerWorldY * scale;
     }
 
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -661,7 +678,7 @@ export class BattleVisualizer {
   // --- terrain cache and shared draw ordering ------------------------------
 
   buildStaticLayer() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, CANVAS_DPR_CAP);
     this.terrainMode = selectTilemapRenderMode({
       width: this.navigation.width,
       height: this.navigation.height,
@@ -1454,6 +1471,22 @@ export class BattleVisualizer {
       event.preventDefault();
     };
 
+    // Mouse-wheel zoom, mirroring RealtimeBattle.onWheel: only active while
+    // the canvas holds focus (set on pointerdown above), so page scroll
+    // outside the battlefield is never hijacked.
+    const wheel = (event) => {
+      if (document.activeElement !== this.canvas) return;
+      event.preventDefault();
+      const MIN_ZOOM = 0.6;
+      const MAX_ZOOM = 2.4;
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.manualZoom - event.deltaY * 0.0014));
+      if (next === this.manualZoom) return;
+      this.manualZoom = next;
+      this.computeView();
+      this.buildStaticLayer();
+      this.renderStatic();
+    };
+
     this.canvas.addEventListener("pointerdown", down);
     this.canvas.addEventListener("pointermove", move);
     this.canvas.addEventListener("pointerup", up);
@@ -1462,7 +1495,8 @@ export class BattleVisualizer {
     this.canvas.addEventListener("pointerleave", leave);
     this.canvas.addEventListener("blur", blur);
     this.canvas.addEventListener("contextmenu", contextmenu);
-    this.pointerHandlers = { down, move, up, cancel, lostCapture, leave, blur, contextmenu };
+    this.canvas.addEventListener("wheel", wheel, { passive: false });
+    this.pointerHandlers = { down, move, up, cancel, lostCapture, leave, blur, contextmenu, wheel };
   }
   // Spreads selected allies across a small BFS-discovered footprint around
   // the target tile (superseding the old single-point issueMoveOrder) so a
@@ -3472,6 +3506,7 @@ export class BattleVisualizer {
       this.canvas?.removeEventListener("pointerleave", this.pointerHandlers.leave);
       this.canvas?.removeEventListener("blur", this.pointerHandlers.blur);
       this.canvas?.removeEventListener("contextmenu", this.pointerHandlers.contextmenu);
+      this.canvas?.removeEventListener("wheel", this.pointerHandlers.wheel);
     }
     if (this.keydownHandler) {
       this.canvas?.removeEventListener("keydown", this.keydownHandler);

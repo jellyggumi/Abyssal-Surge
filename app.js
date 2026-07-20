@@ -510,8 +510,6 @@ const elements = Object.freeze({
   bgmToggle: document.querySelector("#bgm-toggle"),
   bgmPlayer: document.querySelector("#bgm-player"),
   languageToggle: document.querySelector("#lang-toggle"),
-  battleMissionCurrent: document.querySelector("#battle-mission-current"),
-  battleMissionWhy: document.querySelector("#battle-mission-why")
 });
 
 let campaign = null;
@@ -3138,32 +3136,6 @@ function render() {
   renderResult(isComplete);
   syncCockpit();
 
-  if (pendingChecklistItem) {
-    let guideId = pendingChecklistItem.id;
-    if (guideId.startsWith("wave-")) {
-      guideId = "wave";
-    }
-    const currentText = translate(`guide.${guideId}.current`);
-    const whyText = translate(`guide.${guideId}.why`);
-    const loopText = translate(`guide.${guideId}.loop`);
-    const fantasyText = translate("mission.fantasy");
-    const winText = translate("mission.winCondition");
-    const lossText = translate("mission.lossCondition");
-    
-    if (elements.battleMissionCurrent) {
-      elements.battleMissionCurrent.textContent = currentText;
-    }
-    if (elements.battleMissionWhy) {
-      elements.battleMissionWhy.textContent = `${whyText} [${loopText}] \n(${fantasyText} | ${winText} | ${lossText})`;
-    }
-  } else {
-    if (elements.battleMissionCurrent) {
-      elements.battleMissionCurrent.textContent = "";
-    }
-    if (elements.battleMissionWhy) {
-      elements.battleMissionWhy.textContent = "";
-    }
-  }
 
   const nextObjectiveAction = pendingChecklistItem?.id;
   projectBattleRuntime();

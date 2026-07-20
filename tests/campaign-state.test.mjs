@@ -551,16 +551,16 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
   assert.deepEqual(
     stage.encounter,
     {
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 4,
       preparationNodes: 1,
       waves: [
-        { id: "scout", spawnAtSeconds: 8, hostiles: 2, hostileHealth: 2, breachDamage: 1 },
-        { id: "guard", spawnAtSeconds: 22, hostiles: 3, hostileHealth: 2, breachDamage: 1 },
-        { id: "reinforcement", spawnAtSeconds: 36, hostiles: 3, hostileHealth: 2, breachDamage: 1 },
+        { id: "scout", spawnAtSeconds: 12, hostiles: 2, hostileHealth: 2, breachDamage: 1 },
+        { id: "guard", spawnAtSeconds: 33, hostiles: 3, hostileHealth: 2, breachDamage: 1 },
+        { id: "reinforcement", spawnAtSeconds: 54, hostiles: 3, hostileHealth: 2, breachDamage: 1 },
       ],
     },
-    "Stage 1 must publish the declared 8/22/36 second 2/3/3 hostile encounter schedule.",
+    "Stage 1 must publish the declared 12/33/54 second 2/3/3 hostile encounter schedule.",
   );
 
   let state = commands(start(), S1_PREPARATION);
@@ -1535,14 +1535,14 @@ test("v7 publishes only campaign limits globally and keeps combat and rewards wi
   );
 
   assert.deepEqual(veilCitadel.commands.assault, {
-    cooldown: 3,
+    cooldown: 4,
     damage: 3,
     possessedDamage: 1,
     requiresPossessed: true,
     counter: { mode: "shielded", baseDamage: 2, shieldDivisor: 4, thinLegion: 4, thinPenalty: 1 },
   });
   assert.deepEqual(echoThrone.commands.assault, {
-    cooldown: 3,
+    cooldown: 4,
     damage: 4,
     possessedDamage: 1,
     counter: { mode: "shielded", baseDamage: 6, shieldDivisor: 4, thinLegion: 5, thinPenalty: 1 },

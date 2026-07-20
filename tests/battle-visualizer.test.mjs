@@ -554,13 +554,61 @@ test("BattleVisualizer destroy removes every pointer and visibility listener it 
   });
   const visualizer = makeVisualizer(t, { canvas });
   visualizer.attachPointerHandlers();
-  assert.equal(canvas.listeners.size, 8, "the pointer seam must register its complete interaction listener set");
+  assert.equal(canvas.listeners.size, 9, "the pointer seam must register its complete interaction listener set");
   assert.equal(documentListeners.has("visibilitychange"), true, "the renderer must observe document visibility while alive");
 
   visualizer.destroy();
 
   assert.equal(canvas.listeners.size, 0, "destroy must remove every canvas listener registered by the pointer seam");
   assert.equal(documentListeners.size, 0, "destroy must remove its document visibility listener");
+});
+
+test("BattleVisualizer mouse-wheel zoom adjusts view.scale while focused, clamps at its bounds, and is inert without canvas focus", (t) => {
+  const canvas = makePointerCanvas();
+  const priorDocument = globalThis.document;
+  globalThis.document = { activeElement: canvas, addEventListener() {}, removeEventListener() {} };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+  });
+
+  const visualizer = makeVisualizer(t, { canvas });
+  visualizer.view = { scale: 10, offsetX: 0, offsetY: 0, width: 320, height: 180 };
+  let computeViewCalls = 0;
+  // computeView()'s own geometry math is exercised by the projection tests
+  // above; this test only needs to verify that onWheel drives manualZoom
+  // through the same computeView -> buildStaticLayer -> renderStatic
+  // pipeline resize() already uses, so scale is simulated proportionally.
+  visualizer.computeView = () => {
+    computeViewCalls += 1;
+    visualizer.view.scale = 10 * visualizer.manualZoom;
+  };
+  let rebuilds = 0;
+  visualizer.buildStaticLayer = () => { rebuilds += 1; };
+  visualizer.attachPointerHandlers();
+
+  const baseScale = visualizer.view.scale;
+  assert.equal(visualizer.manualZoom, 1, "zoom starts at the auto-fit default");
+
+  let prevented = 0;
+  canvas.dispatch("wheel", { deltaY: -100, preventDefault: () => { prevented += 1; } });
+  assert.ok(visualizer.manualZoom > 1, "scrolling up (negative deltaY) must zoom in");
+  assert.ok(visualizer.view.scale > baseScale, "a larger manualZoom must raise the effective view scale");
+  assert.equal(prevented, 1, "wheel zoom must prevent default page scroll");
+  assert.equal(computeViewCalls, 1, "each zoom step must recompute the view");
+  assert.equal(rebuilds, 1, "each zoom step must rebake static chunks at the new scale");
+
+  for (let i = 0; i < 50; i += 1) canvas.dispatch("wheel", { deltaY: -1000 });
+  assert.equal(visualizer.manualZoom, 2.4, "zooming in repeatedly must clamp at the maximum");
+
+  for (let i = 0; i < 80; i += 1) canvas.dispatch("wheel", { deltaY: 1000 });
+  assert.equal(visualizer.manualZoom, 0.6, "zooming out repeatedly must clamp at the minimum");
+
+  const rebuildsBeforeUnfocused = rebuilds;
+  globalThis.document.activeElement = null;
+  canvas.dispatch("wheel", { deltaY: -100 });
+  assert.equal(visualizer.manualZoom, 0.6, "wheel input must be ignored while the canvas is not focused");
+  assert.equal(rebuilds, rebuildsBeforeUnfocused, "an ignored wheel event must not trigger a rebuild");
 });
 
 test("BattleVisualizer previewAction and clearActionPreview expose a controlled DOM preview seam", (t) => {

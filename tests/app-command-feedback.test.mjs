@@ -2493,13 +2493,13 @@ test("live frontline HUD projects Korean and English pending, live, and boss sta
   const contracts = {
     en: {
       pending: {
-        forecast: { text: "Forecast: 1/3 scout · 2 hostiles · 8s", state: "pending" },
+        forecast: { text: "Forecast: 1/3 scout · 2 hostiles · 12s", state: "pending" },
         advance: { text: "Spawn pending · awaiting the next approach", state: "waiting" },
         bossPhase: { text: "Boss phase locked · clear the waves first", state: "locked" },
         enemyGrowth: { text: "Enemy growth 1/3 · 0 active", state: "pending" },
       },
       live: {
-        forecast: { text: "Forecast: 1/3 scout · 2 hostiles · 8s", state: "live" },
+        forecast: { text: "Forecast: 1/3 scout · 2 hostiles · 12s", state: "live" },
         advance: { text: "2 enemies advancing · 1 engagements", state: "engaged" },
         bossPhase: { text: "Boss phase locked · clear the waves first", state: "locked" },
         enemyGrowth: { text: "Enemy growth 1/3 · 2 active", state: "live" },
@@ -2513,13 +2513,13 @@ test("live frontline HUD projects Korean and English pending, live, and boss sta
     },
     ko: {
       pending: {
-        forecast: { text: "예측: 1/3 정찰 · 적 2명 · 8초", state: "pending" },
+        forecast: { text: "예측: 1/3 정찰 · 적 2명 · 12초", state: "pending" },
         advance: { text: "생성 대기 · 다음 웨이브 접근 전", state: "waiting" },
         bossPhase: { text: "보스 단계 잠김 · 웨이브를 먼저 돌파", state: "locked" },
         enemyGrowth: { text: "적 성장 1/3 · 활성 0명", state: "pending" },
       },
       live: {
-        forecast: { text: "예측: 1/3 정찰 · 적 2명 · 8초", state: "live" },
+        forecast: { text: "예측: 1/3 정찰 · 적 2명 · 12초", state: "live" },
         advance: { text: "적 2명 진입 · 1곳 교전", state: "engaged" },
         bossPhase: { text: "보스 단계 잠김 · 웨이브를 먼저 돌파", state: "locked" },
         enemyGrowth: { text: "적 성장 1/3 · 활성 2명", state: "live" },

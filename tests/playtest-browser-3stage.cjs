@@ -4092,7 +4092,7 @@ async function run() {
     }
     if (COMPACT_FIELD_OVERLAY_MODE) {
       await verifyCompactFieldOverlay(browser, hosting.baseUrl);
-      console.log("PLAYTEST_BROWSER_COMPACT_FIELD_OVERLAY_PASS viewport=360x800 contexts=standard,reduced overlay=hidden mission=visible controls=reachable canvas=unobstructed");
+      console.log("PLAYTEST_BROWSER_COMPACT_FIELD_OVERLAY_PASS viewport=360x800 contexts=standard,reduced overlay=visible tactical-readout=visible controls=reachable canvas=unobstructed");
       return;
     }
     if (STAGE_THREE_CHECKLIST_MODE) {

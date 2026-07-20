@@ -855,8 +855,11 @@ test("desktop cockpit keeps battlefield, status rail, and command deck as stable
   ]);
   const declaredIds = reactLiteralIds(reactUi);
 
-  for (const id of ["battle-field", "command-panel", "battle-mission-guide", "battle-mission-current", "battle-mission-why"]) {
+  for (const id of ["battle-field", "command-panel"]) {
     assert.equal(declaredIds.has(id), true, `the React cockpit must expose #${id}`);
+  }
+  for (const id of ["battle-mission-guide", "battle-mission-current", "battle-mission-why"]) {
+    assert.equal(declaredIds.has(id), false, `the retired duplicate mission guide must not reappear as #${id}`);
   }
   for (const className of ["cockpit-main", "field-edge-hud"]) {
     assert.match(reactUi, new RegExp(`className:\\s*['"][^'"]*\\b${className}\\b`), `the React cockpit must expose .${className}`);
@@ -873,11 +876,6 @@ test("desktop cockpit keeps battlefield, status rail, and command deck as stable
   assert.equal(cssDeclaration(statusRailRule, "grid-area"), "hud", "status rail must own the desktop HUD area");
   assert.equal(cssDeclaration(commandDeckRule, "grid-area"), "commands", "command deck must own the desktop commands area");
 
-  for (const key of ["mission.kicker", "mission.loop", "mission.win", "mission.lose"]) {
-    assert.match(reactUi, new RegExp(`['"]data-i18n['"]:\\s*['"]${key.replace(".", "\\.")}['"]`), `mission guide must expose ${key}`);
-    assert.match(translations.ko[key], /\p{Script=Hangul}/u, `${key} must provide Korean mission guidance`);
-    assert.match(translations.en[key], /[A-Za-z]/, `${key} must remain available after the English toggle`);
-  }
 });
 
 
@@ -1007,7 +1005,6 @@ test("360px essential HUD copy stays at least 12.5px and utility and save target
   const essentialLabels = [
     ".cockpit-top .wave-badge",
     ".battle-resource-bar dt",
-    ".battle-mission-guide strong",
     ".selection-dossier span",
     ".selection-dossier small",
     ".field-command-dock .status-message",

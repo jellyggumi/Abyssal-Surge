@@ -90,11 +90,11 @@ const DEFAULT_SUMMON_PROGRESSION = Object.freeze({
 });
 
 const STANDARD_COMMAND_COOLDOWNS = Object.freeze({
-  hunt: 4,
-  extract: 5,
-  materialize: 5,
-  capture: 6,
-  assault: 3
+  hunt: 7,
+  extract: 8,
+  materialize: 8,
+  capture: 10,
+  assault: 4
 });
 
 export const STAGES = Object.freeze([
@@ -126,13 +126,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 4,
       preparationNodes: 1,
       waves: Object.freeze([
-        Object.freeze({ id: "scout", spawnAtSeconds: 8, hostiles: 2, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "guard", spawnAtSeconds: 22, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "reinforcement", spawnAtSeconds: 36, hostiles: 3, hostileHealth: 2, breachDamage: 1 })
+        Object.freeze({ id: "scout", spawnAtSeconds: 12, hostiles: 2, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "guard", spawnAtSeconds: 33, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "reinforcement", spawnAtSeconds: 54, hostiles: 3, hostileHealth: 2, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -259,13 +259,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 2,
       waves: Object.freeze([
-        Object.freeze({ id: "tide", spawnAtSeconds: 10, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "undertow", spawnAtSeconds: 24, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "riptide", spawnAtSeconds: 38, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "depthguard", spawnAtSeconds: 52, hostiles: 4, hostileHealth: 3, breachDamage: 1 })
+        Object.freeze({ id: "tide", spawnAtSeconds: 15, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "undertow", spawnAtSeconds: 36, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "riptide", spawnAtSeconds: 57, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "depthguard", spawnAtSeconds: 78, hostiles: 4, hostileHealth: 3, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -310,13 +310,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 2,
       waves: Object.freeze([
-        Object.freeze({ id: "howler", spawnAtSeconds: 10, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "packrunner", spawnAtSeconds: 24, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "alphaguard", spawnAtSeconds: 38, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "direpack", spawnAtSeconds: 52, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
+        Object.freeze({ id: "howler", spawnAtSeconds: 15, hostiles: 3, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "packrunner", spawnAtSeconds: 36, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "alphaguard", spawnAtSeconds: 57, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "direpack", spawnAtSeconds: 78, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -362,13 +362,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 2,
       waves: Object.freeze([
-        Object.freeze({ id: "requiem", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "dirge", spawnAtSeconds: 26, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "lament", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "threnody", spawnAtSeconds: 58, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
+        Object.freeze({ id: "requiem", spawnAtSeconds: 15, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "dirge", spawnAtSeconds: 39, hostiles: 4, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "lament", spawnAtSeconds: 63, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "threnody", spawnAtSeconds: 87, hostiles: 5, hostileHealth: 3, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -414,13 +414,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 3,
       waves: Object.freeze([
-        Object.freeze({ id: "lantern", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "bargeguard", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "tollkeeper", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "tyrantwake", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 3, breachDamage: 1 })
+        Object.freeze({ id: "lantern", spawnAtSeconds: 15, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "bargeguard", spawnAtSeconds: 39, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "tollkeeper", spawnAtSeconds: 63, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "tyrantwake", spawnAtSeconds: 87, hostiles: 6, hostileHealth: 3, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -466,13 +466,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 3,
       waves: Object.freeze([
-        Object.freeze({ id: "rubble", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "spanwarden", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "keystone", spawnAtSeconds: 42, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "colossusguard", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
+        Object.freeze({ id: "rubble", spawnAtSeconds: 15, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "spanwarden", spawnAtSeconds: 39, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "keystone", spawnAtSeconds: 63, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "colossusguard", spawnAtSeconds: 87, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -519,13 +519,13 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 3,
       waves: Object.freeze([
-        Object.freeze({ id: "acolyte", spawnAtSeconds: 10, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "votary", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "oathbound", spawnAtSeconds: 42, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "concord", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
+        Object.freeze({ id: "acolyte", spawnAtSeconds: 15, hostiles: 4, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "votary", spawnAtSeconds: 39, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "oathbound", spawnAtSeconds: 63, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "concord", spawnAtSeconds: 87, hostiles: 6, hostileHealth: 4, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -572,14 +572,14 @@ export const STAGES = Object.freeze([
       })
     }),
     encounter: Object.freeze({
-      preparationSeconds: 8,
+      preparationSeconds: 12,
       preparationLegion: 3,
       waves: Object.freeze([
-        Object.freeze({ id: "zenithguard", spawnAtSeconds: 10, hostiles: 5, hostileHealth: 2, breachDamage: 1 }),
-        Object.freeze({ id: "stormherald", spawnAtSeconds: 26, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "gatewrath", spawnAtSeconds: 42, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
-        Object.freeze({ id: "regentsown", spawnAtSeconds: 58, hostiles: 6, hostileHealth: 4, breachDamage: 1 }),
-        Object.freeze({ id: "lasttide", spawnAtSeconds: 74, hostiles: 7, hostileHealth: 4, breachDamage: 1 })
+        Object.freeze({ id: "zenithguard", spawnAtSeconds: 15, hostiles: 5, hostileHealth: 2, breachDamage: 1 }),
+        Object.freeze({ id: "stormherald", spawnAtSeconds: 39, hostiles: 5, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "gatewrath", spawnAtSeconds: 63, hostiles: 6, hostileHealth: 3, breachDamage: 1 }),
+        Object.freeze({ id: "regentsown", spawnAtSeconds: 87, hostiles: 6, hostileHealth: 4, breachDamage: 1 }),
+        Object.freeze({ id: "lasttide", spawnAtSeconds: 111, hostiles: 7, hostileHealth: 4, breachDamage: 1 })
       ])
     }),
     rewards: Object.freeze([
@@ -1572,13 +1572,13 @@ export function getCommandCooldown(state, command) {
   let baseCooldown = commandDef.cooldown;
   if (baseCooldown === undefined) {
     const defaults = {
-      hunt: 4,
-      extract: 5,
-      materialize: 5,
-      capture: 6,
-      possess: 10,
-      domain: 15,
-      assault: 3
+      hunt: STANDARD_COMMAND_COOLDOWNS.hunt,
+      extract: STANDARD_COMMAND_COOLDOWNS.extract,
+      materialize: STANDARD_COMMAND_COOLDOWNS.materialize,
+      capture: STANDARD_COMMAND_COOLDOWNS.capture,
+      possess: 14,
+      domain: 20,
+      assault: STANDARD_COMMAND_COOLDOWNS.assault
     };
     baseCooldown = defaults[command] ?? 0;
   }
