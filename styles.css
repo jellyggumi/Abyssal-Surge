@@ -1733,7 +1733,9 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
     height: auto !important;
     min-height: clamp(10rem, 22dvh, 12rem) !important;
     max-height: min(18rem, 34dvh);
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
   #command-panel .command-grid {
     align-self: stretch;
