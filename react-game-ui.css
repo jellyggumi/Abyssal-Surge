@@ -1399,7 +1399,6 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
   .field-command-dock .key,
   .field-current-objective,
   .field-edge-hud .battle-pressure,
-  .battle-mission-guide strong,
   .selection-dossier span,
   .selection-dossier small,
   .cockpit-top .wave-badge,
@@ -3416,25 +3415,6 @@ textarea:focus-visible {
     width: 100% !important;
     height: 100% !important;
     display: block !important;
-  }
-  .battle-mission-guide {
-    padding: 0.2rem 0.4rem !important;
-    font-size: 0.7rem !important;
-    background: rgba(9, 10, 13, 0.85) !important;
-    border: 1px solid var(--line) !important;
-    border-radius: 4px !important;
-    margin: 0.15rem !important;
-  }
-  .battle-mission-guide strong {
-    font-size: 0.7rem !important;
-  }
-  .battle-mission-guide p {
-    font-size: 0.65rem !important;
-    margin: 0 !important;
-  }
-  .battle-mission-guide .mission-loop-wrapper,
-  .battle-mission-guide .mission-badges {
-    display: none !important;
   }
 
   /* 7. Nested Grid right rail */

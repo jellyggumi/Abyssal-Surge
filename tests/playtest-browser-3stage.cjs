@@ -54,6 +54,7 @@ const MIME_TYPES = Object.freeze({
   ".jpg": "image/jpeg",
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".mp3": "audio/mpeg",
   ".mp4": "video/mp4",
   ".png": "image/png",
@@ -2445,6 +2446,9 @@ async function openFreshStageOneFieldOverlay(context, baseUrl, observePage = nul
   await startP2StageOne(page);
   await page.locator(".ashen-field-command").waitFor({ state: "attached" });
   await page.locator("#battle-canvas-3d").waitFor({ state: "visible" });
+  await page.waitForFunction(() => (
+    document.querySelector(".ashen-field-command__tactical-status")?.textContent?.trim().length > 0
+  ));
   return page;
 }
 
@@ -2455,9 +2459,8 @@ async function inspectCompactFieldOverlay(page) {
       document.querySelector("#battle-canvas-3d"),
       document.querySelector("#battle-canvas-fallback"),
     ];
-    const missionGuide = document.querySelector("#battle-mission-guide");
-    const missionCurrent = document.querySelector("#battle-mission-current");
-    const missionWhy = document.querySelector("#battle-mission-why");
+    const fieldTacticalSelection = document.querySelector(".ashen-field-command__tactical-selection");
+    const fieldTacticalStatus = document.querySelector(".ashen-field-command__tactical-status");
     const commandPanel = document.querySelector("#command-panel");
     const commandControls = [...document.querySelectorAll("#command-panel [data-action]")];
     const saveDock = document.querySelector("#save-dock");
@@ -2547,9 +2550,9 @@ async function inspectCompactFieldOverlay(page) {
         && canvasRect.left >= 0
         && canvasRect.right <= innerWidth,
       ),
-      missionGuideRendered: isRendered(missionGuide),
-      missionCurrent: missionCurrent?.textContent?.trim() ?? "",
-      missionWhy: missionWhy?.textContent?.trim() ?? "",
+      fieldTacticalRendered: isRendered(document.querySelector(".ashen-field-command__tactical")),
+      fieldTacticalSelectionText: fieldTacticalSelection?.textContent?.trim() ?? "",
+      fieldTacticalStatusText: fieldTacticalStatus?.textContent?.trim() ?? "",
       commandPanelRendered: isRendered(commandPanel),
       controls,
       saveDockRendered: isRendered(saveDock),
@@ -2583,16 +2586,15 @@ function assertCompactSaveControls(surface, context) {
 
 function assertCompactFieldOverlaySurface(surface, context, { expectedCanvasId = "battle-canvas-3d" } = {}) {
   assert.equal(surface.overlayPresent, true, `${context} must retain the overlay DOM for compatibility.`);
-  assert.equal(surface.overlayDisplay, "none", `${context} must presentation-hide the legacy field overlay.`);
-  assert.equal(
-    surface.overlayWidth * surface.overlayHeight,
-    0,
-    `${context} hidden overlay must occupy no rendered area.`,
+  assert.notEqual(surface.overlayDisplay, "none", `${context} must keep the field command overlay rendered at compact widths.`);
+  assert.ok(
+    surface.overlayWidth > 0 && surface.overlayHeight > 0,
+    `${context} the rendered overlay must occupy visible area.`,
   );
   assert.equal(
     surface.overlayCanvasHitCount,
     0,
-    `${context} hidden overlay must not intercept any sampled active-canvas point.`,
+    `${context} the pointer-events:none overlay must not intercept any sampled active-canvas point.`,
   );
   assert.equal(surface.canvasId, expectedCanvasId, `${context} must activate the expected battle canvas.`);
   assert.equal(surface.canvasRendered, true, `${context} must render its active tactical canvas.`);
@@ -2607,9 +2609,8 @@ function assertCompactFieldOverlaySurface(surface, context, { expectedCanvasId =
     true,
     `${context} active canvas must fit the 360px viewport width.`,
   );
-  assert.equal(surface.missionGuideRendered, true, `${context} must keep the mission guide rendered.`);
-  assert.notEqual(surface.missionCurrent, "", `${context} must expose a concrete current mission.`);
-  assert.notEqual(surface.missionWhy, "", `${context} must explain why the current mission matters.`);
+  assert.equal(surface.fieldTacticalRendered, true, `${context} must keep the compact tactical readout rendered.`);
+  assert.notEqual(surface.fieldTacticalStatusText, "", `${context} must expose the current battlefield status via the compact tactical readout.`);
   assert.equal(surface.commandPanelRendered, true, `${context} must keep the command panel rendered.`);
   assert.equal(surface.controls.length, 7, `${context} must retain all seven campaign command controls.`);
   for (const control of surface.controls) {
@@ -2658,6 +2659,9 @@ async function verifyCompactFieldOverlay(browser, baseUrl) {
     await page.locator("#battle-canvas-fallback").waitFor({ state: "visible" });
     await page.waitForTimeout(350);
     const animationRequests = await page.evaluate(() => window.__battleAnimationAudit.end());
+    await page.waitForFunction(() => (
+      document.querySelector(".ashen-field-command__tactical-status")?.textContent?.trim().length > 0
+    ));
     const surface = await inspectCompactFieldOverlay(page);
 
     assertCompactFieldOverlaySurface(

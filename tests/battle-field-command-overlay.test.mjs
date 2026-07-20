@@ -593,7 +593,7 @@ test("the field overlay exclusively paints objective, threat, and result inside 
   }
 
   const rules = cssRules(stylesheet.replace(/\/\*[\s\S]*?\*\//g, ""));
-  for (const legacySelector of ["#battle-mission-guide", ".battle-screen-ui", "#battle-screen-ui"]) {
+  for (const legacySelector of [".battle-screen-ui", "#battle-screen-ui"]) {
     assert.equal(
       cssDeclaration(cssRuleFor(rules, legacySelector), "display"),
       "none !important",

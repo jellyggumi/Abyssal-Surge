@@ -1202,44 +1202,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
    center, intel rail right, command pad bottom - PC RTS layout.
    ============================================================ */
 
-/* Battlefield orders are projected into the field without consuming canvas height. */
-.battle-mission-guide {
-  position: absolute;
-  z-index: 5;
-  top: .75rem;
-  right: .75rem;
-  left: .75rem;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: .18rem .5rem;
-  align-items: center;
-  padding: .42rem .58rem;
-  border: 1px solid rgb(214 164 92 / 42%);
-  border-radius: .28rem;
-  background: linear-gradient(90deg, rgb(8 11 14 / 94%), rgb(15 23 29 / 82%));
-  box-shadow: 0 .45rem 1.2rem rgb(0 0 0 / 38%), inset 0 0 0 1px rgb(240 234 214 / 4%);
-  pointer-events: none;
-}
-.battle-mission-guide .mission-kicker {
-  color: var(--cinder);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .58rem;
-  font-weight: 900;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-.battle-mission-guide strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font: 800 .78rem/1.2 Georgia, "Times New Roman", serif;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.battle-mission-guide p,
-.battle-mission-guide .mission-loop-wrapper,
-.battle-mission-guide .mission-badges { display: none; }
-
 .cockpit {
   gap: .4rem;
   color: var(--ink);
@@ -1734,7 +1696,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
     display: inline !important;
     font-size: .58rem !important;
   }
-  .battle-mission-guide { display: none; }
   #battle-direct-help {
     position: absolute;
     width: 1px;
@@ -1958,13 +1919,6 @@ body:has(#campaign-screen:not([hidden])) main { overflow: hidden; }
     min-height: 0 !important;
     aspect-ratio: 16 / 9;
   }
-  .battle-mission-guide {
-    top: .55rem;
-    right: .55rem;
-    left: .55rem;
-    padding: .34rem .42rem;
-  }
-  .battle-mission-guide strong { font-size: .68rem; }
   #battle-direct-help {
     position: absolute;
     width: 1px;

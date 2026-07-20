@@ -407,22 +407,6 @@
           'aria-label': '3D 전술 전장',
           'data-i18n-aria': 'battle.fieldAria'
         },
-          e('div', { id: 'battle-mission-guide', className: 'battle-mission-guide' },
-            e('span', { className: 'mission-kicker', 'data-i18n': 'mission.kicker' }, '임무'),
-            ' ',
-            e('strong', { id: 'battle-mission-current' }, '현재 임무 분석 중...'),
-            e('p', { id: 'battle-mission-why' }, '세부 지시를 확인하는 중입니다.'),
-            e('div', { className: 'mission-loop-wrapper' },
-              e('span', { className: 'mission-loop', 'data-i18n': 'mission.loop' }, '기본 루프: 사냥 → 추출 → 실체화 → 점거 → 총공격'),
-              ' ',
-              e('span', { className: 'mission-controls', 'data-i18n': 'mission.controls' }, '조작: WASD/방향키 이동 · Shift 돌진 · 지면 클릭/탭 소집 · 드래그 회전 · 휠 확대')
-            ),
-            e('div', { className: 'mission-badges' },
-              e('span', { className: 'mission-badge win', 'data-i18n': 'mission.win' }, '승리: 수호 거점 점거 및 보스 제압'),
-              ' ',
-              e('span', { className: 'mission-badge lose', 'data-i18n': 'mission.lose' }, '패배: 군주 내구도 0 도달')
-            )
-          ),
           e('div', { id: 'canvas-container-3d', className: 'canvas-container-3d' },
             e('canvas', {
               id: 'battle-canvas-3d',

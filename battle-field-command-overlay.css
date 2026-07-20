@@ -347,8 +347,10 @@
   }
 }
 
-/* Duplicate Hide and Containment Gate */
-#battle-mission-guide,
+/* Duplicate Hide and Containment Gate: .battle-screen-ui is a React-owned
+   presentation-only mirror (see react-game-ui.js/.css) kept in the DOM for
+   tests/E2E to assert data-battle-screen targets against; it must never
+   double-paint the field objective that .ashen-field-command already owns. */
 .battle-screen-ui,
 #battle-screen-ui {
   display: none !important;
