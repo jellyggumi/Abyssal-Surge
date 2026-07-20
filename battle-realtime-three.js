@@ -464,6 +464,14 @@ export class RealtimeBattle {
     this.rally = new THREE.Vector3(portalWorld.x + 1.25, 0, portalWorld.z);
     this.commanderPosition = new THREE.Vector3(portalWorld.x, 0, portalWorld.z);
     this.commanderOrder = null;
+    // Persistent "you are walking here" marker for the commander's own
+    // click/right-click move order (distinct from routePreview, which only
+    // exists transiently while a formation drag is in progress and always
+    // clears on release). Built lazily in updateCommanderPathPreview().
+    this.commanderDestinationMarker = null;
+    // Same idea as commanderDestinationMarker, for a rallied ally group's
+    // shared destination (this.rally). Built lazily in updateRallyMarker().
+    this.allyRallyMarker = null;
     const bounds = this.navigation.bounds;
     this.boundsCenter = new THREE.Vector3((bounds.left + bounds.right) * 0.5, 0, (bounds.near + bounds.far) * 0.5);
     this.cameraTarget = this.boundsCenter.clone();
@@ -1470,6 +1478,7 @@ export class RealtimeBattle {
     this.updateSelectionVisuals?.();
     this.updateMarqueeVisual?.();
     this.updateCommanderPathPreview?.();
+    this.updateRallyMarker?.();
 
     this.updateObjectFeedbackDeltas();
     this.renderObjectFeedback();
@@ -2947,8 +2956,17 @@ export class RealtimeBattle {
         }
       }
     } else if (pointer.mode === "right-click") {
-      if ((pointer.moved && this.routePreviewActive) || (!pointer.moved && this.selection?.size)) {
-        this.pick(event, "allies");
+      if (this.selection?.size > 0) {
+        if ((pointer.moved && this.routePreviewActive) || !pointer.moved) {
+          this.pick(event, "allies");
+        }
+      } else {
+        // No allies selected: right-click orders the commander directly,
+        // matching the standard RTS "right-click = move/act" convention.
+        // Previously this branch only ever called pick(event, "allies"),
+        // which is a no-op with an empty selection -- right-click silently
+        // did nothing for the commander's own movement.
+        this.pick(event, "personal");
       }
       this.clearRoutePreview();
     } else if (pointer.mode === "orbit") {
@@ -4364,11 +4382,80 @@ export class RealtimeBattle {
       }
       this.commanderPathLine.computeLineDistances();
       this.commanderPathLine.visible = true;
+
+      // Destination marker: a bright pulsing ring at the final waypoint, so
+      // "where am I walking to" reads at a glance instead of only via the
+      // thin dashed line (see the ally route-preview endpoint for the same
+      // visual language, reused here for the commander's own order).
+      const destination = points[points.length - 1];
+      if (!this.commanderDestinationMarker) {
+        const marker = new THREE.Mesh(
+          new THREE.RingGeometry(0.2, 0.34, 24),
+          new THREE.MeshBasicMaterial({
+            color: this.presentation?.palette?.accent ?? 0xffb85c,
+            transparent: true,
+            opacity: 0.95,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            depthTest: true
+          })
+        );
+        marker.rotation.x = -Math.PI / 2;
+        marker.raycast = () => {};
+        this.scene.add(marker);
+        this.commanderDestinationMarker = marker;
+      }
+      this.commanderDestinationMarker.position.copy(destination);
+      this.commanderDestinationMarker.visible = true;
+      const reducedMotion = this.presentation?.reducedMotion ?? false;
+      const pulse = reducedMotion ? 1.0 : 1.0 + Math.sin(performance.now() * 0.001 * 10.0) * 0.18;
+      this.commanderDestinationMarker.scale.setScalar(pulse);
     } else {
       if (this.commanderPathLine) {
         this.commanderPathLine.visible = false;
       }
+      if (this.commanderDestinationMarker) {
+        this.commanderDestinationMarker.visible = false;
+      }
     }
+  }
+
+  // Rally destination marker: mirrors updateCommanderPathPreview's marker but
+  // for a selected-ally rally order, so "where is my squad headed" is just
+  // as visible on canvas as the commander's own move order. Any ally still
+  // actively walking a customPath/customOrder keeps this marker up; once the
+  // whole group arrives it hides, same lifecycle as the commander's marker.
+  updateRallyMarker() {
+    const anyAllyMoving = this.allies?.some((ally) =>
+      ally.customPath?.length > 0 || (ally.customOrder && !ally.customOrderReached)
+    );
+    if (!anyAllyMoving) {
+      if (this.allyRallyMarker) this.allyRallyMarker.visible = false;
+      return;
+    }
+    if (!this.allyRallyMarker) {
+      const marker = new THREE.Mesh(
+        new THREE.RingGeometry(0.2, 0.34, 24),
+        new THREE.MeshBasicMaterial({
+          color: 0x35e06f,
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          depthTest: true
+        })
+      );
+      marker.rotation.x = -Math.PI / 2;
+      marker.raycast = () => {};
+      this.scene.add(marker);
+      this.allyRallyMarker = marker;
+    }
+    const elevation = this.navigationAt(this.rally.x, this.rally.z)?.elevation ?? 0;
+    this.allyRallyMarker.position.set(this.rally.x, elevation * TERRAIN_ELEVATION_SCALE + 0.09, this.rally.z);
+    this.allyRallyMarker.visible = true;
+    const reducedMotion = this.presentation?.reducedMotion ?? false;
+    const pulse = reducedMotion ? 1.0 : 1.0 + Math.sin(performance.now() * 0.001 * 10.0) * 0.18;
+    this.allyRallyMarker.scale.setScalar(pulse);
   }
 
   updateZoneAmbience(dt) {
@@ -4726,6 +4813,18 @@ export class RealtimeBattle {
       this.commanderPathLine.geometry?.dispose();
       this.commanderPathLine.material?.dispose();
       this.commanderPathLine = null;
+    }
+    if (this.commanderDestinationMarker) {
+      this.scene.remove(this.commanderDestinationMarker);
+      this.commanderDestinationMarker.geometry?.dispose();
+      this.commanderDestinationMarker.material?.dispose();
+      this.commanderDestinationMarker = null;
+    }
+    if (this.allyRallyMarker) {
+      this.scene.remove(this.allyRallyMarker);
+      this.allyRallyMarker.geometry?.dispose();
+      this.allyRallyMarker.material?.dispose();
+      this.allyRallyMarker = null;
     }
     if (this.tracers) {
       for (const tracer of this.tracers) {

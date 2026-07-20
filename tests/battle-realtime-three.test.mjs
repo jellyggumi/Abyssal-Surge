@@ -3653,6 +3653,129 @@ test("RealtimeBattle primary empty-ground click preserves ally selection while f
   );
 });
 
+test("RealtimeBattle right-click with no selection moves the commander directly (regression: previously a no-op)", () => {
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 }, {});
+  const commanderCell = { x: 3, y: 5 };
+  const targetCell = { x: 12, y: 2 };
+  const commanderWorld = battle.navigation.gridToWorld(commanderCell.x + 0.5, commanderCell.y + 0.5);
+  const targetWorld = battle.navigation.gridToWorld(targetCell.x + 0.5, targetCell.y + 0.5);
+
+  battle.commander = makeUnit({ x: commanderWorld.x, z: commanderWorld.z });
+  battle.allies = [];
+  battle.camera = {};
+  battle.ground = {};
+  battle.scene = { add() {} };
+  battle.resolvePointerAction = () => null;
+  battle.updateFocusHighlight = () => {};
+  battle.raycaster = {
+    intersectObject: () => [{ point: { x: targetWorld.x, y: 0, z: targetWorld.z } }],
+  };
+  battle.particles = { emit() {} };
+  battle.audio = { playTone() {} };
+
+  const pointer = { button: 2, clientX: 50, clientY: 50, pointerId: 9, pointerType: "mouse", timeStamp: 100 };
+  battle.onPointerDown(pointer);
+  battle.onPointerUp({ ...pointer, timeStamp: 150 });
+
+  assert.equal(battle.selection.size, 0, "the fixture must genuinely have no ally selected");
+  assert.deepEqual(
+    { x: battle.commanderOrder?.x, z: battle.commanderOrder?.z },
+    { x: targetWorld.x, z: targetWorld.z },
+    "a right-click with nothing selected must queue commander movement to the clicked ground point",
+  );
+});
+
+test("RealtimeBattle right-click with allies selected rallies them and leaves the commander's own order untouched", () => {
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 }, {});
+  const commanderCell = { x: 3, y: 5 };
+  const targetCell = { x: 12, y: 2 };
+  const commanderWorld = battle.navigation.gridToWorld(commanderCell.x + 0.5, commanderCell.y + 0.5);
+  const targetWorld = battle.navigation.gridToWorld(targetCell.x + 0.5, targetCell.y + 0.5);
+
+  const ally = makeUnit({ x: commanderWorld.x + 1, z: commanderWorld.z });
+  battle.commander = makeUnit({ x: commanderWorld.x, z: commanderWorld.z });
+  battle.allies = [ally];
+  battle.selection.add(ally);
+  battle.camera = {};
+  battle.ground = {};
+  battle.scene = { add() {} };
+  battle.resolvePointerAction = () => null;
+  battle.updateFocusHighlight = () => {};
+  battle.raycaster = {
+    setFromCamera() {},
+    intersectObject: () => [{ point: { x: targetWorld.x, y: 0, z: targetWorld.z } }],
+  };
+  battle.particles = { emit() {} };
+  battle.audio = { playTone() {} };
+
+  const pointer = { button: 2, clientX: 50, clientY: 50, pointerId: 10, pointerType: "mouse", timeStamp: 100 };
+  battle.onPointerDown(pointer);
+  battle.onPointerUp({ ...pointer, timeStamp: 150 });
+
+  assert.equal(battle.commanderOrder, null, "a right-click with allies selected must not also move the commander");
+  assert.ok(ally.customOrder || ally.customPath?.length, "the selected ally must receive a rally order");
+});
+
+test("RealtimeBattle updateCommanderPathPreview shows a persistent destination marker at the final waypoint and hides it once the order clears", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 }, {});
+  const added = [];
+  battle.scene = { add: (obj) => added.push(obj) };
+  battle.commander = { root: { position: new THREE.Vector3(0, 0, 0) } };
+  battle.navigationAt = () => ({ elevation: 0 });
+  battle.commanderPath = [{ x: 4, y: 4 }];
+
+  battle.updateCommanderPathPreview();
+
+  assert.ok(battle.commanderDestinationMarker, "a destination marker must be created once a commander path exists");
+  assert.equal(battle.commanderDestinationMarker.visible, true, "the marker must be visible while the path is active");
+  assert.ok(added.includes(battle.commanderDestinationMarker), "the marker must be added to the scene exactly once");
+  const expected = battle.navigation.gridToWorld(4.5, 4.5);
+  assert.equal(battle.commanderDestinationMarker.position.x, expected.x, "the marker must sit at the final waypoint, not the commander");
+  assert.equal(battle.commanderDestinationMarker.position.z, expected.z, "the marker must sit at the final waypoint, not the commander");
+
+  battle.commanderPath = null;
+  battle.updateCommanderPathPreview();
+  assert.equal(battle.commanderDestinationMarker.visible, false, "the marker must hide once the commander has no active path");
+});
+
+test("RealtimeBattle updateRallyMarker shows a persistent marker while any ally is en route and hides it once everyone arrives", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 }, {});
+  const added = [];
+  battle.scene = { add: (obj) => added.push(obj) };
+  battle.navigationAt = () => ({ elevation: 0 });
+  battle.rally.set(3, 0, 3);
+  const stillWalking = makeUnit();
+  stillWalking.customPath = [{ x: 1, y: 0, z: 1 }];
+  battle.allies = [stillWalking];
+
+  battle.updateRallyMarker();
+  assert.ok(battle.allyRallyMarker, "a rally marker must be created while an ally is still walking a custom path");
+  assert.equal(battle.allyRallyMarker.visible, true);
+  assert.ok(added.includes(battle.allyRallyMarker));
+
+  stillWalking.customPath = [];
+  stillWalking.customOrder = null;
+  battle.updateRallyMarker();
+  assert.equal(battle.allyRallyMarker.visible, false, "the rally marker must hide once every ally has arrived");
+});
+
 test("RealtimeBattle marquee publishes its selected actor set once", () => {
   const summaries = [];
   const battle = new RealtimeBattle(

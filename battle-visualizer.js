@@ -1345,8 +1345,21 @@ export class BattleVisualizer {
           : this.unprojectToTile(p.x, p.y);
         if (target && this.selection.size > 0 && this.walkable(target.x, target.y)) {
           this.issueFormationMove(target);
-          this.orderFlag = { x: target.x + 0.5, y: target.y + 0.5, life: 1.2 };
+          this.orderFlag = { x: target.x + 0.5, y: target.y + 0.5, life: 1.2, forCommander: false };
           this.playSpatial(target.x + 0.5, target.y + 0.5, { freq: 650, duration: 0.15, type: "sine", gain: 0.5 });
+        } else if (target && this.selection.size === 0 && this.walkable(target.x, target.y)) {
+          // No allies selected: right-click orders the commander directly,
+          // the same as a primary-button ground tap. Previously right-click
+          // only ever called issueFormationMove(), which is a no-op with an
+          // empty selection -- right-click silently did nothing here.
+          this.onTacticalRequest?.({ type: "focus", cell: { x: target.x, y: target.y } });
+          const start = { x: Math.floor(this.commander.x), y: Math.floor(this.commander.y) };
+          const path = this.findPath(start, target);
+          if (path && path.length > 1) {
+            this.commander.path = path.slice(1).map((node) => ({ x: node.x + 0.5, y: node.y + 0.5 }));
+            this.orderFlag = { x: target.x + 0.5, y: target.y + 0.5, life: 1.2, forCommander: true };
+            this.playSpatial(target.x + 0.5, target.y + 0.5, { freq: 600, duration: 0.1, type: "sine", gain: 0.3 });
+          }
         }
         this.clearRoutePreview();
         this.activePointerId = null;
@@ -1408,7 +1421,7 @@ export class BattleVisualizer {
               if (tile && this.activePointerType === "touch" && this.selection.size > 0) {
                 if (this.walkable(tile.x, tile.y)) {
                   this.issueFormationMove(tile);
-                  this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
+                  this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2, forCommander: false };
                   this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 520, duration: 0.12, type: "sine", gain: 0.6 });
                 }
               } else if (tile) {
@@ -1418,7 +1431,7 @@ export class BattleVisualizer {
                   const path = this.findPath(start, tile);
                   if (path && path.length > 1) {
                     this.commander.path = path.slice(1).map(node => ({ x: node.x + 0.5, y: node.y + 0.5 }));
-                    this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
+                    this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2, forCommander: true };
                     this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 600, duration: 0.1, type: "sine", gain: 0.3 });
                   }
                 }
@@ -2796,8 +2809,19 @@ export class BattleVisualizer {
       if (this.actionFx[i].life <= 0) this.actionFx.splice(i, 1);
     }
     if (this.orderFlag) {
-      this.orderFlag.life -= dt;
-      if (this.orderFlag.life <= 0) this.orderFlag = null;
+      // Stay fully visible ("where am I walking to") for as long as the
+      // ordered mover is still actively following its path, instead of
+      // always fading out after a fixed 1.2s regardless of how long the
+      // walk actually takes.
+      const stillMoving = this.orderFlag.forCommander
+        ? this.commander?.path?.length > 0
+        : [...this.selection].some((ally) => ally.path?.length > 0);
+      if (stillMoving) {
+        this.orderFlag.life = Math.max(this.orderFlag.life, 1.2);
+      } else {
+        this.orderFlag.life -= dt;
+        if (this.orderFlag.life <= 0) this.orderFlag = null;
+      }
     }
   }
 
