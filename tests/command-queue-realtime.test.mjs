@@ -579,3 +579,47 @@ test("a command whose renderer target is out of range waits indefinitely, surfac
     "returning to range must not repeat the hint",
   );
 });
+
+test("a reservation transiently blocked by engine state (e.g. while the commander is still walking) is never dropped, does not spam the rejection toast, and executes cleanly once its condition is met", async () => {
+  const fixture = await loadAppQueueRuntime();
+  const feedback = [];
+  fixture.context.showTacticalFeedback = (msg) => feedback.push(msg);
+
+  let engineReady = false;
+  fixture.context.checkReservedCommandExecution = () => (
+    engineReady
+      ? { ready: true, action: "hunt", message: "" }
+      : { ready: false, message: "Insufficient Marks." }
+  );
+  fixture.context.visualizer = {
+    getCommandReadiness: () => ({ ready: true, reason: "ready" }),
+    applyCampaignState() {},
+    applyEncounter() {},
+    previewAction() {},
+    clearActionPreview() {},
+    playActionEffect() {},
+  };
+
+  await fixture.context.queueRuntime.handleAction("hunt");
+  await fixture.timers.runUntil(() => fixture.timers.now >= 6000);
+
+  assert.equal(
+    fixture.timeline.some(([event]) => event === "execute"),
+    false,
+    "a reservation whose engine condition is not yet met must never execute early",
+  );
+  assert.deepEqual(
+    feedback.filter((msg) => msg === "Insufficient Marks."),
+    ["Insufficient Marks."],
+    "the blocked rejection must surface exactly once, not on every ~100ms poll tick while it remains blocked",
+  );
+
+  engineReady = true;
+  await fixture.timers.runUntil(() => fixture.timeline.some(([event]) => event === "execute"));
+
+  assert.deepEqual(
+    feedback.filter((msg) => msg === "Insufficient Marks."),
+    ["Insufficient Marks."],
+    "the reservation clearing must not repeat the earlier rejection toast",
+  );
+});

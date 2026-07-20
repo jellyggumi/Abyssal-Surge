@@ -2827,9 +2827,15 @@ export class RealtimeBattle {
           transparent: true,
           opacity: 0.95,
           depthWrite: false,
-          depthTest: true,
+          // Route lines and their endpoint trace across multiple grid cells;
+          // stage heightfields vary enough that depth-testing against terrain
+          // clips them under any higher ground along the path. These are
+          // movement-guidance overlays, not physical objects -- always draw
+          // on top (see updateActionRangeRing for the same reasoning/fix).
+          depthTest: false,
         })
       );
+      line.renderOrder = 14;
       const endpoint = new THREE.Mesh(
         new THREE.RingGeometry(0.18, 0.3, 20),
         new THREE.MeshBasicMaterial({
@@ -2838,9 +2844,10 @@ export class RealtimeBattle {
           opacity: 0.95,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: true,
+          depthTest: false,
         })
       );
+      endpoint.renderOrder = 14;
       endpoint.rotation.x = -Math.PI / 2;
       group.add(line, endpoint);
       this.scene.add(group);
@@ -4428,9 +4435,10 @@ export class RealtimeBattle {
           transparent: true,
           opacity: 0.95,
           depthWrite: false,
-          depthTest: true
+          depthTest: false
         });
         this.commanderPathLine = new THREE.Line(geom, mat);
+        this.commanderPathLine.renderOrder = 14;
         this.scene.add(this.commanderPathLine);
       } else {
         this.commanderPathLine.geometry.dispose();
@@ -4453,9 +4461,10 @@ export class RealtimeBattle {
             opacity: 0.95,
             side: THREE.DoubleSide,
             depthWrite: false,
-            depthTest: true
+            depthTest: false
           })
         );
+        marker.renderOrder = 14;
         marker.rotation.x = -Math.PI / 2;
         marker.raycast = () => {};
         this.scene.add(marker);
@@ -4498,9 +4507,10 @@ export class RealtimeBattle {
           opacity: 0.95,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: true
+          depthTest: false
         })
       );
+      marker.renderOrder = 14;
       marker.rotation.x = -Math.PI / 2;
       marker.raycast = () => {};
       this.scene.add(marker);

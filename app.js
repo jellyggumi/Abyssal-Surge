@@ -1618,7 +1618,18 @@ async function drainCommandQueue() {
   setQueuedCommandPhase(head.id, check.phase, check.reason);
   
   if (check.phase === "blocked") {
-    showTacticalFeedback(translateRejectionReason(check.reason));
+    // A blocked reservation is never dequeued here -- scheduleQueueCheck()
+    // keeps polling every COMMAND_QUEUE_TICK_MS regardless, and it fires the
+    // moment checkReservedCommandExecution() reports ready again (e.g. once
+    // a wave/encounter state that was transiently invalid while the player
+    // was still walking toward the target settles back to valid). Only
+    // surface the rejection toast on the reason actually changing, or a
+    // transient block spams the same "error" every poll tick and reads as a
+    // repeated failure even though the reservation is quietly retrying and
+    // will execute cleanly once its condition is met.
+    if (check.reason !== previousReason) {
+      showTacticalFeedback(translateRejectionReason(check.reason));
+    }
     render();
   } else if (check.ready) {
     await executeQueuedCommandIfReady(head.id);

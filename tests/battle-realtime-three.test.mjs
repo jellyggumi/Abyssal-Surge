@@ -3404,6 +3404,16 @@ test("RealtimeBattle right-drag previews legal ally routes, commits on release, 
   assert.equal(battle.routePreviewActive, true, "a held right-drag over a legal tile must expose a live WebGL route preview");
   const firstPreview = JSON.stringify(battle.routePreview);
   assert.ok(firstPreview && firstPreview !== "null", "the legal preview must contain route geometry");
+  assert.equal(
+    battle.routePreview.line.material.depthTest,
+    false,
+    "the route preview line must not depth-test against terrain, or elevation variance along the route clips it invisible",
+  );
+  assert.equal(
+    battle.routePreview.endpoint.material.depthTest,
+    false,
+    "the route preview endpoint marker must not depth-test against terrain",
+  );
 
   groundPoint = { x: secondTarget.x, y: 0, z: secondTarget.z };
   battle.onPointerMove(pointer(1, 50, 30));
@@ -3750,6 +3760,19 @@ test("RealtimeBattle updateCommanderPathPreview shows a persistent destination m
   assert.ok(battle.commanderDestinationMarker, "a destination marker must be created once a commander path exists");
   assert.equal(battle.commanderDestinationMarker.visible, true, "the marker must be visible while the path is active");
   assert.ok(added.includes(battle.commanderDestinationMarker), "the marker must be added to the scene exactly once");
+  // The path can trace across multiple grid cells with different terrain
+  // elevation than the marker's own waypoint; depth-testing against terrain
+  // would clip it under higher ground elsewhere along the route.
+  assert.equal(
+    battle.commanderPathLine.material.depthTest,
+    false,
+    "the commander's path line must not depth-test against terrain",
+  );
+  assert.equal(
+    battle.commanderDestinationMarker.material.depthTest,
+    false,
+    "the commander's destination marker must not depth-test against terrain",
+  );
   const expected = battle.navigation.gridToWorld(4.5, 4.5);
   assert.equal(battle.commanderDestinationMarker.position.x, expected.x, "the marker must sit at the final waypoint, not the commander");
   assert.equal(battle.commanderDestinationMarker.position.z, expected.z, "the marker must sit at the final waypoint, not the commander");
@@ -3773,6 +3796,11 @@ test("RealtimeBattle updateRallyMarker shows a persistent marker while any ally 
   assert.ok(battle.allyRallyMarker, "a rally marker must be created while an ally is still walking a custom path");
   assert.equal(battle.allyRallyMarker.visible, true);
   assert.ok(added.includes(battle.allyRallyMarker));
+  assert.equal(
+    battle.allyRallyMarker.material.depthTest,
+    false,
+    "the ally rally marker must not depth-test against terrain, or elevation variance under it clips it invisible",
+  );
 
   stillWalking.customPath = [];
   stillWalking.customOrder = null;
