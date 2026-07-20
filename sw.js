@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-surge-static-v56";
+const CACHE_NAME = "abyssal-surge-static-v57";
 const CORE_ASSETS = [
   "./",
   "./index.html",
