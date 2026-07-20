@@ -1097,10 +1097,44 @@ export class RealtimeBattle {
     commander.radius = 0.42;
     this.setGroundedPosition(commander, this.commanderPosition.x, this.commanderPosition.z);
     this.commanderPosition.copy(commander.root.position);
+    this.applyCommanderIdentityTint(commander.root);
     this.scene.add(commander.root);
     this.commander = commander;
     commander.id = "commander";
     this.play(commander, "Idle");
+  }
+
+  // The commander clones the shared units/shade.glb -- the same resource
+  // every regular ally uses -- so without this it's visually indistinguishable
+  // from its own legion. Tint it with a distinct violet identity color
+  // (falls back to the Gate Sovereign rim hex used by the Blender build
+  // pipeline for the same narrative "commander/sovereign" role) so the
+  // player character always reads as one specific unit on the field.
+  applyCommanderIdentityTint(root) {
+    const hex = this.presentation?.palette?.commander ?? "#ab68ff";
+    this.ownRuntimeMaterials(root);
+    const tint = new THREE.Color(hex);
+    root.traverse((node) => {
+      if (!node.isMesh) return;
+      if (this.contactGeometry && node.geometry === this.contactGeometry) return;
+      const wasArray = Array.isArray(node.material);
+      const materials = wasArray ? node.material : [node.material];
+      if (materials.includes(this.contactMaterial)) return;
+      const tinted = materials.map((material) => {
+        if (!material || material === this.contactMaterial) return material;
+        material.userData = material.userData || {};
+        material.userData.isCommanderIdentityTint = true;
+        if (material.color) material.color.lerp(tint, 0.5);
+        if ("emissive" in material) {
+          if (material.emissive?.copy) material.emissive.copy(tint);
+          else material.emissive = tint.clone();
+          material.emissiveIntensity = 0.5;
+          material.userData.runtimeEmissiveIntensityBase = 0.5;
+        }
+        return material;
+      });
+      node.material = wasArray ? tinted : tinted[0];
+    });
   }
 
   // Stages 4-10 reuse a Stage 1-3 boss mesh (see STAGE_ASSETS comment). Tint

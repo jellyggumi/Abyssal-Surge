@@ -67,6 +67,7 @@ const AI_TICK_MS = 250;        // report: transition priority refresh cadence
 
 const BASE_PALETTE = Object.freeze({
   ally: "#70e5d0",
+  commander: "#ab68ff",
   allyPossessed: "#fff0a4",
   enemy: "#ff7f79",
   node: "#70e5d0",
@@ -86,6 +87,7 @@ function paletteFromPresentation(presentation) {
   return Object.freeze({
     ...BASE_PALETTE,
     ally: p.ally ?? BASE_PALETTE.ally,
+    commander: p.commander ?? BASE_PALETTE.commander,
     enemy: p.hostile ?? BASE_PALETTE.enemy,
     node: p.ally ?? BASE_PALETTE.node,
     domain: p.domain ?? BASE_PALETTE.domain,
@@ -3269,7 +3271,13 @@ export class BattleVisualizer {
       ctx.restore();
     }
 
-    const tint = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
+    const tint = kind === "possessed"
+      ? this.palette.allyPossessed
+      : kind === "enemy"
+        ? this.palette.enemy
+        : kind === "commander"
+          ? this.palette.commander
+          : this.palette.ally;
     const size = 64 * s * (kind === "enemy" && unit.archetype === "reinforce" ? 1.18 : 1);
     ctx.fillStyle = "rgba(0,0,0,0.42)";
     ctx.beginPath();

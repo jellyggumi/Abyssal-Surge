@@ -4992,3 +4992,56 @@ test("RealtimeBattle gimmick markers only glow actionable once the commander is 
     "walking the commander into range must light the extractor up as actionable, matching getCommandReadiness",
   );
 });
+
+test("RealtimeBattle tints the commander with a distinct identity color so it never renders identical to its own shade legion", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.scene = new THREE.Scene();
+  battle.ringGeometry = null;
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  const shadeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x000000 });
+  for (const resource of [
+    "terrain/cinder-span.glb",
+    "units/scout.glb",
+    "units/guard.glb",
+    "units/reinforce.glb",
+    "bosses/cinder-warden.glb",
+  ]) {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+    battle.templates.set(resource, { scene, animations: [] });
+  }
+  const shadeScene = new THREE.Group();
+  const shadeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), shadeMaterial);
+  shadeMesh.name = "shade-body";
+  shadeScene.add(shadeMesh);
+  battle.templates.set("units/shade.glb", { scene: shadeScene, animations: [] });
+
+  battle.createBattleObjects();
+  battle.createAlly();
+  const ally = battle.allies[battle.allies.length - 1];
+  const allyMesh = ally.root.getObjectByName("shade-body");
+  const commanderMesh = battle.commander.root.getObjectByName("shade-body");
+
+  assert.notEqual(
+    commanderMesh.material,
+    shadeMaterial,
+    "the commander must own a runtime-cloned material, not the shared shade.glb template material",
+  );
+  assert.notEqual(
+    commanderMesh.material.color.getHex(),
+    0xffffff,
+    "the commander's material must be visibly tinted away from the template's white base color",
+  );
+  assert.notEqual(
+    commanderMesh.material.color.getHex(),
+    allyMesh.material.color.getHex(),
+    "the commander must read as a visually distinct color from an ordinary shade ally cloned from the same resource",
+  );
+  assert.equal(
+    shadeMaterial.color.getHex(),
+    0xffffff,
+    "tinting the commander must never mutate the shared shade.glb template material",
+  );
+});

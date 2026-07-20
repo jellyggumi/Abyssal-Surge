@@ -157,6 +157,48 @@ test("BattleVisualizer selected allies use the stage ally palette with motion-sa
   );
 });
 
+test("BattleVisualizer draws the commander in a distinct identity color from ordinary shade allies", (t) => {
+  const canvas = makePointerCanvas();
+  const allyColor = "#70e5d0";
+  const commanderColor = "#ab68ff";
+  const visualizer = makeVisualizer(t, {
+    canvas,
+    presentation: {
+      stageNumber: 6,
+      palette: { ally: allyColor, commander: commanderColor },
+    },
+  });
+  const fills = [];
+  visualizer.ctx = {
+    beginPath() {},
+    ellipse() {},
+    fill() {
+      fills.push(this.fillStyle);
+    },
+    stroke() {},
+    save() {},
+    restore() {},
+    moveTo() {},
+    lineTo() {},
+    closePath() {},
+    arc() {},
+  };
+  visualizer.project = () => ({ x: 40, y: 30 });
+  visualizer.elevationAt = () => 0;
+  visualizer.drawBridgeAtlas = () => false;
+  visualizer.unitAtlases = new Map();
+
+  const commanderUnit = { x: 1, y: 1, hp: 10, defeated: false, facing: 0 };
+  visualizer.drawUnit(commanderUnit, "commander");
+  const allyUnit = { x: 1, y: 1, hp: 3, defeated: false, facing: 0 };
+  visualizer.drawUnit(allyUnit, "ally");
+
+  assert.equal(fills[0], "rgba(0,0,0,0.42)", "the commander's ground shadow must draw before its identity fill");
+  assert.equal(fills[1], commanderColor, "the commander must fill with its own distinct identity color, not the ally color");
+  assert.equal(fills[3], allyColor, "an ordinary shade ally must still fill with the stage ally color");
+  assert.notEqual(fills[1], fills[3], "the commander and an ordinary shade ally must never render in the same color");
+});
+
 test("BattleVisualizer right-drag previews legal ally routes in the stage ally palette, commits them on release, and clears invalid previews", (t) => {
   const canvas = makePointerCanvas();
   const allyColor = "#5bd6c0";
