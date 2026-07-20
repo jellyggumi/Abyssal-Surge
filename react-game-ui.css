@@ -1821,18 +1821,37 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
     min-width: 0 !important;
   }
 
-  .cockpit-top .campaign-heading-actions {
+  .cockpit-top .campaign-heading-actions-menu {
     grid-area: actions !important;
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 0.35rem !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
+    position: relative !important;
     margin: 0 !important;
-    padding: 0 !important;
-    justify-content: space-between !important;
+    justify-self: end !important;
+  }
+
+  .campaign-heading-actions-trigger {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .cockpit-top .campaign-heading-actions {
+    position: absolute !important;
+    top: calc(100% + 0.35rem) !important;
+    right: 0 !important;
+    z-index: 20 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 0.35rem !important;
+    width: max-content !important;
+    min-width: 11rem !important;
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    justify-content: flex-start !important;
   }
 
   .cockpit-top .campaign-heading-actions button {
@@ -1840,7 +1859,8 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
     align-items: center !important;
     justify-content: center !important;
     text-align: center !important;
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
     min-width: 80px !important;
     max-width: 100% !important;
     min-height: 44px !important;
@@ -3370,12 +3390,30 @@ textarea:focus-visible {
     display: inline-flex !important;
     align-items: center !important;
   }
-  .cockpit-top .campaign-heading-actions {
+  .cockpit-top .campaign-heading-actions-menu {
     display: flex !important;
-    flex-direction: row !important;
-    gap: 0.2rem !important;
+    align-items: center !important;
     margin: 0 !important;
-    padding: 0 !important;
+  }
+  .campaign-heading-actions-trigger {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+  .cockpit-top .campaign-heading-actions {
+    position: absolute !important;
+    top: calc(100% + 0.3rem) !important;
+    right: 0 !important;
+    z-index: 20 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.2rem !important;
+    width: max-content !important;
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0 !important;
+    padding: 0.4rem !important;
   }
   .cockpit-top .campaign-heading-actions button {
     min-height: 2.75rem !important;
@@ -4029,27 +4067,49 @@ textarea:focus-visible {
     display: none !important;
   }
 
-  /* Actions: three equal flexible buttons >=44px with no wrap */
-  .cockpit-top .campaign-heading-actions {
+  /* Settings menu: three commands consolidated behind one gear trigger so
+     this ultra-compact landscape row stays a single 44px-tall control. */
+  .cockpit-top .campaign-heading-actions-menu {
     grid-area: actions !important;
+    position: relative !important;
     display: flex !important;
-    flex-direction: row !important;
+    align-items: center !important;
+    justify-self: end !important;
+    margin: 0 !important;
+  }
+  .campaign-heading-actions-trigger {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .cockpit-top .campaign-heading-actions {
+    position: absolute !important;
+    top: calc(100% + 0.3rem) !important;
+    right: 0 !important;
+    z-index: 20 !important;
+    display: flex !important;
+    flex-direction: column !important;
     flex-wrap: nowrap !important;
     gap: 0.2rem !important;
+    width: max-content !important;
+    max-width: calc(100vw - 1rem) !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0.4rem !important;
     min-width: 0 !important;
   }
   .cockpit-top .campaign-heading-actions button {
-    flex: 1 1 0% !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
     min-width: 0 !important;
     min-height: 44px !important;
     height: 44px !important;
-    font-size: 0.56rem !important;
-    letter-spacing: -0.03em !important;
+    font-size: 0.7rem !important;
+    letter-spacing: normal !important;
     overflow: hidden !important;
     text-overflow: clip !important;
-    padding: 0.1rem 0.25rem !important;
+    padding: 0.1rem 0.5rem !important;
     white-space: nowrap !important;
   }
 

@@ -1218,12 +1218,49 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 }
 .cockpit-stage-id { grid-area: stage; min-width: 0; }
 .cockpit-top .stage-selector { grid-area: selector; min-width: 0; margin: 0; }
-.cockpit-top .campaign-heading-actions {
+.cockpit-top .campaign-heading-actions-menu {
   grid-area: actions;
+  position: relative;
+  margin: 0;
+}
+.campaign-heading-actions-trigger {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  background: var(--raised);
+  color: var(--ink);
+  font-size: 1.15rem;
+  user-select: none;
+}
+.campaign-heading-actions-trigger::-webkit-details-marker,
+.campaign-heading-actions-trigger::marker { display: none; content: ""; }
+.campaign-heading-actions-menu[open] .campaign-heading-actions-trigger {
+  border-color: var(--focus);
+  color: var(--focus);
+}
+.cockpit-top .campaign-heading-actions {
+  position: absolute;
+  top: calc(100% + .35rem);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   flex-wrap: nowrap;
   gap: .35rem;
+  min-width: 12rem;
   margin: 0;
+  padding: .5rem;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  background: var(--panel);
+  box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.5);
 }
 .cockpit-top .campaign-heading-actions button {
   min-height: 2.25rem;

@@ -333,28 +333,36 @@
           )
         ),
         e('span', { id: 'battle-wave-indicator', className: 'wave-badge' }, '웨이브 1/3'),
-        e('div', { className: 'campaign-heading-actions' },
-          e('button', {
-            id: 'toggle-fullscreen',
-            className: 'fullscreen-toggle',
-            type: 'button',
-            'aria-pressed': 'false',
-            'aria-keyshortcuts': 'Shift+F',
-            title: '전체 화면 시작 (Shift+F)',
-            'data-i18n': 'screen.fullscreenEnter'
-          }, '전체 화면'),
-          e('button', {
-            id: 'retry-stage',
-            type: 'button',
-            'aria-label': '현재 스테이지 재시도',
-            'data-i18n-aria': 'screen.retryButton',
-            'data-i18n': 'screen.retryButton'
-          }, '스테이지 재시도'),
-          e('button', {
-            id: 'return-to-lobby',
-            type: 'button',
-            'data-i18n': 'screen.returnButton'
-          }, '사령부로 돌아가기')
+        e('details', { className: 'campaign-heading-actions-menu' },
+          e('summary', {
+            className: 'campaign-heading-actions-trigger',
+            'aria-label': '설정',
+            'data-i18n-aria': 'screen.settingsMenu',
+            title: '설정'
+          }, '⚙'),
+          e('div', { className: 'campaign-heading-actions' },
+            e('button', {
+              id: 'toggle-fullscreen',
+              className: 'fullscreen-toggle',
+              type: 'button',
+              'aria-pressed': 'false',
+              'aria-keyshortcuts': 'Shift+F',
+              title: '전체 화면 시작 (Shift+F)',
+              'data-i18n': 'screen.fullscreenEnter'
+            }, '전체 화면'),
+            e('button', {
+              id: 'retry-stage',
+              type: 'button',
+              'aria-label': '현재 스테이지 재시도',
+              'data-i18n-aria': 'screen.retryButton',
+              'data-i18n': 'screen.retryButton'
+            }, '스테이지 재시도'),
+            e('button', {
+              id: 'return-to-lobby',
+              type: 'button',
+              'data-i18n': 'screen.returnButton'
+            }, '사령부로 돌아가기')
+          )
         )
       ),
       e('div', {
