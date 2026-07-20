@@ -46,6 +46,7 @@ const ATTACK_RANGE = 1.9;
 const ALLY_STRIKE_COOLDOWN = 0.55;
 const TOWER_FIRE_COOLDOWN = 1.0;
 const SHADE_INTERCEPT_RADIUS = 5;
+const ACTION_INTERACTION_RADIUS = 3.0;
 const EPSILON = 0.0001;
 let rendererRequestSequence = 0;
 
@@ -941,6 +942,7 @@ export class RealtimeBattle {
     const portalAnchor = this.navigation.anchors.portal;
     const portalPosition = this.gridToWorld(portalAnchor.x, portalAnchor.y);
     this.portal = this.makeMarker(0x87e8df, portalPosition.x, portalPosition.z, "materialize");
+    this.portal.userData.semanticGroup = ["materialize", "domain"];
     this.portal.scale.set(0.7, 1.3, 0.7);
     this.registerStaticBlocker(this.portal, 0.65, false);
     this.scene.add(this.portal);
@@ -965,7 +967,7 @@ export class RealtimeBattle {
     for (let i = 0; i < nodeAnchors.length; i++) {
       const nodeAnchor = nodeAnchors[i];
       const nodePos = this.gridToWorld(nodeAnchor.x, nodeAnchor.y);
-      const nodeMesh = this.makeMarker(0xffbc69, nodePos.x, nodePos.z, null);
+      const nodeMesh = this.makeMarker(0xffbc69, nodePos.x, nodePos.z, "capture");
       this.registerStaticBlocker(nodeMesh, 0.62, false);
       this.scene.add(nodeMesh);
       this.nodes.push(nodeMesh);
@@ -992,6 +994,7 @@ export class RealtimeBattle {
       const extAnchor = this.navigation.anchors.extractor;
       const extPos = this.gridToWorld(extAnchor.x, extAnchor.y);
       this.extractor = this.makeMarker(0xeab308, extPos.x, extPos.z, "extract");
+      this.extractor.userData.semanticGroup = ["hunt", "extract"];
       this.registerStaticBlocker(this.extractor, 0.7, false);
       this.scene.add(this.extractor);
 
@@ -1472,10 +1475,18 @@ export class RealtimeBattle {
       if (!sem || !available) return false;
       return typeof available.has === "function" ? available.has(sem) : available.includes(sem);
     };
+    // Markers whose anchor covers more than one candidate action (portal:
+    // materialize/domain, extractor: hunt/extract) highlight and hover-match
+    // against whichever candidate is currently available, falling back to
+    // the group's primary action when none is.
+    const resolveMarkerSemantic = (group, fallback) => {
+      if (!Array.isArray(group)) return fallback;
+      return group.find((candidate) => hasAction(candidate)) ?? fallback;
+    };
 
     // 1. Portal
     if (this.portal) {
-      const sem = "materialize";
+      const sem = resolveMarkerSemantic(this.portal.userData.semanticGroup, "materialize");
       const isHovered = this.lastHoveredAction === sem;
       const isAct = hasAction(sem);
       this.applyInteractiveHighlight(this.portal, sem, isHovered, isAct, this.portalPulse, dt);
@@ -1486,7 +1497,7 @@ export class RealtimeBattle {
 
     // 2. Extractor
     if (this.extractor) {
-      const sem = "extract";
+      const sem = resolveMarkerSemantic(this.extractor.userData.semanticGroup, "extract");
       const isHovered = this.lastHoveredAction === sem;
       const isAct = hasAction(sem);
       this.applyInteractiveHighlight(this.extractor, sem, isHovered, isAct, 0.8, dt);
@@ -2516,14 +2527,28 @@ export class RealtimeBattle {
     if (!this.setPointerRay(event)) return null;
     const hit = this.raycaster.intersectObjects(this.interactives, true)[0];
     let object = hit?.object ?? null;
-    while (object && !object.userData.semantic) object = object.parent;
-    const action = object?.userData.semantic || null;
-    if (!action || !this.getAvailableActions) return action;
-    const available = this.getAvailableActions();
-    const allowed = typeof available?.has === "function"
-      ? available.has(action)
-      : available?.includes?.(action);
-    return allowed === false ? null : action;
+    while (object && !object.userData.semantic && !object.userData.semanticGroup) object = object.parent;
+    if (!object) return null;
+
+    const allows = (candidate) => {
+      if (!this.getAvailableActions) return true;
+      const available = this.getAvailableActions();
+      return typeof available?.has === "function"
+        ? available.has(candidate)
+        : available?.includes?.(candidate);
+    };
+
+    // A marker may cover multiple candidate actions that share one world
+    // anchor (e.g. the extractor serves both Hunt and Extract). Resolve to
+    // the first candidate the campaign currently allows; a group with no
+    // allowed candidate is not clickable, matching single-semantic markers.
+    if (object.userData.semanticGroup) {
+      return object.userData.semanticGroup.find((candidate) => allows(candidate)) ?? null;
+    }
+
+    const action = object.userData.semantic || null;
+    if (!action) return null;
+    return allows(action) === false ? null : action;
   }
 
   resolvePointerAlly(event) {
@@ -3622,6 +3647,18 @@ export class RealtimeBattle {
 
     if (!this.navigation || !this.navigation.anchors) {
       return { ready: false, reason: "path-blocked" };
+    }
+
+    // Each action reads through a specific world gimmick/anchor; the
+    // commander must physically stand near it before the campaign executes
+    // the queued command.
+    if (this.commanderPosition) {
+      const dx = this.commanderPosition.x - targetPt.x;
+      const dz = this.commanderPosition.z - (targetPt.z ?? targetPt.y ?? 0);
+      const distance = Math.hypot(dx, dz);
+      if (distance > ACTION_INTERACTION_RADIUS) {
+        return { ready: false, reason: "out-of-range", distance, required: ACTION_INTERACTION_RADIUS };
+      }
     }
 
     return { ready: true, reason: "ready" };

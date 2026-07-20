@@ -1256,7 +1256,7 @@ function evaluateQueuedCommandReadiness(head, runtime) {
   }
   
   if (!rendererReady) {
-    if (elapsed >= COMMAND_RENDERER_ACK_TIMEOUT_MS) {
+    if (rendererReason !== "out-of-range" && elapsed >= COMMAND_RENDERER_ACK_TIMEOUT_MS) {
       rendererReady = true;
       rendererReason = "timeout-fallback";
     } else {
@@ -1590,6 +1590,7 @@ async function drainCommandQueue() {
   runtime.lastCheckedSignature = currentSignature;
   delete runtime.forceCheck;
   
+  const previousReason = runtime.reason;
   setQueuedCommandPhase(head.id, check.phase, check.reason);
   
   if (check.phase === "blocked") {
@@ -1598,6 +1599,9 @@ async function drainCommandQueue() {
   } else if (check.ready) {
     await executeQueuedCommandIfReady(head.id);
   } else {
+    if (check.reason === "out-of-range" && previousReason !== "out-of-range") {
+      showTacticalFeedback(translate("tactical.rejection.outOfRange"));
+    }
     syncQueuedCommandPreview();
     render();
   }

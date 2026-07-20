@@ -1721,3 +1721,25 @@ test("BattleVisualizer object feedback mirrors authoritative actors, live deltas
     "the Canvas renderer must use one presentation-only feedback layer without replaying identical campaign snapshots",
   );
 });
+
+test("BattleVisualizer getCommandReadiness gates each action on the commander's distance to its world gimmick anchor", (t) => {
+  const visualizer = makeVisualizer(t, { presentation: { stageNumber: 1 } });
+
+  const materializeAtSpawn = visualizer.getCommandReadiness({ action: "materialize" });
+  assert.equal(
+    materializeAtSpawn.ready,
+    true,
+    "materialize is anchored at the portal, where the commander spawns, so it starts in range",
+  );
+
+  const huntFromSpawn = visualizer.getCommandReadiness({ action: "hunt" });
+  assert.equal(huntFromSpawn.ready, false, "hunt is anchored at the distant extractor and must reject an out-of-range commander");
+  assert.equal(huntFromSpawn.reason, "out-of-range");
+  assert.ok(huntFromSpawn.distance > huntFromSpawn.required, "the reported distance must exceed the interaction radius it was measured against");
+
+  const extractorAnchor = visualizer.navigation.anchors.extractor;
+  visualizer.commanderPosition.x = extractorAnchor.x;
+  visualizer.commanderPosition.y = extractorAnchor.y;
+  const huntAtExtractor = visualizer.getCommandReadiness({ action: "hunt" });
+  assert.equal(huntAtExtractor.ready, true, "walking the commander to the extractor must bring Hunt into range");
+});

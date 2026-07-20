@@ -78,6 +78,12 @@
 - **이동 경로 흐름 애니메이션:** 아군 우클릭 이동 미리보기의 점선(`LineDashedMaterial`)에 `dashOffset`을 매 프레임 갱신해 목적지 방향으로 흐르는 인상을 주고, `reduced-motion`에서는 정지 상태를 유지합니다. 도착 지점 링 마커와 WebGL 선택 링은 기존 구현을 그대로 사용합니다(변경 없음, 이미 구현되어 있었음을 확인).
 - `node --test tests/object-feedback-layer.test.mjs tests/battle-realtime-three.test.mjs`는 105/105 통과했습니다(신규 3건: 준비도 게이지 렌더링, 크리티컬 등급 폰트 분기, `feedbackObjects()`의 아군/타워 준비도 계산과 커맨더/보스/바리케이드 제외). `node --test tests/*.test.mjs` 전체 스위트는 452/452 통과했습니다.
 
+### 2026-07-20 기믹 근접 게이팅 및 캔버스 직접 조작
+
+- **행동 커맨드 근접 게이팅:** `getCommandReadiness()`가 실제 커맨더-앵커 거리를 측정하도록 WebGL·Canvas 렌더러 양쪽에 구현했습니다(`ACTION_INTERACTION_RADIUS = 3.0`, 포탈/추출기/거점/보스와 동일 좌표계 사용). 범위를 벗어나면 `reason: "out-of-range"`를 반환하고, `app.js`의 `evaluateQueuedCommandReadiness`는 이 사유만 750ms 타임아웃 우회 대상에서 제외해 실제로 근접해야만 실행되도록 했습니다. 첫 진입 시 1회 `tactical.rejection.outOfRange` 안내(한/영 `i18n.js` 추가)를 띄우고, 재진입 시 반복하지 않습니다.
+- **캔버스 직접 조작(기믹 클릭) 버그 수정:** WebGL 렌더러에서 커맨드 노드 마커의 `userData.semantic`이 `null`로 남아있어 클릭해도 Capture가 발동하지 않던 문제를 고쳤습니다(`"capture"`로 고정). 포탈·추출기 마커는 `userData.semanticGroup`(`["materialize","domain"]`, `["hunt","extract"]`)을 추가로 얻어, `resolvePointerAction`이 현재 `getAvailableActions()`에서 허용된 후보로 동적 해석합니다 — 이전엔 추출기 클릭이 항상 Extract로만 고정되어 Hunt를 캔버스에서 직접 발동할 방법이 없었습니다. 호버 하이라이트(`updateMarkerPulses`)도 동일한 동적 해석을 사용합니다. Canvas 폴백 렌더러는 이미 `tacticalActionAt()`에서 동일 동작을 구현하고 있어 변경하지 않았습니다.
+- `node --test tests/battle-realtime-three.test.mjs tests/battle-visualizer.test.mjs tests/command-queue-realtime.test.mjs`는 신규 5건(마커 시맨틱 태깅, `resolvePointerAction` 그룹 해석, WebGL/Canvas `getCommandReadiness` 거리 게이팅, out-of-range 대기열 타임아웃 면제)을 포함해 전부 통과했습니다. `node --test tests/*.test.mjs` 전체 스위트는 457/457 통과했습니다.
+
 ## 프로젝트 구조
 
 ```text

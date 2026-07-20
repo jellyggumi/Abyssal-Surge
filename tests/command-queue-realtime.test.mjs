@@ -254,6 +254,7 @@ async function loadAppQueueRuntime({ campaign = campaignAtStageOne(), includeFal
     queuedCommandRuntime: new Map(),
     seenCommandRequests: new Map(),
     tacticalFeedbackTimer: 0,
+    translate: (key) => key,
     translateRejectionReason: (message) => message,
     translateStatusMessage: (message) => message,
     triggerBattleVisual: (action) => timeline.push(["effect", action]),
@@ -538,4 +539,43 @@ test("battle destroy invalidates queued renderer work before a stale timer can e
 
   assert.equal(fixture.timeline.some(([event]) => event === "execute"), false, "destroy must cancel scheduled execution from the retired renderer session");
   assert.equal(fixture.timeline.filter(([event]) => event === "reserve").length, 1, "a destroyed renderer callback must not reserve new work");
+});
+
+test("a command whose renderer target is out of range waits indefinitely, surfaces one tactical hint, and executes once the commander is in range", async () => {
+  const fixture = await loadAppQueueRuntime();
+  const feedback = [];
+  fixture.context.showTacticalFeedback = (msg) => feedback.push(msg);
+
+  let readiness = { ready: false, reason: "out-of-range" };
+  fixture.context.visualizer = {
+    getCommandReadiness: () => readiness,
+    applyCampaignState() {},
+    applyEncounter() {},
+    previewAction() {},
+    clearActionPreview() {},
+    playActionEffect() {},
+  };
+
+  await fixture.context.queueRuntime.handleAction("hunt");
+  await fixture.timers.runUntil(() => fixture.timers.now >= 6000);
+
+  assert.equal(
+    fixture.timeline.some(([event]) => event === "execute"),
+    false,
+    "an out-of-range command must never be bypassed by the renderer-ack timeout",
+  );
+  assert.deepEqual(
+    feedback.filter((msg) => msg === "tactical.rejection.outOfRange"),
+    ["tactical.rejection.outOfRange"],
+    "the out-of-range hint must surface exactly once, not on every poll tick",
+  );
+
+  readiness = { ready: true, reason: "ready" };
+  await fixture.timers.runUntil(() => fixture.timeline.some(([event]) => event === "execute"));
+
+  assert.deepEqual(
+    feedback.filter((msg) => msg === "tactical.rejection.outOfRange"),
+    ["tactical.rejection.outOfRange"],
+    "returning to range must not repeat the hint",
+  );
 });

@@ -4606,3 +4606,95 @@ test("RealtimeBattle feedbackObjects surfaces ally and tower action-readiness as
     "units without a cooldown-gated action must not draw a stamina bar",
   );
 });
+
+test("RealtimeBattle tags gimmick markers with click-resolvable command semantics, including the previously unreachable node and hunt candidates", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.scene = new THREE.Scene();
+  battle.ringGeometry = null;
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  for (const resource of [
+    "terrain/cinder-span.glb",
+    "units/shade.glb",
+    "units/scout.glb",
+    "units/guard.glb",
+    "units/reinforce.glb",
+    "bosses/cinder-warden.glb",
+  ]) {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+    battle.templates.set(resource, { scene, animations: [] });
+  }
+
+  battle.createBattleObjects();
+
+
+  assert.equal(
+    battle.nodes[0].userData.semantic,
+    "capture",
+    "a command node marker must carry a Capture semantic so clicking it in the canvas triggers the command",
+  );
+  assert.equal(battle.portal.userData.semantic, "materialize", "the portal marker keeps its primary command semantic");
+  assert.deepEqual(
+    battle.portal.userData.semanticGroup,
+    ["materialize", "domain"],
+    "the portal anchor also covers its co-located Domain command",
+  );
+  assert.equal(battle.extractor.userData.semantic, "extract", "the extractor marker keeps its primary command semantic");
+  assert.deepEqual(
+    battle.extractor.userData.semanticGroup,
+    ["hunt", "extract"],
+    "the extractor anchor also covers its co-located Hunt command, which previously had no clickable trigger",
+  );
+});
+
+test("RealtimeBattle resolvePointerAction resolves a marker's semantic group to whichever candidate the campaign currently allows", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.setPointerRay = () => true;
+  const groupRoot = { userData: { semanticGroup: ["hunt", "extract"] }, parent: null };
+  battle.raycaster = { intersectObjects: () => [{ object: groupRoot }] };
+
+  battle.getAvailableActions = () => ["extract"];
+  assert.equal(
+    battle.resolvePointerAction({}),
+    "extract",
+    "the group must resolve to whichever candidate is currently available",
+  );
+
+  battle.getAvailableActions = () => ["hunt"];
+  assert.equal(
+    battle.resolvePointerAction({}),
+    "hunt",
+    "the group must resolve to Hunt once it becomes the available candidate",
+  );
+
+  battle.getAvailableActions = () => ["materialize"];
+  assert.equal(
+    battle.resolvePointerAction({}),
+    null,
+    "a group with no currently available candidate must not resolve to an action",
+  );
+});
+
+test("RealtimeBattle getCommandReadiness gates each action on the commander's distance to its world gimmick anchor", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+
+  const materializeAtSpawn = battle.getCommandReadiness({ action: "materialize" });
+  assert.equal(
+    materializeAtSpawn.ready,
+    true,
+    "materialize is anchored at the portal, where the commander spawns, so it starts in range",
+  );
+
+  const huntFromSpawn = battle.getCommandReadiness({ action: "hunt" });
+  assert.equal(huntFromSpawn.ready, false, "hunt is anchored at the distant extractor and must reject an out-of-range commander");
+  assert.equal(huntFromSpawn.reason, "out-of-range");
+  assert.ok(huntFromSpawn.distance > huntFromSpawn.required, "the reported distance must exceed the interaction radius it was measured against");
+
+  const extractorAnchor = battle.navigation.anchors.extractor;
+  const extractorWorld = battle.navigation.gridToWorld(extractorAnchor.x, extractorAnchor.y);
+  battle.commanderPosition.set(extractorWorld.x, 0, extractorWorld.z);
+  const huntAtExtractor = battle.getCommandReadiness({ action: "hunt" });
+  assert.equal(huntAtExtractor.ready, true, "walking the commander to the extractor must bring Hunt into range");
+});

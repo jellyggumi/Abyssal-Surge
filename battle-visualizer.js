@@ -54,6 +54,7 @@ const CIRCLE_PROBES = Object.freeze([
   Object.freeze([-0.707, 0.707]), Object.freeze([-0.707, -0.707]),
 ]);
 const INTERCEPT_RANGE = 3;     // aggressor radius: defenders chase hostiles this close
+const ACTION_INTERACTION_RADIUS = 3.0; // commander must stand this close to a gimmick anchor to execute its command
 const AI_TICK_MS = 250;        // report: transition priority refresh cadence
 
 const BASE_PALETTE = Object.freeze({
@@ -1563,7 +1564,19 @@ export class BattleVisualizer {
     if (!this.navigation || !this.navigation.anchors) {
       return { ready: false, reason: "path-blocked" };
     }
-    
+
+    // Each action reads through a specific world gimmick/anchor; the
+    // commander must physically stand near it before the campaign executes
+    // the queued command (parity with the WebGL renderer).
+    if (this.commanderPosition) {
+      const dx = this.commanderPosition.x - targetPt.x;
+      const dy = this.commanderPosition.y - targetPt.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > ACTION_INTERACTION_RADIUS) {
+        return { ready: false, reason: "out-of-range", distance, required: ACTION_INTERACTION_RADIUS };
+      }
+    }
+
     return { ready: true, reason: "ready" };
   }
 
