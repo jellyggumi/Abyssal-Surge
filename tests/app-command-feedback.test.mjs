@@ -119,6 +119,7 @@ async function loadReleaseLocalization(locale) {
     battleScreenBoss: { textContent: "" },
   };
   const confirmations = [];
+  const createdAnchors = [];
   const context = vm.createContext({
     Blob,
     URL: {
@@ -133,7 +134,11 @@ async function loadReleaseLocalization(locale) {
     createSaveEnvelope: () => ({ schema: "test-save" }),
     currentLang: () => locale,
     document: {
-      createElement: () => ({ click: () => {} }),
+      createElement: () => {
+        const anchor = { click: () => {} };
+        createdAnchors.push(anchor);
+        return anchor;
+      },
     },
     elements,
     flashEffect: () => {},
@@ -170,7 +175,7 @@ async function loadReleaseLocalization(locale) {
     context,
     { filename: "app.js" },
   );
-  return { api: context.releaseUi, confirmations, elements };
+  return { api: context.releaseUi, confirmations, elements, createdAnchors };
 }
 
 async function loadStartupStatus(locale, {
@@ -1667,12 +1672,17 @@ test("new campaign, save transfer, and briefing status copy follows the active K
   };
 
   for (const locale of ["ko", "en"]) {
-    const { api, confirmations, elements } = await loadReleaseLocalization(locale);
+    const { api, confirmations, elements, createdAnchors } = await loadReleaseLocalization(locale);
     await api.beginNewCampaign();
     assert.deepEqual(confirmations, [contracts[locale].confirm], `${locale} must show the exact localized new-campaign replacement warning`);
 
     api.exportSave();
     assert.equal(elements.saveStatus.textContent, contracts[locale].exported, `${locale} export must publish its exact localized visible status`);
+    assert.equal(
+      createdAnchors.at(-1)?.download,
+      "abyssal-command-campaign-save.json",
+      `${locale} export must name the downloaded file after the current Abyssal Command branding`,
+    );
 
     await api.persistCampaign();
     assert.equal(elements.saveStatus.textContent, contracts[locale].saved, `${locale} persistence must publish its exact localized visible status`);

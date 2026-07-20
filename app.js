@@ -4023,7 +4023,7 @@ function exportSave() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "abyssal-surge-campaign-save.json";
+  anchor.download = "abyssal-command-campaign-save.json";
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   setSaveStatus(translate("saveStatus.exported"), "plain", "saveStatus.exported");
