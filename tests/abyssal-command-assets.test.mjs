@@ -353,37 +353,42 @@ test("Abyssal Command source model pack remains a complete embedded-texture arti
   }
 });
 
-test("Abyssal Command units use the runtime clip vocabulary and keep Move at the scene origin", async () => {
+test("Abyssal Command units and bosses use the extended clip vocabulary and keep locomotion clips at the scene origin", async () => {
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
-  const expectedUnitClips = ["Idle", "Move", "Strike", "Special", "Defeat"];
+  const expectedUnitClips = ["Idle", "IdleAlert", "Move", "Dash", "Strike", "StrikeHeavy", "Counter", "Special", "Cast", "Defeat"];
+  const expectedBossClips = ["Idle", "IdleAlert", "Attack", "AttackHeavy", "Counter", "Special", "Cast", "Defeat"];
+  const locomotionClipsByCategory = { unit: ["Move", "Dash"], boss: [] };
 
-  for (const asset of manifest.assets.filter(({ category }) => category === "unit")) {
+  for (const asset of manifest.assets.filter(({ category }) => category === "unit" || category === "boss")) {
     assert.deepEqual(
       asset.actionClips,
-      expectedUnitClips,
-      `${asset.id} must export the shared unit vocabulary; Attack is reserved for bosses`,
+      asset.category === "unit" ? expectedUnitClips : expectedBossClips,
+      `${asset.id} must export the shared ${asset.category} vocabulary; Attack-family names are reserved for bosses`,
     );
 
     const { binaryChunk, gltf } = parseGlb(await readFile(packFilePath(asset.path, `${asset.id} GLB`)), `${asset.id} GLB`);
-    const move = gltf.animations?.find(({ name }) => name === `${asset.id}__Move`);
-    assert.ok(move, `${asset.id} must export its declared Move clip`);
     const sceneRoots = new Set((gltf.scenes ?? []).flatMap((scene) => scene.nodes ?? []));
-    const rootTranslationChannels = move.channels.filter(
-      ({ target }) => target?.path === "translation" && sceneRoots.has(target.node),
-    );
 
-    for (const { sampler, target } of rootTranslationChannels) {
-      const samples = accessorValues(
-        gltf,
-        binaryChunk,
-        move.samplers[sampler].output,
-        `${asset.id} Move root node ${target.node} translation`,
+    for (const clipName of locomotionClipsByCategory[asset.category]) {
+      const clip = gltf.animations?.find(({ name }) => name === `${asset.id}__${clipName}`);
+      assert.ok(clip, `${asset.id} must export its declared ${clipName} clip`);
+      const rootTranslationChannels = clip.channels.filter(
+        ({ target }) => target?.path === "translation" && sceneRoots.has(target.node),
       );
-      for (const [sampleIndex, [x, , z]] of samples.entries()) {
-        assert.ok(
-          Math.abs(x) <= 1e-5 && Math.abs(z) <= 1e-5,
-          `${asset.id} Move sample ${sampleIndex} must not displace its scene root (got x=${x}, z=${z})`,
+
+      for (const { sampler, target } of rootTranslationChannels) {
+        const samples = accessorValues(
+          gltf,
+          binaryChunk,
+          clip.samplers[sampler].output,
+          `${asset.id} ${clipName} root node ${target.node} translation`,
         );
+        for (const [sampleIndex, [x, , z]] of samples.entries()) {
+          assert.ok(
+            Math.abs(x) <= 1e-5 && Math.abs(z) <= 1e-5,
+            `${asset.id} ${clipName} sample ${sampleIndex} must not displace its scene root (got x=${x}, z=${z})`,
+          );
+        }
       }
     }
   }

@@ -133,10 +133,10 @@ async function walkRelativeFiles(root) {
   return output.sort();
 }
 
-test("shared media inventory closes all 199 records against exact file bytes and SHA-256", async () => {
+test("shared media inventory closes all 239 records against exact file bytes and SHA-256", async () => {
   const manifest = await readJson(MEDIA_MANIFEST_PATH);
   assert.equal(manifest.schema_version, 2, "the shared media inventory must use schema v2");
-  assert.equal(manifest.assets.length, 199, "the release inventory must retain the 188 baseline records plus seven stage narrations, one authored boss-phase combat cue, and three stage-band music records");
+  assert.equal(manifest.assets.length, 239, "the release inventory must retain the 188 baseline records plus seven stage narrations, one authored boss-phase combat cue, three stage-band music records, and the 40 new IdleAlert/Dash/StrikeHeavy-or-AttackHeavy/Counter/Cast raster atlases");
 
   const filenames = manifest.assets.map(({ filename }) => filename);
   assert.equal(new Set(filenames).size, manifest.assets.length, "each supplied media file must have exactly one inventory record");
@@ -200,7 +200,7 @@ test("model v2 and the 45-record raster bridge form a hash-closed 15-asset runti
   assert.equal(bridgeManifest.sourceManifest, `${MODEL_PACK_ROOT}/manifest.json`);
   assert.deepEqual(bridgeManifest.atlasLayout.yawColumnsDegrees, [0, 45, 90, 135, 180, 225, 270, 315]);
   assert.deepEqual(bridgeManifest.atlasLayout.frameSamples, [1, 10, 20, 30]);
-  assert.equal(bridgeManifest.records.length, 45, "the bridge must retain 42 action atlases and three terrain plates");
+  assert.equal(bridgeManifest.records.length, 85, "the bridge must retain 82 action atlases and three terrain plates");
 
   const mediaByFilename = new Map(mediaManifest.assets.map((record) => [record.filename, record]));
   const actualBridgeKeys = [];
@@ -247,7 +247,7 @@ test("model v2 and the 45-record raster bridge form a hash-closed 15-asset runti
   }
 
   assert.deepEqual(actualBridgeKeys.sort(), expectedBridgeKeys.sort(), "every declared model action and terrain asset must join to exactly one bridge output");
-  assert.equal(actionAtlases, 42);
+  assert.equal(actionAtlases, 82);
   assert.equal(terrainPlates, 3);
 });
 

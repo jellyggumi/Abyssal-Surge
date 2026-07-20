@@ -1153,7 +1153,7 @@ test("RealtimeBattle starts one-shot Defeat playback once when non-commander act
   );
 });
 
-test("RealtimeBattle keeps Defeat on a lethally assaulted exposed boss while live exposed bosses still Attack", () => {
+test("RealtimeBattle keeps Defeat on a lethally assaulted exposed boss while live exposed bosses still AttackHeavy", () => {
   const lethalBattle = new RealtimeBattle(null, { stageNumber: 1 });
   const lethalBoss = makeUnit({ hp: 16 });
   const lethalPlays = [];
@@ -1182,8 +1182,8 @@ test("RealtimeBattle keeps Defeat on a lethally assaulted exposed boss while liv
 
   assert.deepEqual(
     livePlays,
-    [{ unit: liveBoss, clip: "Attack", once: true }],
-    "a nonlethal exposed-boss assault must retain its boss Attack playback",
+    [{ unit: liveBoss, clip: "AttackHeavy", once: true }],
+    "a nonlethal exposed-boss assault must retain its boss AttackHeavy playback",
   );
 });
 
@@ -4923,6 +4923,34 @@ test("RealtimeBattle getCommandReadiness gates each action on the commander's di
   battle.commanderPosition.set(extractorWorld.x, 0, extractorWorld.z);
   const huntAtExtractor = battle.getCommandReadiness({ action: "hunt" });
   assert.equal(huntAtExtractor.ready, true, "walking the commander to the extractor must bring Hunt into range");
+});
+
+test("RealtimeBattle plays a distinct commander motion clip per command instead of always the same generic clip", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  const commander = { id: "commander" };
+  battle.commander = commander;
+  battle.getAvailableActions = () => [];
+
+  const expected = {
+    hunt: "Strike",
+    extract: "Cast",
+    materialize: "Special",
+    capture: "Cast",
+    possess: "Cast",
+    domain: "Special",
+    assault: "StrikeHeavy",
+  };
+
+  for (const [action, clip] of Object.entries(expected)) {
+    const plays = [];
+    battle.play = (unit, playedClip, once) => plays.push({ unit, clip: playedClip, once });
+    battle.playActionEffect({ action });
+    assert.deepEqual(
+      plays.find(({ unit }) => unit === commander),
+      { unit: commander, clip, once: true },
+      `${action} must play the commander's "${clip}" clip, not a one-size-fits-all default`,
+    );
+  }
 });
 
 test("RealtimeBattle updateActionRangeRing draws a constant range affordance at ACTION_INTERACTION_RADIUS and brightens only when an available action's anchor is inside it", async () => {

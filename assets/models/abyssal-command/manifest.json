@@ -2,7 +2,7 @@
   "version": 2,
   "pack": "abyssal-command-low-poly",
   "source": "abyssal-command-resource-pack.blend",
-  "sourceSha256": "ae10e92cb2803d06948629a944aed3255e179e830d511f4eace462b9c9a39d37",
+  "sourceSha256": "337ac7c00ab5c1596edcef7cce922c3e1647d1ec15ec85df377dbe92080e78e2",
   "coordinateSystem": "Blender Z-up; ground-center pivots; authored forward is -Y",
   "rendering": "Flat-shaded PBR GLB resources with embedded albedo and tangent-space normal textures; no external texture URLs",
   "build": {
@@ -73,7 +73,7 @@
       "id": "shade",
       "category": "unit",
       "path": "units/shade.glb",
-      "sha256": "9844f0c620153396a3d11fbf823bc0ba46b86ebe33b35f59965ded00a677610a",
+      "sha256": "cfbe699332bbe7c0183d6302724caaf7b88d19a73fe587fd0e606e9d41566fc1",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.037459,
       "measurements": {
@@ -113,16 +113,26 @@
       ],
       "actions": [
         "shade__Idle",
+        "shade__IdleAlert",
         "shade__Move",
+        "shade__Dash",
         "shade__Strike",
+        "shade__StrikeHeavy",
+        "shade__Counter",
         "shade__Special",
+        "shade__Cast",
         "shade__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Move",
+        "Dash",
         "Strike",
+        "StrikeHeavy",
+        "Counter",
         "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -138,7 +148,7 @@
       "id": "possessed",
       "category": "unit",
       "path": "units/possessed.glb",
-      "sha256": "acedbea8221bee32b79d0b1c3caa8e7366381a2f8bf498abeb1c797db1d58ee5",
+      "sha256": "34a18cf75268932115e279f3290c0ab8cfb9fcb0aa2e3aeba52bb347d8fef6b4",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.0,
       "measurements": {
@@ -179,16 +189,26 @@
       ],
       "actions": [
         "possessed__Idle",
+        "possessed__IdleAlert",
         "possessed__Move",
+        "possessed__Dash",
         "possessed__Strike",
+        "possessed__StrikeHeavy",
+        "possessed__Counter",
         "possessed__Special",
+        "possessed__Cast",
         "possessed__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Move",
+        "Dash",
         "Strike",
+        "StrikeHeavy",
+        "Counter",
         "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -204,7 +224,7 @@
       "id": "scout",
       "category": "unit",
       "path": "units/scout.glb",
-      "sha256": "6e534e0bfc359479e1c102c54677b5b6a1e494ef179d20ac1c97e459d4798f52",
+      "sha256": "36941045d74475eecd851d1c0bf9bf10790d78379c2594043518a376c741b4ed",
       "pivot": "ground-center",
       "groundOffsetApplied": 0.002202,
       "measurements": {
@@ -245,16 +265,26 @@
       ],
       "actions": [
         "scout__Idle",
+        "scout__IdleAlert",
         "scout__Move",
+        "scout__Dash",
         "scout__Strike",
+        "scout__StrikeHeavy",
+        "scout__Counter",
         "scout__Special",
+        "scout__Cast",
         "scout__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Move",
+        "Dash",
         "Strike",
+        "StrikeHeavy",
+        "Counter",
         "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -270,7 +300,7 @@
       "id": "guard",
       "category": "unit",
       "path": "units/guard.glb",
-      "sha256": "0c9913f889111c4447fc7b99b4909ad9d5e6a94316e8939327ab9ea309f6c83d",
+      "sha256": "06053d594227473f8e31cf5d72a8cde0dc28d68f14c042fe46e069a1357ddbfa",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.0,
       "measurements": {
@@ -312,16 +342,26 @@
       ],
       "actions": [
         "guard__Idle",
+        "guard__IdleAlert",
         "guard__Move",
+        "guard__Dash",
         "guard__Strike",
+        "guard__StrikeHeavy",
+        "guard__Counter",
         "guard__Special",
+        "guard__Cast",
         "guard__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Move",
+        "Dash",
         "Strike",
+        "StrikeHeavy",
+        "Counter",
         "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -337,7 +377,7 @@
       "id": "reinforce",
       "category": "unit",
       "path": "units/reinforce.glb",
-      "sha256": "69725cb6339bd2f546d3459b6459e951ee1a98b782d1ffe44657a93309602634",
+      "sha256": "082e6ec9b5410f1c37fe3ac58755c682b0b895340419f36fac54935dde72de79",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.0,
       "measurements": {
@@ -380,16 +420,26 @@
       ],
       "actions": [
         "reinforce__Idle",
+        "reinforce__IdleAlert",
         "reinforce__Move",
+        "reinforce__Dash",
         "reinforce__Strike",
+        "reinforce__StrikeHeavy",
+        "reinforce__Counter",
         "reinforce__Special",
+        "reinforce__Cast",
         "reinforce__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Move",
+        "Dash",
         "Strike",
+        "StrikeHeavy",
+        "Counter",
         "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -405,7 +455,7 @@
       "id": "cinder-warden",
       "category": "boss",
       "path": "bosses/cinder-warden.glb",
-      "sha256": "919a3fa3688c3b9093fd5ed3b5832c0c2a886277b05eef1b800dba510dc8e163",
+      "sha256": "ac36b930a345c138cc4edf2c5098f4efeb496307c49084ec31a277cda85caf32",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.075,
       "measurements": {
@@ -446,12 +496,22 @@
       ],
       "actions": [
         "cinder-warden__Idle",
+        "cinder-warden__IdleAlert",
         "cinder-warden__Attack",
+        "cinder-warden__AttackHeavy",
+        "cinder-warden__Counter",
+        "cinder-warden__Special",
+        "cinder-warden__Cast",
         "cinder-warden__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Attack",
+        "AttackHeavy",
+        "Counter",
+        "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -464,7 +524,7 @@
       "id": "veil-tactician",
       "category": "boss",
       "path": "bosses/veil-tactician.glb",
-      "sha256": "ca688eef74ba57c37542c5e9a482cf760202afa705b4b2dde746699e6cc4a896",
+      "sha256": "ad4b5d32f01eb06e21795730397e4ba146554d3c04906b4b711272f7e74538ec",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.05,
       "measurements": {
@@ -505,12 +565,22 @@
       ],
       "actions": [
         "veil-tactician__Idle",
+        "veil-tactician__IdleAlert",
         "veil-tactician__Attack",
+        "veil-tactician__AttackHeavy",
+        "veil-tactician__Counter",
+        "veil-tactician__Special",
+        "veil-tactician__Cast",
         "veil-tactician__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Attack",
+        "AttackHeavy",
+        "Counter",
+        "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -523,7 +593,7 @@
       "id": "gate-sovereign",
       "category": "boss",
       "path": "bosses/gate-sovereign.glb",
-      "sha256": "f01d2890c74d510571112acbdd3f970a3d7f592e86e2c26ae5f76aea8c25ef48",
+      "sha256": "252c8899afabde5e2d86c6dd8b6ce0bfd320ff3dc211580d00bb3293531ca9bb",
       "pivot": "ground-center",
       "groundOffsetApplied": 0.02811,
       "measurements": {
@@ -565,12 +635,22 @@
       ],
       "actions": [
         "gate-sovereign__Idle",
+        "gate-sovereign__IdleAlert",
         "gate-sovereign__Attack",
+        "gate-sovereign__AttackHeavy",
+        "gate-sovereign__Counter",
+        "gate-sovereign__Special",
+        "gate-sovereign__Cast",
         "gate-sovereign__Defeat"
       ],
       "actionClips": [
         "Idle",
+        "IdleAlert",
         "Attack",
+        "AttackHeavy",
+        "Counter",
+        "Special",
+        "Cast",
         "Defeat"
       ],
       "rig": {
@@ -583,7 +663,7 @@
       "id": "rift-portal",
       "category": "prop",
       "path": "props/rift-portal.glb",
-      "sha256": "f3f93a9f55e201ba75dc593e83b7a8e2149c354f6baf5149890f624baccaf296",
+      "sha256": "2ea9876c99286b93bf9d524fbea6784f46adab332ffb0f02b89e6fbf1ffc8435",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.01,
       "measurements": {
@@ -727,7 +807,7 @@
       "id": "echo-throne",
       "category": "prop",
       "path": "props/echo-throne.glb",
-      "sha256": "13af402a5fae32bbb316b90d99dcd1eb8d74ec86ae6c7afe03438b547f7d09e0",
+      "sha256": "e5c3bb65750eda0eeb65608c51db2ebe8b79820f6acd74a07516519259d02f8e",
       "pivot": "ground-center",
       "groundOffsetApplied": -0.44,
       "measurements": {
@@ -817,7 +897,7 @@
       "id": "veil-citadel",
       "category": "terrain",
       "path": "terrain/veil-citadel.glb",
-      "sha256": "fc7b9c10f174cbd05a397bd89c3c266692748d5b539d757158426e42859e1528",
+      "sha256": "2b06c27ecaaefda646ca59fb62746a14229387bb41d1f01e7ab92fcb06613bbb",
       "pivot": "ground-center",
       "groundOffsetApplied": 0.26,
       "measurements": {

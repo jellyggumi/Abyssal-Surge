@@ -47,6 +47,19 @@ const ALLY_STRIKE_COOLDOWN = 0.55;
 const TOWER_FIRE_COOLDOWN = 1.0;
 const SHADE_INTERCEPT_RADIUS = 5;
 const ACTION_INTERACTION_RADIUS = 3.0;
+// Per-command commander motion: previously every command played the same
+// "Special" clip regardless of what was executed. Assigns each of the seven
+// semantic commands a distinct clip from the extended vocabulary (2 combat
+// clips, 2 skill/channel clips) instead of one undifferentiated animation.
+const COMMANDER_CLIP_BY_ACTION = {
+  hunt: "Strike",
+  extract: "Cast",
+  materialize: "Special",
+  capture: "Cast",
+  possess: "Cast",
+  domain: "Special",
+  assault: "StrikeHeavy",
+};
 const EPSILON = 0.0001;
 let rendererRequestSequence = 0;
 
@@ -3954,8 +3967,8 @@ export class RealtimeBattle {
     if (!action || this.destroyed) return;
     this.emitActionFeedback(semantic);
     const actor = this.actionFeedbackActor(semantic.actor);
-    if (actor) this.play(actor, semantic.actorClip ?? semantic.clip ?? "Special", true);
-    if (action === "assault" && this.bossExposed && this.boss && !this.boss.defeated) this.play(this.boss, "Attack", true);
+    if (actor) this.play(actor, semantic.actorClip ?? semantic.clip ?? COMMANDER_CLIP_BY_ACTION[action] ?? "Special", true);
+    if (action === "assault" && this.bossExposed && this.boss && !this.boss.defeated) this.play(this.boss, "AttackHeavy", true);
     if (action === "possess" || action === "domain") this.rally.copy(this.commanderPosition);
     if (action === "domain") {
       const echoThrone = this.createEchoThrone();

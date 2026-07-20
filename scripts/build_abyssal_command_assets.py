@@ -305,8 +305,12 @@ def torus(collection, label, location, major_radius, minor_radius, mat, *, rotat
 
 
 ACTION_CLIPS_BY_CATEGORY = {
-    "unit": ("Idle", "Move", "Strike", "Special", "Defeat"),
-    "boss": ("Idle", "Attack", "Defeat"),
+    # 2 idle + 2 movement + 3 combat + 2 skill + terminal Defeat. Bosses are
+    # stationary (exposure/HP threat, never roam per the campaign design) so
+    # they get no movement clips, but otherwise mirror the same 2/3/2 shape
+    # under Attack-family names to match the existing Strike/Attack split.
+    "unit": ("Idle", "IdleAlert", "Move", "Dash", "Strike", "StrikeHeavy", "Counter", "Special", "Cast", "Defeat"),
+    "boss": ("Idle", "IdleAlert", "Attack", "AttackHeavy", "Counter", "Special", "Cast", "Defeat"),
     "prop": ("Idle", "Activate"),
     "terrain": (),
 }
@@ -385,10 +389,24 @@ def clip_keyframes(category: str, clip_name: str) -> dict[str, tuple[tuple[int, 
             "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.radians(2))), (30, identity_rotation)),
             "scale": ((1, identity_scale), (15, (1.01, 1.01, 1.01)), (30, identity_scale)),
         }
+    if clip_name == "IdleAlert":
+        return {
+            "location": ((1, identity_location), (10, (0.0, -0.015, 0.015)), (20, (0.0, -0.015, 0.03)), (30, identity_location)),
+            "rotation_euler": ((1, identity_rotation), (10, (math.radians(4), 0.0, 0.0)), (20, (math.radians(4), 0.0, math.radians(-2))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (15, (1.015, 1.015, 0.995)), (30, identity_scale)),
+        }
     if clip_name == "Move":
         return {
             "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(-3))), (22, (0.0, 0.0, math.radians(3))), (30, identity_rotation)),
             "scale": ((1, identity_scale), (8, (1.01, 1.0, 0.985)), (22, (0.99, 1.0, 1.015)), (30, identity_scale)),
+        }
+    if clip_name == "Dash":
+        # A second locomotion clip: no root "location" channel (same
+        # runtime-owned in-place rule as Move) -- lean/squash only, exported
+        # via rotation_euler and scale.
+        return {
+            "rotation_euler": ((1, identity_rotation), (10, (math.radians(10), 0.0, math.radians(-6))), (20, (math.radians(10), 0.0, math.radians(6))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (10, (0.96, 1.0, 1.05)), (20, (1.04, 1.0, 0.95)), (30, identity_scale)),
         }
     if clip_name in {"Strike", "Attack"}:
         return {
@@ -396,11 +414,29 @@ def clip_keyframes(category: str, clip_name: str) -> dict[str, tuple[tuple[int, 
             "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(-12))), (16, (0.0, 0.0, math.radians(16))), (24, identity_rotation)),
             "scale": ((1, identity_scale), (12, (1.035, 1.035, 1.035)), (24, identity_scale)),
         }
+    if clip_name in {"StrikeHeavy", "AttackHeavy"}:
+        return {
+            "location": ((1, identity_location), (6, (0.0, -0.03, 0.02)), (16, (0.0, 0.07, -0.01)), (30, identity_location)),
+            "rotation_euler": ((1, identity_rotation), (6, (0.0, 0.0, math.radians(-22))), (16, (0.0, 0.0, math.radians(30))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (6, (0.97, 0.97, 0.97)), (16, (1.06, 1.06, 1.06)), (30, identity_scale)),
+        }
+    if clip_name == "Counter":
+        return {
+            "location": ((1, identity_location), (8, (0.0, -0.05, 0.0)), (18, (0.0, 0.05, 0.0)), (30, identity_location)),
+            "rotation_euler": ((1, identity_rotation), (8, (0.0, 0.0, math.radians(14))), (18, (0.0, 0.0, math.radians(-20))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (18, (1.025, 1.025, 1.025)), (30, identity_scale)),
+        }
     if clip_name == "Special":
         return {
             "location": ((1, identity_location), (15, (0.0, 0.0, 0.08)), (30, identity_location)),
             "rotation_euler": ((1, identity_rotation), (15, (0.0, 0.0, math.tau)), (30, (0.0, 0.0, math.tau * 2))),
             "scale": ((1, identity_scale), (15, (1.1, 1.1, 1.1)), (30, identity_scale)),
+        }
+    if clip_name == "Cast":
+        return {
+            "location": ((1, identity_location), (15, (0.0, -0.02, 0.05)), (30, identity_location)),
+            "rotation_euler": ((1, identity_rotation), (15, (math.radians(6), 0.0, math.radians(10))), (30, identity_rotation)),
+            "scale": ((1, identity_scale), (15, (1.06, 1.06, 1.03)), (30, identity_scale)),
         }
     if clip_name == "Activate":
         return {
@@ -431,6 +467,16 @@ def control_keyframes(role: str, clip_name: str) -> dict[str, tuple[tuple[int, t
             return {"rotation_euler": ((1, rotation), (10, (math.radians(-7), 0.0, 0.0)), (17, (math.radians(9), 0.0, 0.0)), (24, rotation))}
         if clip_name == "Special":
             return {"scale": ((1, scale), (15, (1.045, 1.045, 1.07)), (30, scale))}
+        if clip_name == "IdleAlert":
+            return {"location": ((1, location), (10, (0.0, 0.0, 0.012)), (30, location)), "rotation_euler": ((1, rotation), (10, (math.radians(3), 0.0, 0.0)), (30, rotation))}
+        if clip_name == "Dash":
+            return {"location": ((1, location), (10, (0.0, 0.0, 0.05)), (20, location), (30, (0.0, 0.0, 0.05))), "rotation_euler": ((1, rotation), (10, (math.radians(6), 0.0, math.radians(-3))), (20, (math.radians(6), 0.0, math.radians(3))), (30, rotation))}
+        if clip_name == "StrikeHeavy":
+            return {"rotation_euler": ((1, rotation), (6, (math.radians(-10), 0.0, 0.0)), (16, (math.radians(14), 0.0, 0.0)), (30, rotation))}
+        if clip_name == "Counter":
+            return {"rotation_euler": ((1, rotation), (8, (math.radians(6), 0.0, 0.0)), (18, (math.radians(-9), 0.0, 0.0)), (30, rotation))}
+        if clip_name == "Cast":
+            return {"scale": ((1, scale), (15, (1.03, 1.03, 1.05)), (30, scale))}
         if clip_name == "Defeat":
             return {"rotation_euler": ((1, rotation), (30, (math.radians(9), 0.0, math.radians(-5))))}
     if clip_name == "Idle":
@@ -441,6 +487,16 @@ def control_keyframes(role: str, clip_name: str) -> dict[str, tuple[tuple[int, t
         return {"rotation_euler": ((1, rotation), (8, (math.radians(-18), 0.0, math.radians(-10))), (16, (math.radians(26), 0.0, math.radians(12))), (24, rotation))}
     if clip_name == "Special":
         return {"rotation_euler": ((1, rotation), (15, (0.0, math.radians(12), math.radians(8))), (30, rotation)), "scale": ((1, scale), (15, (1.08, 1.08, 1.08)), (30, scale))}
+    if clip_name == "IdleAlert":
+        return {"rotation_euler": ((1, rotation), (10, (0.0, math.radians(3), math.radians(-3))), (30, rotation))}
+    if clip_name == "Dash":
+        return {"rotation_euler": ((1, rotation), (10, (math.radians(-6), 0.0, math.radians(6))), (20, (math.radians(6), 0.0, math.radians(-6))), (30, rotation))}
+    if clip_name == "StrikeHeavy":
+        return {"rotation_euler": ((1, rotation), (6, (math.radians(-24), 0.0, math.radians(-14))), (16, (math.radians(34), 0.0, math.radians(16))), (30, rotation))}
+    if clip_name == "Counter":
+        return {"rotation_euler": ((1, rotation), (8, (math.radians(16), 0.0, math.radians(8))), (18, (math.radians(-22), 0.0, math.radians(-12))), (30, rotation))}
+    if clip_name == "Cast":
+        return {"rotation_euler": ((1, rotation), (15, (0.0, math.radians(8), math.radians(6))), (30, rotation)), "scale": ((1, scale), (15, (1.05, 1.05, 1.05)), (30, scale))}
     if clip_name == "Defeat":
         return {"rotation_euler": ((1, rotation), (30, (math.radians(28), 0.0, math.radians(18))))}
     raise ValueError(f"Unsupported unit control clip: {clip_name}")
