@@ -2476,7 +2476,7 @@ function armEncounterWhenPrepared(sessionId = battleSessionId) {
   if (battleStartedAt || !campaign || campaign.status !== "active") return;
   const stage = currentStage();
   const encounter = currentEncounter(stage);
-  if (!stage.encounter || !encounter || encounter.bossExposed || encounter.spawningStopped) return;
+  if (!stage.encounter || !encounter || encounter.spawningStopped) return;
 
   const preparationLegion = stage.encounter.preparationLegion ?? 0;
   const preparationNodes = stage.encounter.preparationNodes ?? 0;
@@ -2543,9 +2543,12 @@ function deriveLiveBattleHud(stage, state, runtime, lang) {
 
   let advanceKey = "battle.live.advance.waiting";
   let advanceState = "waiting";
-  if (encounter?.spawningStopped || encounter?.bossExposed) {
+  if (encounter?.spawningStopped) {
     advanceKey = "battle.live.advance.stopped";
     advanceState = "stopped";
+  } else if (encounter?.bossExposed) {
+    advanceKey = "battle.live.advance.bossExposed";
+    advanceState = "boss-exposed";
   } else if (activeIndex >= 0 && engagements > 0) {
     advanceKey = "battle.live.advance.engaged";
     advanceState = "engaged";
@@ -2748,16 +2751,31 @@ function scheduleEncounterWaveStart(sessionId = battleSessionId) {
   if (campaign?.status !== "active" || sessionId !== battleSessionId) return;
   const stage = currentStage();
   const encounter = currentEncounter(stage);
-  if (!stage.encounter || !encounter || encounter.activeWaveId || encounter.bossExposed || encounter.spawningStopped) return;
+  // bossExposed no longer implies "nothing left to spawn" -- a stage can
+  // expose its boss and still have a recurringWave template keeping the
+  // field under pressure. spawningStopped is the one signal that means
+  // "truly done"; it only becomes true once every authored wave is cleared
+  // AND the stage declares no recurring template (see campaign-state.js).
+  if (!stage.encounter || !encounter || encounter.activeWaveId || encounter.spawningStopped) return;
 
   const waveIndex = encounter.waves.findIndex((wave) => !wave.cleared);
-  const wave = stage.encounter.waves[waveIndex];
-  if (!wave) return;
-  const scheduledAtSeconds = waveIndex === 0
-    ? Math.max(wave.spawnAtSeconds, stage.encounter.preparationSeconds)
-    : wave.spawnAtSeconds;
   const elapsed = performance.now() - battleStartedAt;
-  const delay = Math.max(0, scheduledAtSeconds * 1000 - elapsed);
+  let wave;
+  let delay;
+  if (waveIndex === -1) {
+    // Every authored wave is cleared; keep generating waves from the
+    // recurring template at a steady interval instead of going quiet.
+    const template = stage.encounter.recurringWave;
+    if (!template) return;
+    wave = { id: `recurring-${(encounter.recurringWavesCleared ?? 0) + 1}`, ...template };
+    delay = Math.max(0, template.intervalSeconds * 1000);
+  } else {
+    wave = stage.encounter.waves[waveIndex];
+    const scheduledAtSeconds = waveIndex === 0
+      ? Math.max(wave.spawnAtSeconds, stage.encounter.preparationSeconds)
+      : wave.spawnAtSeconds;
+    delay = Math.max(0, scheduledAtSeconds * 1000 - elapsed);
+  }
   encounterStartTimer = window.setTimeout(() => {
     encounterStartTimer = 0;
     void handleEncounterEvent({ type: "start-wave", stageId: stage.id, waveId: wave.id }, sessionId);
@@ -2850,7 +2868,7 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
       }
     }
     const encounter = currentEncounter();
-    if (campaign.status !== "active" || encounter?.bossExposed || encounter?.spawningStopped) {
+    if (campaign.status !== "active" || encounter?.spawningStopped) {
       clearEncounterStartTimer();
     }
     await persistCampaign(`persist.encounter.${event.type}`);
@@ -2859,7 +2877,6 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
     if (
       event.type === "wave-cleared" &&
       campaign.status === "active" &&
-      !currentEncounter()?.bossExposed &&
       !currentEncounter()?.spawningStopped
     ) {
       scheduleEncounterWaveStart(sessionId);

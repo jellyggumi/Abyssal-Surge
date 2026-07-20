@@ -1257,6 +1257,40 @@ test("BattleVisualizer spawns hostile waves from the 24×12 route frontage witho
   });
 });
 
+test("reconcileEncounterWave spawns hostiles from the stage's recurringWave template once every authored wave id is exhausted", (t) => {
+  const visualizer = makeVisualizer(t, {
+    presentation: { stageNumber: 1 },
+  });
+  visualizer.burst = () => {};
+  visualizer.playSpatial = () => {};
+  visualizer.ctx = {};
+
+  const recurringWave = Object.freeze({
+    hostiles: 2,
+    hostileHealth: 3,
+    breachDamage: 1,
+    pattern: "flanker",
+    intervalSeconds: 65,
+  });
+  visualizer.encounter = {
+    stageId: "cinder-span",
+    config: {
+      waves: [{ id: "scout", hostiles: 2, hostileHealth: 1, cleared: true }],
+      recurringWave,
+    },
+    state: { activeWaveId: "recurring-1" },
+  };
+
+  visualizer.reconcileEncounterWave("recurring-1");
+
+  assert.equal(visualizer.currentWaveId, "recurring-1", "the recurring wave id (absent from the authored waves array) must still become the tracked active wave");
+  assert.equal(visualizer.enemies.length, recurringWave.hostiles, "the renderer must spawn the recurring template's hostile count instead of silently spawning nothing");
+  for (const enemy of visualizer.enemies) {
+    assert.equal(enemy.hp, recurringWave.hostileHealth, "spawned hostiles must use the recurring template's health, not a default");
+    assert.equal(enemy.waveId, "recurring-1", "spawned hostiles must be tagged with the recurring wave id for breach/clear tracking");
+  }
+});
+
 test("BattleVisualizer maps Stage 1 waves to their authored models and later archetypes to the scout fallback", (t) => {
   const visualizer = makeVisualizer(t, {
     presentation: { stageNumber: 1 },

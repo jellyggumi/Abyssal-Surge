@@ -1517,6 +1517,47 @@ test("RealtimeBattle spawns hostile waves from the 24×12 route frontage without
   });
 });
 
+test("RealtimeBattle reconcileEncounterWave spawns hostiles from the stage's recurringWave template once every authored wave id is exhausted", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 10 });
+  battle.scene = { add() {} };
+  battle.templates.set("units/scout.glb", {});
+  battle.cloneTemplate = () => {
+    const enemy = makeUnit();
+    enemy.root.rotation = {};
+    return enemy;
+  };
+  battle.resolveSpawn = (enemy, x, z) => {
+    enemy.root.position.set(x, 0, z);
+    return true;
+  };
+  battle.play = () => {};
+
+  const recurringWave = Object.freeze({
+    hostiles: 2,
+    hostileHealth: 3,
+    breachDamage: 1,
+    pattern: "flanker",
+    intervalSeconds: 65,
+  });
+  battle.encounter = {
+    stageId: "gate-zenith",
+    config: {
+      waves: [{ id: "zenith-wave", hostiles: 3, hostileHealth: 4, cleared: true }],
+      recurringWave,
+    },
+    state: { activeWaveId: "recurring-1" },
+  };
+
+  battle.reconcileEncounterWave("recurring-1");
+
+  assert.equal(battle.currentWaveId, "recurring-1", "the recurring wave id (absent from the authored waves array) must still become the tracked active wave");
+  assert.equal(battle.enemies.length, recurringWave.hostiles, "the renderer must spawn the recurring template's hostile count instead of silently spawning nothing");
+  for (const enemy of battle.enemies) {
+    assert.equal(enemy.hp, recurringWave.hostileHealth, "spawned hostiles must use the recurring template's health, not a default");
+    assert.equal(enemy.archetype, "recurring-1", "spawned hostiles must be tagged with the recurring wave id for breach/clear tracking");
+  }
+});
+
 test("RealtimeBattle maps Stage 1 waves to authored GLBs and later archetypes to the scout fallback", () => {
   const modelByWave = {};
 

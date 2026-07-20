@@ -2581,6 +2581,7 @@ test("selection HUD copy is complete and language-specific in Korean and English
     "battle.live.forecast.boss",
     "battle.live.advance.waiting",
     "battle.live.advance.stopped",
+    "battle.live.advance.bossExposed",
     "battle.live.advance.dispatched",
     "battle.live.advance.spawned",
     "battle.live.advance.engaged",

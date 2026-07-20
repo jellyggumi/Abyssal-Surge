@@ -585,7 +585,31 @@ test("stage 4-10 declared encounters expose the boss only after every wave clear
   state = encounter(state, "start-wave", lastWave.id);
   state = encounter(state, "wave-cleared", lastWave.id);
   assert.equal(state.stage.encounter.bossExposed, true, "clearing the final declared wave exposes the boss");
-  assert.equal(state.stage.encounter.spawningStopped, true, "clearing the final declared wave stops spawning");
+  assert.equal(
+    state.stage.encounter.spawningStopped,
+    false,
+    "every stage now declares a recurringWave template, so clearing the last authored wave must not stop spawning -- the field stays under pressure at a steady interval even once the boss is exposed",
+  );
+
+  // The recurring template keeps generating waves past the authored list.
+  const recurringId = "recurring-1";
+  rejectWithoutMutation(
+    state,
+    (current) => applyEncounterEvent(current, { type: "start-wave", waveId: "not-the-next-recurring-wave", stageId: current.stageId }),
+    "a mismatched recurring wave id must still be rejected",
+  );
+  state = encounter(state, "start-wave", recurringId);
+  assert.equal(state.stage.encounter.activeWaveId, recurringId, "a recurring wave must become the active wave");
+  const beforeIntegrity = state.stage.integrity;
+  state = encounter(state, "breach", recurringId);
+  assert.equal(
+    state.stage.integrity,
+    beforeIntegrity - stage.encounter.recurringWave.breachDamage,
+    "a recurring wave's breach must apply its declared damage",
+  );
+  state = encounter(state, "wave-cleared", recurringId);
+  assert.equal(state.stage.encounter.recurringWavesCleared, 1, "clearing a recurring wave must increment the recurring counter");
+  assert.equal(state.stage.encounter.bossExposed, true, "the boss must remain exposed while recurring waves continue");
 
   const attackBoost = state.stage.activeEffects.find(({ type }) => type === "ATTACK")?.value ?? 0;
   const struck = accept(applyAction(state, "assault"), "the exposed Stage 4 boss must accept the assault");
@@ -609,6 +633,8 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
         { id: "guard", spawnAtSeconds: 130, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "guardian" },
         { id: "reinforcement", spawnAtSeconds: 245, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "flanker" },
       ],
+      minWavesForBossExposure: 3,
+      recurringWave: { hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "flanker", intervalSeconds: 70 },
     },
     "Stage 1 must publish the implemented 15/130/245 second 2/3/3 hostile encounter schedule.",
   );
@@ -648,11 +674,12 @@ test("Stage 1 encounter accepts only the active declared wave and exposes the bo
       ],
       activeWaveId: null,
       bossExposed: true,
-      spawningStopped: true,
+      spawningStopped: false,
+      recurringWavesCleared: 0,
     },
-    "the third clear exposes the boss and permanently stops wave spawning",
+    "the third clear exposes the boss; spawning keeps going via the recurring template instead of permanently stopping",
   );
-  rejectWithoutMutation(state, (current) => applyEncounterEvent(current, { type: "start-wave", stageId: stage.id, waveId: "reinforcement" }), "the completed encounter must reject further spawning");
+  rejectWithoutMutation(state, (current) => applyEncounterEvent(current, { type: "start-wave", stageId: stage.id, waveId: "reinforcement" }), "a wave id that already cleared can never restart, even once recurring waves are next in line");
   assert.equal(applyAction(state, "assault").accepted, true, "Stage 1 assault becomes legal only after the final wave clear and normal node prerequisite");
 });
 

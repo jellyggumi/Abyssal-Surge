@@ -190,7 +190,16 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "scout", spawnAtSeconds: 15, hostiles: 2, hostileHealth: 2, breachDamage: 1, pattern: "rusher" }),
         Object.freeze({ id: "guard", spawnAtSeconds: 130, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "reinforcement", spawnAtSeconds: 245, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "flanker" })
-      ])
+      ]),
+      // Every authored wave cleared, the boss stays covered by more waves at
+      // a steady interval instead of the field going quiet -- see
+      // applyEncounterEvent's "recurring-N" branch. minWavesForBossExposure
+      // is explicit (even though it already equals the authored count) so
+      // the exposure gate reads as one real, combined condition: progression
+      // (legion/nodes) AND a wave-clear minimum, not an implicit "all of a
+      // fixed list".
+      minWavesForBossExposure: 3,
+      recurringWave: Object.freeze({ hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "flanker", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "ember-cohort", name: "Ember Cohort", description: "Legion doctrine: Materialize raises 2 additional shades (base 2) for the remaining campaign.", effects: Object.freeze({ materializeBonus: 2 }) }),
@@ -244,7 +253,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "probing", spawnAtSeconds: 15, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "flanker" }),
         Object.freeze({ id: "pressure", spawnAtSeconds: 130, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "ranged" }),
         Object.freeze({ id: "screen", spawnAtSeconds: 245, hostiles: 4, hostileHealth: 2, breachDamage: 1, pattern: "guardian" })
-      ])
+      ]),
+      minWavesForBossExposure: 3,
+      recurringWave: Object.freeze({ hostiles: 4, hostileHealth: 2, breachDamage: 1, pattern: "guardian", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "veil-vanguard", name: "Veil Vanguard", description: "Start Echo Throne with four shades already raised; this skips setup but remains a thin legion.", effects: Object.freeze({ stageEntry: Object.freeze({ "echo-throne": Object.freeze({ legion: 4 }) }) }) }),
@@ -297,7 +308,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "phalanx", spawnAtSeconds: 90, hostiles: 5, hostileHealth: 2, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "crossing", spawnAtSeconds: 165, hostiles: 5, hostileHealth: 2, breachDamage: 1, pattern: "flanker" }),
         Object.freeze({ id: "onslaught", spawnAtSeconds: 240, hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "ranged" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "ranged", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "throne-echo", name: "Throne Echo", description: "Records the legion's final oath in the campaign archive.", effects: Object.freeze({}) }),
@@ -344,7 +357,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "undertow", spawnAtSeconds: 90, hostiles: 3, hostileHealth: 2, breachDamage: 1, pattern: "ranged" }),
         Object.freeze({ id: "riptide", spawnAtSeconds: 165, hostiles: 4, hostileHealth: 2, breachDamage: 1, pattern: "ranged" }),
         Object.freeze({ id: "depthguard", spawnAtSeconds: 240, hostiles: 4, hostileHealth: 3, breachDamage: 1, pattern: "guardian" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 4, hostileHealth: 3, breachDamage: 1, pattern: "guardian", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "tidebreaker-sigil", name: "Tidebreaker Sigil", description: "Tempo doctrine: reduce command cooldowns by a further 10%.", effects: Object.freeze({ cooldownMultiplier: 0.9 }) }),
@@ -395,7 +410,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "packrunner", spawnAtSeconds: 90, hostiles: 4, hostileHealth: 2, breachDamage: 1, pattern: "flanker" }),
         Object.freeze({ id: "alphaguard", spawnAtSeconds: 165, hostiles: 4, hostileHealth: 3, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "direpack", spawnAtSeconds: 240, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "pack-banner", name: "Pack Banner", description: "Legion doctrine: Materialize raises 1 additional shade and every stage entry grants 1 aegis.", effects: Object.freeze({ materializeBonus: 1, entryAegis: 1 }) }),
@@ -447,7 +464,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "dirge", spawnAtSeconds: 90, hostiles: 4, hostileHealth: 3, breachDamage: 1, pattern: "flanker" }),
         Object.freeze({ id: "lament", spawnAtSeconds: 165, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "rusher" }),
         Object.freeze({ id: "threnody", spawnAtSeconds: 240, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "glass-chorus", name: "Glass Chorus", description: "Tempo doctrine: reduce command cooldowns by a further 10%.", effects: Object.freeze({ cooldownMultiplier: 0.9 }) }),
@@ -499,7 +518,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "bargeguard", spawnAtSeconds: 90, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "tollkeeper", spawnAtSeconds: 165, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "ranged" }),
         Object.freeze({ id: "tyrantwake", spawnAtSeconds: 240, hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "rusher" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "rusher", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "canal-lantern", name: "Canal Lantern", description: "Bulwark doctrine: enter every remaining stage with 1 additional aegis.", effects: Object.freeze({ entryAegis: 1 }) }),
@@ -551,7 +572,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "spanwarden", spawnAtSeconds: 90, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "keystone", spawnAtSeconds: 165, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "flanker" }),
         Object.freeze({ id: "colossusguard", spawnAtSeconds: 240, hostiles: 6, hostileHealth: 4, breachDamage: 1, pattern: "guardian" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 6, hostileHealth: 4, breachDamage: 1, pattern: "guardian", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "causeway-core", name: "Causeway Core", description: "Legion doctrine: Materialize raises 2 additional shades.", effects: Object.freeze({ materializeBonus: 2 }) }),
@@ -604,7 +627,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "votary", spawnAtSeconds: 90, hostiles: 5, hostileHealth: 3, breachDamage: 1, pattern: "rusher" }),
         Object.freeze({ id: "oathbound", spawnAtSeconds: 165, hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "concord", spawnAtSeconds: 240, hostiles: 6, hostileHealth: 4, breachDamage: 1, pattern: "ranged" })
-      ])
+      ]),
+      minWavesForBossExposure: 4,
+      recurringWave: Object.freeze({ hostiles: 6, hostileHealth: 4, breachDamage: 1, pattern: "ranged", intervalSeconds: 70 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "chancel-veil", name: "Chancel Veil", description: "Bulwark doctrine: enter the final gate with 2 additional aegis.", effects: Object.freeze({ entryAegis: 2 }) }),
@@ -658,7 +683,9 @@ export const STAGES = Object.freeze([
         Object.freeze({ id: "gatewrath", spawnAtSeconds: 125, hostiles: 6, hostileHealth: 3, breachDamage: 1, pattern: "rusher" }),
         Object.freeze({ id: "regentsown", spawnAtSeconds: 180, hostiles: 6, hostileHealth: 4, breachDamage: 1, pattern: "guardian" }),
         Object.freeze({ id: "lasttide", spawnAtSeconds: 240, hostiles: 7, hostileHealth: 4, breachDamage: 1, pattern: "flanker", commander: true })
-      ])
+      ]),
+      minWavesForBossExposure: 5,
+      recurringWave: Object.freeze({ hostiles: 7, hostileHealth: 4, breachDamage: 1, pattern: "flanker", intervalSeconds: 65 })
     }),
     rewards: Object.freeze([
       Object.freeze({ id: "zenith-crown", name: "Zenith Crown", description: "Records the crown taken above every drowned gate.", effects: Object.freeze({}) }),
@@ -934,7 +961,12 @@ function makeEncounterState(stage) {
     waves: stage.encounter.waves.map((wave) => ({ id: wave.id, cleared: false, breaches: 0 })),
     activeWaveId: null,
     bossExposed: false,
-    spawningStopped: false
+    spawningStopped: false,
+    // Waves fired after the authored list is exhausted (see
+    // stage.encounter.recurringWave), so pressure keeps coming at a
+    // steady interval instead of the field going silent once the
+    // authored schedule ends.
+    recurringWavesCleared: 0
   };
 }
 
@@ -942,7 +974,7 @@ function encounterState(stageState, stage) {
   return stageState.encounter ?? makeEncounterState(stage);
 }
 
-function validateEncounterState(encounter, stage) {
+function validateEncounterState(encounter, stage, stageState) {
   if (!stage.encounter) {
     assert(encounter === undefined, "This stage does not define an encounter.");
     return;
@@ -952,6 +984,7 @@ function validateEncounterState(encounter, stage) {
   assert(Array.isArray(encounter.waves) && encounter.waves.length === stage.encounter.waves.length, "Stage encounter waves are invalid.");
   assert(encounter.activeWaveId === null || typeof encounter.activeWaveId === "string", "Stage encounter active wave is invalid.");
   assert(typeof encounter.bossExposed === "boolean" && typeof encounter.spawningStopped === "boolean", "Stage encounter boss state is invalid.");
+  assert(Number.isInteger(encounter.recurringWavesCleared) && encounter.recurringWavesCleared >= 0, "Stage encounter recurring wave count is invalid.");
 
   let seenUncleared = false;
   for (let index = 0; index < encounter.waves.length; index += 1) {
@@ -963,10 +996,27 @@ function validateEncounterState(encounter, stage) {
     if (!progress.cleared) seenUncleared = true;
   }
   const activeIndex = encounter.waves.findIndex((wave) => !wave.cleared);
-  const allCleared = activeIndex === -1;
-  assert(encounter.bossExposed === allCleared, "Stage encounter boss exposure is invalid.");
-  assert(encounter.spawningStopped === allCleared, "Stage encounter spawn state is invalid.");
-  assert(allCleared ? encounter.activeWaveId === null : encounter.activeWaveId === null || encounter.activeWaveId === stage.encounter.waves[activeIndex].id, "Stage encounter active wave does not match the declared schedule.");
+  const authoredExhausted = activeIndex === -1;
+  const authoredCleared = authoredExhausted ? encounter.waves.length : activeIndex;
+  const totalCleared = authoredCleared + encounter.recurringWavesCleared;
+  const minRequired = stage.encounter.minWavesForBossExposure ?? stage.encounter.waves.length;
+  const progressionMet = stageState.legion >= (stage.encounter.preparationLegion ?? 0) && stageState.nodes >= (stage.encounter.preparationNodes ?? 0);
+  const expectedExposed = totalCleared >= minRequired && progressionMet;
+  assert(encounter.bossExposed === expectedExposed, "Stage encounter boss exposure is invalid.");
+  // Spawning only truly stops once nothing is left to spawn: every authored
+  // wave is cleared AND the stage has no recurring template to keep the
+  // pressure going. A stage that reaches boss exposure early (minRequired
+  // below the authored count) with more waves or a recurring template left
+  // must NOT report spawningStopped, or app.js's scheduler would wrongly
+  // treat "the boss can be hit now" as "nothing more will ever spawn".
+  const expectedSpawningStopped = authoredExhausted && !stage.encounter.recurringWave;
+  assert(encounter.spawningStopped === expectedSpawningStopped, "Stage encounter spawn state is invalid.");
+  assert(
+    authoredExhausted
+      ? (encounter.activeWaveId === null || /^recurring-\d+$/.test(encounter.activeWaveId))
+      : (encounter.activeWaveId === null || encounter.activeWaveId === stage.encounter.waves[activeIndex].id),
+    "Stage encounter active wave does not match the declared schedule.",
+  );
 }
 
 function makeStageState(stage, rewards, entryIntegrity) {
@@ -1064,7 +1114,7 @@ function assertStateShape(state) {
   assert(typeof state.status === "string", "Campaign status is invalid.");
   assert(Array.isArray(state.rewards) && Array.isArray(state.trace), "Campaign history is invalid.");
   assert(state.stage && typeof state.stage === "object", "Campaign stage state is invalid.");
-  validateEncounterState(state.stage.encounter, activeStage(state));
+  validateEncounterState(state.stage.encounter, activeStage(state), state.stage);
   assert(state.stage.pendingChest === null || (typeof state.stage.pendingChest === "object" && typeof state.stage.pendingChest.id === "string" && typeof state.stage.pendingChest.itemId === "string"), "Stage pendingChest is invalid.");
   assert(Array.isArray(state.stage.activeEffects), "Stage activeEffects must be an array.");
   for (const eff of state.stage.activeEffects) {
@@ -1480,9 +1530,25 @@ export function applyEncounterEvent(state, event) {
     return rejected(state, "Encounter event type is unsupported.");
   }
   const activeIndex = encounter.waves.findIndex((wave) => !wave.cleared);
-  if (activeIndex === -1) return rejected(state, "The encounter is complete; spawning has stopped.");
-  const configuredWave = stage.encounter.waves[activeIndex];
-  if (event.waveId !== configuredWave.id) return rejected(state, "Encounter events must target the next declared wave.");
+  const authoredExhausted = activeIndex === -1;
+  let configuredWave;
+  let isRecurring = false;
+  if (authoredExhausted) {
+    // Every authored wave is cleared. A stage that declares a recurring
+    // template keeps generating waves at the renderer's pace instead of
+    // going silent -- the field stays under pressure even once the boss
+    // is exposed, until the player actually commits to the assault.
+    const template = stage.encounter.recurringWave;
+    if (!template) return rejected(state, "The encounter is complete; spawning has stopped.");
+    const nextRecurringNumber = encounter.recurringWavesCleared + 1;
+    const expectedId = `recurring-${nextRecurringNumber}`;
+    if (event.waveId !== expectedId) return rejected(state, "Encounter events must target the next declared wave.");
+    configuredWave = { id: expectedId, hostiles: template.hostiles, hostileHealth: template.hostileHealth, breachDamage: template.breachDamage, pattern: template.pattern };
+    isRecurring = true;
+  } else {
+    configuredWave = stage.encounter.waves[activeIndex];
+    if (event.waveId !== configuredWave.id) return rejected(state, "Encounter events must target the next declared wave.");
+  }
 
   if (event.type === "start-wave") {
     if (encounter.activeWaveId !== null) return rejected(state, "The declared wave is already active.");
@@ -1506,45 +1572,66 @@ export function applyEncounterEvent(state, event) {
   }
   const next = transition(state, (draft) => {
     const targetEncounter = draft.stage.encounter;
-    const targetWave = targetEncounter.waves[activeIndex];
+    const targetWave = isRecurring ? null : targetEncounter.waves[activeIndex];
     if (event.type === "breach") {
-      targetWave.breaches += 1;
+      if (targetWave) targetWave.breaches += 1;
       applyBreach(draft, configuredWave.breachDamage, "breach");
       return;
     }
-    targetWave.cleared = true;
+    if (isRecurring) {
+      targetEncounter.recurringWavesCleared += 1;
+    } else {
+      targetWave.cleared = true;
+    }
     draft.progression.marks += 2;
     targetEncounter.activeWaveId = null;
     draft.stage.extractions = Math.max(0, (draft.stage.extractions ?? 0) - 1);
-    const allCleared = targetEncounter.waves.every((wave) => wave.cleared);
-    targetEncounter.bossExposed = allCleared;
-    targetEncounter.spawningStopped = allCleared;
-    if (allCleared) {
+
+    const authoredExhaustedNow = targetEncounter.waves.every((wave) => wave.cleared);
+    const totalCleared = (authoredExhaustedNow ? targetEncounter.waves.length : activeIndex) + targetEncounter.recurringWavesCleared;
+    const minRequired = stage.encounter.minWavesForBossExposure ?? stage.encounter.waves.length;
+    const progressionMet = draft.stage.legion >= (stage.encounter.preparationLegion ?? 0) && draft.stage.nodes >= (stage.encounter.preparationNodes ?? 0);
+    const wasExposed = targetEncounter.bossExposed;
+    const nowExposed = totalCleared >= minRequired && progressionMet;
+    targetEncounter.bossExposed = nowExposed;
+    if (nowExposed && !wasExposed) {
+      // Terrain-change mineral: the field visibly changes the moment the
+      // boss is exposed (spawning may stop, the ground shifts) -- a
+      // one-time bonus refund on top of the per-wave kill-drop above.
       draft.stage.extractions = Math.max(0, (draft.stage.extractions ?? 0) - 1);
     }
-    
+    // Spawning only truly stops once nothing is left to spawn: every
+    // authored wave cleared AND no recurring template to keep going. A
+    // stage that exposes its boss early (minRequired below the authored
+    // count) with more waves left must NOT report spawningStopped -- that
+    // would wrongly tell app.js's scheduler "nothing more will ever spawn"
+    // just because the boss happens to be attackable now.
+    targetEncounter.spawningStopped = authoredExhaustedNow && !stage.encounter.recurringWave;
+
+    const cyclingIndex = isRecurring ? stage.encounter.waves.length + targetEncounter.recurringWavesCleared - 1 : activeIndex;
     const chestId = `chest-${configuredWave.id}`;
-    const itemIndex = (draft.stageIndex + activeIndex) % FIELD_ITEM_CATALOG.length;
+    const itemIndex = (draft.stageIndex + cyclingIndex) % FIELD_ITEM_CATALOG.length;
     const pickedItem = FIELD_ITEM_CATALOG[itemIndex];
     draft.stage.pendingChest = {
       id: chestId,
       itemId: pickedItem.id
     };
-    
-    // Automatic field-event buff fires once per stage, on the wave that
-    // exposes the boss -- not on every wave clear -- so it augments the
-    // upcoming assault without compounding across the stage's full wave
-    // count. The index math is unchanged, so every stage still rolls
-    // exactly one event and all six catalog types remain reachable across
-    // the ten-stage campaign.
-    if (allCleared) {
-      const eventIndex = (draft.stageIndex * 7 + activeIndex * 3) % FIELD_EVENT_CATALOG.length;
+
+    // Automatic field-event buff fires once per stage, the moment the boss
+    // is exposed -- not on every wave clear -- so it augments the upcoming
+    // assault without compounding. Unchanged for every existing stage
+    // (minWavesForBossExposure defaults to the authored wave count, so
+    // "exposed" and "authored waves all cleared" are still the same moment
+    // there); a future stage that exposes earlier or later just moves this
+    // with it, since it is keyed off actual exposure, not wave count.
+    if (nowExposed && !wasExposed) {
+      const eventIndex = (draft.stageIndex * 7 + cyclingIndex * 3) % FIELD_EVENT_CATALOG.length;
       const pickedEvent = FIELD_EVENT_CATALOG[eventIndex];
       addEffect(draft.stage.activeEffects, pickedEvent);
     }
-    
-    draft.lastMessage = allCleared
-      ? `${stage.bossName} is exposed. Spawning has stopped.`
+
+    draft.lastMessage = nowExposed && !wasExposed
+      ? `${stage.bossName} is exposed.${targetEncounter.spawningStopped ? " Spawning has stopped." : " More waves remain on approach."}`
       : `${configuredWave.id} wave cleared. The next wave remains on approach.`;
   }, { kind: "encounter", event: clone(event) });
   return accepted(next, next.lastMessage, event.type);

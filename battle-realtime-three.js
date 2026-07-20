@@ -4244,7 +4244,11 @@ export class RealtimeBattle {
   }
 
   reconcileEncounterWave(activeWaveId = this.encounter?.state?.activeWaveId ?? null) {
-    const wave = this.encounter?.config?.waves?.find((candidate) => candidate?.id === activeWaveId);
+    let wave = this.encounter?.config?.waves?.find((candidate) => candidate?.id === activeWaveId);
+    if (!wave && typeof activeWaveId === "string" && /^recurring-\d+$/.test(activeWaveId)) {
+      const template = this.encounter?.config?.recurringWave;
+      if (template) wave = { ...template, id: activeWaveId };
+    }
     if (!wave || this.currentWaveId !== wave.id) {
       this.clearEncounterWave();
       if (!wave || !this.scene || !this.templates.has("units/scout.glb")) return;
