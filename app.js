@@ -412,6 +412,7 @@ const elements = Object.freeze({
   briefingDoctrine: document.querySelector("#briefing-doctrine"),
   briefingBoss: document.querySelector("#briefing-boss"),
   briefingNarration: document.querySelector("#briefing-narration"),
+  briefingNextOrder: document.querySelector("#briefing-next-order"),
   startCombat: document.querySelector("#start-combat"),
   saveDock: document.querySelector("#save-dock"),
   retryFromResult: document.querySelector("#retry-from-result"),
@@ -2413,6 +2414,20 @@ function renderMissionBriefing(stage) {
   elements.briefingOperation.textContent = resolvePresentationCopy(presentation.operationKey, presentation.operation, stage.id, "operation");
   elements.briefingDoctrine.textContent = resolvePresentationCopy(presentation.doctrineKey, presentation.doctrine, stage.id, "doctrine");
   elements.briefingBoss.textContent = bossName;
+
+  // The static "next order" line used to show the same stage-1-only hint
+  // ("hunt the first rift trace") on every stage's briefing forever, which
+  // actively misleads a returning player on stage 5+ where hunting isn't
+  // the next step. Drive it from the same pending-checklist mechanism the
+  // in-battle HUD objective already uses, so it always names the actual
+  // next command for whichever stage is currently briefed.
+  if (elements.briefingNextOrder && campaign) {
+    const checklist = getStageChecklist(campaign);
+    const pendingItem = checklist.find((item) => !item.complete && !item.optional);
+    elements.briefingNextOrder.textContent = pendingItem
+      ? translate("briefing.nextOrderDynamic").replace("{order}", getChecklistLabel(pendingItem, lang))
+      : translate("briefing.nextOrder");
+  }
 }
 
 function clearEncounterStartTimer() {

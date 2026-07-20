@@ -391,7 +391,7 @@
             )
           ),
           e('p', { id: 'briefing-narration', className: 'mission-briefing-narration', 'aria-hidden': 'true' }),
-          e('p', { className: 'mission-briefing-next', 'data-i18n': 'briefing.nextOrder' }, '첫 명령: 균열 흔적을 두 번 사냥해 영혼 은닉처를 드러내세요.'),
+          e('p', { id: 'briefing-next-order', className: 'mission-briefing-next', 'data-i18n': 'briefing.nextOrder' }, '첫 명령: 균열 흔적을 두 번 사냥해 영혼 은닉처를 드러내세요.'),
           e('button', {
             id: 'start-combat',
             className: 'primary',

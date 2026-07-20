@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
-import { STAGES, SUMMON_RECIPES, createCampaign, reserveCommand, startCampaign } from "../campaign-state.js";
+import { STAGES, SUMMON_RECIPES, createCampaign, getStageChecklist, reserveCommand, startCampaign } from "../campaign-state.js";
 import { resolveBossPhase } from "../combat-systems.js";
 import { translate, translations } from "../i18n.js";
 
@@ -1737,6 +1737,23 @@ test("Assault remains a command outside the tactical canvas and movement owns A 
   }
   assert.deepEqual(fixture.actions, ["assault", "assault"], "focused tactical canvases must not dispatch Assault from movement input");
 });
+test("the briefing's pending-checklist item genuinely changes as a stage progresses, proving a frozen \"hunt the first rift trace\" hint would mislead a player who has already moved past hunting", () => {
+  const fresh = startCampaign(createCampaign()).state;
+  const freshChecklist = getStageChecklist(fresh);
+  const freshPending = freshChecklist.find((item) => !item.complete && !item.optional);
+  assert.equal(freshPending?.id, "hunt", "a fresh stage 1 campaign's next step really is hunt, matching the old static hint");
+
+  const progressed = structuredClone(fresh);
+  progressed.stage.hunted = 2;
+  const progressedChecklist = getStageChecklist(progressed);
+  const progressedPending = progressedChecklist.find((item) => !item.complete && !item.optional);
+  assert.notEqual(
+    progressedPending?.id,
+    "hunt",
+    "once hunting is done, the next step must no longer be hunt -- a briefing hint frozen on \"press Hunt\" would now be actively wrong",
+  );
+});
+
 
 test("new campaign, save transfer, and briefing status copy follows the active Korean or English locale", async () => {
   const contracts = {
