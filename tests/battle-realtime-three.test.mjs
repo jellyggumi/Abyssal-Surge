@@ -4356,6 +4356,9 @@ test("RealtimeBattle marker pulses compose with the latest authoritative boss ph
   battle.play = () => {};
   let availableActions = new Set();
   battle.getAvailableActions = () => availableActions;
+  // This test is about phase-tint/pulse composition, not range gating;
+  // keep every action "in range" so isAct tracks availableActions alone.
+  battle.getCommandReadiness = () => ({ ready: true });
   const bossMesh = battle.boss.root.getObjectByName("boss-phase-highlight-mesh");
   const closeTo = (actual, expected, message) => {
     assert.ok(
@@ -4908,6 +4911,21 @@ test("RealtimeBattle updateActionRangeRing draws a constant range affordance at 
     true,
     "the ring must be added to the scene exactly once",
   );
+  // The ring spans multiple grid cells (up to ACTION_INTERACTION_RADIUS), so
+  // depth-testing against terrain would clip it under any nearby higher
+  // elevation cell -- it must always draw on top instead (regression: this
+  // previously rendered under the map on any stage with heightfield variance
+  // near the commander).
+  assert.equal(
+    battle.actionRangeRing.material.depthTest,
+    false,
+    "the range ring must not depth-test against terrain, or elevation variance under its span clips it invisible",
+  );
+  assert.equal(
+    battle.actionRangeRing.renderOrder,
+    15,
+    "the range ring must draw with an explicit renderOrder so it consistently layers above terrain",
+  );
   assert.equal(
     battle.actionRangeRing.position.x,
     battle.commanderPosition.x,
@@ -4932,5 +4950,45 @@ test("RealtimeBattle updateActionRangeRing draws a constant range affordance at 
   assert.ok(
     battle.actionRangeRing.material.opacity > dimOpacity,
     "walking into Hunt's actual range must brighten the ring instead of leaving it at the dim/out-of-range reading",
+  );
+});
+
+test("RealtimeBattle gimmick markers only glow actionable once the commander is both campaign-legal and within range (the readiness alarm)", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1, reducedMotion: true });
+  battle.scene = new THREE.Scene();
+  battle.ringGeometry = null;
+  battle.contactGeometry = null;
+  battle.contactMaterial = null;
+  for (const resource of [
+    "terrain/cinder-span.glb",
+    "units/shade.glb",
+    "units/scout.glb",
+    "units/guard.glb",
+    "units/reinforce.glb",
+    "bosses/cinder-warden.glb",
+  ]) {
+    const scene = new THREE.Group();
+    scene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+    battle.templates.set(resource, { scene, animations: [] });
+  }
+  battle.createBattleObjects();
+  battle.getAvailableActions = () => ["hunt"];
+  battle.lastHoveredAction = null;
+
+  battle.updateMarkerPulses(1 / 60);
+  assert.equal(
+    battle.extractor.scale.x,
+    1,
+    "the extractor must not glow actionable while hunt is campaign-legal but the commander is still out of range",
+  );
+
+  const extractorAnchor = battle.navigation.anchors.extractor;
+  const extractorWorld = battle.navigation.gridToWorld(extractorAnchor.x, extractorAnchor.y);
+  battle.commanderPosition.set(extractorWorld.x, 0, extractorWorld.z);
+  battle.updateMarkerPulses(1 / 60);
+  assert.ok(
+    battle.extractor.scale.x > 1,
+    "walking the commander into range must light the extractor up as actionable, matching getCommandReadiness",
   );
 });

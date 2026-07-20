@@ -1612,6 +1612,11 @@ export class RealtimeBattle {
       if (!sem || !available) return false;
       return typeof available.has === "function" ? available.has(sem) : available.includes(sem);
     };
+    // "Ready to act" now means both campaign-legal AND within
+    // ACTION_INTERACTION_RADIUS -- the alarm/highlight on a gimmick must
+    // agree with getCommandReadiness(), or a marker can glow actionable
+    // while the commander is still out of range to actually trigger it.
+    const isReady = (sem) => hasAction(sem) && Boolean(this.getCommandReadiness?.({ action: sem })?.ready);
     // Markers whose anchor covers more than one candidate action (portal:
     // materialize/domain, extractor: hunt/extract) highlight and hover-match
     // against whichever candidate is currently available, falling back to
@@ -1625,7 +1630,7 @@ export class RealtimeBattle {
     if (this.portal) {
       const sem = resolveMarkerSemantic(this.portal.userData.semanticGroup, "materialize");
       const isHovered = this.lastHoveredAction === sem;
-      const isAct = hasAction(sem);
+      const isAct = isReady(sem);
       this.applyInteractiveHighlight(this.portal, sem, isHovered, isAct, this.portalPulse, dt);
       if (this.portalProp) {
         this.applyInteractiveHighlight(this.portalProp.root, sem, isHovered, isAct, this.portalPulse, dt);
@@ -1636,7 +1641,7 @@ export class RealtimeBattle {
     if (this.extractor) {
       const sem = resolveMarkerSemantic(this.extractor.userData.semanticGroup, "extract");
       const isHovered = this.lastHoveredAction === sem;
-      const isAct = hasAction(sem);
+      const isAct = isReady(sem);
       this.applyInteractiveHighlight(this.extractor, sem, isHovered, isAct, 0.8, dt);
       if (this.extractorProp) {
         this.applyInteractiveHighlight(this.extractorProp.root, sem, isHovered, isAct, 0.8, dt);
@@ -1650,7 +1655,7 @@ export class RealtimeBattle {
         if (!nodeMesh) continue;
         const sem = nodeMesh.userData.semantic;
         const isHovered = sem && this.lastHoveredAction === sem;
-        const isAct = sem && hasAction(sem);
+        const isAct = sem && isReady(sem);
         let baseInt = 0.2;
         if (i < this.capturedCount) baseInt = 0.5;
         else if (i === this.capturedCount) baseInt = this.nodePulse;
@@ -1665,7 +1670,7 @@ export class RealtimeBattle {
     if (this.boss && this.boss.root && !this.previewActionSemantic) {
       const sem = this.boss.root.userData.semantic || "assault";
       const isHovered = this.lastHoveredAction === sem;
-      const isAct = this.bossExposed && hasAction(sem);
+      const isAct = this.bossExposed && isReady(sem);
       this.applyInteractiveHighlight(this.boss.root, sem, isHovered, isAct, 0.55, dt);
     }
   }
@@ -4493,10 +4498,18 @@ export class RealtimeBattle {
           opacity: 0.35,
           side: THREE.DoubleSide,
           depthWrite: false,
-          depthTest: true
+          // The ring spans up to ACTION_INTERACTION_RADIUS in every direction,
+          // wide enough to cross onto a differently-elevated terrain cell than
+          // the single cell it's anchored to (stage heightfields vary --
+          // bridges, plateaus, stairs). With depth testing on, any span over
+          // higher ground than the commander's own cell rendered as clipped
+          // under the map. This is a UI-affordance ring, not a physical
+          // object terrain should occlude, so it always draws on top.
+          depthTest: false
         })
       );
       ring.rotation.x = -Math.PI / 2;
+      ring.renderOrder = 15;
       ring.raycast = () => {};
       this.scene.add(ring);
       this.actionRangeRing = ring;
