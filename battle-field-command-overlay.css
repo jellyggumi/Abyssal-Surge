@@ -269,6 +269,69 @@
   box-shadow: 0 0 0 .125rem rgb(255 240 180 / 40%), 0 0 .75rem rgb(255 240 180 / 45%);
 }
 
+#battle-field .ashen-field-command__tactical {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: .75rem;
+  align-items: center;
+  justify-content: center;
+  padding: .35rem .75rem;
+  border: 1px solid rgb(202 157 89 / 66%);
+  border-radius: .3rem;
+  background: linear-gradient(135deg, rgb(30 23 15 / 94%), rgb(11 12 14 / 85%));
+  box-shadow: 0 .25rem .6rem rgb(0 0 0 / 65%), inset 0 0 0 1px rgb(255 255 255 / 5%);
+  color: #fff0cd;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: .7rem;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 85%);
+}
+
+#battle-field .ashen-field-command__tactical-separator {
+  color: rgb(202 157 89 / 50%);
+  font-weight: normal;
+}
+
+#battle-field .ashen-field-command__tactical-selection {
+  flex: 0 0 auto;
+}
+
+#battle-field .ashen-field-command__tactical-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 899px) {
+  #battle-field .ashen-field-command__tactical {
+    right: .5rem;
+    bottom: .5rem;
+    left: .5rem;
+    transform: none;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: none;
+    overflow: hidden;
+    padding: .25rem .5rem;
+    font-size: .62rem;
+    gap: .5rem;
+  }
+}
+
+@media (max-width: 390px) {
+  #battle-field .ashen-field-command__tactical {
+    font-size: .56rem;
+    gap: .35rem;
+    padding: .2rem .4rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   #battle-field .ashen-field-command * {
     transition: none !important;

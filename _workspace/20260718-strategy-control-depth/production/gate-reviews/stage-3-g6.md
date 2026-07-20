@@ -40,6 +40,12 @@ stage_3_exit: BLOCKED
 
 **No Stage 3 exit verdict issued.** Stage 3 measurement infrastructure (Q4/Q5/Q6) awaits D3 PASS.
 
+### 2026-07-19 battlefield intelligence addendum
+
+The current 2D HUD/WebGL field-integration pass has reproducible implementation evidence: 141/141 focused tests pass, and a fresh 390×844 Chromium probe shows the live WebGL canvas plus a tactical readout contained within the battlefield. Evidence is recorded in `qa/evidence/battlefield-intelligence/summary.json` and `mobile-390x844.webp`.
+
+This addendum does **not** change the canonical gate verdict. G4 remains `FIX` because structured immersion scoring, ≤100 ms feedback-latency sampling, and S1/S2 complaint closure are still not run. G6 remains `FIX` because canonical frame-distribution, input-latency, soak, telemetry, rollback, and readiness measurements are still not run. The implementation may ship as a separately labeled release artifact; Stage 3 exit remains blocked.
+
 ---
 
 ## Release artifact (separate from gates)

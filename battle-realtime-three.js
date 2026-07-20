@@ -391,6 +391,8 @@ export class RealtimeBattle {
     this.focusedCell = null;
     this.focusHighlightMesh = null;
     this.commanderPathLine = null;
+    this.routePreview = null;
+    this.routePreviewActive = false;
     this.tracers = [];
     this.frameShots = [];
     this.cachedNavigationSnapshot = null;
@@ -450,7 +452,9 @@ export class RealtimeBattle {
     this.rally = new THREE.Vector3(portalWorld.x + 1.25, 0, portalWorld.z);
     this.commanderPosition = new THREE.Vector3(portalWorld.x, 0, portalWorld.z);
     this.commanderOrder = null;
-    this.cameraTarget = new THREE.Vector3(-5, 0, 0);
+    const bounds = this.navigation.bounds;
+    this.boundsCenter = new THREE.Vector3((bounds.left + bounds.right) * 0.5, 0, (bounds.near + bounds.far) * 0.5);
+    this.cameraTarget = this.boundsCenter.clone();
     this.cameraOffset = new THREE.Vector3();
     this.lookTarget = new THREE.Vector3();
     this.direction = new THREE.Vector3();
@@ -465,6 +469,7 @@ export class RealtimeBattle {
     this.orbitAzimuth = 2.3;
     this.orbitElevation = 0.9;
     this.zoom = 16;
+    this.hasManualZoomed = false;
     this.enemySerial = 0;
     this.actionClips = 0;
     this.particles = null;
@@ -571,8 +576,8 @@ export class RealtimeBattle {
     const mapHeight = bounds.far - bounds.near;
     const maxDim = Math.max(mapWidth, mapHeight);
     this.zoom = 16 * Math.max(1, maxDim / 24);
-    this.raycaster.far = Math.max(80, this.zoom * 3);
-    this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, Math.max(100, this.zoom * 4));
+    this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, Math.max(120, this.zoom * 4));
+    this.raycaster.far = Math.max(100, this.zoom * 3);
 
     // Hemisphere light with stage-colored ground
     const hemiLight = new THREE.HemisphereLight(0x91b9d0, this.presentation?.palette?.background ?? 0x090b14, 2.2);
@@ -629,11 +634,14 @@ export class RealtimeBattle {
     this.scene.add(this.ground);
     this.ringGeometry = new THREE.RingGeometry(0.8, 1.1, 16);
     this.contactGeometry = new THREE.RingGeometry(0, 0.45, 16);
+    const contactColor = THREE.Color && this.presentation?.palette?.background
+      ? new THREE.Color(this.presentation.palette.background).lerp(new THREE.Color(0x000000), 0.4)
+      : 0x030611;
     this.contactMaterial = THREE.MeshBasicMaterial
       ? new THREE.MeshBasicMaterial({
-        color: 0x000000,
+        color: contactColor,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.72,
         depthWrite: false,
       })
       : null;
@@ -805,12 +813,14 @@ export class RealtimeBattle {
       const deckGeometry = new THREE.BoxGeometry(0.92, 0.08, 0.92);
       const deckMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        emissive: 0x111b28,
-        emissiveIntensity: 0.3,
-        roughness: 0.65,
-        metalness: 0.15,
+        emissive: THREE.Color && this.presentation?.palette?.background
+          ? new THREE.Color(this.presentation.palette.background).multiplyScalar(0.4)
+          : new THREE.Color(0x060913),
+        emissiveIntensity: 0.5,
+        roughness: 0.72,
+        metalness: 0.1,
         transparent: true,
-        opacity: 0.72,
+        opacity: 0.8,
       });
 
       const deckMesh = new THREE.InstancedMesh(deckGeometry, deckMaterial, deckCount);
@@ -822,13 +832,14 @@ export class RealtimeBattle {
       this.deckMesh = deckMesh;
 
       const dummy = new THREE.Object3D();
-      const colorNeutral = new THREE.Color(0x64748b);
-      const colorJunction = new THREE.Color(0xcbd5e1);
+      const muteColor = new THREE.Color(0x3b4252);
+      const colorNeutral = muteColor.clone();
+      const colorJunction = new THREE.Color(0x4c566a);
       
       const routeColors = [
-        new THREE.Color(this.presentation?.palette?.ally ?? 0x70e5d0),
-        new THREE.Color(this.presentation?.palette?.accent ?? 0xffb85c),
-        new THREE.Color(this.presentation?.palette?.hostile ?? 0xff7f79),
+        new THREE.Color(this.presentation?.palette?.ally ?? 0x70e5d0).lerp(muteColor, 0.55),
+        new THREE.Color(this.presentation?.palette?.accent ?? 0xffb85c).lerp(muteColor, 0.55),
+        new THREE.Color(this.presentation?.palette?.hostile ?? 0xff7f79).lerp(muteColor, 0.55),
       ];
 
       for (let i = 0; i < deckCount; i++) {
@@ -873,7 +884,8 @@ export class RealtimeBattle {
           };
           const gColor = gimmickColors[gimmick.kind];
           if (gColor) {
-            tileColor.lerp(gColor, 0.45);
+            const mutedGColor = gColor.clone().lerp(muteColor, 0.5);
+            tileColor.lerp(mutedGColor, 0.45);
           }
         }
         deckMesh.setColorAt(i, tileColor);
@@ -1030,7 +1042,7 @@ export class RealtimeBattle {
         if (clone.color) clone.color.lerp(tint, 0.55);
         if ("emissive" in clone) {
           clone.emissive = tint.clone();
-          clone.emissiveIntensity = 0.35;
+          clone.emissiveIntensity = 0.55;
         }
         return clone;
       });
@@ -1236,16 +1248,32 @@ export class RealtimeBattle {
               }
               // Restrained unit emissive lift for silhouette readability against the dark concept backdrop.
               if (resource.startsWith("units/")) {
-                const allyColor = this.presentation?.palette?.ally ?? 0x70e5d0;
+                const isEnemy = resource.includes("scout") || resource.includes("guard") || resource.includes("reinforce");
+                const unitColor = isEnemy
+                  ? (this.presentation?.palette?.hostile ?? 0xff7f79)
+                  : (this.presentation?.palette?.ally ?? 0x70e5d0);
                 if (originallyZero) {
                   if (mat.emissive && typeof mat.emissive.set === "function") {
-                    mat.emissive.set(allyColor);
+                    mat.emissive.set(unitColor);
                   } else {
-                    mat.emissive = THREE.Color ? new THREE.Color(allyColor) : allyColor;
+                    mat.emissive = THREE.Color ? new THREE.Color(unitColor) : unitColor;
                   }
                   mat.emissiveIntensity = 0.45;
                 } else {
                   mat.emissiveIntensity = Math.max(mat.emissiveIntensity ?? 0, 0.45);
+                }
+              } else if (!isTerrain) {
+                // Non-terrain props / boss emissive lift
+                if (originallyZero) {
+                  const defaultColor = 0x1a1a1a;
+                  if (mat.emissive && typeof mat.emissive.set === "function") {
+                    mat.emissive.set(defaultColor);
+                  } else {
+                    mat.emissive = THREE.Color ? new THREE.Color(defaultColor) : defaultColor;
+                  }
+                  mat.emissiveIntensity = 0.15;
+                } else {
+                  mat.emissiveIntensity = Math.max(mat.emissiveIntensity ?? 0, 0.15);
                 }
               }
             }
@@ -2092,8 +2120,9 @@ export class RealtimeBattle {
     }
     
     const bounds = this.navigation.bounds;
-    this.cameraTarget.x = clamp(this.cameraTarget.x, bounds.left, bounds.right);
-    this.cameraTarget.z = clamp(this.cameraTarget.z, bounds.near, bounds.far);
+    const maxTargetOffsetFactor = 0.4;
+    this.cameraTarget.x = clamp(this.cameraTarget.x, bounds.left * maxTargetOffsetFactor, bounds.right * maxTargetOffsetFactor);
+    this.cameraTarget.z = clamp(this.cameraTarget.z, bounds.near * maxTargetOffsetFactor, bounds.far * maxTargetOffsetFactor);
     const horizontal = Math.cos(this.orbitElevation) * this.zoom;
     this.cameraOffset.set(
       Math.cos(this.orbitAzimuth) * horizontal,
@@ -2124,6 +2153,19 @@ export class RealtimeBattle {
     this.renderer.setSize(rect.width, rect.height, false);
     this.camera.aspect = rect.width / rect.height;
     this.camera.updateProjectionMatrix();
+    
+    if (!this.hasManualZoomed) {
+      const bounds = this.navigation.bounds;
+      const mapWidth = bounds.right - bounds.left;
+      const mapHeight = bounds.far - bounds.near;
+      const aspect = this.camera.aspect || 1;
+      const fovRad = 48 * Math.PI / 360;
+      const tanFOV = Math.tan(fovRad);
+      const zoomToFitWidth = (mapWidth * 1.15) / (2 * tanFOV * aspect);
+      const zoomToFitHeight = (mapHeight * 1.15) / (2 * tanFOV);
+      this.zoom = clamp(Math.max(zoomToFitWidth, zoomToFitHeight), 12, 24);
+    }
+    
     this.resizeBackground();
   }
 
@@ -2188,6 +2230,91 @@ export class RealtimeBattle {
     this.lastHoveredAction = nextAction;
     this.onActionFocus?.(nextAction);
   }
+  clearRoutePreview() {
+    const preview = this.routePreview;
+    if (preview?.group && this.scene) this.scene.remove(preview.group);
+    if (preview?.line?.geometry) disposeUnique(preview.line.geometry, this.disposedResources);
+    if (preview?.line?.material) disposeUnique(preview.line.material, this.disposedResources);
+    if (preview?.endpoint?.geometry) disposeUnique(preview.endpoint.geometry, this.disposedResources);
+    if (preview?.endpoint?.material) disposeUnique(preview.endpoint.material, this.disposedResources);
+    this.routePreview = null;
+    this.routePreviewActive = false;
+  }
+
+  updateAlliedRoutePreview(event) {
+    if (!this.selection?.size || !this.ground || !this.setPointerRay(event)) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const groundHit = this.raycaster.intersectObject(this.ground, false)[0];
+    if (!groundHit) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const P = groundHit.point;
+    const goalGrid = this.navigation.worldToGrid(P.x, P.z);
+    const selected = [...this.selection].filter((ally) => this.liveAlly(ally));
+    if (selected.length === 0) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const ally = selected[0];
+    const startGrid = this.navigation.worldToGrid(ally.root.position.x, ally.root.position.z);
+    let path = this.findTacticalPath(startGrid, goalGrid);
+    if (!path) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const points = path.map((cell) => {
+      const world = this.navigation.gridToWorld(cell.x + 0.5, cell.y + 0.5);
+      return new THREE.Vector3(
+        world.x,
+        this.navigation.elevationAt(cell.x + 0.5, cell.y + 0.5) * TERRAIN_ELEVATION_SCALE + 0.09,
+        world.z
+      );
+    });
+    let preview = this.routePreview;
+    if (!preview) {
+      const group = new THREE.Group();
+      const line = new THREE.Line(
+        new THREE.BufferGeometry(),
+        new THREE.LineDashedMaterial({
+          color: 0x35e06f,
+          dashSize: 0.22,
+          gapSize: 0.12,
+          transparent: true,
+          opacity: 0.95,
+        })
+      );
+      const endpoint = new THREE.Mesh(
+        new THREE.RingGeometry(0.18, 0.3, 20),
+        new THREE.MeshBasicMaterial({
+          color: 0x35e06f,
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+        })
+      );
+      endpoint.rotation.x = -Math.PI / 2;
+      group.add(line, endpoint);
+      this.scene.add(group);
+      preview = this.routePreview = { group, line, endpoint, path: null, target: null };
+    } else if (!preview.group.parent) {
+      this.scene.add(preview.group);
+    }
+    preview.line.geometry?.dispose?.();
+    preview.line.geometry = new THREE.BufferGeometry().setFromPoints(points);
+    preview.line.computeLineDistances();
+    preview.line.visible = true;
+    const last = points[points.length - 1];
+    preview.endpoint.position.copy(last);
+    preview.endpoint.visible = true;
+    preview.path = path;
+    preview.target = { x: Math.floor(goalGrid.x), y: Math.floor(goalGrid.y) };
+    this.routePreviewActive = true;
+    return true;
+  }
+
 
   onPointerDown(event) {
     this.canvas.focus({ preventScroll: true });
@@ -2217,6 +2344,7 @@ export class RealtimeBattle {
       mode: mode
     };
     this.canvas.setPointerCapture(event.pointerId);
+    if (mode === "right-click") this.clearRoutePreview();
     
     if (mode === "select" && !this.placementMode) {
       this.isMarqueeSelecting = true;
@@ -2251,6 +2379,10 @@ export class RealtimeBattle {
     this.pointer.x = event.clientX;
     this.pointer.y = event.clientY;
     
+    if (this.pointer.mode === "right-click") {
+      if (this.pointer.moved) this.updateAlliedRoutePreview(event);
+      else this.clearRoutePreview();
+    }
     if (this.pointer.moved) {
       if (this.pointer.mode === "orbit") {
         const dx = event.clientX - this.pointer.lastX;
@@ -2328,9 +2460,10 @@ export class RealtimeBattle {
         }
       }
     } else if (pointer.mode === "right-click") {
-      if (!pointer.moved) {
+      if ((pointer.moved && this.routePreviewActive) || (!pointer.moved && this.selection?.size)) {
         this.pick(event, "allies");
       }
+      this.clearRoutePreview();
     } else if (pointer.mode === "orbit") {
       if (pointer.type === "touch" && !pointer.moved) {
         const upTime = event.timeStamp || Date.now();
@@ -2363,6 +2496,7 @@ export class RealtimeBattle {
     this.isMarqueeSelecting = false;
     this.updateMarqueeVisual();
     this.clearHover();
+    this.clearRoutePreview();
   }
 
   onLostPointerCapture(event) {
@@ -2374,6 +2508,7 @@ export class RealtimeBattle {
     this.isMarqueeSelecting = false;
     this.updateMarqueeVisual();
     this.clearHover();
+    this.clearRoutePreview();
   }
   onPointerLeave(event) {
     this.clearHover();
@@ -2383,6 +2518,7 @@ export class RealtimeBattle {
     if (document.activeElement !== this.canvas) return;
     event.preventDefault();
     this.zoom = clamp(this.zoom + event.deltaY * 0.012, 9, 30);
+    this.hasManualZoomed = true;
   }
 
   pick(event, rallyKind) {
@@ -3569,16 +3705,21 @@ export class RealtimeBattle {
           const ringMat = new THREE.MeshBasicMaterial({
             color: this.presentation?.palette?.ally ?? 0x70e5d0,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.92,
+            depthWrite: false,
             side: THREE.DoubleSide
           });
           const ring = new THREE.Mesh(this.ringGeometry, ringMat);
           ring.rotation.x = -Math.PI / 2;
-          ring.position.y = 0.05;
-          ring.scale.setScalar(0.5);
+          ring.position.y = 0.1;
+          ring.renderOrder = 12;
           ally.root.add(ring);
           ally.selectionRing = ring;
         }
+        const reducedMotion = this.presentation?.reducedMotion ?? false;
+        const pulse = reducedMotion ? 0 : (Math.sin(performance.now() * 0.008) + 1) * 0.5;
+        ally.selectionRing.scale.setScalar(0.78 + pulse * 0.12);
+        ally.selectionRing.material.opacity = 0.76 + pulse * 0.2;
         ally.selectionRing.visible = true;
       } else {
         if (ally.selectionRing) {

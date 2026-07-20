@@ -59,6 +59,7 @@ function makePointerCanvas() {
         pointerType: "mouse",
         clientX: x,
         clientY: y,
+        preventDefault() {},
         ...event,
       });
     },
@@ -69,6 +70,183 @@ function clickCanvasTarget(canvas, point) {
   canvas.dispatch("pointerdown", point);
   canvas.dispatch("pointerup", point);
 }
+test("BattleVisualizer selected allies use the stage ally palette with motion-safe circular pulse geometry", (t) => {
+  const allyColor = "#21c7a8";
+  const observeSelection = (reducedMotion, lastTime) => {
+    const visualizer = makeVisualizer(t, {
+      canvas: {},
+      reducedMotion,
+      presentation: {
+        stageNumber: 6,
+        palette: { ally: allyColor },
+      },
+    });
+    const strokes = [];
+    const ellipses = [];
+    visualizer.ctx = {
+      beginPath() {},
+      ellipse(...args) {
+        ellipses.push(args);
+      },
+      fill() {},
+      stroke() {
+        strokes.push({
+          strokeStyle: this.strokeStyle,
+          globalAlpha: this.globalAlpha,
+          lineWidth: this.lineWidth,
+        });
+      },
+      save() {},
+      restore() {},
+      moveTo() {},
+      lineTo() {},
+      closePath() {},
+      arc() {},
+    };
+    visualizer.project = () => ({ x: 40, y: 30 });
+    visualizer.elevationAt = () => 0;
+    visualizer.drawBridgeAtlas = () => true;
+    visualizer.lastTime = lastTime;
+    const ally = { x: 1, y: 1, hp: 2, defeated: false, facing: 0 };
+    visualizer.allies = [ally];
+    visualizer.selection.add(ally);
+
+    visualizer.drawUnit(ally, "ally");
+
+    return {
+      selectionStroke: strokes[0],
+      selectionEllipse: ellipses[0],
+      ellipseCount: ellipses.length,
+      scale: visualizer.view.scale,
+    };
+  };
+
+  const animated = observeSelection(false, 0);
+  assert.deepEqual(
+    animated.selectionStroke,
+    { strokeStyle: allyColor, globalAlpha: 0.86, lineWidth: 2 },
+    "the selected-unit pulse must remain legible in the active stage ally color",
+  );
+  assert.deepEqual(
+    animated.selectionEllipse,
+    [40, 30 + 2 * animated.scale, 16 * animated.scale, 8 * animated.scale, 0, 0, Math.PI * 2],
+    "the animated selection affordance must render a visible full ellipse at the pulse midpoint",
+  );
+  assert.equal(
+    animated.ellipseCount,
+    2,
+    "the unit shadow and selection indicator must both remain visible circular ellipses",
+  );
+
+  const reducedAtStart = observeSelection(true, 0);
+  const reducedLater = observeSelection(true, 10_000);
+  assert.deepEqual(
+    reducedAtStart.selectionStroke,
+    { strokeStyle: allyColor, globalAlpha: 0.76, lineWidth: 2 },
+    "reduced motion must retain a legible stage-colored selection stroke at its fixed baseline",
+  );
+  assert.deepEqual(
+    reducedAtStart.selectionEllipse,
+    [40, 30 + 2 * reducedAtStart.scale, 15 * reducedAtStart.scale, 7.5 * reducedAtStart.scale, 0, 0, Math.PI * 2],
+    "reduced motion must retain the full baseline selection ellipse rather than removing the affordance",
+  );
+  assert.deepEqual(
+    reducedLater,
+    reducedAtStart,
+    "reduced-motion selection geometry and alpha must not change with animation time",
+  );
+});
+
+test("BattleVisualizer right-drag previews legal ally routes in the stage ally palette, commits them on release, and clears invalid previews", (t) => {
+  const canvas = makePointerCanvas();
+  const allyColor = "#5bd6c0";
+  const visualizer = makeVisualizer(t, {
+    canvas,
+    presentation: {
+      stageNumber: 6,
+      palette: { ally: allyColor },
+    },
+  });
+  const ally = { x: 1, y: 1, hp: 2, defeated: false, path: [] };
+  visualizer.allies = [ally];
+  visualizer.selection.add(ally);
+  visualizer.commander = { x: 1, y: 1 };
+  visualizer.unprojectToTile = (x) => (x >= 0 ? { x: 2, y: 1 } : { x: -1, y: -1 });
+  visualizer.walkable = (x, y) => x >= 0 && y >= 0;
+  visualizer.findPath = (start, goal) => (
+    goal.x >= 0 ? [start, { x: goal.x, y: goal.y }] : null
+  );
+  visualizer.attachPointerHandlers();
+
+  canvas.dispatch("pointerdown", { button: 2, x: 10, y: 10, pointerId: 4 });
+  canvas.dispatch("pointermove", { button: 2, x: 30, y: 10, pointerId: 4 });
+  assert.equal(visualizer.routePreviewActive, true, "a held right-drag over a legal tile must expose a live route preview");
+  const legalPreview = JSON.stringify(visualizer.routePreview);
+  assert.ok(legalPreview && legalPreview !== "null", "the legal preview must contain route geometry");
+
+  const strokes = [];
+  const operations = [];
+  visualizer.ctx = {
+    save() {},
+    restore() {},
+    setLineDash() {},
+    beginPath() {},
+    moveTo(...args) {
+      operations.push({ type: "moveTo", args });
+    },
+    lineTo(...args) {
+      operations.push({ type: "lineTo", args });
+    },
+    ellipse(...args) {
+      operations.push({ type: "ellipse", args });
+    },
+    stroke() {
+      strokes.push({
+        strokeStyle: this.strokeStyle,
+        globalAlpha: this.globalAlpha,
+        lineWidth: this.lineWidth,
+      });
+    },
+  };
+  visualizer.project = (x, y) => ({ x: x * 10, y: y * 10 });
+  visualizer.elevationAt = () => 0;
+  visualizer.drawRoutePreview();
+  const previewStroke = {
+    strokeStyle: allyColor,
+    globalAlpha: 0.95,
+    lineWidth: Math.max(1.5, 2 * visualizer.view.scale),
+  };
+  assert.deepEqual(
+    strokes,
+    [previewStroke, previewStroke],
+    "the route line and endpoint ring must both stay legible in the active stage ally color",
+  );
+  assert.deepEqual(
+    operations,
+    [
+      { type: "moveTo", args: [15, 15] },
+      { type: "lineTo", args: [25, 15] },
+      {
+        type: "ellipse",
+        args: [25, 15, 10 * visualizer.view.scale, 5 * visualizer.view.scale, 0, 0, Math.PI * 2],
+      },
+    ],
+    "the legal route preview must draw its full path and a visible elliptical endpoint",
+  );
+  canvas.dispatch("pointerup", { button: 2, x: 30, y: 10, pointerId: 4 });
+  assert.equal(visualizer.routePreviewActive, false, "releasing a legal route must clear the transient preview");
+  assert.equal(visualizer.routePreview, null, "committing a route must not leave stale Canvas preview geometry");
+  assert.ok(ally.path.length > 0, "releasing over a legal tile must commit the selected ally route");
+
+  const priorPath = ally.path;
+  canvas.dispatch("pointerdown", { button: 2, x: 10, y: 10, pointerId: 5 });
+  canvas.dispatch("pointermove", { button: 2, x: -20, y: 10, pointerId: 5 });
+  assert.equal(visualizer.routePreviewActive, false, "an invalid tile must not advertise a legal route preview");
+  canvas.dispatch("pointercancel", { button: 2, x: -20, y: 10, pointerId: 5 });
+  assert.equal(visualizer.routePreview, null, "cancelling an invalid route must leave preview state empty");
+  assert.strictEqual(ally.path, priorPath, "an invalid route must not replace the last legal committed route");
+});
+
 
 test("BattleVisualizer fallback canvas prioritizes available semantic targets over selected move orders and rejects unavailable bosses", (t) => {
   const canvas = makePointerCanvas();

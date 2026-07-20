@@ -301,6 +301,9 @@ export class BattleVisualizer {
     this.selection = new Set();
     this.dragRect = null;     // {x0,y0,x1,y1} in canvas px
     this.pointerDown = null;
+    this.activePointerButton = null;
+    this.routePreview = null;
+    this.routePreviewActive = false;
     this.activePointerId = null;
     this.activePointerType = null;
     this.focusedAction = null;
@@ -1164,6 +1167,41 @@ export class BattleVisualizer {
     return this.emitSelectionChange();
   }
 
+  clearRoutePreview() {
+    this.routePreview = null;
+    this.routePreviewActive = false;
+  }
+
+  updateAlliedRoutePreview(point) {
+    if (!point || this.selection.size === 0) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const tile = this.unprojectToTile(point.x, point.y);
+    if (!tile || !this.walkable(tile.x, tile.y)) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const ally = [...this.selection].find((candidate) => this.liveAlly(candidate));
+    if (!ally) {
+      this.clearRoutePreview();
+      return false;
+    }
+    const start = { x: Math.floor(ally.x), y: Math.floor(ally.y) };
+    const goal = { x: Math.floor(tile.x), y: Math.floor(tile.y) };
+    const path = this.findPath(start, goal);
+    if (!path || path.length < 2) {
+      this.clearRoutePreview();
+      return false;
+    }
+    this.routePreview = {
+      path: path.map((node) => ({ x: node.x, y: node.y })),
+      target: goal,
+    };
+    this.routePreviewActive = true;
+    return true;
+  }
+
   resolvePointerAlly(point) {
     if (!point) return null;
     const radius = Math.max(18, this.view.scale * 22);
@@ -1191,33 +1229,26 @@ export class BattleVisualizer {
     };
 
     const down = (event) => {
-      if (event.button === 2) {
-        event.preventDefault();
-        const p = canvasPoint(event);
-        const tile = this.unprojectToTile(p.x, p.y);
-        if (tile && this.walkable(tile.x, tile.y) && this.selection.size > 0) {
-          this.issueFormationMove(tile);
-          this.orderFlag = { x: tile.x + 0.5, y: tile.y + 0.5, life: 1.2 };
-          this.playSpatial(tile.x + 0.5, tile.y + 0.5, { freq: 650, duration: 0.15, type: "sine", gain: 0.5 });
-        }
-        return;
-      }
       if (this.activePointerId !== null) return;
-      if (event.button !== 0 && event.button !== 1) return;
+      if (event.button !== 0 && event.button !== 1 && event.button !== 2) return;
+      if (event.button === 2) event.preventDefault();
       this.canvas.focus?.({ preventScroll: true });
 
       const p = canvasPoint(event);
       this.activePointerId = event.pointerId;
       this.activePointerType = event.pointerType;
+      this.activePointerButton = event.button;
       this.pointerDown = p;
       this.pointerDownTime = performance.now();
       this.dragRect = null;
 
-      this.isPanning = false;
+      this.isPanning = event.button === 1 || (event.button === 0 && event.altKey);
       this.panStartX = this.view.offsetX;
       this.panStartY = this.view.offsetY;
-      if (event.button === 1 || event.altKey) {
-        this.isPanning = true;
+      if (event.button === 2) {
+        this.clearRoutePreview();
+      } else if (this.isPanning) {
+        this.setActionFocus(null);
       } else {
         this.setActionFocus(this.detectActionAt(p));
       }
@@ -1238,33 +1269,37 @@ export class BattleVisualizer {
 
       const dx = p.x - this.pointerDown.x;
       const dy = p.y - this.pointerDown.y;
+      const dist = Math.hypot(dx, dy);
+      const threshold = this.activePointerType === "touch" ? 12 : 6;
+
+      if (this.activePointerButton === 2) {
+        if (dist > threshold) this.updateAlliedRoutePreview(p);
+        else this.clearRoutePreview();
+        this.renderStatic();
+        return;
+      }
 
       if (this.isPanning) {
         this.view.offsetX = this.panStartX + dx;
         this.view.offsetY = this.panStartY + dy;
-      } else {
-        const dist = Math.hypot(dx, dy);
-        const threshold = this.activePointerType === "touch" ? 12 : 6;
-
-        if (dist > threshold) {
-          if (this.activePointerType === "touch") {
-            this.isPanning = true;
-            this.setActionFocus(null);
-            this.dragRect = null;
-            this.view.offsetX = this.panStartX + dx;
-            this.view.offsetY = this.panStartY + dy;
-          } else {
-            this.setActionFocus(null);
-            this.dragRect = {
-              x0: this.pointerDown.x,
-              y0: this.pointerDown.y,
-              x1: p.x,
-              y1: p.y
-            };
-          }
-        } else {
+      } else if (dist > threshold) {
+        if (this.activePointerType === "touch") {
+          this.isPanning = true;
+          this.setActionFocus(null);
           this.dragRect = null;
+          this.view.offsetX = this.panStartX + dx;
+          this.view.offsetY = this.panStartY + dy;
+        } else {
+          this.setActionFocus(null);
+          this.dragRect = {
+            x0: this.pointerDown.x,
+            y0: this.pointerDown.y,
+            x1: p.x,
+            y1: p.y
+          };
         }
+      } else {
+        this.dragRect = null;
       }
       this.renderStatic();
     };
@@ -1280,6 +1315,24 @@ export class BattleVisualizer {
       const duration = performance.now() - this.pointerDownTime;
       const isTapEligible = duration <= 500;
 
+      if (this.activePointerButton === 2) {
+        const target = this.routePreviewActive
+          ? this.routePreview?.target
+          : this.unprojectToTile(p.x, p.y);
+        if (target && this.selection.size > 0 && this.walkable(target.x, target.y)) {
+          this.issueFormationMove(target);
+          this.orderFlag = { x: target.x + 0.5, y: target.y + 0.5, life: 1.2 };
+          this.playSpatial(target.x + 0.5, target.y + 0.5, { freq: 650, duration: 0.15, type: "sine", gain: 0.5 });
+        }
+        this.clearRoutePreview();
+        this.activePointerId = null;
+        this.activePointerType = null;
+        this.activePointerButton = null;
+        this.pointerDown = null;
+        this.dragRect = null;
+        this.renderStatic();
+        return;
+      }
       if (this.isPanning) {
         this.isPanning = false;
       } else {
@@ -1354,6 +1407,7 @@ export class BattleVisualizer {
       this.setActionFocus(this.activePointerType === "touch" ? null : this.detectActionAt(p));
       this.activePointerId = null;
       this.activePointerType = null;
+      this.activePointerButton = null;
       this.pointerDown = null;
       this.dragRect = null;
       this.renderStatic();
@@ -1364,6 +1418,8 @@ export class BattleVisualizer {
 
       this.activePointerId = null;
       this.activePointerType = null;
+      this.activePointerButton = null;
+      this.clearRoutePreview();
       this.pointerDown = null;
       this.dragRect = null;
       this.setActionFocus(null);
@@ -2723,6 +2779,7 @@ export class BattleVisualizer {
 
     for (const effect of this.actionFx) this.drawActionFx(effect);
     if (this.actionPreview) this.drawActionPreview();
+    if (this.routePreviewActive) this.drawRoutePreview();
     if (this.orderFlag) this.drawOrderFlag();
     this.drawHoverAndPlacementIndicators();
     if (this.dragRect) this.drawDragRect();
@@ -3071,6 +3128,34 @@ export class BattleVisualizer {
     ctx.fill();
   }
 
+  drawRoutePreview() {
+    const ctx = this.ctx;
+    const path = this.routePreview?.path;
+    if (!ctx || !this.routePreviewActive || !path?.length) return;
+    const s = this.view.scale;
+    ctx.save();
+    ctx.strokeStyle = this.palette.ally;
+    ctx.fillStyle = this.palette.ally;
+    ctx.globalAlpha = 0.95;
+    ctx.lineWidth = Math.max(1.5, 2 * s);
+    ctx.setLineDash([6 * s, 4 * s]);
+    ctx.beginPath();
+    path.forEach((node, index) => {
+      const projected = this.project(node.x + 0.5, node.y + 0.5, this.elevationAt(node.x + 0.5, node.y + 0.5));
+      if (index === 0) ctx.moveTo(projected.x, projected.y);
+      else ctx.lineTo(projected.x, projected.y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const target = path[path.length - 1];
+    const endpoint = this.project(target.x + 0.5, target.y + 0.5, this.elevationAt(target.x + 0.5, target.y + 0.5));
+    ctx.lineWidth = Math.max(1.5, 2 * s);
+    ctx.beginPath();
+    ctx.ellipse(endpoint.x, endpoint.y, 10 * s, 5 * s, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   drawUnit(unit, kind) {
     const ctx = this.ctx;
     const z = this.elevationAt(unit.x, unit.y);
@@ -3078,11 +3163,15 @@ export class BattleVisualizer {
     const s = this.view.scale;
 
     if (this.selection.has(unit)) {
-      ctx.strokeStyle = "#f4f7ff";
-      ctx.lineWidth = 1.5;
+      const pulse = this.reducedMotion ? 0 : (Math.sin(this.lastTime * 0.008) + 1) * 0.5;
+      ctx.save();
+      ctx.strokeStyle = this.palette.ally;
+      ctx.globalAlpha = 0.76 + pulse * 0.2;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y + 2 * s, 15 * s, 7.5 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y + 2 * s, (15 + pulse * 2) * s, (7.5 + pulse) * s, 0, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
     }
 
     const tint = kind === "possessed" ? this.palette.allyPossessed : kind === "enemy" ? this.palette.enemy : this.palette.ally;
@@ -3387,6 +3476,7 @@ export class BattleVisualizer {
     this.particles = [];
     this.actionFx = [];
     this.nodes = [];
+    this.clearRoutePreview();
     this.selection.clear();
     this.emitSelectionChange();
     this.unitAtlases.clear();

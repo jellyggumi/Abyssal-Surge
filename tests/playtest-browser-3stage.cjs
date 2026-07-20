@@ -3686,7 +3686,7 @@ async function verifyStageThreeChecklist(browser, baseUrl) {
 function cleanupError(label, error) {
   return `${label}: ${error instanceof Error ? error.message : String(error)}`;
 }
-const CURRENT_STATIC_CACHE = "abyssal-surge-static-v51";
+const CURRENT_STATIC_CACHE = "abyssal-surge-static-v54";
 
 function currentWorkerCacheName() {
   let serviceWorkerSource;

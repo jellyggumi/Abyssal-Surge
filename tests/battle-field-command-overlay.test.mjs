@@ -233,6 +233,10 @@ function createStaticOverlayFixture({
   checklistObjectives = checklistObjective ? [checklistObjective] : [],
   stageObjective = "Fallback stage objective",
   campaignStatus = "Accepted outcome",
+  selectionName = "Abyssal vanguard",
+  selectionCount = "2 selected",
+  selectionOrder = "Advancing",
+  waveStatus = "Wave 3",
   commands = [
     staticCommand({
       action: "hunt",
@@ -255,6 +259,11 @@ function createStaticOverlayFixture({
   checklist.append(...checklistItems);
 
   const status = campaignStatus === null ? null : new StaticElement("output", campaignStatus);
+  const dossierName = new StaticElement("span", selectionName);
+  const dossierCount = new StaticElement("span", selectionCount);
+  const dossierOrder = new StaticElement("span", selectionOrder);
+  const battleWave = new StaticElement("span", waveStatus);
+  const hostileLabel = new StaticElement("span", "Hostile fixture");
   const sources = new Map([
     ["#battle-field", field],
     ["#canvas-container-3d", container],
@@ -262,9 +271,13 @@ function createStaticOverlayFixture({
     ["#objective-checklist", checklist],
     ["#stage-objective", new StaticElement("span", stageObjective)],
     ["#campaign-status", status],
-    ["#battle-hostile-label", new StaticElement("span", "Hostile fixture")],
+    ["#battle-hostile-label", hostileLabel],
     ["#battle-pressure", new StaticElement("span", "Pressure fixture")],
     ["#integrity-value", new StaticElement("span", "10 / 10")],
+    ["#battle-wave-indicator", battleWave],
+    ["#dossier-name", dossierName],
+    ["#dossier-count", dossierCount],
+    ["#dossier-order", dossierOrder],
   ]);
   const observers = [];
   const observations = [];
@@ -350,6 +363,10 @@ function createStaticOverlayFixture({
     checklist,
     checklistItems,
     status,
+    dossierName,
+    dossierCount,
+    dossierOrder,
+    battleWave,
     observations,
     listenerCount(type) {
       return eventListeners.get(type)?.length ?? 0;
@@ -783,6 +800,59 @@ test("destroy removes overlay event subscriptions and stops subsequent projectio
     nativeCommand.querySelector("strong").textContent = "Must not reproject";
     fixture.dispatch("abyssal:campaign-rendered");
     assert.doesNotMatch(activation.textContent, /Must not reproject/, "a destroyed overlay must ignore later campaign renders");
+  });
+});
+
+test("exported mount mirrors tactical battle state, refreshes observed selection, and destroys cleanly", { concurrency: false }, async () => {
+  const fixture = createStaticOverlayFixture({
+    selectionName: "Rift guard",
+    selectionCount: "2 selected",
+    selectionOrder: "Holding breach",
+    waveStatus: "Wave 4",
+  });
+
+  await withMountedOverlay(fixture, async (_autoOverlay, _i18n, overlayModule) => {
+    const container = new StaticElement("div");
+    const mounted = overlayModule.mountFieldCommandOverlay({
+      root: fixture.field,
+      container,
+      commands: fixture.commandPanel,
+    });
+    const tactical = mounted.overlay.querySelector('[data-field-overlay="tactical-readout"]');
+    const tacticalSelection = mounted.overlay.querySelector('[data-field-overlay="tactical-selection"]');
+    const tacticalStatus = mounted.overlay.querySelector('[data-field-overlay="tactical-status"]');
+
+    assert.ok(tactical, "mount must create the tactical readout surface");
+    assert.equal(tactical.getAttribute("role"), "status", "the tactical readout must expose live status semantics");
+    assert.equal(
+      tacticalSelection.textContent,
+      "Rift guard (2 selected) — Holding breach",
+      "the tactical selection surface must mirror the rendered selection count and order",
+    );
+    assert.equal(
+      tacticalStatus.textContent,
+      "Wave 4 | Hostile fixture",
+      "the tactical status surface must mirror the rendered battle status without localized chrome",
+    );
+
+    fixture.dossierCount.textContent = "3 selected";
+    fixture.notify(fixture.dossierCount);
+    assert.equal(
+      tacticalSelection.textContent,
+      "Rift guard (3 selected) — Holding breach",
+      "an observed selection-count mutation must refresh the tactical readout",
+    );
+
+    mounted.destroy();
+    assert.equal(container.children.length, 0, "destroy must remove the tactical overlay from its container");
+
+    fixture.dossierCount.textContent = "4 selected";
+    fixture.notify(fixture.dossierCount);
+    assert.equal(
+      tacticalSelection.textContent,
+      "Rift guard (3 selected) — Holding breach",
+      "destroy must disconnect the tactical readout from subsequent observed mutations",
+    );
   });
 });
 

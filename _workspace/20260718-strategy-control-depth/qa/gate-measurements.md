@@ -138,6 +138,17 @@ casual:         51%
 
 **Verdict:** `FIX`
 
+### Battlefield intelligence implementation evidence (2026-07-19)
+
+- Focused command: `node --test tests/battle-field-command-overlay.test.mjs tests/battle-realtime-three.test.mjs tests/battle-visualizer.test.mjs`
+- Observed result: **141/141 passing**, 0 failed.
+- Fresh local Chromium probe at 390×844 CSS px: WebGL canvas visible at 352×256; the 336 px tactical readout stayed inside the 366 px battlefield; the live status used `overflow: hidden` and `text-overflow: ellipsis`.
+- Durable evidence: `qa/evidence/battlefield-intelligence/summary.json` and `qa/evidence/battlefield-intelligence/mobile-390x844.webp`.
+- Scope: source-level selection-affordance, tactical-readout, responsive-containment, and renderer-lifecycle evidence only. The canonical structured immersion score, ≤100 ms feedback-latency sample, and S1/S2 complaint-closure audit remain **NOT RUN**.
+
+**Focused implementation verdict:** `PASS-FOR-IMPLEMENTATION`  
+**Canonical G4 verdict:** `FIX` (unchanged)
+
 ---
 
 ## G5 — Revenue balance and fairness

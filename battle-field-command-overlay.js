@@ -74,6 +74,28 @@ function createOverlay() {
       <span class="ashen-field-command__result-copy"></span>
     </div>
   `;
+
+  const tactical = dom.createElement("div");
+  tactical.className = "ashen-field-command__tactical";
+  tactical.setAttribute("data-field-overlay", "tactical-readout");
+  tactical.setAttribute("role", "status");
+  tactical.setAttribute("aria-live", "polite");
+
+  const selectionSpan = dom.createElement("span");
+  selectionSpan.className = "ashen-field-command__tactical-selection";
+  selectionSpan.setAttribute("data-field-overlay", "tactical-selection");
+
+  const separatorSpan = dom.createElement("span");
+  separatorSpan.className = "ashen-field-command__tactical-separator";
+  separatorSpan.textContent = " | ";
+
+  const statusSpan = dom.createElement("span");
+  statusSpan.className = "ashen-field-command__tactical-status";
+  statusSpan.setAttribute("data-field-overlay", "tactical-status");
+
+  tactical.append(selectionSpan, separatorSpan, statusSpan);
+  overlay.append(tactical);
+
   return overlay;
 }
 
@@ -132,6 +154,51 @@ export function mountFieldCommandOverlay({ root = field, container = canvasConta
     activation.disabled = copy.disabled;
     activation.setAttribute("aria-label", `${copy.name}: ${copy.detail}`);
     projectRelayedCommand();
+
+    const tacticalSelection = overlay.querySelector('[data-field-overlay="tactical-selection"]');
+    const tacticalStatus = overlay.querySelector('[data-field-overlay="tactical-status"]');
+    const tacticalSeparator = overlay.querySelector(".ashen-field-command__tactical-separator");
+
+    const selectionName = queryText("#dossier-name") || queryText('[data-battle-screen="selection-name"]');
+    const selectionCount = queryText("#dossier-count") || queryText('[data-battle-screen="selection-count"]');
+    const selectionOrder = queryText("#dossier-order") || queryText('[data-battle-screen="selection-order"]');
+
+    const waveText = queryText("#battle-wave-indicator") || queryText('[data-battle-screen="wave"]');
+    const hostileText = queryText("#battle-hostile-label") || queryText('[data-battle-screen="enemy-growth"]');
+    const bossPhaseText = queryText('[data-battle-screen="boss-phase"]');
+
+    let selectionStr = "";
+    if (selectionName) {
+      selectionStr += selectionName;
+      if (selectionCount && selectionCount !== "—") {
+        selectionStr += ` (${selectionCount})`;
+      }
+      if (selectionOrder && selectionOrder !== "—") {
+        selectionStr += ` — ${selectionOrder}`;
+      }
+    }
+
+    if (tacticalSelection) {
+      tacticalSelection.textContent = selectionStr;
+      tacticalSelection.hidden = !selectionStr;
+    }
+
+    let statusParts = [];
+    if (waveText && waveText !== "—") statusParts.push(waveText);
+    if (hostileText && hostileText !== "—") statusParts.push(hostileText);
+    if (bossPhaseText && bossPhaseText !== "—" && !bossPhaseText.includes("locked") && !bossPhaseText.includes("잠김")) {
+      statusParts.push(bossPhaseText);
+    }
+    const statusStr = statusParts.filter(Boolean).join(" | ");
+
+    if (tacticalStatus) {
+      tacticalStatus.textContent = statusStr;
+      tacticalStatus.hidden = !statusStr;
+    }
+
+    if (tacticalSeparator) {
+      tacticalSeparator.hidden = !selectionStr || !statusStr;
+    }
   }
 
   function requestRender() {
@@ -206,6 +273,17 @@ export function mountFieldCommandOverlay({ root = field, container = canvasConta
     "#battle-hostile-label",
     "#battle-pressure",
     "#integrity-value",
+    "#battle-wave-indicator",
+    ".selection-dossier",
+    "#dossier-count",
+    "#dossier-order",
+    "#dossier-name",
+    "[data-battle-screen='wave']",
+    "[data-battle-screen='boss-phase']",
+    "[data-battle-screen='enemy-growth']",
+    "[data-battle-screen='selection-name']",
+    "[data-battle-screen='selection-count']",
+    "[data-battle-screen='selection-order']"
   ].forEach((selector) => {
     const target = dom.querySelector(selector);
     if (target) {
@@ -214,7 +292,7 @@ export function mountFieldCommandOverlay({ root = field, container = canvasConta
         childList: true,
         characterData: true,
         attributes: true,
-        attributeFilter: ["class"],
+        attributeFilter: ["class", "data-state"],
       });
     }
   });

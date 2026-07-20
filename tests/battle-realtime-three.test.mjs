@@ -2244,6 +2244,32 @@ test("RealtimeBattle updateCamera default target branch keeps commander target b
   assert.ok(Math.abs(battle.cameraTarget.z - 1.66) < 1e-5);
 });
 
+test("RealtimeBattle updateCamera clamps an extreme look target to forty percent of the battlefield bounds", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  let cameraCenter = null;
+  battle.camera = {
+    position: new THREE.Vector3(),
+    lookAt(target) {
+      cameraCenter = target.clone();
+    },
+  };
+  battle.commanderPosition.set(Number.MAX_SAFE_INTEGER, 0, Number.MIN_SAFE_INTEGER);
+
+  battle.updateCamera(100);
+
+  const { right, near } = battle.navigation.bounds;
+  assert.deepEqual(
+    { x: cameraCenter.x, z: cameraCenter.z },
+    { x: right * 0.4, z: near * 0.4 },
+    "an extreme commander target must clamp the camera center to forty percent of each symmetric field bound",
+  );
+  assert.ok(
+    [cameraCenter.x, cameraCenter.y, cameraCenter.z, ...battle.camera.position].every(Number.isFinite),
+    "clamping an extreme target must preserve finite camera center and position output",
+  );
+});
+
 test("RealtimeBattle destroy disposes shared WebGL resources once and remains idempotent", (t) => {
   const priorDocument = globalThis.document;
   globalThis.document = { removeEventListener() {} };
@@ -2786,6 +2812,185 @@ test("RealtimeBattle Mobility accelerates only the commander and composes with t
       "terrain movement effects must remain multiplicative with commander Mobility",
     );
   });
+});
+
+test("RealtimeBattle selected allies use the stage ally palette and a motion-safe persistent WebGL indicator", async (t) => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const stageAllyColor = "#88d7ff";
+  const battle = new RealtimeBattle(null, {
+    stageNumber: 3,
+    palette: { ally: stageAllyColor },
+    reducedMotion: false,
+  });
+  const ally = {
+    ...makeUnit({ hp: 2 }),
+    root: new THREE.Group(),
+    defeated: false,
+  };
+  let now = 0;
+  const nowDescriptor = Object.getOwnPropertyDescriptor(globalThis.performance, "now");
+  Object.defineProperty(globalThis.performance, "now", {
+    configurable: true,
+    value: () => now,
+  });
+  t.after(() => {
+    if (nowDescriptor) Object.defineProperty(globalThis.performance, "now", nowDescriptor);
+    else delete globalThis.performance.now;
+  });
+
+  battle.allies = [ally];
+  battle.selection.add(ally);
+  battle.ringGeometry = new THREE.RingGeometry(0.5, 0.6, 16);
+
+  battle.updateSelectionVisuals();
+
+  assert.ok(ally.selectionRing, "a selected live ally must receive a circular selection indicator");
+  assert.equal(ally.selectionRing.visible, true, "the selected WebGL indicator must be visible");
+  assert.equal(
+    ally.selectionRing.material.color.getHex(),
+    0x88d7ff,
+    "the WebGL selection indicator must stay synchronized with the stage ally palette",
+  );
+  assert.equal(ally.selectionRing.material.depthWrite, false, "the selected indicator must remain visible through scene depth");
+  assert.equal(ally.selectionRing.renderOrder, 12, "the selected indicator must render above ordinary scene geometry");
+  assert.ok(
+    ally.selectionRing.scale.x > 0 && ally.selectionRing.material.opacity > 0,
+    "the selected indicator must retain nonzero size and opacity",
+  );
+
+  const initialPulse = {
+    scale: ally.selectionRing.scale.x,
+    opacity: ally.selectionRing.material.opacity,
+  };
+  now = Math.PI / (2 * 0.008);
+  battle.updateSelectionVisuals();
+  assert.equal(ally.selectionRing.visible, true, "the selected indicator must remain visible across pulse updates");
+  assert.notEqual(ally.selectionRing.scale.x, initialPulse.scale, "the selected indicator pulse must change scale over time");
+  assert.notEqual(ally.selectionRing.material.opacity, initialPulse.opacity, "the selected indicator pulse must change opacity over time");
+
+  battle.presentation.reducedMotion = true;
+  now = 1000;
+  battle.updateSelectionVisuals();
+  const reducedMotionBaseline = {
+    scale: [ally.selectionRing.scale.x, ally.selectionRing.scale.y, ally.selectionRing.scale.z],
+    opacity: ally.selectionRing.material.opacity,
+  };
+  assert.deepEqual(
+    reducedMotionBaseline,
+    { scale: [0.78, 0.78, 0.78], opacity: 0.76 },
+    "reduced motion must use the deterministic legible selection baseline",
+  );
+  now = 2000;
+  battle.updateSelectionVisuals();
+  assert.deepEqual(
+    {
+      scale: [ally.selectionRing.scale.x, ally.selectionRing.scale.y, ally.selectionRing.scale.z],
+      opacity: ally.selectionRing.material.opacity,
+    },
+    reducedMotionBaseline,
+    "reduced-motion selection visuals must not vary with time",
+  );
+
+  battle.selection.clear();
+  battle.updateSelectionVisuals();
+  assert.equal(ally.selectionRing.visible, false, "clearing selection must hide the WebGL indicator");
+});
+
+test("RealtimeBattle right-drag previews legal ally routes, commits on release, and rejects invalid routes", () => {
+  let groundPoint;
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  const startCell = {
+    x: Math.floor(battle.navigation.anchors.alliedSpawn.x),
+    y: Math.floor(battle.navigation.anchors.alliedSpawn.y),
+  };
+  const firstTargetCell = { x: 12, y: 2 };
+  const secondTargetCell = { x: 10, y: 2 };
+  const start = battle.navigation.gridToWorld(startCell.x + 0.5, startCell.y + 0.5);
+  const firstTarget = battle.navigation.gridToWorld(firstTargetCell.x + 0.5, firstTargetCell.y + 0.5);
+  const secondTarget = battle.navigation.gridToWorld(secondTargetCell.x + 0.5, secondTargetCell.y + 0.5);
+  assert.ok(
+    battle.navigation.findPath(startCell, firstTargetCell)?.length > 1 &&
+      battle.navigation.findPath(startCell, secondTargetCell)?.length > 1,
+    "the deterministic Stage 1 fixture must expose two legal preview destinations",
+  );
+
+  const ally = makeUnit({ x: start.x, z: start.z });
+  battle.commander = makeUnit({ x: start.x, z: start.z });
+  battle.allies = [ally];
+  battle.selection.add(ally);
+  battle.camera = {};
+  battle.ground = {};
+  battle.scene = { add() {}, remove() {} };
+  battle.resolvePointerAction = () => null;
+  battle.resolvePointerAlly = () => null;
+  battle.setPointerRay = () => true;
+  battle.raycaster = {
+    intersectObject: (object) => object === battle.ground
+      ? [{ point: groundPoint }]
+      : [],
+  };
+
+  const pointer = (pointerId, x, timeStamp = 10) => ({
+    button: 2,
+    clientX: x,
+    clientY: 50,
+    pointerId,
+    pointerType: "mouse",
+    timeStamp,
+  });
+
+  const initialCustomPath = ally.customPath;
+  const initialCustomOrder = ally.customOrder;
+  const initialCustomOrderReached = ally.customOrderReached;
+  groundPoint = { x: firstTarget.x, y: 0, z: firstTarget.z };
+  battle.onPointerDown(pointer(1, 10));
+  battle.onPointerMove(pointer(1, 30, 20));
+  assert.equal(battle.routePreviewActive, true, "a held right-drag over a legal tile must expose a live WebGL route preview");
+  const firstPreview = JSON.stringify(battle.routePreview);
+  assert.ok(firstPreview && firstPreview !== "null", "the legal preview must contain route geometry");
+
+  groundPoint = { x: secondTarget.x, y: 0, z: secondTarget.z };
+  battle.onPointerMove(pointer(1, 50, 30));
+  assert.equal(battle.routePreviewActive, true, "the preview must remain active while the pointer moves across legal tiles");
+  assert.notEqual(JSON.stringify(battle.routePreview), firstPreview, "pointer movement must update the proposed route geometry");
+
+  battle.onPointerCancel(pointer(1, 50, 40));
+  assert.equal(battle.routePreviewActive, false, "pointer cancellation must clear the transient WebGL route preview");
+  assert.equal(battle.routePreview, null, "pointer cancellation must not leave stale WebGL route geometry");
+  assert.strictEqual(ally.customPath, initialCustomPath, "cancelling a route preview must not create or mutate a path");
+  assert.strictEqual(ally.customOrder, initialCustomOrder, "cancelling a route preview must not create or mutate an order");
+  assert.strictEqual(
+    ally.customOrderReached,
+    initialCustomOrderReached,
+    "cancelling a route preview must not create or mutate order completion state",
+  );
+
+  groundPoint = { x: firstTarget.x, y: 0, z: firstTarget.z };
+  battle.onPointerDown(pointer(2, 10, 50));
+  battle.onPointerMove(pointer(2, 30, 60));
+  battle.onPointerUp(pointer(2, 30, 70));
+  assert.equal(battle.routePreviewActive, false, "releasing a legal route must clear the transient preview");
+  assert.equal(battle.routePreview, null, "committing a route must not leave stale WebGL preview geometry");
+  assert.ok(ally.customPath?.length > 0, "releasing over a legal tile must commit the selected ally route");
+  const priorPath = ally.customPath;
+  const priorOrder = ally.customOrder;
+
+  groundPoint = { x: -3, y: 0, z: -3 };
+  battle.onPointerDown(pointer(3, 10, 80));
+  battle.onPointerMove(pointer(3, 30, 90));
+  assert.equal(battle.routePreviewActive, false, "an invalid tile must not advertise a legal WebGL route preview");
+  battle.onPointerUp(pointer(3, 30, 100));
+  assert.equal(battle.routePreview, null, "releasing an invalid route must leave preview state empty");
+  assert.strictEqual(ally.customPath, priorPath, "an invalid route must not replace the last legal committed route");
+  assert.strictEqual(ally.customOrder, priorOrder, "an invalid route must preserve the last legal destination");
 });
 
 test("RealtimeBattle publishes stable selection summaries and removes a defeated selected ally", () => {
