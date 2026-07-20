@@ -283,6 +283,7 @@ export class BattleVisualizer {
     this.view = { scale: 1, offsetX: 0, offsetY: 0, width: 0, height: 0 };
     this.terrainMode = TILEMAP_RENDER_MODE.CHUNK;
     this.staticChunks = new Map();
+    this.staticChunksList = [];
     this.terrainTiles = [];
     this.occluderTiles = [];
     this.unitAtlases = new Map();
@@ -667,6 +668,7 @@ export class BattleVisualizer {
       backingPixels: this.canvas.width * this.canvas.height,
     });
     this.staticChunks.clear();
+    this.staticChunksList = [];
     this.terrainTiles = [];
     this.occluderTiles = [];
 
@@ -701,6 +703,10 @@ export class BattleVisualizer {
     for (const [id, tiles] of floorChunks) {
       this.staticChunks.set(id, this.buildTerrainChunk(id, tiles, dpr));
     }
+    // Cached array view of staticChunks.values(): the map is only rebuilt
+    // here (or cleared at destroy), never mutated per-frame, so render()
+    // can reuse this array instead of spreading the Map every frame.
+    this.staticChunksList = [...this.staticChunks.values()];
   }
 
   buildTerrainChunk(id, tiles, dpr) {
@@ -2776,7 +2782,7 @@ export class BattleVisualizer {
     const bridgeTerrain = this.bridgeTerrainPlacement();
     if (this.terrainMode === TILEMAP_RENDER_MODE.CHUNK) {
       const viewport = { left: 0, top: 0, right: this.view.width, bottom: this.view.height };
-      for (const chunk of visibleIndividualItems([...this.staticChunks.values()], viewport)) {
+      for (const chunk of visibleIndividualItems(this.staticChunksList, viewport)) {
         ctx.drawImage(chunk.canvas, chunk.bounds.left, chunk.bounds.top, chunk.width, chunk.height);
       }
       // Source terrain is composited on top of opaque floor but below dynamic
@@ -2810,9 +2816,11 @@ export class BattleVisualizer {
       ctx2.fillRect(0, 0, this.view.width, this.view.height);
     }
     if (this.objectFeedback) {
-      const actors = [this.commander, this.boss, ...this.allies, ...this.enemies, ...this.deployments];
-      for (const actor of actors) {
-        if (!actor?.id) continue;
+      // Avoid rebuilding a combined [commander, boss, ...allies, ...enemies,
+      // ...deployments] array via spread every frame; walk each source array
+      // directly instead (same per-actor logic, zero extra allocation).
+      const trackFeedback = (actor) => {
+        if (!actor?.id) return;
         const currentHp = Number(actor.hp) || 0;
         const previousHp = this.feedbackHpCache.get(actor.id);
         if (previousHp !== undefined && currentHp !== previousHp) {
@@ -2823,7 +2831,12 @@ export class BattleVisualizer {
           this.objectFeedback.emitExchange("commander", actor.id, Math.abs(currentHp - previousHp), type);
         }
         this.feedbackHpCache.set(actor.id, currentHp);
-      }
+      };
+      trackFeedback(this.commander);
+      trackFeedback(this.boss);
+      for (const ally of this.allies) trackFeedback(ally);
+      for (const enemy of this.enemies) trackFeedback(enemy);
+      for (const dep of this.deployments) trackFeedback(dep);
       this.objectFeedback.render((object) => this.projectFeedbackObject(object));
     }
   }
@@ -3494,6 +3507,7 @@ export class BattleVisualizer {
     this.emitSelectionChange();
     this.unitAtlases.clear();
     this.staticChunks.clear();
+    this.staticChunksList = [];
     this.terrainTiles = [];
     this.occluderTiles = [];
     this.bossImage = null;

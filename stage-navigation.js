@@ -411,15 +411,24 @@ export function createStageNavigation(stageNumber) {
   if (anchors.nodes) anchors.nodes.forEach(addAnchor);
   if (anchors.hostileSpawns) anchors.hostileSpawns.forEach(addAnchor);
 
+  // Precomputed cell -> gimmick lookup (built once per navigation instance)
+  // so the hot per-tick getGimmickAt() call is O(1) instead of scanning
+  // every zone and every cell inside it for every moving unit every tick.
+  const gimmickByCellKey = new Map();
+  for (const zone of zones) {
+    const gimmick = TACTICAL_GIMMICKS[zone.kind] ?? null;
+    if (!gimmick) continue;
+    for (const c of zone.cells) {
+      gimmickByCellKey.set(c.y * STAGE_GRID_WIDTH + c.x, gimmick);
+    }
+  }
   const getGimmickAt = (x, y) => {
     const cellX = Math.floor(x);
     const cellY = Math.floor(y);
     if (cellX < 0 || cellX >= STAGE_GRID_WIDTH || cellY < 0 || cellY >= STAGE_GRID_HEIGHT) {
       return null;
     }
-    const zone = zones.find((z) => z.cells.some((c) => c.x === cellX && c.y === cellY));
-    if (!zone) return null;
-    return TACTICAL_GIMMICKS[zone.kind] ?? null;
+    return gimmickByCellKey.get(cellY * STAGE_GRID_WIDTH + cellX) ?? null;
   };
 
   const validateDeployment = (x, y, deployments = [], kind) => {

@@ -551,7 +551,7 @@ export class RealtimeBattle {
     // Stage-aware concept-art backdrop
     const isTest = typeof process !== "undefined";
     if (!isTest && THREE.TextureLoader) {
-      const loader = new THREE.TextureLoader();
+      const loader = (this.textureLoader ??= new THREE.TextureLoader());
       const stageIdMap = {
         1: "cinder-span",
         2: "veil-citadel",
@@ -592,7 +592,7 @@ export class RealtimeBattle {
     this.groundAlbedoTexture = null;
     this.groundNormalTexture = null;
     if (!isTest && THREE.TextureLoader) {
-      const pbrLoader = new THREE.TextureLoader();
+      const pbrLoader = (this.textureLoader ??= new THREE.TextureLoader());
       const albedo = pbrLoader.load("./assets/models/abyssal-command/textures/void-obsidian-albedo.png");
       albedo.colorSpace = THREE.SRGBColorSpace;
       albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
@@ -753,7 +753,11 @@ export class RealtimeBattle {
     const resources = [stage.terrain, "units/shade.glb", "units/scout.glb", "units/guard.glb", "units/reinforce.glb", stage.boss];
     let loaded = 0;
     this.onAssetStatus?.({ state: "loading", loaded, total: resources.length, clips: 0 });
-    for (const resource of resources) {
+    // Required resources load concurrently rather than one-await-at-a-time:
+    // each is an independent fetch+parse, so serializing them only adds up
+    // network/parse latency for no benefit. Progress callbacks still fire as
+    // each resource resolves, in whatever order that happens to be.
+    await Promise.all(resources.map(async (resource) => {
       const gltf = await this.loadModel(resource);
       if (this.destroyed) {
         disposeObjectResources(gltf.scene, this.disposedResources);
@@ -763,14 +767,14 @@ export class RealtimeBattle {
       loaded += 1;
       this.actionClips += gltf.animations.length;
       this.onAssetStatus?.({ state: "loading", loaded, total: resources.length, clips: this.actionClips });
-    }
+    }));
     this.onAssetStatus?.({ state: "loaded", loaded, total: resources.length, clips: this.actionClips });
 
     // Load the prop models in the background (awaited so they are available in createBattleObjects)
     const isTest = typeof process !== "undefined";
     if (!isTest) {
       const props = ["props/soul-extractor.glb", "props/rift-portal.glb", "props/command-obelisk.glb", "props/echo-throne.glb", "units/possessed.glb"];
-      for (const prop of props) {
+      await Promise.all(props.map(async (prop) => {
         try {
           const gltf = await this.loadModel(prop);
           if (this.destroyed) {
@@ -781,7 +785,7 @@ export class RealtimeBattle {
         } catch (error) {
           if (this.destroyed) throw error;
         }
-      }
+      }));
     }
   }
 
@@ -793,7 +797,7 @@ export class RealtimeBattle {
       const data = await response.arrayBuffer();
       const resourceBase = url.slice(0, url.lastIndexOf("/") + 1);
       const gltf = await new Promise((resolve, reject) => {
-        new GLTFLoader().parse(
+        (this.gltfLoader ??= new GLTFLoader()).parse(
           data,
           resourceBase,
           resolve,
@@ -2170,13 +2174,27 @@ export class RealtimeBattle {
     for (const enemy of this.enemies) {
       if (!this.liveEnemy(enemy) || this.engagements.has(enemy)) continue;
 
-      const pattern = enemy.pattern ?? {};
-      const movement = pattern.movementDirective && typeof pattern.movementDirective === "object"
-        ? pattern.movementDirective
-        : (pattern.movement && typeof pattern.movement === "object" ? pattern.movement : pattern);
-      const patternId = String(pattern.patternId ?? enemy.patternId ?? enemy.archetype ?? "").toLowerCase();
-      const movementKind = String(pattern.movement ?? movement.mode ?? movement.kind ?? movement.type ?? patternId).toLowerCase();
-      const isRanged = patternId === "ranged" || movementKind === "ranged" || patternId.includes("ranged");
+      // enemy.pattern is fixed at spawn and never reassigned afterwards, so
+      // this classification is invariant for the enemy's whole lifetime.
+      // Cache it on first computation instead of re-deriving (string coercion
+      // + toLowerCase + includes) on every 60Hz simulation tick per enemy.
+      let movement = enemy._movementDirective;
+      let patternId = enemy._patternIdLower;
+      let movementKind = enemy._movementKind;
+      let isRanged = enemy._isRangedPattern;
+      if (movement === undefined) {
+        const pattern = enemy.pattern ?? {};
+        movement = pattern.movementDirective && typeof pattern.movementDirective === "object"
+          ? pattern.movementDirective
+          : (pattern.movement && typeof pattern.movement === "object" ? pattern.movement : pattern);
+        patternId = String(pattern.patternId ?? enemy.patternId ?? enemy.archetype ?? "").toLowerCase();
+        movementKind = String(pattern.movement ?? movement.mode ?? movement.kind ?? movement.type ?? patternId).toLowerCase();
+        isRanged = patternId === "ranged" || movementKind === "ranged" || patternId.includes("ranged");
+        enemy._movementDirective = movement;
+        enemy._patternIdLower = patternId;
+        enemy._movementKind = movementKind;
+        enemy._isRangedPattern = isRanged;
+      }
       if (isRanged) {
         enemy.alertTimer = Math.max(0, (enemy.alertTimer ?? (0.35 + (enemy.routeIndex ?? 0) * 0.18)) - dt);
         enemy.pauseTimer = Math.max(0, (enemy.pauseTimer ?? 0) - dt);
