@@ -115,6 +115,13 @@
 - **밸런스 결과:** `node scripts/run-campaign-balance-sim.mjs`에서 casual 200회 승률 50%, rusher 0%, optimal·greedy-economy 100%, comeback 기준 경로 0%를 기록했습니다. 12개 초기 보상 조합은 모두 완주했고 최고 효율/중앙 효율 비는 1.183×, 150,000회 퍼즈 연산은 발견 0건, 이중 실행은 동일했습니다.
 - **10개 QA 시나리오:** `PS-001`–`PS-010`이 마우스/명령 근접성, 39개 상자와 10개 이벤트, 여섯 효과의 소비·우선순위, 중복 상자 차단, 저장 재생, 재시도 초기화를 검증합니다.
 
+### 2026-07-21 Mesh Command Telemetry
+
+- **텍스처·명령·충돌 경로:** WebGL 기본 경로는 작성된 GLB 임베디드 텍스처와 역할별 deck 재질을 유지합니다. 드래그 랠리와 전술 팝업 명령은 하나의 canonical movement/action 경로로 위임하며, 이동은 캐시된 정적 mesh 충돌 경계로 지형·장애물 통과를 거부합니다.
+- **전장·배우 피드백:** 선택된 경로는 지형 위의 점선과 목적지 마커로 표시되고, 명령 가능한 배우에는 체력과 focus readiness 게이지가 표시됩니다. 적용된 WebGL Stage 1 캡처는 [mesh telemetry evidence](_workspace/20260721-mesh-command-telemetry/qa/evidence/20260721-mesh-telemetry/stage-1-webgl-textured.webp)에 보관합니다.
+- **대상 검증:** 최적화 뒤 `node --test tests/battle-realtime-three.test.mjs tests/battle-visualizer.test.mjs tests/battle-field-command-overlay.test.mjs tests/object-feedback-layer.test.mjs`는 **214 tests passed, 0 failed**로 보고되었습니다. 이전 두 파일의 **176 tests pass** 결과는 역사적 기록으로 유지합니다. 로컬 1280×800 WebGL 증거 패킷은 빈 지형 이동 안내와 범위 밖 Hunt 예약 유지, 창 오류 없음을 기록합니다.
+- **성능 상태:** 최적화 전 180개 연속 `requestAnimationFrame` 간격은 p50 16.7ms, p95 25.0ms, 최대 34.2ms(>20ms 27회, >33.4ms 3회)였습니다. Stage 1 재로딩 뒤 commander preview geometry 재사용과 frame-shot 배열 재사용을 적용한 warmed 180-frame 세 번의 측정은 각각 p50 9.0/8.7/8.4ms, p95 17.6/17.7/17.5ms, 최대 25.8/25.0/25.5ms, >20ms 7/9/8회, >33.4ms 0/0/0회였습니다. 개선됐지만 모든 p95가 16.7ms 예산을 초과하므로 60fps 게이트는 **통과로 주장하지 않습니다**. 이 패킷은 GitHub Pages 배포 증거가 아니며, pre-wave 캡처는 배우 게이지의 사람 시각 평가나 사람 플레이테스트 완료를 주장하지 않습니다. 게임 하네스 게이트도 이 증거로 통과 처리하지 않습니다.
+
 ## 프로젝트 구조
 
 ```text

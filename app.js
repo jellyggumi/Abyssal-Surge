@@ -551,6 +551,12 @@ let visualizer = null;
 let activeFieldFocusedAction = null;
 let activeCommandHoverAction = null;
 let activeCommandFocusAction = null;
+let commanderReadinessFallbackAction = null;
+const commanderReadiness = {
+  energy: 0,
+  maxEnergy: 1,
+  resourceKind: "focus",
+};
 const EMPTY_RENDERER_SELECTION = Object.freeze({
   count: 0,
   total: 0,
@@ -2464,6 +2470,32 @@ function remainingCooldown(action, now = performance.now()) {
   return Math.max(0, (cooldowns.get(action) ?? 0) - now);
 }
 
+function refreshCommanderReadinessFallback(available) {
+  commanderReadinessFallbackAction = null;
+  for (const action of available ?? []) {
+    commanderReadinessFallbackAction = action;
+    break;
+  }
+}
+
+function getCommanderReadiness() {
+  const action = currentActionFocus() || commanderReadinessFallbackAction;
+  if (!campaign || !action) {
+    commanderReadiness.energy = 0;
+    commanderReadiness.maxEnergy = 1;
+    return commanderReadiness;
+  }
+  const cooldownMs = Math.max(0, Number(getCommandCooldown(campaign, action)) || 0) * 1000;
+  if (cooldownMs === 0) {
+    commanderReadiness.energy = 1;
+    commanderReadiness.maxEnergy = 1;
+    return commanderReadiness;
+  }
+  commanderReadiness.energy = Math.max(0, cooldownMs - remainingCooldown(action));
+  commanderReadiness.maxEnergy = cooldownMs;
+  return commanderReadiness;
+}
+
 function getInteractiveBattleActions() {
   if (!campaign || !battleUiActive() || resultOverlayOpen) return [];
   return getAvailableActions(campaign).filter((action) => remainingCooldown(action) <= 0);
@@ -3051,6 +3083,12 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
 function stopBattle() {
   battleSessionId += 1;
   stopCommandTutorialAlarm();
+  try {
+    screen.orientation?.unlock?.();
+  } catch {
+    // No-op: unlock is a courtesy so the lobby is not stuck landscape-locked
+    // on browsers that granted the lock; nothing to recover if it throws.
+  }
   clearEncounterStartTimer();
   stopBattleAudio();
   if (typeof stopCommandQueueTimer === "function") {
@@ -3102,6 +3140,7 @@ function activateBattleFallback(stage, sessionId) {
     feedbackCanvas: elements.battleObjectFeedbackCanvas,
     resolveFeedbackSpeech: typeof getCombatAlertFeedback === "function" ? getCombatAlertFeedback : undefined,
     getAvailableActions: getInteractiveBattleActions,
+    getCommanderReadiness,
     onAssetStatus: renderBattleAssetStatus,
     onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, fallback),
     onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, fallback),
@@ -3129,10 +3168,38 @@ function activateBattleFallback(stage, sessionId) {
   }
 }
 
+async function maybeLockLandscapeForBattle() {
+  // Best-effort convenience for the "please rotate" prompt (see
+  // .rotate-device-prompt in react-game-ui.css): where the Orientation Lock
+  // API is actually supported (Android Chrome/Firefox/Samsung Internet, and
+  // only while fullscreen), this proactively rotates the rendering surface
+  // for the player instead of making them find and use the device's manual
+  // rotation. iOS Safari implements neither API at all, so this silently
+  // no-ops there and the player rotates by hand -- the CSS prompt covers
+  // that gap either way, so every failure here is intentionally swallowed
+  // rather than surfaced as an error.
+  try {
+    if (!elements.screen || typeof window.matchMedia !== "function") return;
+    const isNarrow = window.matchMedia("(max-width: 899px)").matches;
+    const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+    if (!isNarrow || !isPortrait) return;
+    if (!document.fullscreenElement && typeof elements.screen.requestFullscreen === "function") {
+      await elements.screen.requestFullscreen({ navigationUI: "hide" });
+    }
+    if (typeof screen?.orientation?.lock === "function") {
+      await screen.orientation.lock("landscape");
+    }
+  } catch {
+    // Unsupported, denied, or not currently fullscreen-eligible: expected
+    // and harmless on iOS Safari and any browser that rejects the request.
+  }
+}
+
 async function startBattle() {
   if (!campaign || campaign.status !== "active" || visualizer || cooldownTimer || battleStarting) return;
   battleStarting = true;
   lastScrolledStageId = null;
+  maybeLockLandscapeForBattle();
   const sessionId = ++battleSessionId;
   rendererRuntime = null;
   battleVisualFallback = false;
@@ -3156,6 +3223,7 @@ async function startBattle() {
         feedbackCanvas: elements.battleObjectFeedbackCanvas,
         resolveFeedbackSpeech: typeof getCombatAlertFeedback === "function" ? getCombatAlertFeedback : undefined,
         getAvailableActions: getInteractiveBattleActions,
+        getCommanderReadiness,
         onAssetStatus: renderBattleAssetStatus,
         onActionRequest: (request) => void handleRendererCommandRequest(request, sessionId, battleRenderer),
         onEncounterEvent: (event) => void handleEncounterEvent(event, sessionId, battleRenderer),
@@ -3406,6 +3474,7 @@ function render() {
   const state = campaign.stage;
   const benefits = getCampaignBenefits(campaign);
   const available = new Set(getAvailableActions(campaign));
+  refreshCommanderReadinessFallback(available);
   const isComplete = campaign.status === "campaign-complete";
   try {
     window.AbyssalProfile?.syncCampaign(campaign);

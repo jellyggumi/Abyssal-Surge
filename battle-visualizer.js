@@ -216,6 +216,9 @@ export class BattleVisualizer {
     this.onTacticalLayout = typeof options.onTacticalLayout === "function" ? options.onTacticalLayout : null;
     this.onActionRequest = typeof options.onActionRequest === "function" ? options.onActionRequest : null;
     this.getAvailableActions = typeof options.getAvailableActions === "function" ? options.getAvailableActions : null;
+    this.getCommanderReadiness = typeof options.getCommanderReadiness === "function"
+      ? options.getCommanderReadiness
+      : null;
     this.orderFlag = null;  // {x, y, life}
     this.waveCounter = 0;
     this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
@@ -1940,7 +1943,7 @@ export class BattleVisualizer {
           }
         }
       }
-      objects.push({
+      const record = {
         id,
         kind,
         label: actor.label ?? id,
@@ -1949,7 +1952,20 @@ export class BattleVisualizer {
         visible: actor.defeated !== true,
         selected: this.selection.has(actor),
         statuses: actorStatuses,
-      });
+      };
+      if (id === "commander") {
+        const readiness = this.getCommanderReadiness?.();
+        if (
+          Number.isFinite(readiness?.energy)
+          && Number.isFinite(readiness?.maxEnergy)
+          && readiness.maxEnergy > 0
+        ) {
+          record.energy = readiness.energy;
+          record.maxEnergy = readiness.maxEnergy;
+          record.resourceKind = readiness.resourceKind === "focus" ? "focus" : undefined;
+        }
+      }
+      objects.push(record);
     };
     addActor(this.commander, this.commander?.id ?? "commander", "commander", 10);
     for (let index = 0; index < this.allies.length; index += 1) {
@@ -1962,18 +1978,59 @@ export class BattleVisualizer {
     }
     addActor(this.boss, "boss", "boss", 1);
     for (const deployment of this.deployments) {
-      objects.push({
+      const record = {
         id: deployment.id,
         kind: deployment.kind ?? deployment.type ?? "deployment",
         label: deployment.label ?? deployment.id,
         hp: Number(deployment.hp) || 0,
         maxHp: Number(deployment.maxHp ?? deployment.maxHealth) || 1,
         visible: deployment.defeated !== true,
-      });
+      };
+      if (record.kind === "tower") {
+        record.energy = Math.max(0, 1 - (Number(deployment.cooldown) || 0));
+        record.maxEnergy = 1;
+        record.resourceKind = "readiness";
+      }
+      objects.push(record);
     }
     this.objectFeedback.reconcile(objects, { silent: true });
     this.feedbackHpCache.clear();
     for (const object of objects) this.feedbackHpCache.set(object.id, object.hp);
+  }
+
+  updateObjectFeedbackResources() {
+    if (!this.objectFeedback) return;
+    const commander = this.objectFeedback.objects.get("commander");
+    const readiness = this.getCommanderReadiness?.();
+    if (commander) {
+      if (
+        Number.isFinite(readiness?.energy)
+        && Number.isFinite(readiness?.maxEnergy)
+        && readiness.maxEnergy > 0
+      ) {
+        commander.energy = readiness.energy;
+        commander.maxEnergy = readiness.maxEnergy;
+        commander.resourceKind = readiness.resourceKind === "focus" ? "focus" : undefined;
+      } else {
+        commander.energy = undefined;
+        commander.maxEnergy = undefined;
+        commander.resourceKind = undefined;
+      }
+    }
+    for (let index = 0; index < this.deployments.length; index += 1) {
+      const deployment = this.deployments[index];
+      const feedback = this.objectFeedback.objects.get(deployment.id);
+      if (!feedback) continue;
+      if (deployment.kind === "tower") {
+        feedback.energy = Math.max(0, 1 - (Number(deployment.cooldown) || 0));
+        feedback.maxEnergy = 1;
+        feedback.resourceKind = "readiness";
+      } else {
+        feedback.energy = undefined;
+        feedback.maxEnergy = undefined;
+        feedback.resourceKind = undefined;
+      }
+    }
   }
 
   projectFeedbackObject(object) {
@@ -3207,6 +3264,7 @@ export class BattleVisualizer {
       for (const ally of this.allies) trackFeedback(ally);
       for (const enemy of this.enemies) trackFeedback(enemy);
       for (const dep of this.deployments) trackFeedback(dep);
+      this.updateObjectFeedbackResources();
       this.objectFeedback.render((object) => this.projectFeedbackObject(object));
     }
   }

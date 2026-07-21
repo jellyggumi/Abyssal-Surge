@@ -477,6 +477,9 @@ export class RealtimeBattle {
     this.nodeGoal = Math.max(1, Number(options.nodeGoal) || 1);
     this.requestAction = typeof options.onActionRequest === "function" ? options.onActionRequest : null;
     this.getAvailableActions = typeof options.getAvailableActions === "function" ? options.getAvailableActions : null;
+    this.getCommanderReadiness = typeof options.getCommanderReadiness === "function"
+      ? options.getCommanderReadiness
+      : null;
     this.onAssetStatus = typeof options.onAssetStatus === "function" ? options.onAssetStatus : null;
     this.onRendererFailure = typeof options.onRendererFailure === "function" ? options.onRendererFailure : null;
     this.onEncounterEvent = typeof options.onEncounterEvent === "function" ? options.onEncounterEvent : null;
@@ -592,6 +595,7 @@ export class RealtimeBattle {
     this.hud = null;
     this.navigation = createStageNavigation(this.stageNumber);
     this.staticBlockers = [];
+    this.navigationBarricades = [];
     this.nodes = [];
     this.capturedCount = 0;
     this.accumulator = 0;
@@ -2248,7 +2252,7 @@ export class RealtimeBattle {
       this.raf = 0;
       return;
     }
-    this.frameShots = [];
+    this.frameShots.length = 0;
     const rawDelta = (time - this.lastTime) / 1000;
     if (rawDelta > 0.10) {
       this.droppedTime += (rawDelta - 0.10);
@@ -3645,6 +3649,36 @@ export class RealtimeBattle {
     }
     return null;
   }
+  resolvePointerCommander(event) {
+    if (!this.commander?.root || !this.setPointerRay(event)) return null;
+    const hits = this.raycaster.intersectObject(this.commander.root, true);
+    return hits.length > 0 ? this.commander : null;
+  }
+
+  // Touch drag-to-move preview for the commander (see onPointerDown's
+  // "touch-unit-drag" mode): mirrors updateAlliedRoutePreview's role for
+  // allies, but the commander has no separate preview-only state -- setting
+  // commanderPath/commanderOrder here is exactly what pick(event, "personal")
+  // sets at commit, so moveCommander() (run every frame regardless of
+  // pointer state) walks the commander toward the finger live as it drags,
+  // which is the intended "drag your piece" feel. A dead-end drag target
+  // (no path) is simply ignored so the commander keeps its last valid order
+  // instead of snapping to a stop mid-gesture.
+  updateCommanderRoutePreview(event) {
+    if (!this.commander?.root || !this.ground || !this.setPointerRay(event)) return false;
+    const groundHit = this.raycaster.intersectObject(this.ground, false)[0];
+    if (!groundHit) return false;
+    const startGrid = this.navigation.worldToGrid(this.commander.root.position.x, this.commander.root.position.z);
+    const goalGrid = this.navigation.worldToGrid(groundHit.point.x, groundHit.point.z);
+    const path = this.findTacticalPath(startGrid, goalGrid);
+    if (!path || path.length === 0) return false;
+    this.commanderPath = path;
+    const finalCell = path[path.length - 1];
+    const finalWorld = this.navigation.gridToWorld(finalCell.x + 0.5, finalCell.y + 0.5);
+    const elevation = this.navigation.elevationAt(finalCell.x + 0.5, finalCell.y + 0.5);
+    this.commanderOrder = new THREE.Vector3(finalWorld.x, elevation * TERRAIN_ELEVATION_SCALE, finalWorld.z);
+    return true;
+  }
 
   setHoveredAction(action) {
     const nextAction = action || null;
@@ -3761,14 +3795,28 @@ export class RealtimeBattle {
     if (this.pointer) return;
     
     let mode = "select";
+    let dragUnit = null;
     if (this.placementMode) {
       mode = "placement";
     } else if (event.pointerType === "touch") {
-      // Mouse never orbits the camera: the view angle stays fixed for every
-      // mouse click/drag (left-drag = marquee select, as documented in
-      // battle.directHelp). Only touch drag still orbits, per the mobile
-      // "터치 드래그 회전" control already published in the UI help copy.
-      mode = "orbit";
+      // Touch: pressing directly on a live ally or the commander drags that
+      // unit (a "drag your piece to move it" mobile control, mirrored after
+      // release via the same pick() commit desktop right-click-drag uses).
+      // Pressing on open ground, an action marker, or an enemy still orbits
+      // the camera -- preserving the existing "터치 드래그 회전" look-around
+      // control, and leaving the existing orbit-mode tap branch to resolve
+      // action markers exactly as before. Action markers are checked first
+      // so a marker that happens to overlap a unit's model is never
+      // hijacked into a drag instead of its tap-to-act behavior.
+      const actionUnderTouch = this.resolvePointerAction(event);
+      const draggedAlly = actionUnderTouch ? null : this.resolvePointerAlly(event);
+      const draggedCommander = (actionUnderTouch || draggedAlly) ? null : this.resolvePointerCommander(event);
+      if (draggedAlly || draggedCommander) {
+        mode = "touch-unit-drag";
+        dragUnit = draggedAlly || "commander";
+      } else {
+        mode = "orbit";
+      }
     } else if (event.button === 2) {
       mode = "right-click";
     }
@@ -3785,7 +3833,8 @@ export class RealtimeBattle {
       lastY: event.clientY,
       moved: false,
       button: event.button,
-      mode: mode
+      mode: mode,
+      dragUnit: dragUnit
     };
     this.canvas.setPointerCapture(event.pointerId);
     if (mode === "right-click") this.clearRoutePreview();
@@ -3826,6 +3875,24 @@ export class RealtimeBattle {
     if (this.pointer.mode === "right-click") {
       if (this.pointer.moved) this.updateAlliedRoutePreview(event);
       else this.clearRoutePreview();
+    }
+    if (this.pointer.mode === "touch-unit-drag") {
+      if (this.pointer.moved) {
+        if (this.pointer.dragUnit === "commander") {
+          this.updateCommanderRoutePreview(event);
+        } else if (this.pointer.dragUnit) {
+          // Preserve an existing multi-ally selection if the dragged ally is
+          // already part of it (drag continues to rally the whole group,
+          // same as desktop right-click-drag); otherwise dragging a
+          // different/unselected ally replaces the selection with just it.
+          if (!this.selection.has(this.pointer.dragUnit)) {
+            this.selectAlly(this.pointer.dragUnit);
+          }
+          this.updateAlliedRoutePreview(event);
+        }
+      } else {
+        this.clearRoutePreview();
+      }
     }
     if (this.pointer.moved) {
       if (this.pointer.mode === "orbit") {
@@ -3979,6 +4046,32 @@ export class RealtimeBattle {
           this.setHoveredAction(null);
         }
       }
+    } else if (pointer.mode === "touch-unit-drag") {
+      if (!pointer.moved) {
+        // Tap (no drag): select the tapped unit. Allies reuse the same
+        // tap-to-select as the orbit-mode tap branch above. The commander is
+        // never added to `this.selection` (only movable Shade Legion allies
+        // are, by design -- see RealtimeBattle#selectAlly), so a tap on the
+        // commander is acknowledged with a focus highlight/camera-look cue
+        // instead, giving touch players an explicit "I selected the
+        // commander" response without repurposing the ally selection set.
+        const upTime = event.timeStamp || Date.now();
+        if (upTime - pointer.downTime <= 500) {
+          if (pointer.dragUnit === "commander" && this.commander?.root) {
+            const grid = this.navigation.worldToGrid(this.commander.root.position.x, this.commander.root.position.z);
+            const cell = { x: Math.floor(grid.x), y: Math.floor(grid.y) };
+            this.focusTacticalCell(cell);
+            this.onTacticalRequest?.({ type: 'focus', cell });
+          } else if (pointer.dragUnit) {
+            this.selectAlly(pointer.dragUnit);
+          }
+        }
+      } else if (pointer.dragUnit === "commander") {
+        this.pick(event, "personal");
+      } else if (pointer.dragUnit) {
+        this.pick(event, "allies");
+      }
+      this.clearRoutePreview();
     }
   }
 
@@ -4994,12 +5087,26 @@ export class RealtimeBattle {
     record.priority = priority;
     record.energy = undefined;
     record.maxEnergy = undefined;
-    if (kind === "ally" && typeof actor.cooldown === "number") {
+    record.resourceKind = undefined;
+    if (kind === "commander") {
+      const readiness = this.getCommanderReadiness?.();
+      if (
+        Number.isFinite(readiness?.energy)
+        && Number.isFinite(readiness?.maxEnergy)
+        && readiness.maxEnergy > 0
+      ) {
+        record.energy = readiness.energy;
+        record.maxEnergy = readiness.maxEnergy;
+        record.resourceKind = readiness.resourceKind === "focus" ? "focus" : undefined;
+      }
+    } else if (kind === "ally" && typeof actor.cooldown === "number") {
       record.maxEnergy = ALLY_STRIKE_COOLDOWN;
       record.energy = Math.max(0, ALLY_STRIKE_COOLDOWN - actor.cooldown);
+      record.resourceKind = "readiness";
     } else if (kind === "tower" && typeof actor.cooldown === "number") {
       record.maxEnergy = TOWER_FIRE_COOLDOWN;
       record.energy = Math.max(0, TOWER_FIRE_COOLDOWN - actor.cooldown);
+      record.resourceKind = "readiness";
     }
   }
 
@@ -5073,6 +5180,7 @@ export class RealtimeBattle {
         object.maxHp = record.maxHp;
         object.energy = record.energy;
         object.maxEnergy = record.maxEnergy;
+        object.resourceKind = record.resourceKind;
         object.selected = record.selected;
         object.visible = record.visible;
       }
@@ -5799,40 +5907,75 @@ export class RealtimeBattle {
   }
 
   updateCommanderPathPreview() {
-    if (this.commanderPath && this.commanderPath.length > 0) {
-      const points = [];
-      points.push(this.commander.root.position.clone());
-      for (const cell of this.commanderPath) {
-        const world = this.navigation.gridToWorld(cell.x + 0.5, cell.y + 0.5);
-        const nav = this.navigationAt(world.x, world.z);
-        points.push(new THREE.Vector3(world.x, nav.elevation * TERRAIN_ELEVATION_SCALE + 0.08, world.z));
-      }
-      if (!this.commanderPathLine) {
-        const geom = new THREE.BufferGeometry().setFromPoints(points);
-        const mat = new THREE.LineDashedMaterial({
-          color: this.presentation?.palette?.accent ?? 0xffb85c,
-          dashSize: 0.2,
-          gapSize: 0.1,
-          transparent: true,
-          opacity: 0.95,
-          depthWrite: false,
-          depthTest: false
-        });
-        this.commanderPathLine = new THREE.Line(geom, mat);
-        this.commanderPathLine.renderOrder = 14;
-        this.scene.add(this.commanderPathLine);
+    const path = this.commanderPath;
+    if (path && path.length > 0) {
+      const pointCount = path.length + 1;
+      const pathChanged = this.commanderPathPreviewPath !== path
+        || this.commanderPathPreviewLength !== path.length;
+      let position;
+      let lineDistance;
+      if (!this.commanderPathLine || pathChanged) {
+        const geometry = new THREE.BufferGeometry();
+        position = new THREE.BufferAttribute(new Float32Array(pointCount * 3), 3);
+        lineDistance = new THREE.BufferAttribute(new Float32Array(pointCount), 1);
+        geometry.setAttribute("position", position);
+        geometry.setAttribute("lineDistance", lineDistance);
+        if (!this.commanderPathLine) {
+          const material = new THREE.LineDashedMaterial({
+            color: this.presentation?.palette?.accent ?? 0xffb85c,
+            dashSize: 0.2,
+            gapSize: 0.1,
+            transparent: true,
+            opacity: 0.95,
+            depthWrite: false,
+            depthTest: false
+          });
+          this.commanderPathLine = new THREE.Line(geometry, material);
+          this.commanderPathLine.renderOrder = 14;
+          this.scene.add(this.commanderPathLine);
+        } else {
+          this.commanderPathLine.geometry.dispose();
+          this.commanderPathLine.geometry = geometry;
+        }
+        this.commanderPathPreviewPath = path;
+        this.commanderPathPreviewLength = path.length;
+        for (let index = 0; index < path.length; index += 1) {
+          const cell = path[index];
+          const world = this.navigation.gridToWorld(cell.x + 0.5, cell.y + 0.5);
+          const nav = this.navigationAt(world.x, world.z);
+          position.setXYZ(
+            index + 1,
+            world.x,
+            nav.elevation * TERRAIN_ELEVATION_SCALE + 0.08,
+            world.z,
+          );
+        }
       } else {
-        this.commanderPathLine.geometry.dispose();
-        this.commanderPathLine.geometry = new THREE.BufferGeometry().setFromPoints(points);
+        position = this.commanderPathLine.geometry.getAttribute("position");
+        lineDistance = this.commanderPathLine.geometry.getAttribute("lineDistance");
       }
-      this.commanderPathLine.computeLineDistances();
+
+      const commanderPosition = this.commander.root.position;
+      position.setXYZ(0, commanderPosition.x, commanderPosition.y + 0.08, commanderPosition.z);
+      let distance = 0;
+      lineDistance.setX(0, 0);
+      for (let index = 1; index < pointCount; index += 1) {
+        const previousOffset = (index - 1) * 3;
+        const offset = index * 3;
+        const dx = position.array[offset] - position.array[previousOffset];
+        const dy = position.array[offset + 1] - position.array[previousOffset + 1];
+        const dz = position.array[offset + 2] - position.array[previousOffset + 2];
+        distance += Math.sqrt(dx * dx + dy * dy + dz * dz);
+        lineDistance.setX(index, distance);
+      }
+      position.needsUpdate = true;
+      lineDistance.needsUpdate = true;
       this.commanderPathLine.visible = true;
 
       // Destination marker: a bright pulsing ring at the final waypoint, so
       // "where am I walking to" reads at a glance instead of only via the
       // thin dashed line (see the ally route-preview endpoint for the same
       // visual language, reused here for the commander's own order).
-      const destination = points[points.length - 1];
       if (!this.commanderDestinationMarker) {
         const marker = new THREE.Mesh(
           new THREE.RingGeometry(0.2, 0.34, 24),
@@ -5851,7 +5994,12 @@ export class RealtimeBattle {
         this.scene.add(marker);
         this.commanderDestinationMarker = marker;
       }
-      this.commanderDestinationMarker.position.copy(destination);
+      const destinationOffset = (pointCount - 1) * 3;
+      this.commanderDestinationMarker.position.set(
+        position.array[destinationOffset],
+        position.array[destinationOffset + 1],
+        position.array[destinationOffset + 2],
+      );
       this.commanderDestinationMarker.visible = true;
       const reducedMotion = this.isReducedMotion;
       const pulse = reducedMotion ? 1.0 : 1.0 + Math.sin(performance.now() * 0.001 * 10.0) * 0.18;
@@ -6017,59 +6165,9 @@ export class RealtimeBattle {
   }
 
   findTacticalPath(start, goal) {
-    const cells = this.navigation.cells.map(row => [...row]);
-    const width = this.navigation?.width ?? 24;
-    const height = this.navigation?.height ?? 12;
-    for (const dep of this.deploymentsMap.values()) {
-      if (dep.kind !== "barricade") continue;
-      const x = dep.gridX;
-      const y = dep.gridY;
-      if (x >= 0 && x < width && y >= 0 && y < height) {
-        cells[y][x] = -1;
-      }
-    }
-    const sx = Math.max(0, Math.min(width - 1, Math.floor(start.x)));
-    const sy = Math.max(0, Math.min(height - 1, Math.floor(start.y)));
-    const gx = Math.max(0, Math.min(width - 1, Math.floor(goal.x)));
-    const gy = Math.max(0, Math.min(height - 1, Math.floor(goal.y)));
-    const startIndex = sy * width + sx;
-    const goalIndex = gy * width + gx;
-    const permitted = (x, y) => {
-      if (x < 0 || y < 0 || x >= width || y >= height || cells[y][x] < 0) return false;
-      return true;
-    };
-    if (!permitted(sx, sy) || !permitted(gx, gy)) return null;
-    const parent = new Int16Array(width * height);
-    parent.fill(-1);
-    const queue = new Int16Array(width * height);
-    let read = 0;
-    let write = 0;
-    parent[startIndex] = startIndex;
-    queue[write++] = startIndex;
-    const directions = [[1, 0], [0, -1], [0, 1], [-1, 0]];
-    while (read < write) {
-      const current = queue[read++];
-      if (current === goalIndex) break;
-      const x = current % width;
-      const y = Math.floor(current / width);
-      for (const [dx, dy] of directions) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (!permitted(nx, ny)) continue;
-        const next = ny * width + nx;
-        if (parent[next] !== -1) continue;
-        if (Math.abs(cells[ny][nx] - cells[y][x]) > 1) continue;
-        parent[next] = current;
-        queue[write++] = next;
-      }
-    }
-    if (parent[goalIndex] === -1) return null;
-    const path = [];
-    for (let current = goalIndex; ; current = parent[current]) {
-      path.push({ x: current % width, y: Math.floor(current / width) });
-      if (current === startIndex) break;
-    }
-    return path.reverse();
+    return this.navigation.findPath(start, goal, {
+      barricades: this.navigationBarricades,
+    });
   }
 
   drawTracer(from, to) {
@@ -6214,6 +6312,19 @@ export class RealtimeBattle {
         );
         this.deploymentsMap.delete(id);
       }
+    }
+    this.rebuildNavigationBarricades();
+  }
+
+  rebuildNavigationBarricades() {
+    this.navigationBarricades.length = 0;
+    for (const deployment of this.deploymentsMap.values()) {
+      if (deployment.kind !== "barricade") continue;
+      this.navigationBarricades.push({
+        kind: "barricade",
+        x: deployment.gridX,
+        y: deployment.gridY,
+      });
     }
   }
 

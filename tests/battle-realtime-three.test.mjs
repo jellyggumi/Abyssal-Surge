@@ -1193,6 +1193,39 @@ test("RealtimeBattle selected-unit orders follow the shared Stage 1 route around
   assert.ok(visitedCells.size > 2, "the accepted order must traverse a nontrivial multi-cell route");
 });
 
+test("RealtimeBattle findTacticalPath delegates to canonical navigation with rebuilt barricades", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.deploymentsMap.set("wall-route", {
+    id: "wall-route",
+    kind: "barricade",
+    gridX: 8,
+    gridY: 4,
+  });
+  battle.rebuildNavigationBarricades();
+  const expectedPath = [{ x: 2, y: 3 }, { x: 2, y: 4 }, { x: 3, y: 4 }];
+  const calls = [];
+  battle.navigation = {
+    findPath(start, goal, options) {
+      calls.push({ start, goal, options });
+      return expectedPath;
+    },
+  };
+
+  const start = { x: 2, y: 3 };
+  const goal = { x: 3, y: 4 };
+
+  assert.strictEqual(
+    battle.findTacticalPath(start, goal),
+    expectedPath,
+    "tactical orders must use the canonical navigator result rather than a renderer-local search",
+  );
+  assert.deepEqual(calls, [{
+    start,
+    goal,
+    options: { barricades: [{ kind: "barricade", x: 8, y: 4 }] },
+  }], "canonical navigation must receive the current rebuilt barricade conditions");
+});
+
 
 
 
@@ -1534,6 +1567,35 @@ test("RealtimeBattle caps a stalled frame at six deterministic simulation steps"
   assert.equal(renders, 1, "the capped catch-up frame must still render exactly once");
   assert.deepEqual(scheduled, [battle.rafCallback], "the frame loop must schedule exactly one successor");
   assert.ok(battle.accumulator >= 0 && battle.accumulator < 1 / 60, "the capped frame must leave less than one simulation step queued");
+});
+test("RealtimeBattle frame retains and clears the preallocated frameShots buffer", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  globalThis.document = { hidden: false };
+  globalThis.requestAnimationFrame = () => 91;
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+  });
+
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  const frameShots = battle.frameShots;
+  frameShots.push({ towerId: "tower-1" });
+  battle.running = true;
+  battle.renderer = { render() {} };
+  battle.scene = {};
+  battle.camera = {};
+  battle.update = () => {};
+  battle.updateObjectFeedbackDeltas = () => {};
+  battle.renderObjectFeedback = () => {};
+  battle.lastTime = 1000;
+
+  battle.frame(1017);
+
+  assert.strictEqual(battle.frameShots, frameShots, "a viable frame must retain the preallocated shot buffer");
+  assert.equal(frameShots.length, 0, "a viable frame must clear buffered tower shots");
 });
 
 test("RealtimeBattle spawns hostile waves from the 24×12 route frontage without legacy 16×8 coordinates", () => {
@@ -4070,10 +4132,75 @@ test("RealtimeBattle updateCommanderPathPreview shows a persistent destination m
   const expected = battle.navigation.gridToWorld(4.5, 4.5);
   assert.equal(battle.commanderDestinationMarker.position.x, expected.x, "the marker must sit at the final waypoint, not the commander");
   assert.equal(battle.commanderDestinationMarker.position.z, expected.z, "the marker must sit at the final waypoint, not the commander");
+  const initialPathLine = battle.commanderPathLine;
+  const initialPathGeometry = initialPathLine.geometry;
+  const initialPathPositions = initialPathGeometry.getAttribute("position");
+  assert.equal(initialPathPositions.getX(0), 0, "the first path position must start at the commander");
+  assert.equal(initialPathPositions.getZ(0), 0, "the first path position must start at the commander");
+
+  battle.commander.root.position.set(1, 0, 2);
+  battle.updateCommanderPathPreview();
+
+  assert.equal(battle.commanderPathLine, initialPathLine, "an unchanged active path must reuse its line");
+  assert.equal(battle.commanderPathLine.geometry, initialPathGeometry, "an unchanged active path must reuse its line geometry");
+  assert.equal(initialPathPositions.getX(0), 1, "the reused line's first position must follow the commander");
+  assert.equal(initialPathPositions.getZ(0), 2, "the reused line's first position must follow the commander");
 
   battle.commanderPath = null;
   battle.updateCommanderPathPreview();
   assert.equal(battle.commanderDestinationMarker.visible, false, "the marker must hide once the commander has no active path");
+});
+
+test("RealtimeBattle updateCommanderPathPreview reuses route buffers while moving the commander head and rebuilds them only for a changed route", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const battle = new RealtimeBattle(null, { stageNumber: 1 }, {});
+  battle.scene = { add() {} };
+  battle.commander = { root: { position: new THREE.Vector3(0, 0, 0) } };
+  battle.navigationAt = () => ({ elevation: 0 });
+  const commanderPath = [{ x: 4, y: 4 }, { x: 5, y: 4 }];
+  battle.commanderPath = commanderPath;
+
+  battle.updateCommanderPathPreview();
+
+  const geometry = battle.commanderPathLine.geometry;
+  const positions = geometry.getAttribute("position");
+  const distances = geometry.getAttribute("lineDistance");
+  const initialDistance = distances.getX(1);
+
+  battle.commander.root.position.set(1, 0, 2);
+  battle.updateCommanderPathPreview();
+
+  assert.strictEqual(battle.commanderPathLine.geometry, geometry, "the same commander route must retain its geometry while the head moves");
+  assert.strictEqual(geometry.getAttribute("position"), positions, "the same commander route must retain its position buffer");
+  assert.strictEqual(geometry.getAttribute("lineDistance"), distances, "the same commander route must retain its dashed-distance buffer");
+  assert.equal(positions.getX(0), 1, "the reused position buffer must move its leading point with the commander");
+  assert.equal(positions.getZ(0), 2, "the reused position buffer must move its leading point with the commander");
+  assert.notEqual(distances.getX(1), initialDistance, "the reused dashed-distance buffer must recompute distance from the moved commander head");
+  assert.ok(
+    Math.abs(
+      distances.getX(1) - Math.hypot(
+        positions.getX(1) - positions.getX(0),
+        positions.getY(1) - positions.getY(0),
+        positions.getZ(1) - positions.getZ(0),
+      ),
+    ) < 1e-5,
+    "the first dash distance must match the updated head-to-route segment",
+  );
+
+  battle.commanderPath = [{ x: 4, y: 4 }, { x: 6, y: 4 }];
+  battle.updateCommanderPathPreview();
+
+  assert.notStrictEqual(battle.commanderPathLine.geometry, geometry, "a changed commander route must rebuild its geometry");
+  assert.notStrictEqual(
+    battle.commanderPathLine.geometry.getAttribute("position"),
+    positions,
+    "a changed commander route must replace its position buffer with matching topology",
+  );
+  assert.notStrictEqual(
+    battle.commanderPathLine.geometry.getAttribute("lineDistance"),
+    distances,
+    "a changed commander route must replace its dashed-distance buffer with matching topology",
+  );
 });
 
 test("RealtimeBattle updateRallyMarker shows a persistent marker while any ally is en route and hides it once everyone arrives", () => {
@@ -4278,6 +4405,13 @@ test("RealtimeBattle reports a camera-tutorial signal exactly once per first zoo
     onCameraTutorialSignal: (signal) => signals.push(signal),
   });
   battle.resolvePointerAction = () => null;
+  // Touch pointerdown now also probes for a draggable ally/commander under
+  // the finger (see onPointerDown's "touch-unit-drag" mode) before falling
+  // back to orbit; stub both so this test continues to exercise plain
+  // camera-orbit touch input in isolation from that unit-drag resolution,
+  // which has its own dedicated coverage below.
+  battle.resolvePointerAlly = () => null;
+  battle.resolvePointerCommander = () => null;
 
   assert.equal(signals.length, 0, "constructing the battle must not fire the tutorial signal before any camera or selection input");
 
@@ -5246,9 +5380,9 @@ test("RealtimeBattle feedbackObjects surfaces ally and tower action-readiness as
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
 
   battle.commander = { ...makeUnit({ hp: 10 }), id: "commander" };
-  battle.boss = { ...makeUnit({ hp: 12 }), id: "boss" };
+  battle.boss = { ...makeUnit({ hp: 12 }), id: "boss", cooldown: 0 };
   battle.allies = [{ ...makeUnit({ hp: 3 }), id: "ally-1", cooldown: 0.275 }];
-  battle.enemies = [{ ...makeUnit({ hp: 4 }), id: "enemy-1" }];
+  battle.enemies = [{ ...makeUnit({ hp: 4 }), id: "enemy-1", cooldown: 0 }];
   battle.deploymentsMap.set("tower-1", {
     id: "tower-1",
     kind: "tower",
@@ -5277,9 +5411,28 @@ test("RealtimeBattle feedbackObjects surfaces ally and tower action-readiness as
     "a tower three-quarters recovered must report three-quarters-filled readiness",
   );
   assert.deepEqual(
-    [byId.commander.maxEnergy, byId.boss.maxEnergy, byId["wall-1"].maxEnergy],
-    [undefined, undefined, undefined],
-    "units without a cooldown-gated action must not draw a stamina bar",
+    { ally: byId["ally-1"].resourceKind, tower: byId["tower-1"].resourceKind },
+    { ally: "readiness", tower: "readiness" },
+    "only cooldown-backed allied actors must label their secondary resource as readiness",
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ["commander", "boss", "enemy-1", "wall-1"].map((id) => [
+        id,
+        {
+          energy: byId[id].energy,
+          maxEnergy: byId[id].maxEnergy,
+          resourceKind: byId[id].resourceKind,
+        },
+      ]),
+    ),
+    {
+      commander: { energy: undefined, maxEnergy: undefined, resourceKind: undefined },
+      boss: { energy: undefined, maxEnergy: undefined, resourceKind: undefined },
+      "enemy-1": { energy: undefined, maxEnergy: undefined, resourceKind: undefined },
+      "wall-1": { energy: undefined, maxEnergy: undefined, resourceKind: undefined },
+    },
+    "ordinary enemies, bosses, and non-commandable props must not gain a secondary resource bar",
   );
 });
 
@@ -5875,11 +6028,13 @@ test("RealtimeBattle feeds commander feedback from authoritative stage integrity
   );
 });
 
-test("RealtimeBattle updates feedback readiness between structural reconciliations", () => {
-  const battle = new RealtimeBattle(null, { stageNumber: 1 });
-  const ally = { ...makeUnit({ hp: 3 }), id: "ally-readiness", cooldown: 0.55 };
+test("RealtimeBattle updates an existing commander focus record between structural reconciliations", () => {
+  let focus = Object.freeze({ energy: 1, maxEnergy: 4, resourceKind: "focus" });
+  const battle = new RealtimeBattle(null, { stageNumber: 1 }, {
+    getCommanderReadiness: () => focus,
+  });
   let reconciles = 0;
-  battle.allies = [ally];
+  battle.commander = { ...makeUnit({ hp: 10 }), id: "commander", maxHealth: 10 };
   battle.objectFeedback = {
     objects: new Map(),
     reconcile(objects) {
@@ -5890,14 +6045,24 @@ test("RealtimeBattle updates feedback readiness between structural reconciliatio
   };
 
   battle.syncObjectFeedback();
-  ally.cooldown = 0;
+  const feedback = battle.objectFeedback.objects.get("commander");
+  focus = Object.freeze({ energy: 4, maxEnergy: 4, resourceKind: "focus" });
   battle.updateObjectFeedbackDeltas();
 
-  assert.equal(reconciles, 1, "readiness must not wait for another structural reconcile");
-  assert.equal(
-    battle.objectFeedback.objects.get("ally-readiness").energy,
-    0.55,
-    "the existing feedback object must show its live cooldown recovery",
+  assert.equal(reconciles, 1, "live commander focus must not trigger another structural reconcile");
+  assert.strictEqual(
+    battle.objectFeedback.objects.get("commander"),
+    feedback,
+    "live commander focus must mutate the existing feedback object",
+  );
+  assert.deepEqual(
+    {
+      energy: feedback.energy,
+      maxEnergy: feedback.maxEnergy,
+      resourceKind: feedback.resourceKind,
+    },
+    { energy: 4, maxEnergy: 4, resourceKind: "focus" },
+    "the read-only commander callback must surface the latest focus resource",
   );
 });
 

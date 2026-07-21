@@ -1,0 +1,23 @@
+{
+  "scenario": "Stage 1 WebGL battlefield tactical input",
+  "observed": [
+    {
+      "action": "Click a semantic Hunt target",
+      "result": "abyssal:spatial-focus events carried action='hunt'; no window errors were observed."
+    },
+    {
+      "action": "Queue Hunt while the commander is out of range",
+      "result": "abyssal:command-queued and abyssal:command-phase(queued) were emitted; the reservation remained queued rather than falsely resolving outside action range."
+    },
+    {
+      "action": "Click empty terrain at page coordinate 1080,720",
+      "result": "abyssal:spatial-focus events carried action=null and the field panel stated that an empty battlefield point moves the commander; no command request or window error was emitted."
+    }
+  ],
+  "rendererState": {
+    "webglCanvasVisible": true,
+    "fallbackCanvasVisible": false,
+    "feedbackCanvasCount": 1
+  },
+  "errors": []
+}

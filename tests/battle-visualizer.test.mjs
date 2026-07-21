@@ -1944,6 +1944,59 @@ test("BattleVisualizer object feedback mirrors authoritative actors, live deltas
   );
 });
 
+test("BattleVisualizer updates the existing commander focus feedback record from its callback", (t) => {
+  let focus = Object.freeze({ energy: 1, maxEnergy: 4, resourceKind: "focus" });
+  const visualizer = makeVisualizer(t, {
+    options: {
+      feedbackCanvas: makeSharedFeedbackCanvas(),
+      getCommanderReadiness: () => focus,
+    },
+  });
+  visualizer.commander = {
+    id: "commander",
+    x: 2,
+    y: 3,
+    hp: 10,
+    maxHealth: 10,
+    defeated: false,
+  };
+  let reconciles = 0;
+  const reconcile = visualizer.objectFeedback.reconcile.bind(visualizer.objectFeedback);
+  visualizer.objectFeedback.reconcile = (objects, options) => {
+    reconciles += 1;
+    return reconcile(objects, options);
+  };
+
+  visualizer.syncObjectFeedback();
+  const feedback = visualizer.objectFeedback.objects.get("commander");
+  focus = Object.freeze({ energy: 4, maxEnergy: 4, resourceKind: "focus" });
+  visualizer.ctx = { clearRect() {}, fillRect() {}, fillStyle: "" };
+  visualizer.view = { width: 320, height: 180, scale: 1, offsetX: 0, offsetY: 0 };
+  visualizer.bridgeTerrainPlacement = () => null;
+  visualizer.buildDynamicDrawRecords = () => [];
+  visualizer.drawActionRangeRing = () => {};
+  visualizer.drawHoverAndPlacementIndicators = () => {};
+  visualizer.objectFeedback.render = () => {};
+
+  visualizer.render();
+
+  assert.equal(reconciles, 1, "canvas focus updates must not trigger another structural reconcile");
+  assert.strictEqual(
+    visualizer.objectFeedback.objects.get("commander"),
+    feedback,
+    "canvas focus updates must retain the existing feedback object",
+  );
+  assert.deepEqual(
+    {
+      energy: feedback.energy,
+      maxEnergy: feedback.maxEnergy,
+      resourceKind: feedback.resourceKind,
+    },
+    { energy: 4, maxEnergy: 4, resourceKind: "focus" },
+    "canvas fallback frames must publish the callback's latest commander focus resource",
+  );
+});
+
 test("[PS-001] Mouse movement and proximity gate world actions until the commander reaches their anchor", (t) => {
   const visualizer = makeVisualizer(t, { presentation: { stageNumber: 1 } });
 

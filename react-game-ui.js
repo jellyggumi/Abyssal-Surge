@@ -1166,6 +1166,19 @@
         e(CampaignCockpit)
       ),
       e('div', { id: 'visual-effect', className: 'visual-effect', 'aria-hidden': 'true' }),
+      e('div', {
+        id: 'rotate-device-prompt',
+        className: 'rotate-device-prompt',
+        role: 'alert',
+        'aria-live': 'assertive',
+        'data-i18n-aria': 'rotateDevice.aria'
+      },
+        e('div', null,
+          e('div', { className: 'rotate-device-prompt__icon', 'aria-hidden': 'true' }, '📱'),
+          e('p', { className: 'rotate-device-prompt__title', 'data-i18n': 'rotateDevice.title' }, '기기를 가로로 돌려주세요'),
+          e('p', { className: 'rotate-device-prompt__hint', 'data-i18n': 'rotateDevice.hint' }, '전장 화면의 모든 정보를 한 화면에서 확인하려면 기기를 가로 방향으로 돌려 플레이하세요.')
+        )
+      ),
       isLocalhost && agentationLoaded && window.Agentation ? e(window.Agentation, { endpoint: 'http://localhost:4747' }) : null
     );
   }

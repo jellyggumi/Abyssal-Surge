@@ -103,6 +103,7 @@ export class ObjectFeedbackLayer {
           maxHp: src.maxHp !== undefined ? src.maxHp : 100,
           energy: src.energy !== undefined ? src.energy : null,
           maxEnergy: src.maxEnergy !== undefined ? src.maxEnergy : null,
+          resourceKind: src.resourceKind,
           statuses: Array.isArray(src.statuses) ? [...src.statuses] : [],
           selected: !!src.selected,
           priority: src.priority || 0,
@@ -121,9 +122,10 @@ export class ObjectFeedbackLayer {
         obj.kind = src.kind || obj.kind;
         obj.label = src.label !== undefined ? src.label : obj.label;
         obj.hp = src.hp !== undefined ? src.hp : obj.hp;
-        obj.energy = src.energy !== undefined ? src.energy : obj.energy;
-        obj.maxEnergy = src.maxEnergy !== undefined ? src.maxEnergy : obj.maxEnergy;
+        obj.energy = src.energy;
+        obj.maxEnergy = src.maxEnergy;
         obj.maxHp = src.maxHp !== undefined ? src.maxHp : obj.maxHp;
+        obj.resourceKind = src.resourceKind;
         
         if (Array.isArray(src.statuses)) {
           // Avoid allocation if status contents are identical
@@ -483,6 +485,7 @@ export class ObjectFeedbackLayer {
         maxHp: obj.maxHp,
         energy: obj.energy,
         maxEnergy: obj.maxEnergy,
+        resourceKind: obj.resourceKind,
         statuses: [...obj.statuses],
         selected: obj.selected,
         priority: obj.priority,
@@ -573,7 +576,9 @@ export class ObjectFeedbackLayer {
       const energyH = 3;
       ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
       ctx.fillRect(barX, energyY, barW, energyH);
-      ctx.fillStyle = energyRatio >= 1 ? "#8fd8ff" : "#4d84b0";
+      ctx.fillStyle = obj.resourceKind === "focus"
+        ? (energyRatio >= 1 ? "#d7b5ff" : "#8d5bd1")
+        : (energyRatio >= 1 ? "#8fd8ff" : "#4d84b0");
       ctx.fillRect(barX, energyY, barW * energyRatio, energyH);
     }
 
