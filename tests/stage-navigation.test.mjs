@@ -173,7 +173,7 @@ test("walkability rejects every grid boundary overflow and authored void", () =>
   }
 });
 
-test("portal-to-boss paths remain walkable, orthogonal, and elevation-legal on every stage", () => {
+test("portal-to-boss paths remain walkable, 8-directionally adjacent, and elevation-legal on every stage", () => {
   for (let stageNumber = 1; stageNumber <= 10; stageNumber += 1) {
     const navigation = createStageNavigation(stageNumber);
     const path = navigation.findPath(navigation.anchors.portal, navigation.anchors.boss);
@@ -186,10 +186,12 @@ test("portal-to-boss paths remain walkable, orthogonal, and elevation-legal on e
       assert.equal(navigation.walkable(cell.x, cell.y), true, `Stage ${stageNumber} path cell ${index} must be walkable`);
       if (index === 0) return;
       const previous = path[index - 1];
+      const dx = Math.abs(previous.x - cell.x);
+      const dy = Math.abs(previous.y - cell.y);
       assert.equal(
-        Math.abs(previous.x - cell.x) + Math.abs(previous.y - cell.y),
-        1,
-        `Stage ${stageNumber} path step ${index} must be orthogonally adjacent`,
+        dx <= 1 && dy <= 1 && (dx + dy) > 0,
+        true,
+        `Stage ${stageNumber} path step ${index} must be 8-directionally adjacent (cardinal or diagonal, no jumps)`,
       );
       assert.equal(
         navigation.climbOk(previous.x, previous.y, cell.x, cell.y),

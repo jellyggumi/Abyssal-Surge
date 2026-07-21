@@ -47,6 +47,12 @@ const ALLY_STRIKE_COOLDOWN = 0.55;
 const TOWER_FIRE_COOLDOWN = 1.0;
 const SHADE_INTERCEPT_RADIUS = 5;
 const ACTION_INTERACTION_RADIUS = 3.0;
+// Splash footprint radius shown by the boss's AoE attack-target indicator.
+// Cosmetic only (matches the visual read of pattern.type === "aoe" -- the
+// authoritative boss-strike damage in campaign-state.js is unchanged), so it
+// carries no balance risk: it never widens what actually takes damage, only
+// what the player is warned to step out of.
+const BOSS_AOE_TARGET_RADIUS = 1.8;
 // Per-command commander motion: previously every command played the same
 // "Special" clip regardless of what was executed. Assigns each of the seven
 // semantic commands a distinct clip from the extended vocabulary (2 combat
@@ -93,6 +99,80 @@ function getFinite(val, fallback) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+// Root cause of "texture doesn't apply to mesh" reports: several packaged
+// albedo PNGs (Ash Cloth, Cold Steel, Void Obsidian, Violet Rift, and the
+// shared ground albedo) were authored/generated with very low mean
+// brightness -- measured 12-20% of full range by sampling the actual shipped
+// files. The texture data is genuinely decoded and uploaded to the GPU (a
+// live WebGL texImage2D capture during a real Stage 1 playthrough confirmed
+// every embedded 1024x1024 PNG reaches the GPU); under real PBR lighting
+// plus ACES filmic tonemapping that dark-but-present albedo simply reads as
+// a near-flat black silhouette. glTF's baseColorFactor defaults to opaque
+// white on every one of these materials (verified against the shipped
+// GLBs), so there is no authored per-material color-factor signal to lean
+// on -- the decoded texture's own average brightness is the only usable
+// measurement. This samples each decoded texture once (16x16 downsample) and
+// multiplies the material's color factor just enough to bring its measured
+// average luminance up to a legible target, leaving already-bright textures
+// (e.g. Old Bone) untouched. The target/cap below were tuned against a real
+// rendered capture (headless Chromium, unmodified in-game exposure/fog/tone
+// mapping): 0.4/3.2 still measured as a visibly flat, low-contrast floor
+// (mean ~24% luma over the deck region); 0.55/4.5 is the first setting where
+// the deck's cracked-obsidian relief and normal-mapped highlights are
+// actually legible on screen without washing out to a flat white plateau.
+const ALBEDO_TARGET_LUMINANCE = 0.55;
+const ALBEDO_MAX_BOOST = 4.5;
+const albedoLuminanceCache = new WeakMap();
+
+function estimateAlbedoLuminance(texture) {
+  const image = texture?.image;
+  const width = image?.width || image?.naturalWidth || 0;
+  const height = image?.height || image?.naturalHeight || 0;
+  if (!image || !width || !height) return null; // not decoded yet; retry later, don't cache
+  if (albedoLuminanceCache.has(texture)) return albedoLuminanceCache.get(texture);
+  let luminance = null;
+  try {
+    const sampleSize = 16;
+    const canvas = typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(sampleSize, sampleSize)
+      : (typeof document !== "undefined" ? document.createElement("canvas") : null);
+    const ctx = canvas ? (canvas.width = canvas.height = sampleSize, canvas.getContext("2d", { willReadFrequently: true })) : null;
+    if (ctx) {
+      ctx.drawImage(image, 0, 0, sampleSize, sampleSize);
+      const { data } = ctx.getImageData(0, 0, sampleSize, sampleSize);
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 8) continue; // ignore cutout/transparent texels
+        sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+        count += 1;
+      }
+      luminance = count > 0 ? sum / count : null;
+    }
+  } catch {
+    // Tainted/cross-origin canvas or unsupported 2D context: skip the
+    // exposure fix rather than let a cosmetic measurement break the render.
+    luminance = null;
+  }
+  albedoLuminanceCache.set(texture, luminance);
+  return luminance;
+}
+
+// Idempotent: safe to call every time a shared template material passes
+// through cloneTemplate(), because every clone reuses the same material
+// instance (geometry/materials are referenced, not deep-cloned) and this
+// marks itself done on first successful measurement.
+function liftDarkAlbedo(material) {
+  if (!material?.isMeshStandardMaterial || !material.map) return;
+  material.userData = material.userData || {};
+  if (material.userData.albedoExposureLifted) return;
+  const luminance = estimateAlbedoLuminance(material.map);
+  if (luminance === null) return; // texture not decoded yet; try again next clone
+  material.userData.albedoExposureLifted = true;
+  if (luminance >= ALBEDO_TARGET_LUMINANCE) return;
+  const boost = clamp(ALBEDO_TARGET_LUMINANCE / Math.max(luminance, ALBEDO_TARGET_LUMINANCE / ALBEDO_MAX_BOOST), 1, ALBEDO_MAX_BOOST);
+  material.color?.multiplyScalar(boost);
 }
 
 function inferEnemyPatternKey(wave, index = 0) {
@@ -404,6 +484,7 @@ export class RealtimeBattle {
     this.onActionFocus = typeof options.onActionFocus === "function" ? options.onActionFocus : null;
     this.onTacticalRequest = typeof options.onTacticalRequest === "function" ? options.onTacticalRequest : null;
     this.onSelectionChange = typeof options.onSelectionChange === "function" ? options.onSelectionChange : null;
+    this.onCameraTutorialSignal = typeof options.onCameraTutorialSignal === "function" ? options.onCameraTutorialSignal : null;
     this.resolveFeedbackSpeech = typeof options.resolveFeedbackSpeech === "function"
       ? options.resolveFeedbackSpeech
       : (cue) => cue?.label ?? "Breach detected";
@@ -455,6 +536,13 @@ export class RealtimeBattle {
     this.bossStrikeCooldownRemaining = 0;
     this.bossStrikeArmed = false;
     this.bossThreatRing = null;
+    // Attack-target indicator: distinct from bossThreatRing (a fixed ring
+    // around the boss showing "how close is dangerous"), this tracks the
+    // commander -- the boss-strike's actual, always-live target -- so the
+    // player sees exactly where the hit lands, not just that they're in
+    // range. Widens into a filled disc matching the splash footprint for
+    // "aoe" patterns instead of a thin point reticle for melee/ranged.
+    this.bossTargetMarker = null;
     this.feedbackCanvas = options.feedbackCanvas ?? null;
     this.objectFeedback = this.feedbackCanvas
       ? new ObjectFeedbackLayer(this.feedbackCanvas, { reducedMotion: this.isReducedMotion })
@@ -480,6 +568,13 @@ export class RealtimeBattle {
     this.disposedResources = new Set();
     this.interactives = [];
     this.pressed = new Set();
+    // Double-tap-A "select the player" affordance: bare A is already the
+    // canvas's continuous strafe-left key (held-key movement, tested), so a
+    // discrete "select commander" action can't claim it outright without
+    // breaking that. A quick double-tap (two genuine keydowns -- not OS auto
+    // -repeat -- within the window below) is a deliberate gesture a player
+    // can't produce by accident while just strafing.
+    this.lastKeyATapTime = 0;
     this.destroyed = false;
     this.droppedTime = 0;
     this.running = false;
@@ -535,6 +630,7 @@ export class RealtimeBattle {
     this.safeNdcLimit = 0.84;
     this.minFitZoom = hasProfile ? clamp(cameraProfile.zoom, 1.0, 100.0) : 16;
     this.hasManualZoomed = false;
+    this.hasManualOrbited = false;
     this.hasProfileCamera = hasProfile;
     this._fitSamplePoints = null;
     this._fitCamera = null;
@@ -698,11 +794,45 @@ export class RealtimeBattle {
     this.groundNormalTexture = null;
     if (!isTest && THREE.TextureLoader) {
       const pbrLoader = (this.textureLoader ??= new THREE.TextureLoader());
-      const albedo = pbrLoader.load("./assets/models/abyssal-command/textures/void-obsidian-albedo.png");
+      // Fire-and-forget like the backdrop load above (init() must not block
+      // stage entry on a texture fetch/decode, and destroy() already handles
+      // a load completing after teardown) -- but liftDarkAlbedo() only ever
+      // measures a texture once its image has actually decoded, and it never
+      // retries a single-instance material like the deck (built exactly once
+      // per stage) if that first measurement raced the network/decode. Each
+      // onLoad below re-applies liftDarkAlbedo to the deck material that's
+      // already in the scene by then, so a slow-decoding texture still ends
+      // up readable instead of permanently missing the exposure fix.
+      const relift = () => {
+        if (this.destroyed || !this.deckMaterial) return;
+        // liftDarkAlbedo() is idempotent on its own userData flag, so this
+        // is a no-op if createBattleObjects() already measured the (by-then
+        // -decoded) texture successfully; it only does real work for the
+        // race where this onLoad fires after the deck material exists but
+        // that earlier synchronous measurement found the image not decoded.
+        liftDarkAlbedo(this.deckMaterial);
+      };
+      const albedo = pbrLoader.load(
+        "./assets/models/abyssal-command/textures/void-obsidian-albedo.png",
+        relift,
+      );
       albedo.colorSpace = THREE.SRGBColorSpace;
       albedo.wrapS = albedo.wrapT = THREE.RepeatWrapping;
-      const normalMap = pbrLoader.load("./assets/models/abyssal-command/textures/void-obsidian-normal.png");
+      const normalMap = pbrLoader.load(
+        "./assets/models/abyssal-command/textures/void-obsidian-normal.png",
+      );
       normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
+      // The isometric-ish camera views every surface at a steep oblique
+      // angle; without anisotropic filtering, standard trilinear mipmapping
+      // blurs a texture far more along the grazing axis than the other,
+      // which reads as "detail washed out" even though the correct mip level
+      // is technically being sampled. Requesting the driver's max supported
+      // level is the standard fix and costs nothing on the CPU side.
+      const maxAnisotropy = this.renderer?.capabilities?.getMaxAnisotropy?.();
+      if (maxAnisotropy) {
+        albedo.anisotropy = maxAnisotropy;
+        normalMap.anisotropy = maxAnisotropy;
+      }
       this.groundAlbedoTexture = albedo;
       this.groundNormalTexture = normalMap;
     }
@@ -829,6 +959,18 @@ export class RealtimeBattle {
       };
     }
     this.publishRuntimeState();
+    // Force synchronous shader compilation and GPU texture upload for the
+    // constructed scene before the interactive loop starts. Without this,
+    // that same expensive first-time work (compiling every unit/prop/terrain
+    // material's shader program, uploading every embedded PBR texture) used
+    // to happen lazily inside the very first frame() -> renderer.render()
+    // call, stalling the main thread for multiple seconds -- during which
+    // WASD/marquee input was silently dropped even though the asset-status
+    // badge and command buttons already reported "ready". Doing it here
+    // keeps that same cost inside the awaited init() promise app.js already
+    // gates command interactivity on, so the game never looks ready while
+    // still frozen.
+    this.renderer?.compile?.(this.scene, this.camera);
     this.rafCallback = this.bound?.frame ?? ((time) => this.frame(time));
     this.running = true;
     this.lastTime = performance.now();
@@ -973,6 +1115,12 @@ export class RealtimeBattle {
         transparent: true,
         opacity: 0.8,
       });
+      // If the texture already finished decoding by now (the common case --
+      // it's much smaller than the GLBs loadStageAssets() just awaited),
+      // this lifts it immediately. Otherwise the texture's own onLoad above
+      // re-applies this once it decodes, so a slow network still ends up
+      // with a readable deck instead of permanently missing the fix.
+      liftDarkAlbedo(deckMaterial);
 
       const deckMesh = new THREE.InstancedMesh(deckGeometry, deckMaterial, deckCount);
       deckMesh.castShadow = true;
@@ -1285,6 +1433,31 @@ export class RealtimeBattle {
       threatRing.raycast = () => {};
       this.scene.add(threatRing);
       this.bossThreatRing = threatRing;
+
+      // Attack-target indicator (see the constructor field comment): tracks
+      // the commander every frame in updateBossStrike(). AoE patterns get a
+      // filled disc sized to BOSS_AOE_TARGET_RADIUS (the whole footprint
+      // reads as "get out of this"); melee/ranged get a small point reticle,
+      // since only the commander's exact position is ever actually hit.
+      const isAoe = stage.bossPattern.type === "aoe";
+      const targetGeom = isAoe
+        ? new THREE.CircleGeometry(BOSS_AOE_TARGET_RADIUS, 48)
+        : new THREE.RingGeometry(0.32, 0.5, 32);
+      const targetMat = new THREE.MeshBasicMaterial({
+        color: threatColor,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const targetMarker = new THREE.Mesh(targetGeom, targetMat);
+      targetMarker.rotation.x = -Math.PI / 2;
+      targetMarker.position.set(this.commanderPosition.x, 0.035, this.commanderPosition.z);
+      targetMarker.raycast = () => {};
+      targetMarker.visible = false;
+      targetMarker.userData.isAoeTarget = isAoe;
+      this.scene.add(targetMarker);
+      this.bossTargetMarker = targetMarker;
     }
 
     const commander = this.cloneTemplate("units/shade.glb", 1.25);
@@ -1818,9 +1991,18 @@ export class RealtimeBattle {
               const roughnessCap = isTerrain ? 0.72 : 0.8;
               if (mat.metalness > metalnessCap) mat.metalness = metalnessCap; // Tame excessive metallic blackness
               if (mat.roughness > roughnessCap) mat.roughness = roughnessCap;
-              // Lift authored near-black terrain just enough for silhouette and relief readability.
-              if (isTerrain && mat.color && (mat.color.r + mat.color.g + mat.color.b) < 0.48) {
-                mat.color.multiplyScalar(1.35);
+              // Lift authored near-black albedo (see liftDarkAlbedo doc comment
+              // above): applies to every resource type, not just terrain, since
+              // unit/prop/boss albedo PNGs measure equally or more under-lit.
+              liftDarkAlbedo(mat);
+              // See the matching anisotropy comment on the ground albedo load
+              // above: every unit/prop/boss texture is viewed at the same
+              // steep oblique camera angle, so this applies just as much to
+              // GLTF-embedded textures as the separately-loaded ground pair.
+              const maxAnisotropy = this.renderer?.capabilities?.getMaxAnisotropy?.();
+              if (maxAnisotropy) {
+                if (mat.map) mat.map.anisotropy = maxAnisotropy;
+                if (mat.normalMap) mat.normalMap.anisotropy = maxAnisotropy;
               }
               // Very subtle emissive color to prevent complete shadow blackness.
               const originallyZero = !mat.emissive || (mat.emissive.r === 0 && mat.emissive.g === 0 && mat.emissive.b === 0);
@@ -2070,6 +2252,23 @@ export class RealtimeBattle {
       // is imminent and still has time to step back out of triggerRange.
       const readiness = inThreatRange ? 1 - clamp(this.bossStrikeCooldownRemaining / cooldownSeconds, 0, 1) : 0;
       this.bossThreatRing.material.opacity = 0.14 + readiness * 0.5;
+
+      if (this.bossTargetMarker) {
+        // Follows the commander live (the boss-strike's actual target),
+        // separately from bossThreatRing which stays fixed at the boss.
+        // Only becomes visible once the wind-up is more than half done, so
+        // it reads as "the hit is about to land here" rather than
+        // permanently cluttering the field the whole time the commander is
+        // merely in range.
+        this.bossTargetMarker.position.x = this.commanderPosition.x;
+        this.bossTargetMarker.position.z = this.commanderPosition.z;
+        const armedReadiness = readiness > 0.5 ? (readiness - 0.5) * 2 : 0;
+        this.bossTargetMarker.visible = armedReadiness > 0;
+        if (this.bossTargetMarker.material) {
+          const peakOpacity = this.bossTargetMarker.userData.isAoeTarget ? 0.32 : 0.55;
+          this.bossTargetMarker.material.opacity = armedReadiness * peakOpacity;
+        }
+      }
     }
 
     if (!inThreatRange) {
@@ -2277,7 +2476,21 @@ export class RealtimeBattle {
     };
     this.cachedSelectionSummary = summary;
     this.onSelectionChange?.(summary);
+    this.emitCameraTutorialSignal();
     return summary;
+  }
+
+  // Camera-tutorial nudge (first-command onboarding, driven by app.js): a
+  // player who has never manually orbited/zoomed the camera or selected an
+  // ally does not yet know these are the two moves that make commands land
+  // on the right target. This reports the two live signals app.js needs to
+  // decide when to stop repeating that hint -- it owns no UI or persistence
+  // itself, so it stays cheap to call from every camera/selection mutation.
+  emitCameraTutorialSignal() {
+    this.onCameraTutorialSignal?.({
+      cameraMoved: this.hasManualZoomed || this.hasManualOrbited,
+      hasSelection: this.selection.size > 0,
+    });
   }
 
   selectAlly(ally) {
@@ -2401,11 +2614,11 @@ export class RealtimeBattle {
     return false;
   }
 
-  resolveMovement(unit, targetX, targetZ) {
-    const root = unit?.root;
-    if (!root) return { x: targetX, y: 0, z: targetZ, blocked: true };
-    const radius = unit.radius ?? 0.42;
-    const start = { x: root.position.x, z: root.position.z };
+  // Traces a straight-line move in small steps, stopping at the last legal
+  // sub-position (terrain-clear and collision-free). Returns raw x/z only --
+  // resolveMovement below attaches elevation once for whichever candidate it
+  // ultimately picks.
+  traceStraightMove(unit, start, targetX, targetZ, radius) {
     const distance = Math.hypot(targetX - start.x, targetZ - start.z);
     const steps = Math.max(1, Math.ceil(distance / 0.12));
     let resolved = start;
@@ -2420,18 +2633,55 @@ export class RealtimeBattle {
       }
       resolved = { x, z };
     }
-    const navigation = this.navigationAt(resolved.x, resolved.z);
+    return { x: resolved.x, z: resolved.z, blocked };
+  }
+
+  resolveMovement(unit, targetX, targetZ) {
+    const root = unit?.root;
+    if (!root) return { x: targetX, y: 0, z: targetZ, blocked: true };
+    const radius = unit.radius ?? 0.42;
+    const start = { x: root.position.x, z: root.position.z };
+    let best = this.traceStraightMove(unit, start, targetX, targetZ, radius);
+    // A blocked diagonal move (e.g. squeezing past a neighboring ally, a
+    // static prop, or a lane edge) previously hard-stopped here every frame:
+    // since ally intercept/rally targets rarely change frame to frame, the
+    // identical blocked vector got retried forever, wedging Legion units
+    // against each other or a corner indefinitely (the "collision freezes
+    // movement" symptom). Sliding along whichever single axis is still clear
+    // lets a unit route around the obstacle instead of permanently stalling.
+    if (best.blocked) {
+      const dx = targetX - start.x;
+      const dz = targetZ - start.z;
+      if (Math.abs(dx) > EPSILON && Math.abs(dz) > EPSILON) {
+        const progress = (candidate) => Math.hypot(candidate.x - start.x, candidate.z - start.z);
+        const alongX = this.traceStraightMove(unit, start, targetX, start.z, radius);
+        const alongZ = this.traceStraightMove(unit, start, start.x, targetZ, radius);
+        if (progress(alongX) > progress(best)) best = alongX;
+        if (progress(alongZ) > progress(best)) best = alongZ;
+      }
+    }
+    const navigation = this.navigationAt(best.x, best.z);
     return {
-      x: resolved.x,
+      x: best.x,
       y: navigation.elevation * TERRAIN_ELEVATION_SCALE,
-      z: resolved.z,
-      blocked,
+      z: best.z,
+      blocked: best.blocked,
     };
   }
 
   applyResolvedMovement(unit, targetX, targetZ) {
     const resolved = this.resolveMovement(unit, targetX, targetZ);
-    unit.root.position.set(resolved.x, resolved.y, resolved.z);
+    const root = unit.root;
+    // Ease the vertical position toward the resolved terrain elevation
+    // instead of snapping it the instant X/Z crosses into a differently
+    // -elevated cell (e.g. climbing the terraced walls of a stage's central
+    // chasm/valley). A hard Y snap reads as a visible pop/teleport, worst
+    // over multi-level steps -- X/Z stay exact (collision-critical); only
+    // this cosmetic height eases in, converging within a handful of fixed
+    // 1/60s simulation ticks so it never feels laggy.
+    const ELEVATION_EASE = 0.22;
+    const easedY = root.position.y + (resolved.y - root.position.y) * ELEVATION_EASE;
+    root.position.set(resolved.x, easedY, resolved.z);
     return resolved;
   }
 
@@ -2664,11 +2914,22 @@ export class RealtimeBattle {
       const speedMult = gimmick?.effects?.movementSpeedMultiplier ?? 1.0;
       const lerpFactor = Math.min(1, dt * 3 * speedMult);
       
-      this.applyResolvedMovement(
+      const beforeX = root.position.x;
+      const beforeZ = root.position.z;
+      const resolved = this.applyResolvedMovement(
         ally,
         root.position.x + (desiredX - root.position.x) * lerpFactor,
         root.position.z + (desiredZ - root.position.z) * lerpFactor,
       );
+      // Face the direction actually travelled this tick (not just the
+      // desired target) so a Legion ally sliding around an obstacle or
+      // rally-jitter still turns to visibly match its real motion instead
+      // of standing frozen facing whatever direction it last faced.
+      const movedX = resolved.x - beforeX;
+      const movedZ = resolved.z - beforeZ;
+      if (root.rotation && (Math.abs(movedX) > EPSILON || Math.abs(movedZ) > EPSILON)) {
+        root.rotation.y = Math.atan2(movedX, movedZ);
+      }
       this.play(ally, "Move");
     }
   }
@@ -3180,10 +3441,31 @@ export class RealtimeBattle {
   onKey(event, down) {
     if (document.activeElement !== this.canvas) return;
     const { code } = event;
+    if (code === "KeyA" && down && !event.repeat) {
+      const now = event.timeStamp || (typeof performance !== "undefined" ? performance.now() : Date.now());
+      if (this.lastKeyATapTime && now - this.lastKeyATapTime <= 350) {
+        this.selectCommander();
+        this.lastKeyATapTime = 0;
+      } else {
+        this.lastKeyATapTime = now;
+      }
+    }
     if (!MOVE_CODES.has(code) && !SURGE_CODES.has(code)) return;
     if (down) this.pressed.add(code);
     else this.pressed.delete(code);
     if (MOVE_CODES.has(code)) event.preventDefault();
+  }
+
+  // Double-tap A: deselect every Legion ally so the next order (right-click,
+  // rally, action) routes to the commander again, matching the existing
+  // "empty selection -> order targets the commander" convention pick() and
+  // onPointerUp already use. This is the discrete "select the player"
+  // affordance a marquee/single-click can't express (there is no ally to
+  // click on when you want the commander back).
+  selectCommander() {
+    if (this.selection.size === 0) return;
+    this.selection.clear();
+    this.emitSelectionChange();
   }
 
   hasSurge() {
@@ -3429,6 +3711,10 @@ export class RealtimeBattle {
         const dy = event.clientY - this.pointer.lastY;
         this.orbitAzimuth -= dx * 0.008;
         this.orbitElevation = clamp(this.orbitElevation - dy * 0.006, 0.2, 1.25);
+        if (!this.hasManualOrbited) {
+          this.hasManualOrbited = true;
+          this.emitCameraTutorialSignal();
+        }
       } else if (this.pointer.mode === "select" && !this.placementMode) {
         this.isMarqueeSelecting = true;
         this.marqueeRect.x1 = event.clientX;
@@ -3607,7 +3893,9 @@ export class RealtimeBattle {
     const minZ = this.minFitZoom || 9;
     const maxZ = Math.max(30, minZ + 10);
     this.zoom = clamp(this.zoom + event.deltaY * 0.012, minZ, maxZ);
+    const wasManuallyZoomed = this.hasManualZoomed;
     this.hasManualZoomed = true;
+    if (!wasManuallyZoomed) this.emitCameraTutorialSignal();
   }
 
   pick(event, rallyKind) {
@@ -5881,6 +6169,7 @@ export class RealtimeBattle {
       this.keyLight = null;
     }
     this.bossThreatRing = null;
+    this.bossTargetMarker = null;
     this.stageId = null;
     this.fillLight = null;
     this.rimLight = null;

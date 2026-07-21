@@ -410,7 +410,16 @@ function findPath(cells, start, goal, allowedKeys = null, barricades = null) {
 
   parent[startIndex] = startIndex;
   queue[write++] = startIndex;
-  const directions = Object.freeze([[1, 0], [0, -1], [0, 1], [-1, 0]]);
+  // 8-directional (chess-king) adjacency: diagonal hops cost the same single
+  // step as cardinal ones so BFS still finds the fewest-tile path, but a
+  // diagonal is only permitted when both flanking orthogonal cells are also
+  // permitted -- otherwise a unit could visually clip through the corner of
+  // two blocking tiles (voids, barricades, out-of-route cells) that never
+  // actually touch.
+  const directions = Object.freeze([
+    [1, 0], [0, -1], [0, 1], [-1, 0],
+    [1, -1], [1, 1], [-1, -1], [-1, 1],
+  ]);
 
   while (read < write) {
     const current = queue[read++];
@@ -421,6 +430,7 @@ function findPath(cells, start, goal, allowedKeys = null, barricades = null) {
       const nx = x + dx;
       const ny = y + dy;
       if (!permitted(nx, ny)) continue;
+      if (dx !== 0 && dy !== 0 && (!permitted(x + dx, y) || !permitted(x, y + dy))) continue;
       const next = ny * width + nx;
       if (parent[next] !== -1) continue;
       if (Math.abs(cells[ny][nx] - cells[y][x]) > 1) continue;

@@ -775,6 +775,58 @@ test("RealtimeBattle clears held keyboard movement on canvas, window, and hidden
   }
 });
 
+test("RealtimeBattle double-tapping A on the focused canvas selects the commander (clears ally selection) without disturbing single-tap strafe", () => {
+  const canvasListeners = new Map();
+  const listeners = (target) => ({
+    addEventListener(type, handler) {
+      target.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (target.get(type) === handler) target.delete(type);
+    },
+  });
+  const canvas = listeners(canvasListeners);
+  const document = { activeElement: canvas, hidden: false };
+  const descriptors = new Map(["document"].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  Object.assign(globalThis, { document });
+
+  try {
+    const battle = new RealtimeBattle(null, { stageNumber: 1 });
+    battle.canvas = canvas;
+    const ally = makeUnit({ hp: 4 });
+    battle.allies = [ally];
+    battle.selection.add(ally);
+
+    let time = 1000;
+    const keydown = (code, repeat = false) => battle.onKey({ code, timeStamp: time, repeat, preventDefault() {} }, true);
+
+    // A single, isolated tap must never clear the selection.
+    keydown("KeyA");
+    assert.equal(battle.selection.size, 1, "a single A tap must leave the existing ally selection untouched");
+
+    // OS auto-repeat while holding A down must not count as the second tap.
+    time += 60;
+    keydown("KeyA", true);
+    assert.equal(battle.selection.size, 1, "OS auto-repeat keydowns must not count toward the double-tap gesture");
+
+    // A genuine second tap shortly after the first clears the selection.
+    time += 120;
+    keydown("KeyA");
+    assert.equal(battle.selection.size, 0, "a genuine double-tap within the window must select the commander by clearing the ally selection");
+
+    // A third tap long after the window must require its own fresh pair.
+    battle.selection.add(ally);
+    time += 1000;
+    keydown("KeyA");
+    assert.equal(battle.selection.size, 1, "a tap outside the double-tap window must not immediately clear the selection");
+  } finally {
+    for (const [name, descriptor] of descriptors) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete globalThis[name];
+    }
+  }
+});
+
 test("RealtimeBattle projects WebGL pointer focus and clears it on cancellation, pointer exit, and canvas blur", () => {
   const canvasListeners = new Map();
   const documentListeners = new Map();
@@ -1679,6 +1731,97 @@ test("RealtimeBattle movement resolution stops before static and live colliders"
     `a live ally must stop at the first sampled position before combined-radius overlap (got x=${liveResult.x})`,
   );
   assert.equal(liveResult.z, -0.5, "live collision resolution must not introduce lateral drift");
+});
+
+test("RealtimeBattle movement resolution slides along a clear axis when a diagonal path is blocked by a colinear obstacle, instead of freezing in place", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  // Stage 1's deployment frontage (grid x:0-5, y:4-7) is walkable end to
+  // end at a uniform elevation, so this exercises the collision slide in
+  // isolation from terrain walkability/elevation -- world (-10.5,-1.5) to
+  // (-7.5,1.5) is grid (1.5,4.5) to (4.5,7.5), kept off exact grid lines so
+  // the mover's own collision-probe radius never straddles into a void row.
+  const mover = makeUnit({ x: -10.5, z: -1.5 });
+  mover.radius = 0.42;
+  const blocker = makeUnit({ x: -9, z: 0 });
+  blocker.radius = 0.9;
+  battle.commander = mover;
+  battle.allies = [blocker];
+
+  // The direct diagonal from (-10.5,-1.5) to (-7.5,1.5) passes straight
+  // through the blocker's center at its midpoint; both single axes (holding
+  // z at -1.5, or holding x at -10.5) stay well clear of it, so a Legion
+  // unit stuck on a converging rally/intercept vector should route around
+  // instead of retrying the identical blocked diagonal vector forever (the
+  // "collision freezes movement" regression).
+  const slid = battle.resolveMovement(mover, -7.5, 1.5);
+
+  assert.equal(
+    slid.blocked,
+    false,
+    "a diagonal move blocked only by a colinear obstacle must resolve via a clear single-axis slide instead of reporting fully blocked",
+  );
+  assert.ok(
+    Math.hypot(slid.x - -10.5, slid.z - -1.5) > 2.5,
+    `a slide around the obstacle must make substantial progress toward the target instead of freezing near the start (got x=${slid.x}, z=${slid.z})`,
+  );
+});
+
+test("RealtimeBattle updateAllies turns a moving ally to face the direction it actually travelled this tick", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  // Same walkable deployment frontage as above; pure +x movement inside it.
+  const ally = makeUnit({ x: -10.5, z: -1.5 });
+  ally.root.rotation = { y: 0 };
+  ally.customOrder = { x: -7.5, z: -1.5 };
+  ally.customOrderReached = false;
+  battle.allies = [ally];
+
+  battle.updateAllies(1 / 30);
+
+  assert.ok(
+    Math.abs(ally.root.rotation.y - Math.atan2(1, 0)) < 1e-6,
+    `an ally moving in +x must face +x (atan2(1,0)) instead of keeping its spawn facing (got rotation.y=${ally.root.rotation.y})`,
+  );
+});
+
+test("RealtimeBattle applyResolvedMovement eases vertical position toward a new terrain elevation instead of snapping it, so climbing a stage's chasm/plateau steps reads as smooth movement", () => {
+  const veilCitadel = new RealtimeBattle(null, { stageNumber: 2 });
+  const elevatedRoute = veilCitadel.navigation.routes[0].cells;
+  const elevatedIndex = elevatedRoute.findIndex(
+    (cell, index) => index > 0 && veilCitadel.navigation.heightAt(cell.x, cell.y) === 1,
+  );
+  assert.ok(elevatedIndex > 0, "Stage 2 must expose a reachable raised route cell");
+  const plateauStart = veilCitadel.navigation.gridToWorld(
+    elevatedRoute[elevatedIndex - 1].x + 0.5,
+    elevatedRoute[elevatedIndex - 1].y + 0.5,
+  );
+  const plateauTarget = veilCitadel.navigation.gridToWorld(
+    elevatedRoute[elevatedIndex].x + 0.5,
+    elevatedRoute[elevatedIndex].y + 0.5,
+  );
+  const climber = makeUnit({ x: plateauStart.x, z: plateauStart.z });
+  climber.radius = 0;
+  // Spawn already grounded at the pre-climb elevation, matching how real
+  // spawn placement works -- only the post-spawn climb itself should ease.
+  climber.root.position.y = 0;
+
+  const targetElevationY = veilCitadel.navigationAt(plateauTarget.x, plateauTarget.z).elevation * 0.42;
+  assert.ok(targetElevationY > 0, "the sampled route step must actually climb to a higher terrain elevation");
+
+  const firstStep = veilCitadel.applyResolvedMovement(climber, plateauTarget.x, plateauTarget.z);
+  assert.equal(firstStep.blocked, false, "the sampled plateau step must be a legal, unblocked move");
+  assert.equal(firstStep.y, targetElevationY, "resolveMovement's own terrain-elevation reading must stay exact (collision/logic must never see an eased value)");
+  assert.ok(
+    climber.root.position.y > 0 && climber.root.position.y < targetElevationY,
+    `a single tick must ease partway up to the new elevation instead of snapping instantly (got y=${climber.root.position.y}, target=${targetElevationY})`,
+  );
+
+  for (let i = 0; i < 40; i += 1) {
+    veilCitadel.applyResolvedMovement(climber, plateauTarget.x, plateauTarget.z);
+  }
+  assert.ok(
+    Math.abs(climber.root.position.y - targetElevationY) < 1e-3,
+    `repeated ticks holding the same target must converge the eased height onto the exact terrain elevation (got y=${climber.root.position.y}, target=${targetElevationY})`,
+  );
 });
 
 test("RealtimeBattle resolves extractor feedback through the injected shared navigation anchor", () => {
@@ -4119,6 +4262,75 @@ test("RealtimeBattle selectAlly publishes only semantic selection changes and cl
   );
   assert.equal(summaries.length, 2, "only the selected and cleared semantic states must reach the cockpit");
 });
+test("RealtimeBattle reports a camera-tutorial signal exactly once per first zoom, first touch-orbit, and each selection change", () => {
+  const signals = [];
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const priorDocument = globalThis.document;
+  globalThis.document = { activeElement: canvas };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 }, {
+    onCameraTutorialSignal: (signal) => signals.push(signal),
+  });
+  battle.resolvePointerAction = () => null;
+
+  assert.equal(signals.length, 0, "constructing the battle must not fire the tutorial signal before any camera or selection input");
+
+  battle.onWheel({ deltaY: 250, preventDefault() {} });
+  assert.equal(signals.length, 1, "the first manual zoom must fire exactly one tutorial signal");
+  assert.deepEqual(
+    signals[0],
+    { cameraMoved: true, hasSelection: false },
+    "the first zoom must report cameraMoved true with no selection yet",
+  );
+
+  battle.onWheel({ deltaY: -100, preventDefault() {} });
+  assert.equal(signals.length, 1, "a second manual zoom must not re-fire the tutorial signal");
+
+  // Per battle-direct-help / onPointerDown: mouse drag never orbits (it
+  // marquee-selects); only touch drag orbits the camera.
+  const touchDown = { pointerId: 7, pointerType: "touch", clientX: 10, clientY: 10, button: 0, timeStamp: 1 };
+  battle.onPointerDown(touchDown);
+  battle.onPointerMove({ pointerId: 7, pointerType: "touch", clientX: 40, clientY: 10 });
+  assert.equal(signals.length, 2, "the first touch-orbit drag past the move threshold must fire exactly one more tutorial signal");
+  assert.deepEqual(
+    signals[1],
+    { cameraMoved: true, hasSelection: false },
+    "orbit alone must not imply a selection",
+  );
+
+  battle.onPointerMove({ pointerId: 7, pointerType: "touch", clientX: 55, clientY: 10 });
+  assert.equal(signals.length, 2, "continued orbiting after the first sample must not re-fire the tutorial signal");
+  battle.onPointerUp({ pointerId: 7, pointerType: "touch", clientX: 55, clientY: 10 });
+
+  const ally = makeUnit();
+  battle.allies = [ally];
+  battle.selectAlly(ally);
+  assert.equal(signals.length, 3, "selecting an ally must fire the tutorial signal again");
+  assert.deepEqual(
+    signals[2],
+    { cameraMoved: true, hasSelection: true },
+    "once camera has moved and an ally is selected, both tutorial conditions must read true together",
+  );
+
+  battle.selection.clear();
+  battle.cachedSelectionSummary = null; // force a fresh summary so the clear is observable
+  battle.emitSelectionChange();
+  assert.equal(signals.length, 4, "clearing the selection must publish its own tutorial signal");
+  assert.deepEqual(
+    signals[3],
+    { cameraMoved: true, hasSelection: false },
+    "clearing the selection must report hasSelection false again",
+  );
+
+  if (priorDocument === undefined) delete globalThis.document;
+  else globalThis.document = priorDocument;
+});
 
 test("RealtimeBattle cloneTemplate wraps GLTF content in a wrapper root to preserve local offset on positioning", async () => {
   const THREE = await import("../vendor/three.module.min.js");
@@ -4219,34 +4431,95 @@ test("RealtimeBattle cloneTemplate applies anisotropic Y compression only to ter
   const expectedPosY = 0.325 * localRoot.scale.x * 0.125;
   assert.ok(Math.abs(localRoot.position.y - expectedPosY) < 1e-5, "position y offset must be scaled correctly on Y axis");
 });
-test("RealtimeBattle cloneTemplate lifts dark terrain materials for readable silhouettes", async () => {
+test("RealtimeBattle cloneTemplate lifts dark authored albedo textures for readable silhouettes", async () => {
+  const THREE = await import("../vendor/three.module.min.js");
+  const priorDocument = globalThis.document;
+  const priorOffscreenCanvas = globalThis.OffscreenCanvas;
+  delete globalThis.OffscreenCanvas;
+  const fakeImageData = { data: new Uint8ClampedArray(16 * 16 * 4) };
+  for (let i = 0; i < fakeImageData.data.length; i += 4) {
+    fakeImageData.data[i] = 40;
+    fakeImageData.data[i + 1] = 40;
+    fakeImageData.data[i + 2] = 40;
+    fakeImageData.data[i + 3] = 255;
+  }
+  globalThis.document = {
+    createElement(tag) {
+      if (tag !== "canvas") return null;
+      return {
+        width: 0,
+        height: 0,
+        getContext() {
+          return {
+            drawImage() {},
+            getImageData() { return fakeImageData; },
+          };
+        },
+      };
+    },
+  };
+  try {
+    const battle = new RealtimeBattle(null, { stageNumber: 1 });
+    const terrainScene = new THREE.Group();
+    // baseColorFactor defaults to opaque white on every shipped material
+    // (verified against the real GLBs) -- darkness lives entirely in the
+    // decoded texture pixels, which this fake canvas stands in for.
+    const darkTexture = { image: { width: 64, height: 64 } };
+    const darkMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: darkTexture,
+      metalness: 0.95,
+      roughness: 0.95,
+      emissive: new THREE.Color(0x000000),
+      emissiveIntensity: 0,
+    });
+    terrainScene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), darkMaterial));
+    battle.templates.set("terrain/test-dark.glb", { scene: terrainScene, animations: [] });
+
+    const instance = battle.cloneTemplate("terrain/test-dark.glb", 1);
+    const normalizedMaterial = instance.root.children[0].children[0].material;
+    const measuredLuminance = 40 / 255;
+    const expectedBoost = Math.min(4.5, 0.55 / measuredLuminance);
+
+    assert.equal(normalizedMaterial.metalness, 0.4, "terrain metalness must be capped to prevent black metallic shading");
+    assert.equal(normalizedMaterial.roughness, 0.72, "terrain roughness must be capped to preserve readable highlights");
+    assert.equal(normalizedMaterial.userData.albedoExposureLifted, true, "a measured dark albedo texture must be marked as exposure-lifted");
+    assert.ok(
+      Math.abs(normalizedMaterial.color.r - expectedBoost) < 1e-4,
+      "a dark authored albedo texture must receive a color-factor boost proportional to its measured darkness",
+    );
+    assert.equal(normalizedMaterial.emissive.getHex(), 0x263454, "dark terrain must receive the slate emissive readability color");
+    assert.equal(normalizedMaterial.emissiveIntensity, 0.26, "dark terrain must receive the slate emissive intensity floor");
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorOffscreenCanvas === undefined) delete globalThis.OffscreenCanvas;
+    else globalThis.OffscreenCanvas = priorOffscreenCanvas;
+  }
+});
+
+test("RealtimeBattle cloneTemplate leaves materials without an albedo map untouched", async () => {
   const THREE = await import("../vendor/three.module.min.js");
   const battle = new RealtimeBattle(null, { stageNumber: 1 });
   const terrainScene = new THREE.Group();
   const authoredColor = new THREE.Color(0x05080c);
-  const darkMaterial = new THREE.MeshStandardMaterial({
+  const mapless = new THREE.MeshStandardMaterial({
     color: authoredColor.clone(),
     metalness: 0.95,
     roughness: 0.95,
-    emissive: new THREE.Color(0x000000),
-    emissiveIntensity: 0,
   });
-  terrainScene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), darkMaterial));
-  battle.templates.set("terrain/test-dark.glb", { scene: terrainScene, animations: [] });
+  terrainScene.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mapless));
+  battle.templates.set("terrain/test-mapless.glb", { scene: terrainScene, animations: [] });
 
-  const instance = battle.cloneTemplate("terrain/test-dark.glb", 1);
+  const instance = battle.cloneTemplate("terrain/test-mapless.glb", 1);
   const normalizedMaterial = instance.root.children[0].children[0].material;
-  const expectedLiftedColor = authoredColor.clone().multiplyScalar(1.35);
 
-  assert.equal(normalizedMaterial.metalness, 0.4, "terrain metalness must be capped to prevent black metallic shading");
-  assert.equal(normalizedMaterial.roughness, 0.72, "terrain roughness must be capped to preserve readable highlights");
   assert.equal(
     normalizedMaterial.color.getHex(),
-    expectedLiftedColor.getHex(),
-    "near-black terrain color must receive the authored readability lift",
+    authoredColor.getHex(),
+    "a material with no albedo map has no texture darkness signal, so its color factor must stay untouched",
   );
-  assert.equal(normalizedMaterial.emissive.getHex(), 0x263454, "dark terrain must receive the slate emissive readability color");
-  assert.equal(normalizedMaterial.emissiveIntensity, 0.26, "dark terrain must receive the slate emissive intensity floor");
+  assert.equal(normalizedMaterial.userData?.albedoExposureLifted, undefined, "the exposure lift must not run without a map to measure");
 });
 
 
@@ -5472,4 +5745,79 @@ test("RealtimeBattle emits exact chest events for mouse and touch and reconciles
   battle.destroy();
   assert.deepEqual(lifecycle.at(-1), ["remove", "chest-destroy"], "destroy must remove the final chest visual");
   assert.deepEqual(battle.activeEffects, [], "destroy must clear field-effect presentation state");
+});
+
+test("RealtimeBattle updateBossStrike tracks the attack-target indicator onto the live commander position and only reveals it in the back half of the wind-up", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.bossPattern = Object.freeze({ type: "melee", triggerRange: 4.5, cooldownSeconds: 4, damage: 1 });
+  const boss = makeUnit({ x: 0, z: 0 });
+  boss.hp = 8;
+  boss.defeated = false;
+  battle.boss = boss;
+  battle.commanderPosition = { x: 2, z: 0 };
+  battle.bossStrikeCooldownRemaining = 4;
+  battle.bossThreatRing = { material: { opacity: 0 } };
+  battle.bossTargetMarker = {
+    position: { x: 0, z: 0 },
+    visible: false,
+    material: { opacity: 0 },
+    userData: { isAoeTarget: false },
+  };
+  const strikes = [];
+  battle.onEncounterEvent = (event) => strikes.push(event);
+  battle.playBossStrikeEffect = () => {};
+
+  // First half of the wind-up (cooldownRemaining down to 1s of 4s, readiness
+  // 0 on entry): the marker must stay hidden -- only the boss's own threat
+  // ring telegraphs danger this early.
+  battle.updateBossStrike(3);
+  assert.equal(battle.bossTargetMarker.visible, false, "the target indicator must stay hidden through the first half of the wind-up");
+  assert.equal(battle.bossTargetMarker.position.x, 2, "the target indicator must still track the commander's live position even while hidden");
+
+  // Move the commander and advance into the back half of the wind-up
+  // (entry readiness 1 - 1/4 = 0.75, clearly past the 0.5 reveal threshold):
+  // the marker must now be visible, follow the new position, and ramp
+  // opacity toward its melee peak (0.55).
+  battle.commanderPosition.x = 3;
+  battle.commanderPosition.z = -1;
+  battle.updateBossStrike(0.5);
+  assert.equal(battle.bossTargetMarker.visible, true, "the target indicator must reveal itself in the back half of the wind-up");
+  assert.equal(battle.bossTargetMarker.position.x, 3, "the target indicator must track the commander's x position");
+  assert.equal(battle.bossTargetMarker.position.z, -1, "the target indicator must track the commander's z position");
+  assert.ok(battle.bossTargetMarker.material.opacity > 0 && battle.bossTargetMarker.material.opacity <= 0.55, "melee/ranged opacity must ramp toward the 0.55 point-reticle peak, not the wider AoE peak");
+
+  // The remaining 0.5s cooldown empties on this call, firing the strike and
+  // resetting the cooldown to full -- which must immediately relax the
+  // indicator back to hidden until the next wind-up earns it again.
+  battle.updateBossStrike(0.5);
+  assert.equal(strikes.length, 1, "the boss must fire exactly once when its cooldown reaches zero inside trigger range");
+  battle.updateBossStrike(0.1);
+  assert.equal(battle.bossTargetMarker.visible, false, "firing must reset the indicator to hidden for the next wind-up");
+});
+
+test("RealtimeBattle updateBossStrike ramps the AoE attack-target indicator to its wider splash-footprint peak opacity instead of the point-reticle peak", () => {
+  const battle = new RealtimeBattle(null, { stageNumber: 3 });
+  battle.bossPattern = Object.freeze({ type: "aoe", triggerRange: 5, cooldownSeconds: 4, damage: 2 });
+  const boss = makeUnit({ x: 0, z: 0 });
+  boss.hp = 17;
+  boss.defeated = false;
+  battle.boss = boss;
+  battle.commanderPosition = { x: 1, z: 1 };
+  battle.bossStrikeCooldownRemaining = 4;
+  battle.bossThreatRing = { material: { opacity: 0 } };
+  battle.bossTargetMarker = {
+    position: { x: 0, z: 0 },
+    visible: false,
+    material: { opacity: 0 },
+    userData: { isAoeTarget: true },
+  };
+  battle.playBossStrikeEffect = () => {};
+  battle.onEncounterEvent = () => {};
+
+  battle.updateBossStrike(3.9);
+  battle.updateBossStrike(0.05);
+  assert.ok(
+    battle.bossTargetMarker.material.opacity > 0 && battle.bossTargetMarker.material.opacity <= 0.32,
+    `an AoE boss's indicator must ramp toward the wider 0.32 splash-footprint peak, not the narrower point-reticle peak (got ${battle.bossTargetMarker.material.opacity})`,
+  );
 });

@@ -80,25 +80,31 @@
   text-align: end;
 }
 
-#battle-field .ashen-field-command__hostile,
-#battle-field .ashen-field-command__pressure {
+#battle-field .ashen-field-command__hostile {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-#battle-field .ashen-field-command__hostile {
   margin-top: .2rem;
   color: color-mix(in srgb, var(--battle-hostile) 72%, #ffd29a);
   font-size: .75rem;
   font-weight: 900;
 }
 
+/* This carries a full instructional sentence (e.g. prep-window guidance),
+   unlike the short hostile-count label above it -- single-line ellipsis
+   truncation was silently cutting off roughly a third of the message
+   (readers never saw "...before the first enemy wave enters the field").
+   A 2-line clamp keeps the box compact while actually staying readable. */
 #battle-field .ashen-field-command__pressure {
+  display: -webkit-box;
+  overflow: hidden;
   margin-top: .16rem;
   color: #d6c29a;
   font-size: .64rem;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 #battle-field .ashen-field-command__ward {
@@ -221,7 +227,14 @@
 
 #battle-field .ashen-field-command__tactical {
   position: absolute;
-  bottom: 1rem;
+  /* Was bottom:1rem, landing in the exact same band as .ashen-field-command__ward
+     /__result (grid row 3, align-self:end). Those two can grow to ~3.2-3.5rem
+     tall (label + 2-line-clamped result-copy, or a wrapped ward sentence) on
+     shorter/narrower desktop viewports (1280x720, 1024x600), so a fixed
+     clearance has to cover that worst case, not just the common single-line
+     case -- both independently "anchored near the bottom" collided and
+     visibly overlapped ("관문 수호" / the receipt text under "선택 없음"). */
+  bottom: 6rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
