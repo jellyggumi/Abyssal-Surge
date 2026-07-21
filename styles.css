@@ -77,57 +77,7 @@ body {
 @keyframes text-shine {
   to { background-position: 200% center; }
 }
-.glitch-text {
-  position: relative;
-  display: inline-block;
-}
-.glitch-text::before,
-.glitch-text::after {
-  content: attr(data-text);
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--bg);
-  clip-path: inset(50% 0 30% 0);
-}
-.glitch-text::before {
-  left: 2px;
-  text-shadow: -2px 0 var(--aqua);
-  animation: glitch-anim-1 2s infinite linear alternate-reverse;
-}
-.glitch-text::after {
-  left: -2px;
-  text-shadow: -2px 0 var(--danger), 0 2px var(--focus);
-  animation: glitch-anim-2 3s infinite linear alternate-reverse;
-}
-@keyframes glitch-anim-1 {
-  0% { clip-path: inset(20% 0 80% 0); }
-  20% { clip-path: inset(60% 0 40% 0); }
-  40% { clip-path: inset(40% 0 60% 0); }
-  60% { clip-path: inset(80% 0 20% 0); }
-  80% { clip-path: inset(10% 0 90% 0); }
-  100% { clip-path: inset(50% 0 50% 0); }
-}
-@keyframes glitch-anim-2 {
-  0% { clip-path: inset(85% 0 15% 0); }
-  20% { clip-path: inset(15% 0 85% 0); }
-  40% { clip-path: inset(55% 0 45% 0); }
-  60% { clip-path: inset(35% 0 65% 0); }
-  80% { clip-path: inset(75% 0 25% 0); }
-  100% { clip-path: inset(45% 0 55% 0); }
-}
 
-.blur-text {
-  filter: blur(6px);
-  opacity: 0.3;
-  transition: filter 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-}
-.blur-text.is-focused, .panel:hover .blur-text {
-  filter: blur(0);
-  opacity: 1;
-}
 button, .file-button {
   min-height: 3rem;
   border: 1px solid var(--line);
@@ -158,9 +108,6 @@ button.primary {
 button.primary:hover:not(:disabled) {
   background: #98f5e5;
   box-shadow: 0 0 20px rgba(112, 229, 208, 0.6);
-}
-.magnetic-button {
-  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(1.55rem, 6vw, 2.65rem); line-height: 1; }
@@ -459,8 +406,6 @@ main {
 .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .section-heading p { margin-bottom: 0; }
 .status-message { max-width: 34rem; color: var(--aqua); font-weight: 700; text-align: right; }
-.status-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem; margin: .5rem 0; }
-.status-grid div { min-width: 0; padding: .5rem; border-left: .2rem solid var(--aqua); background: rgb(255 255 255 / 4%); }
 dt { color: var(--muted); font-size: .72rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .objective-checklist { display: grid; gap: .3rem; margin: 0; padding: 0; list-style: none; }
@@ -530,9 +475,8 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 .reward-art { width: 100%; max-height: 6rem; border-radius: .6rem; object-fit: cover; object-position: center 28%; }
 .completion-panel { border-color: var(--aqua); }
 .completion-emblem { display: block; width: min(12rem, 55%); margin: .75rem auto; border-radius: 1rem; box-shadow: 0 0 2.2rem rgb(112 229 208 / 28%); }
-.status-body { display: grid; grid-template-columns: auto 1fr; gap: .75rem; align-items: start; }
 .boss-portrait { width: 5.2rem; border-radius: .7rem; object-fit: cover; box-shadow: 0 0 0 1px rgb(255 184 92 / 35%), 0 .4rem 1.2rem rgb(0 0 0 / 45%); }
-@media (max-width: 43.99rem) { .status-body { grid-template-columns: 1fr; } .boss-portrait { width: 5rem; } }
+@media (max-width: 43.99rem) { .boss-portrait { width: 5rem; } }
 .save-panel { margin-bottom: 1rem; }
 .mirror-status { max-width: 46rem; margin: .4rem 0 0; color: var(--aqua); font-size: .8rem; }
 .file-button { display: inline-flex; align-items: center; }
@@ -555,8 +499,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
 }
 @media (max-width: 43.99rem) {
   .site-header { align-items: flex-start; flex-direction: column; }
-  .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .status-grid div:last-child { grid-column: span 2; }
   .section-heading, .stage-transition-copy, .campaign-heading { align-items: stretch; flex-direction: column; }
   .campaign-heading-actions { justify-content: flex-start; }
   .status-message { text-align: left; }
@@ -710,43 +652,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   margin-bottom: 0;
 }
 
-/* Boss Spec View Styles */
-.boss-spec-panel {
-  border-color: var(--danger);
-  background: rgba(255, 127, 121, 0.03);
-  padding: .9rem 1rem;
-  overflow: hidden;
-}
-
-.boss-spec-content {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  align-items: center;
-}
-
-@media (max-width: 48rem) {
-  .boss-spec-content {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-.boss-portrait-large {
-  width: 104px;
-  height: 104px;
-  object-fit: cover;
-  border-radius: 50%;
-  border: 3px solid var(--danger);
-  box-shadow: 0 0 15px rgba(255, 127, 121, 0.4);
-  background: var(--bg);
-}
-
-.boss-spec-details {
-  flex: 1;
-  min-width: 0;
-}
-
 .spec-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -772,12 +677,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   font-size: 1rem;
   font-weight: 800;
   color: var(--danger);
-}
-
-.player-current-stats {
-  border-top: 1px dashed var(--line);
-  padding-top: .9rem;
-  margin-top: .9rem;
 }
 
 .stats-list {
@@ -849,7 +748,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   background: color-mix(in srgb, var(--battle-background) 82%, var(--battle-ally));
 }
 
-.battle-tactical-copy p,
 .battle-visual-fallback p {
   margin: 0;
 }
@@ -863,7 +761,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
   text-transform: uppercase;
 }
 
-.battle-tactical-copy > p,
 .battle-fallback-note {
   margin-top: .18rem;
   color: var(--muted);
@@ -1294,15 +1191,6 @@ dd { margin: .2rem 0 0; font-size: 1.08rem; font-weight: 800; }
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: minmax(10rem, 42vw);
-  }
-
-  #view-battle {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "battle"
-      "status"
-      "commands";
   }
 
   .battle-tactical-brief {
