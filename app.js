@@ -400,6 +400,9 @@ const elements = Object.freeze({
   resumeSummary: document.querySelector("#campaign-resume-summary"),
   resumeStage: document.querySelector("#campaign-resume-stage"),
   resumeStatus: document.querySelector("#campaign-resume-status"),
+  resumeBossRow: document.querySelector("#campaign-resume-boss-row"),
+  resumeBossPortrait: document.querySelector("#campaign-resume-boss-portrait"),
+  resumeBossName: document.querySelector("#campaign-resume-boss-name"),
   restart: document.querySelector("#restart-campaign"),
   retry: document.querySelector("#retry-stage"),
   returnToLobby: document.querySelector("#return-to-lobby"),
@@ -465,11 +468,13 @@ const elements = Object.freeze({
   battleScreenSelectionOrder: document.querySelector('[data-battle-screen="selection-order"]'),
   battleScreenSelectionStatus: document.querySelector('[data-battle-screen="selection-status"]'),
   battleAssetStatus: document.querySelector("#battle-asset-status"),
+  battleLoadingScreen: document.querySelector("#battle-loading-screen"),
   battleFallback: document.querySelector("#battle-visual-fallback"),
   battleFallbackOperation: document.querySelector("#battle-fallback-operation"),
   battleFallbackDoctrine: document.querySelector("#battle-fallback-doctrine"),
   battleFallbackAllyLabel: document.querySelector("#battle-fallback-ally-label"),
   battleFallbackHostileLabel: document.querySelector("#battle-fallback-hostile-label"),
+  commandTutorialAlarm: document.querySelector("#command-tutorial-alarm"),
   stageNumber: document.querySelector("#stage-number"),
   stageHeading: document.querySelector("#stage-heading"),
   stageRegion: document.querySelector("#stage-region"),
@@ -740,7 +745,7 @@ function translateRejectionReason(msg, lang) {
   return msg;
 }
 
-function showTacticalFeedback(msg) {
+function showTacticalFeedback(msg, durationMs = 3000) {
   tacticalFeedbackMessage = msg;
   if (tacticalFeedbackTimer) {
     window.clearTimeout(tacticalFeedbackTimer);
@@ -750,7 +755,7 @@ function showTacticalFeedback(msg) {
     tacticalFeedbackMessage = "";
     tacticalFeedbackTimer = 0;
     render();
-  }, 3000);
+  }, durationMs);
 }
 
 function handleTacticalRequest(request) {
@@ -1259,6 +1264,96 @@ const COMMAND_DUPLICATE_WINDOW_MS = 250;
 // the Canvas2D renderer through the same onRendererFailure/catch path a
 // real load error already takes, instead of leaving the player stuck.
 const BATTLE_RENDERER_INIT_TIMEOUT_MS = 25000;
+// First-command onboarding: the very first time a player ever issues one of
+// the seven battle commands (button, keyboard shortcut, or a direct marker
+// click all converge on enqueueCommandRequest), show a nudge telling them to
+// move the camera and select the target -- then keep re-flashing it until
+// RealtimeBattle actually reports both a manual camera move and a live
+// selection (see RealtimeBattle#emitCameraTutorialSignal). Persisted so it
+// never reappears once a player has demonstrated both moves, but capped at
+// a bounded repeat count so a player stuck on the reduced Canvas2D fallback
+// (which never reports a camera-tutorial signal) is not nagged forever.
+const COMMAND_TUTORIAL_STORAGE_KEY = "abyssal-command-camera-tutorial-v1";
+const COMMAND_TUTORIAL_REPEAT_MS = 6000;
+const COMMAND_TUTORIAL_MAX_REPEATS = 8;
+let commandTutorialTimer = 0;
+let commandTutorialRepeats = 0;
+let commandTutorialSignal = { cameraMoved: false, hasSelection: false };
+
+function commandTutorialAlreadyDone() {
+  try {
+    return window.localStorage?.getItem(COMMAND_TUTORIAL_STORAGE_KEY) === "done";
+  } catch {
+    return false;
+  }
+}
+
+function markCommandTutorialDone() {
+  try {
+    window.localStorage?.setItem(COMMAND_TUTORIAL_STORAGE_KEY, "done");
+  } catch {
+    // Storage unavailable (private mode / quota): the in-memory repeat cap
+    // below still stops the nag loop for this session.
+  }
+}
+
+function stopCommandTutorialAlarm({ persist } = {}) {
+  if (commandTutorialTimer) {
+    window.clearInterval(commandTutorialTimer);
+    commandTutorialTimer = 0;
+  }
+  if (persist) markCommandTutorialDone();
+  const alarm = elements.commandTutorialAlarm;
+  if (alarm) {
+    alarm.hidden = true;
+    alarm.classList.remove("is-pulsing");
+  }
+}
+
+function flashCommandTutorialAlarm() {
+  const alarm = elements.commandTutorialAlarm;
+  if (!alarm) return;
+  alarm.hidden = false;
+  // Restart the CSS pulse animation on every flash, including the first:
+  // removing then re-adding the class on the next frame forces the browser
+  // to replay it instead of a no-op re-add being ignored.
+  alarm.classList.remove("is-pulsing");
+  void alarm.offsetWidth;
+  alarm.classList.add("is-pulsing");
+}
+
+function checkCommandTutorialSatisfied() {
+  if (commandTutorialSignal.cameraMoved && commandTutorialSignal.hasSelection) {
+    stopCommandTutorialAlarm({ persist: true });
+    return true;
+  }
+  return false;
+}
+
+function updateCommandTutorialSignal(signal) {
+  commandTutorialSignal = {
+    cameraMoved: !!signal?.cameraMoved,
+    hasSelection: !!signal?.hasSelection,
+  };
+  if (commandTutorialTimer) checkCommandTutorialSatisfied();
+}
+
+function maybeStartCommandTutorial() {
+  if (commandTutorialAlreadyDone() || commandTutorialTimer) return;
+  if (checkCommandTutorialSatisfied()) return;
+  commandTutorialRepeats = 0;
+  flashCommandTutorialAlarm();
+  commandTutorialTimer = window.setInterval(() => {
+    if (checkCommandTutorialSatisfied()) return;
+    commandTutorialRepeats += 1;
+    if (commandTutorialRepeats >= COMMAND_TUTORIAL_MAX_REPEATS) {
+      stopCommandTutorialAlarm({ persist: true });
+      return;
+    }
+    flashCommandTutorialAlarm();
+  }, COMMAND_TUTORIAL_REPEAT_MS);
+}
+
 const queuedCommandRuntime = new Map();
 const seenCommandRequests = new Map();
 let commandExecutionTimer = 0;
@@ -1398,6 +1493,7 @@ function armQueuedCommand(id, options) {
 async function enqueueCommandRequest(action, options) {
   const opts = options || {};
   if (!campaign || campaign.status !== "active" || resultOverlayOpen) return;
+  maybeStartCommandTutorial();
   
   const nextId = opts.requestId || `cmd-${campaign.revision}-${campaign.commandQueue.length}`;
   const result = reserveCommand(campaign, action, nextId);
@@ -1668,7 +1764,10 @@ async function drainCommandQueue() {
     await executeQueuedCommandIfReady(head.id);
   } else {
     if (check.reason === "out-of-range" && previousReason !== "out-of-range") {
-      showTacticalFeedback(translate("tactical.rejection.outOfRange"));
+      // Longer dwell than the default 3s: this explains what happens next
+      // (auto-execute once in range) rather than just rejecting the press,
+      // so it needs more read time than a quick reservation-error toast.
+      showTacticalFeedback(translate("tactical.rejection.outOfRange"), 6000);
     }
     syncQueuedCommandPreview();
     render();
@@ -2179,6 +2278,7 @@ function updateResumeAffordance() {
   elements.resume.classList.toggle("primary", hasResumableCampaign);
   elements.start.classList.toggle("primary", !hasResumableCampaign);
   elements.resumeSummary.hidden = !hasResumableCampaign;
+  syncCampaignMapStatus(resumableCampaign);
   if (!hasResumableCampaign) return;
 
   const stage = STAGES[resumableCampaign.stageIndex];
@@ -2188,6 +2288,59 @@ function updateResumeAffordance() {
     : `${stage.number} / ${STAGES.length} · ${stage.title}`;
   const statusKey = RESUME_STATUS_KEYS[resumableCampaign.status];
   elements.resumeStatus.textContent = translatedResumeText(statusKey, resumableCampaign.status);
+
+  // Surface the upcoming boss so a returning player recognizes the threat
+  // before committing to resume, instead of only seeing a stage number.
+  if (elements.resumeBossRow) {
+    const previewReward = resumableCampaign.status === "reward";
+    const bossStage = STAGES[previewReward ? resumableCampaign.stageIndex + 1 : resumableCampaign.stageIndex];
+    const showBoss = Boolean(bossStage) && resumableCampaign.status !== "campaign-complete";
+    elements.resumeBossRow.hidden = !showBoss;
+    if (showBoss) {
+      elements.resumeBossName.textContent = currentLang() === "ko"
+        ? (translate(`stage.${bossStage.id}.bossName`) || bossStage.bossName)
+        : bossStage.bossName;
+      if (elements.resumeBossPortrait) {
+        const portraitSrc = BOSS_BY_STAGE[bossStage.id] || "";
+        elements.resumeBossPortrait.src = portraitSrc;
+        elements.resumeBossPortrait.hidden = !portraitSrc;
+      }
+    }
+  }
+}
+
+// Reflects each campaign-map node's locked/current/cleared state so the
+// lobby's stage list functions as a real progress map, not a static
+// gallery. Runs with no resumable campaign too, so stage 1 always shows as
+// the current step on a fresh session.
+function syncCampaignMapStatus(resumableCampaign) {
+  const nodes = document.querySelectorAll(".map-node[data-node-status]");
+  if (!nodes.length) return;
+  const clearedThrough = resumableCampaign
+    ? (resumableCampaign.status === "campaign-complete" ? STAGES.length : resumableCampaign.stageIndex)
+    : 0;
+  const campaignComplete = resumableCampaign?.status === "campaign-complete";
+  nodes.forEach((node) => {
+    const stageNumber = Number(node.dataset.stageNumber);
+    if (!Number.isInteger(stageNumber)) return;
+    const stageIdx = stageNumber - 1;
+    let status;
+    if (campaignComplete || stageIdx < clearedThrough) {
+      status = "cleared";
+    } else if (stageIdx === clearedThrough) {
+      status = "current";
+    } else {
+      status = "locked";
+    }
+    node.dataset.nodeStatus = status;
+    if (status === "current") {
+      node.setAttribute("aria-current", "step");
+    } else {
+      node.removeAttribute("aria-current");
+    }
+    const pill = node.querySelector(".map-node-status");
+    if (pill) pill.textContent = translate(`map.status.${status}`);
+  });
 }
 
 
@@ -2348,6 +2501,9 @@ function renderBattleAssetStatus(options) {
   const loaded = opts.loaded || 0;
   const total = opts.total || 0;
   const clips = opts.clips || 0;
+  if (elements.battleLoadingScreen) {
+    elements.battleLoadingScreen.hidden = state !== "loading";
+  }
   if (!elements.battleAssetStatus) return;
   const korean = currentLang() !== "en";
   const count = total ? `${loaded}/${total}` : "";
@@ -2888,6 +3044,7 @@ function handleEncounterEvent(event, sessionId = battleSessionId, source = null)
 
 function stopBattle() {
   battleSessionId += 1;
+  stopCommandTutorialAlarm();
   clearEncounterStartTimer();
   stopBattleAudio();
   if (typeof stopCommandQueueTimer === "function") {
@@ -2974,6 +3131,7 @@ async function startBattle() {
   rendererRuntime = null;
   battleVisualFallback = false;
   rendererSelectionSummary = EMPTY_RENDERER_SELECTION;
+  renderBattleAssetStatus({ state: "loading", loaded: 0, total: 0, clips: 0 });
   projectActionFocus(currentActionFocus());
   cooldownTimer = window.setInterval(render, 100);
   let battleRenderer = null;
@@ -2998,6 +3156,7 @@ async function startBattle() {
         onRuntimeState: (runtime) => handleRendererRuntime(runtime, sessionId, battleRenderer),
         onActionFocus: (action) => handleActionFocus(action),
         onSelectionChange: (summary) => handleRendererSelection(summary, sessionId),
+        onCameraTutorialSignal: (signal) => updateCommandTutorialSignal(signal),
         onRendererFailure: () => {
           if (visualizer !== battleRenderer || sessionId !== battleSessionId || campaign?.status !== "active") return;
           visualizer = activateBattleFallback(currentStage(), sessionId);
@@ -4845,6 +5004,9 @@ async function initialize() {
     const key = storage.mode === "indexeddb" ? "saveStatus.noCampaignIndexedDb" : "saveStatus.indexedDbUnavailable";
     setSaveStatus(translate(key), "plain", key);
   }
+  // Always sync the campaign map's locked/current/cleared status, even on a
+  // fresh session with no saved run (node 1 must show as the current step).
+  updateResumeAffordance();
   campaignMirror = new CampaignMirror({ onState: (envelope, metadata) => applyMirroredCampaign(envelope, metadata) });
   const mirrorAvailability = campaignMirror.start(storedCampaign ? createSaveEnvelope(storedCampaign) : null);
   mirrorActive = mirrorAvailability.available;

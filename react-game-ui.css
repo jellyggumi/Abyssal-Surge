@@ -395,8 +395,9 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
       "lede cinematic"
       "actions cinematic"
       "description cinematic"
+      "guide guide"
       "map features";
-    grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto auto auto auto minmax(0, 1fr);
     gap: 0.5rem 1.5rem;
     height: 100%;
     max-height: 100%;
@@ -431,9 +432,10 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
       "lede cinematic"
       "actions cinematic"
       "description cinematic"
+      "guide guide"
       "map map"
       "storyboard features" !important;
-    grid-template-rows: auto auto auto auto auto auto auto auto !important;
+    grid-template-rows: auto auto auto auto auto auto auto minmax(24rem, auto) auto !important;
   }
 
   .feature-preview-grid {
@@ -592,15 +594,44 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
   box-shadow: var(--bevel-light), 0 0 15px var(--cinder) !important;
 }
 
-.war-table-node.active-stage {
+.war-table-node[data-node-status="current"] {
   border-color: var(--cinder) !important;
   box-shadow: inset 0 0 0 1px var(--cinder), 0 0 15px var(--cinder) !important;
 }
 
-.war-table-node.locked-stage {
-  opacity: 0.5;
-  filter: grayscale(1) brightness(0.6);
-  cursor: not-allowed;
+.war-table-node[data-node-status="cleared"] {
+  border-color: var(--aqua) !important;
+  box-shadow: inset 0 0 0 1px var(--aqua) !important;
+}
+
+.war-table-node[data-node-status="locked"] {
+  opacity: 0.55 !important;
+  filter: grayscale(1) brightness(0.65) !important;
+}
+
+.map-node-status {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: rgba(9, 11, 21, 0.85);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.war-table-node[data-node-status="current"] .map-node-status {
+  border-color: var(--cinder);
+  color: var(--cinder);
+}
+
+.war-table-node[data-node-status="cleared"] .map-node-status {
+  border-color: var(--aqua);
+  color: var(--aqua);
 }
 
 .war-table-node .map-node-image-wrapper {
@@ -637,6 +668,155 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
   align-items: center !important;
   color: var(--line) !important;
   font-size: 1.5rem !important;
+}
+
+/* Abyssal Codex (field guide: action loop, field items, tactical skills) */
+.codex-section {
+  background: var(--panel) !important;
+  border: 2px solid var(--line) !important;
+  border-radius: 4px !important;
+  padding: 0.85rem 1rem !important;
+}
+
+.codex-section h3 { margin-bottom: 0.15rem; }
+
+.codex-section > .hint { margin: 0 0 0.5rem; }
+
+.codex-subsection + .codex-subsection {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(83, 98, 115, 0.35);
+}
+
+.codex-subsection h4 {
+  font-family: var(--font-serif) !important;
+  font-size: 0.95rem !important;
+  color: var(--focus) !important;
+  margin: 0 0 0.15rem !important;
+}
+
+.codex-subsection > .hint { margin: 0 0 0.55rem !important; font-size: 0.78rem !important; }
+
+.codex-action-loop,
+.codex-item-grid,
+.codex-skill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.codex-action-card {
+  flex: 1 1 8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  padding: 0.45rem 0.55rem !important;
+}
+
+.codex-action-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: rgba(5, 7, 11, 0.5);
+}
+
+.codex-action-card strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.codex-action-card small {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.codex-item-card {
+  flex: 1 1 10rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  padding: 0.5rem 0.6rem !important;
+}
+
+.codex-item-glyph {
+  flex-shrink: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  border-radius: 50%;
+  background: rgba(5, 7, 11, 0.6);
+  border: 1px solid var(--line);
+}
+
+.codex-item-glyph--attack { color: var(--danger); border-color: var(--danger); }
+.codex-item-glyph--defense { color: var(--aqua); border-color: var(--aqua); }
+.codex-item-glyph--haste { color: var(--cinder); border-color: var(--cinder); }
+.codex-item-glyph--invincible { color: var(--focus); border-color: var(--focus); }
+.codex-item-glyph--evasion { color: color-mix(in srgb, var(--aqua) 70%, #fff); border-color: var(--aqua); }
+.codex-item-glyph--debuff { color: color-mix(in srgb, var(--danger) 70%, var(--muted)); border-color: var(--danger); }
+
+.codex-item-card strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.codex-item-card small {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.codex-item-effect {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--cinder);
+}
+
+.codex-skill-card {
+  flex: 1 1 9rem;
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  padding: 0.5rem 0.6rem !important;
+}
+
+.codex-skill-card--summon { border-color: var(--aqua) !important; }
+
+.codex-skill-card strong {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.codex-skill-card small {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.3;
+  margin-top: 0.15rem;
 }
 
 /* Chronicle (storyboard) */
@@ -1073,9 +1253,10 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
       "resume lede"
       "actions description"
       "cinematic cinematic"
+      "guide guide"
       "map map"
       "storyboard features" !important;
-    grid-template-rows: auto auto auto auto auto auto !important;
+    grid-template-rows: auto auto auto auto auto minmax(24rem, auto) auto !important;
   }
   .cinematic-theater-transcript,
   #cinematic-transcript {
@@ -1435,6 +1616,14 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
   cursor: pointer !important;
   display: block !important;
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8) !important;
+}
+.battle-minimap-caption {
+  margin: 0.3rem 0 0 !important;
+  max-width: 100% !important;
+  color: var(--muted) !important;
+  font-size: 0.62rem !important;
+  line-height: 1.25 !important;
+  text-align: center !important;
 }
 
 #battle-minimap:focus-visible {
@@ -4368,6 +4557,51 @@ textarea:focus-visible {
   #battle-field .ashen-field-command {
     left: calc(min(16rem, 26%) + 1.1rem) !important;
     right: calc(min(22rem, 34%) + 1.1rem) !important;
+  }
+
+  /* Resource bar (souls/legion/nodes/integrity/boss): was a static row
+     inside .cockpit-top, entirely outside #battle-field, so the "3D
+     tactical field" screen never actually carried its own resource
+     readout. .cockpit-top keeps its DOM position (no JSX move -- same
+     CSS-overlay-only approach as the rail/command-deck/save-menu above)
+     but the resources row is pulled out of its grid flow and docked as
+     an absolutely-positioned strip across the top of #battle-field.
+     .cockpit-top has no z-index of its own (position:relative alone
+     does not open a new stacking context), so this strip's explicit
+     z-index compares directly against the rail/dock/save-menu's
+     11/12/13 above and wins, painting over the canvas despite living
+     in a DOM subtree that precedes .cockpit-main. Width is clamped to
+     the same open center gap #battle-field .ashen-field-command uses
+     below (left/right insets copied from that rule) so it never
+     overlaps the full-height rail/dock columns; the mission overlay's
+     own top inset is pushed down to clear this strip instead. */
+  .cockpit-top {
+    position: relative !important;
+    grid-template-columns: minmax(9rem, 12rem) minmax(14rem, 1fr) auto auto !important;
+    grid-template-areas: "stage selector wave actions" !important;
+  }
+
+  .battle-resource-bar {
+    position: absolute !important;
+    top: 100% !important;
+    left: calc(min(16rem, 26%) + 1.1rem) !important;
+    right: calc(min(22rem, 34%) + 1.1rem) !important;
+    margin-top: 0.6rem !important;
+    z-index: 14 !important;
+    grid-template-columns: repeat(5, minmax(6.5rem, 1fr)) !important;
+    gap: 0.2rem !important;
+    pointer-events: none !important;
+  }
+
+  .battle-resource-bar > div {
+    padding: 0.16rem 0.4rem 0.22rem !important;
+  }
+
+  /* Clear the resource strip docked above: the mission overlay's authored
+     0.6rem/no-explicit-top box otherwise starts its objective/hostile text
+     right under #battle-field's own top edge, directly behind the strip. */
+  #battle-field .ashen-field-command {
+    top: 4.6rem !important;
   }
 }
 

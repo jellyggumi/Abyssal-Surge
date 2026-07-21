@@ -2203,6 +2203,7 @@ async function loadAudioSceneLifecycle() {
     bgmEnabled: true,
     bgmSceneRun: 0,
     clearEncounterStartTimer: () => {},
+    stopCommandTutorialAlarm: () => {},
     cooldownTimer: 99,
     cooldowns: new Map([["hunt", 1]]),
     tacticalFeedbackMessage: "Barricade route is sealed.",
@@ -2535,6 +2536,40 @@ test("battlefield HUD exposes stable objective, resource, and selection mirror t
       findReactElementsByProp(root, "data-battle-screen", target).length,
       1,
       `the battlefield HUD must expose exactly one data-battle-screen="${target}" target`,
+    );
+  }
+});
+test("the minimap exposes a sighted-visible caption explaining the click-to-focus-camera interaction, distinct from its sr-only accessible hint", async () => {
+  const root = await renderReactGameUiContract();
+  const [caption] = findReactElementsByProp(root, "data-i18n", "battle.minimapCaption");
+  assert.ok(caption, "the minimap panel must render a visible caption explaining what clicking it does");
+  assert.notEqual(caption.props.className, "sr-only", "the minimap caption must not be visually hidden");
+
+  const [srHint] = findReactElementsByProp(root, "data-i18n", "battle.minimapHint");
+  assert.equal(srHint.props.className, "sr-only", "the keyboard-focus announcer must remain screen-reader-only, distinct from the sighted caption");
+
+  for (const lang of ["ko", "en"]) {
+    assert.ok(
+      translations[lang]["battle.minimapCaption"],
+      `battle.minimapCaption must be localized for ${lang}`,
+    );
+  }
+});
+
+test("the command hint explains the commander autonomously carries out commands regardless of squad selection", async () => {
+  const root = await renderReactGameUiContract();
+  const [hint] = findReactElementsByProp(root, "data-i18n", "command.hint");
+  assert.ok(hint, "the command panel must render its usage hint");
+
+  for (const lang of ["ko", "en"]) {
+    const copy = translations[lang]["command.hint"];
+    assert.ok(copy, `command.hint must be localized for ${lang}`);
+    assert.notEqual(
+      copy,
+      lang === "ko"
+        ? "버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요."
+        : "Use buttons, or press the shown key while a control is not focused.",
+      `command.hint (${lang}) must clarify the commander/selection relationship, not just restate button usage`,
     );
   }
 });

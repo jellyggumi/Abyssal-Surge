@@ -69,6 +69,13 @@
           e('div', null,
             e('dt', { 'data-i18n': 'lobby.resumeStatusLabel' }, '상태'),
             e('dd', { id: 'campaign-resume-status' })
+          ),
+          e('div', { id: 'campaign-resume-boss-row', hidden: true },
+            e('dt', { 'data-i18n': 'lobby.resumeBossLabel' }, '다음 위협'),
+            e('dd', null,
+              e('img', { id: 'campaign-resume-boss-portrait', alt: '', className: 'campaign-resume-boss-portrait', hidden: true }),
+              e('span', { id: 'campaign-resume-boss-name' })
+            )
           )
         )
       ),
@@ -182,10 +189,17 @@
               acc.push(e('div', { key: 'conn-' + idx, className: 'map-connector' }, e('span', { className: 'connector-arrow' }, '➔')));
             }
             acc.push(
-              e('div', { key: 'node-' + stage.id, className: 'map-node war-table-node', id: 'map-node-' + stage.id },
+              e('div', {
+                key: 'node-' + stage.id,
+                className: 'map-node war-table-node',
+                id: 'map-node-' + stage.id,
+                'data-stage-number': String(stage.id),
+                'data-node-status': stage.id === 1 ? 'current' : 'locked'
+              },
                 e('div', { className: 'map-node-image-wrapper' },
                   e('img', { src: 'assets/images/' + stage.file, alt: stage.alt, className: 'map-node-image' }),
-                  e('div', { className: 'map-node-badge', 'data-i18n': 'map.stage' + stage.id + 'Badge' }, stage.id + '단계')
+                  e('div', { className: 'map-node-badge', 'data-i18n': 'map.stage' + stage.id + 'Badge' }, stage.id + '단계'),
+                  e('span', { className: 'map-node-status' })
                 ),
                 e('h4', { 'data-i18n': 'map.node' + stage.id + 'Title' }, stage.alt),
                 e('p', { 'data-i18n': 'map.node' + stage.id + 'Desc' })
@@ -237,6 +251,75 @@
             e('span', { className: 'feature-tag', 'data-i18n': 'features.interface.tag' }, '예정'),
             e('h4', { 'data-i18n': 'features.interface.title' }, '사령부 형상 개조'),
             e('p', { 'data-i18n': 'features.interface.body' }, '명령 패널 배치와 심연 테마, 접근성 설정으로 사령부를 당신의 방식으로 빚으십시오.')
+          )
+        )
+      ),
+      e('div', { className: 'codex-section', 'aria-labelledby': 'codex-heading' },
+        e('h3', { id: 'codex-heading', className: 'shiny-text', 'data-i18n': 'guide.codex.heading' }, '심연 지식체'),
+        e('p', { className: 'hint', 'data-i18n': 'guide.codex.hint' }, '전장에 나서기 전, 행동 순서와 필드 아이템, 전술 스킬을 미리 확인하십시오.'),
+        e('div', { className: 'codex-subsection' },
+          e('h4', { 'data-i18n': 'guide.actions.heading' }, '행동 순서'),
+          e('p', { className: 'hint', 'data-i18n': 'guide.actions.hint' }, '사냥으로 흔적을 찾고, 추출로 영혼을 모으고, 실체화로 군단을 일으킨 뒤 거점을 점거하십시오.'),
+          e('ol', { className: 'codex-action-loop' },
+            [
+              { id: 'hunt', icon: 'action-hunt.png', name: 'command.hunt.name', label: '사냥', desc: 'command.hunt.desc', text: '균열 흔적 두 곳을 탐색' },
+              { id: 'extract', icon: 'action-extract.png', name: 'command.extract.name', label: '추출', desc: 'command.extract.desc', text: '그림자 은닉처를 확보' },
+              { id: 'materialize', icon: 'action-materialize.png', name: 'command.materialize.name', label: '실체화', desc: 'command.materialize.desc', text: '그림자 군단을 소환' },
+              { id: 'capture', icon: 'action-capture.png', name: 'command.capture.name', label: '점거', desc: 'command.capture.desc', text: '기술 거점을 고정' },
+              { id: 'possess', icon: 'action-possess.png', name: 'command.possess.name', label: '빙의', desc: 'command.possess.desc', text: '2단계에서 해금' },
+              { id: 'domain', icon: 'action-domain.png', name: 'command.domain.name', label: '군주의 영역', desc: 'command.domain.desc', text: '3단계에서 1회 사용' },
+              { id: 'assault', icon: 'action-assault.png', name: 'command.assault.name', label: '총공격', desc: 'command.assault.desc', text: '스테이지 보스를 무너뜨림' }
+            ].map(function (act) {
+              return e('li', { key: act.id, className: 'codex-action-card' },
+                e('img', { src: 'assets/images/ui/' + act.icon, alt: '', className: 'codex-action-icon' }),
+                e('div', null,
+                  e('strong', { 'data-i18n': act.name }, act.label),
+                  e('small', { 'data-i18n': act.desc }, act.text)
+                )
+              );
+            })
+          )
+        ),
+        e('div', { className: 'codex-subsection' },
+          e('h4', { 'data-i18n': 'guide.items.heading' }, '필드 아이템'),
+          e('p', { className: 'hint', 'data-i18n': 'guide.items.hint' }, '웨이브를 처치하면 상자가 등장합니다. 상자를 열어 아래 여섯 효과 중 하나를 획득하십시오.'),
+          e('ul', { className: 'codex-item-grid' },
+            [
+              { id: 'void-blade', glyph: '\u2694', effectType: 'ATTACK', name: 'item.void-blade.name', label: '공허의 칼날', desc: 'item.void-blade.description', text: '총공격력 증가', effectText: '총공격 강화' },
+              { id: 'iron-resolve', glyph: '\uD83D\uDEE1', effectType: 'DEFENSE', name: 'item.iron-resolve.name', label: '강철의 결의', desc: 'item.iron-resolve.description', text: '방어력 증가', effectText: '요새 보호벽' },
+              { id: 'tempest-boots', glyph: '\u26A1', effectType: 'HASTE', name: 'item.tempest-boots.name', label: '폭풍의 장화', desc: 'item.tempest-boots.description', text: '쿨다운 가속 및 속도 증가', effectText: '가속' },
+              { id: 'aegis-shield', glyph: '\u2726', effectType: 'INVINCIBLE', name: 'item.aegis-shield.name', label: '이지스의 방패', desc: 'item.aegis-shield.description', text: '다음 피해 무효화', effectText: '무적' },
+              { id: 'shadow-cloak', glyph: '\uD83D\uDCA8', effectType: 'EVASION', name: 'item.shadow-cloak.name', label: '그림자 망토', desc: 'item.shadow-cloak.description', text: '보스 타격 회피', effectText: '회피' },
+              { id: 'crippling-curse', glyph: '\u2620', effectType: 'DEBUFF', name: 'item.crippling-curse.name', label: '무력화의 저주', desc: 'item.crippling-curse.description', text: '적 공격력 약화', effectText: '적 디버프' }
+            ].map(function (item) {
+              return e('li', { key: item.id, className: 'codex-item-card' },
+                e('span', { className: 'codex-item-glyph codex-item-glyph--' + item.effectType.toLowerCase(), 'aria-hidden': 'true' }, item.glyph),
+                e('div', null,
+                  e('strong', { 'data-i18n': item.name }, item.label),
+                  e('small', { 'data-i18n': item.desc }, item.text),
+                  e('span', { className: 'codex-item-effect', 'data-i18n': 'effect.' + item.effectType }, item.effectText)
+                )
+              );
+            })
+          )
+        ),
+        e('div', { className: 'codex-subsection' },
+          e('h4', { 'data-i18n': 'guide.skills.heading' }, '전술 스킬 & 소환수 진화'),
+          e('p', { className: 'hint', 'data-i18n': 'guide.skills.hint' }, '전술 휘장으로 지휘력·요새화·기동력을 강화하고, 소환 정수로 소환수를 진화시키십시오.'),
+          e('ul', { className: 'codex-skill-grid' },
+            [
+              { id: 'command', kind: 'tactical', name: 'tactical.skill.command', label: '지휘력', desc: 'tactical.skill.commandDesc', text: '지휘 대기열을 확장하며, 소환수 공격 및 버프를 증폭하고 적의 디버프 효과를 상쇄합니다.' },
+              { id: 'fortification', kind: 'tactical', name: 'tactical.skill.fortification', label: '요새화', desc: 'tactical.skill.fortificationDesc', text: '방어 타워 및 바리케이드 성능을 강화하고 쉴드 충전량, 일시적 무적 부여 및 상자 획득을 보호합니다.' },
+              { id: 'mobility', kind: 'tactical', name: 'tactical.skill.mobility', label: '기동력', desc: 'tactical.skill.mobilityDesc', text: '사령관의 이동 속도를 향상시키고 보스 타격에 대한 회피를 극대화하며 웨이브 중 쿨다운을 줄입니다.' },
+              { id: 'ember-scion', kind: 'summon', name: 'summon.recipe.ember-scion.name', label: '잿불 후예', desc: 'summon.recipe.ember-scion.description', text: '실체화 시 추가 그림자를 소환합니다.' },
+              { id: 'rift-hound', kind: 'summon', name: 'summon.recipe.rift-hound.name', label: '균열 사냥개', desc: 'summon.recipe.rift-hound.description', text: '총공격 피해를 강화합니다.' },
+              { id: 'ward-wisp', kind: 'summon', name: 'summon.recipe.ward-wisp.name', label: '수호 도깨비불', desc: 'summon.recipe.ward-wisp.description', text: '보스의 반격 피해를 줄입니다.' }
+            ].map(function (skill) {
+              return e('li', { key: skill.id, className: 'codex-skill-card codex-skill-card--' + skill.kind },
+                e('strong', { 'data-i18n': skill.name }, skill.label),
+                e('small', { 'data-i18n': skill.desc }, skill.text)
+              );
+            })
           )
         )
       )
@@ -437,6 +520,17 @@
               'aria-hidden': 'true',
               style: { pointerEvents: 'none' }
             }),
+            e('div', {
+              id: 'battle-loading-screen',
+              className: 'battle-loading-screen',
+              role: 'status',
+              'aria-live': 'polite',
+              'data-i18n-aria': 'battle.loadingScreen.aria'
+            },
+              e('div', { className: 'battle-loading-screen__spinner', 'aria-hidden': 'true' }),
+              e('p', { className: 'battle-loading-screen__title', 'data-i18n': 'battle.loadingScreen.title' }, '전장 불러오는 중'),
+              e('p', { id: 'battle-loading-screen-hint', className: 'battle-loading-screen__hint', 'data-i18n': 'battle.loadingScreen.hint' }, '3D 전술 전장 자산을 준비하고 있습니다. 잠시만 기다려 주세요.')
+            ),
             e('aside', {
               id: 'battle-visual-fallback',
               className: 'battle-visual-fallback',
@@ -459,6 +553,16 @@
               ),
               e('p', { className: 'battle-fallback-note', 'data-i18n': 'battle.fallback.note' }, '직접 렌더러를 사용할 수 없습니다. 전술 브리핑과 명령 패널은 활성 상태로 유지됩니다.')
             )
+          ),
+          e('div', {
+            id: 'command-tutorial-alarm',
+            className: 'command-tutorial-alarm',
+            role: 'alert',
+            'aria-live': 'assertive',
+            hidden: true,
+            'data-i18n-aria': 'tutorial.cameraSelectAria'
+          },
+            e('p', { className: 'command-tutorial-alarm__message', 'data-i18n': 'tutorial.cameraSelectHint' }, '명령을 실행하려면 카메라를 움직여 전장을 살피고, 대상 오브젝트나 부대를 선택하세요.')
           ),
           e('div', {
             id: 'battle-screen-ui',
@@ -576,7 +680,7 @@
               e('h3', { id: 'commands-heading', 'data-i18n': 'command.heading' }, '의미 기반 명령'),
               e('output', { id: 'campaign-status', className: 'status-message', 'aria-live': 'polite' })
             ),
-            e('p', { className: 'hint command-hint', 'data-i18n': 'command.hint' }, '버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요. 행동 마다 고유 쿨타임이 적용됩니다.')
+            e('p', { className: 'hint command-hint', 'data-i18n': 'command.hint' }, '사령관이 대상까지 자동으로 이동해 명령을 수행합니다 (부대 선택과 무관). 부대를 선택하면 그림자 군단을 따로 이동·집결시킬 수 있습니다. 버튼을 사용하거나, 다른 컨트롤에 포커스가 없을 때 표시된 키를 누르세요.')
           ),
           e('div', { id: 'command-pad', className: 'command-grid' },
             [
@@ -782,7 +886,8 @@
             },
               e('span', { 'data-i18n': 'battle.minimapFallback' }, '실시간 미니맵을 표시할 수 없습니다.')
             ),
-            e('p', { id: 'battle-minimap-hint', className: 'sr-only', 'data-i18n': 'battle.minimapHint' }, '방향키로 초점 칸을 이동하고 Enter나 Space로 전술 카메라를 이동하십시오.')
+            e('p', { id: 'battle-minimap-hint', className: 'sr-only', 'data-i18n': 'battle.minimapHint' }, '방향키로 초점 칸을 이동하고 Enter나 Space로 전술 카메라를 이동하십시오.'),
+            e('p', { className: 'battle-minimap-caption', 'data-i18n': 'battle.minimapCaption' }, '미니맵: 클릭하면 전술 카메라가 그 위치를 비춥니다. 부대는 이동하지 않습니다.')
           ),
           e('section', {
             id: 'battle-tactical-brief',
