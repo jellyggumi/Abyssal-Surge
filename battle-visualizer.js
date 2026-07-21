@@ -206,7 +206,8 @@ export class BattleVisualizer {
     this.lastTime = 0;
     this.aiAccumulator = 0;
 
-    this.allies = [];
+    this._allies = [];
+    this.alliesSet = new Set();
     this.enemies = [];
     this.engagements = new Map();
     this.exchanges = 0;
@@ -2304,6 +2305,7 @@ export class BattleVisualizer {
         radius: 0.42
       };
       this.allies.push(unit);
+      this.alliesSet.add(unit);
       this.burst(unit.x, unit.y, 8, this.palette.ally);
     }
   }
@@ -2321,8 +2323,10 @@ export class BattleVisualizer {
       }
     }
     this.allies = survivors;
+    this.alliesSet = new Set(survivors);
     while (this.allies.length > target) {
       const ally = this.allies.pop();
+      this.alliesSet.delete(ally);
       this.clearEngagement(ally);
       this.selection.delete(ally);
     }
@@ -2599,8 +2603,17 @@ export class BattleVisualizer {
     }
   }
 
+  get allies() {
+    return this._allies;
+  }
+
+  set allies(value) {
+    this._allies = value;
+    this.alliesSet = new Set(value);
+  }
+
   liveAlly(unit) {
-    return !unit?.defeated;
+    return this.alliesSet.has(unit) && !unit?.defeated;
   }
 
   liveEnemy(unit) {
