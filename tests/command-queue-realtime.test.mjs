@@ -214,6 +214,7 @@ async function loadAppQueueRuntime({ campaign = campaignAtStageOne(), includeFal
     },
     getAvailableActions: () => ["hunt", "extract"],
     getCampaignBenefits: () => ({ maxIntegrity: 10 }),
+    getCommanderReadiness: () => ({ energy: 1, maxEnergy: 1 }),
     getInteractiveBattleActions: () => ["hunt", "extract"],
     getTacticalProgression: (state) => ({ commandQueue: state.commandQueue }),
     handleActionFocus: () => {},

@@ -519,6 +519,11 @@ const elements = Object.freeze({
   bgmToggle: document.querySelector("#bgm-toggle"),
   bgmPlayer: document.querySelector("#bgm-player"),
   languageToggle: document.querySelector("#lang-toggle"),
+  tacticalMarksValue: document.querySelector("#tactical-marks-value"),
+  reserveCommand: document.querySelector("#reserve-command"),
+  commandReservationQueue: document.querySelector("#command-reservation-queue"),
+  tacticalDeploymentControls: document.querySelector("#tactical-deployment-controls"),
+  tacticalSkillControls: document.querySelector("#tactical-skill-controls"),
 });
 
 let campaign = null;
@@ -574,6 +579,7 @@ let minimapFailed = false;
 let activePlacementMode = null;
 let tacticalFeedbackMessage = "";
 let tacticalFeedbackTimer = 0;
+let portraitPauseQuery = null;
 
 function translateRejectionReason(msg, lang) {
   if (lang === undefined) lang = currentLang();
@@ -601,7 +607,11 @@ function translateRejectionReason(msg, lang) {
       "tactical.rejection.duplicateReservation": "이미 대기열에 예약된 명령 ID입니다.",
       "tactical.rejection.duplicateDeployment": "이미 배치에 사용된 ID입니다.",
       "tactical.rejection.duplicateId": "이미 사용 중인 ID입니다.",
-      "tactical.rejection.executionFailed": "명령 예약 실행에 실패했습니다: {error}"
+      "tactical.rejection.executionFailed": "명령 예약 실행에 실패했습니다: {error}",
+      "tactical.rejection.cooldown": "명령이 재사용 대기 중입니다. 쿨다운이 끝나면 자동으로 실행됩니다.",
+      "tactical.rejection.acknowledging": "명령을 접수하는 중입니다. 잠시 후 실행됩니다.",
+      "tactical.rejection.bossNotExposed": "보스가 아직 드러나지 않았습니다. 웨이브를 정리해 보스를 노출시키면 실행됩니다.",
+      "tactical.rejection.waitingRenderer": "전장이 명령을 준비하는 중입니다. 곧 실행됩니다."
     },
     en: {
       "tactical.rejection.inactiveStage": "This tactical action is unavailable outside an active stage.",
@@ -624,7 +634,11 @@ function translateRejectionReason(msg, lang) {
       "tactical.rejection.duplicateReservation": "Command reservation ID is already in use.",
       "tactical.rejection.duplicateDeployment": "Deployment ID is already in use.",
       "tactical.rejection.duplicateId": "ID is already in use.",
-      "tactical.rejection.executionFailed": "Execution failed: {error}"
+      "tactical.rejection.executionFailed": "Execution failed: {error}",
+      "tactical.rejection.cooldown": "This command is on cooldown. It resolves automatically once the cooldown ends.",
+      "tactical.rejection.acknowledging": "Registering the command. It resolves in a moment.",
+      "tactical.rejection.bossNotExposed": "The boss is not exposed yet. Clear the wave to expose it and this resolves.",
+      "tactical.rejection.waitingRenderer": "The battlefield is preparing this command. It resolves shortly."
     }
   };
 
@@ -747,6 +761,11 @@ function translateRejectionReason(msg, lang) {
     const innerReason = translateRejectionReason(execMatch[1], lang);
     return t("tactical.rejection.executionFailed").replace("{error}", innerReason);
   }
+
+  if (msg === "cooldown") return t("tactical.rejection.cooldown");
+  if (msg === "acknowledging") return t("tactical.rejection.acknowledging");
+  if (msg === "boss-not-exposed") return t("tactical.rejection.bossNotExposed");
+  if (msg === "waiting-renderer" || msg === "timeout-fallback") return t("tactical.rejection.waitingRenderer");
 
   return msg;
 }
@@ -1774,6 +1793,9 @@ async function drainCommandQueue() {
       // (auto-execute once in range) rather than just rejecting the press,
       // so it needs more read time than a quick reservation-error toast.
       showTacticalFeedback(translate("tactical.rejection.outOfRange"), 6000);
+    }
+    if (check.reason === "boss-not-exposed" && previousReason !== "boss-not-exposed") {
+      showTacticalFeedback(translate("tactical.rejection.bossNotExposed"), 5000);
     }
     syncQueuedCommandPreview();
     render();
@@ -3168,6 +3190,32 @@ function activateBattleFallback(stage, sessionId) {
   }
 }
 
+// .rotate-device-prompt covers #canvas-container-3d/#battle-canvas-fallback
+// with an opaque overlay via CSS while a mobile viewport is portrait, but a
+// WebGL canvas left running behind it keeps drawing frames nobody can see --
+// wasted GPU/battery at best, and, confirmed live, an actively-rendering
+// canvas can end up compositing above a same-stacking-context sibling
+// regardless of z-index in some environments, which the CSS overlay alone
+// cannot out-stack. Pausing the real renderer's own rAF loop here removes
+// that contention outright instead of trying to win it, and resumes the
+// instant the device (or the emulator) reports landscape again.
+function wirePortraitPauseListener() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+  const query = window.matchMedia("(max-width: 899px) and (orientation: portrait)");
+  const apply = (matches) => {
+    if (visualizer && typeof visualizer.setRenderingPaused === "function") {
+      visualizer.setRenderingPaused(matches);
+    }
+  };
+  const handler = (event) => apply(event.matches);
+  if (typeof query.addEventListener === "function") {
+    query.addEventListener("change", handler);
+  } else if (typeof query.addListener === "function") {
+    query.addListener(handler); // Safari < 14 fallback
+  }
+  portraitPauseQuery = query;
+}
+
 async function maybeLockLandscapeForBattle() {
   // Best-effort convenience for the "please rotate" prompt (see
   // .rotate-device-prompt in react-game-ui.css): where the Orientation Lock
@@ -3258,6 +3306,9 @@ async function startBattle() {
         return;
       }
       visualizer = battleRenderer;
+      if (portraitPauseQuery?.matches && typeof visualizer.setRenderingPaused === "function") {
+        visualizer.setRenderingPaused(true);
+      }
       if (pendingBattleRenderer === battleRenderer) pendingBattleRenderer = null;
     } catch {
       battleRenderer?.destroy();
@@ -3473,6 +3524,7 @@ function render() {
   const stage = currentStage();
   const state = campaign.stage;
   const benefits = getCampaignBenefits(campaign);
+  const progression = getTacticalProgression(campaign);
   const available = new Set(getAvailableActions(campaign));
   refreshCommanderReadinessFallback(available);
   const isComplete = campaign.status === "campaign-complete";
@@ -3615,16 +3667,14 @@ function render() {
   }
 
   // 1. Render Marks Value
-  const marksEl = document.querySelector("#tactical-marks-value");
+  const marksEl = elements.tacticalMarksValue;
   if (marksEl) {
-    const progression = getTacticalProgression(campaign);
     marksEl.textContent = String(progression.marks);
   }
 
   // 2. Render Command Queue Buttons (Availability / Fullness)
-  const reserveContainer = document.querySelector("#reserve-command");
+  const reserveContainer = elements.reserveCommand;
   if (reserveContainer) {
-    const progression = getTacticalProgression(campaign);
     const queue = progression.commandQueue || [];
     const queueLimit = Math.min(5, progression.skills.command + 1);
     const queueFull = queue.length >= queueLimit;
@@ -3657,7 +3707,7 @@ function render() {
   }
 
   // 3. Render Command Reservation Queue List
-  const queueContainer = document.querySelector("#command-reservation-queue");
+  const queueContainer = elements.commandReservationQueue;
   if (queueContainer) {
     const activeEl = document.activeElement;
     let savedFocus = null;
@@ -3672,7 +3722,6 @@ function render() {
       }
     }
     queueContainer.innerHTML = "";
-    const progression = getTacticalProgression(campaign);
     const queue = progression.commandQueue || [];
     if (elements.clearQueue) elements.clearQueue.disabled = queue.length === 0;
     
@@ -3798,9 +3847,8 @@ function render() {
   }
 
   // 4. Render Deployment Controls
-  const deploymentContainer = document.querySelector("#tactical-deployment-controls");
+  const deploymentContainer = elements.tacticalDeploymentControls;
   if (deploymentContainer) {
-    const progression = getTacticalProgression(campaign);
     const fortificationLevel = progression.skills.fortification;
     const currentDeployments = progression.deployments || [];
     
@@ -3867,9 +3915,8 @@ function render() {
   }
 
   // 5. Render Skill Upgrades
-  const skillContainer = document.querySelector("#tactical-skill-controls");
+  const skillContainer = elements.tacticalSkillControls;
   if (skillContainer) {
-    const progression = getTacticalProgression(campaign);
     const marks = progression.marks;
     
     const buttons = skillContainer.querySelectorAll("button[data-skill]");
@@ -5090,6 +5137,7 @@ async function initialize() {
     : translate("save.mirrorInactive");
   window.addEventListener("pagehide", () => campaignMirror?.close(), { once: true });
   wireControls();
+  wirePortraitPauseListener();
   particleBackground = initReactBitsEffects();
   syncBackgroundEffects();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(() => undefined);

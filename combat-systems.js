@@ -169,12 +169,22 @@ function compareCandidates(patternId, a, b) {
   return idOrder || a.sourceIndex - b.sourceIndex;
 }
 
-function selectTarget(patternId, context) {
+function selectTarget(patternId, context) { // ponytail: O(N) linear scan to avoid map-filter-sort allocations
   const source = context && Array.isArray(context.targets) ? context.targets : EMPTY_LIST;
-  const candidates = source.map(targetRecord).filter(Boolean);
-  if (!candidates.length) return { target: null, count: 0 };
-  candidates.sort((a, b) => compareCandidates(patternId, a, b));
-  return { target: candidates[0], count: candidates.length };
+  let best = null;
+  let count = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    const raw = source[i];
+    const candidate = targetRecord(raw, i);
+    if (!candidate) continue;
+    count += 1;
+    if (best === null) {
+      best = candidate;
+    } else if (compareCandidates(patternId, candidate, best) < 0) {
+      best = candidate;
+    }
+  }
+  return { target: best, count };
 }
 
 /**
@@ -191,19 +201,20 @@ export function resolveEnemyPattern(pattern, context = {}) {
   const selected = selectTarget(id, safeContext);
   let flankSide = "left";
   if (safeContext.side === "right" || safeContext.lane === "right") flankSide = "right";
-  const movementDirective = {
+  const movementDirective = Object.freeze({
     ...definition.movement,
     ...(id === "flanker" ? { side: flankSide } : {})
-  };
-  const targetingDirective = {
+  });
+  const targetingDirective = Object.freeze({
     ...definition.targeting,
     candidateCount: selected.count
-  };
+  });
   const contextTargetId = safeContext.targetId;
   const targetId = selected.target
     ? selected.target.id
     : (typeof contextTargetId === "string" || typeof contextTargetId === "number" ? String(contextTargetId) : null);
-  return freezeDeep({
+
+  return Object.freeze({
     accepted: true,
     patternId: id,
     // String directives are intentionally stable for simple consumers.

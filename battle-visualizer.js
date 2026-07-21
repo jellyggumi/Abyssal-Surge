@@ -202,6 +202,7 @@ export class BattleVisualizer {
     this.ctx = null;
     this.animationFrameId = null;
     this.destroyed = false;
+    this.externallyPaused = false;
     this.lastTime = 0;
     this.aiAccumulator = 0;
 
@@ -255,6 +256,7 @@ export class BattleVisualizer {
     this.placementMode = null;
     this.focusCell = null;
     this.deployments = [];
+    this.barricadeCells = new Set(); // ponytail: O(1) barricade Set lookup
     this.activeTowerShots = [];
     this.hoverTile = null;
     this.placementError = null;
@@ -362,11 +364,7 @@ export class BattleVisualizer {
   }
 
   isBarricadeAt(x, y) {
-    return this.deployments.some(d => {
-      const bx = d.cell ? d.cell.x : d.x;
-      const by = d.cell ? d.cell.y : d.y;
-      return (d.kind === "barricade" || d.type === "barricade") && Math.floor(bx) === x && Math.floor(by) === y;
-    });
+    return this.barricadeCells.has(`${x},${y}`);
   }
 
   // Delegates to the shared authoritative validator (stage-navigation.js) so
@@ -2239,6 +2237,15 @@ export class BattleVisualizer {
     if (this.deployments.length !== keep.size || this.deployments.some((d) => !keep.has(d.id))) {
       this.deployments = this.deployments.filter((d) => keep.has(d.id));
     }
+    this.barricadeCells.clear();
+    for (const d of this.deployments) {
+      const kind = d.kind || d.type;
+      if (kind === "barricade") {
+        const bx = d.cell ? d.cell.x : d.x;
+        const by = d.cell ? d.cell.y : d.y;
+        this.barricadeCells.add(`${Math.floor(bx)},${Math.floor(by)}`);
+      }
+    }
   }
 
   reconcileEncounterWave(activeWaveId = this.encounter?.state?.activeWaveId ?? null) {
@@ -2509,8 +2516,27 @@ export class BattleVisualizer {
     if (this.reducedMotion) this.render();
   }
 
+  // Mirrors RealtimeBattle.setRenderingPaused: app.js calls this while the
+  // mobile "please rotate your device" prompt covers the canvas so this
+  // loop -- the reduced-motion master clock, see the note atop animate() --
+  // actually stops instead of paying for update/render work nobody sees
+  // behind the opaque .rotate-device-prompt overlay (react-game-ui.css hides
+  // .cockpit-main under the same media query).
+  setRenderingPaused(paused) {
+    this.externallyPaused = paused;
+    if (paused) {
+      if (this.animationFrameId !== null) cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+      return;
+    }
+    if (!this.destroyed && this.animationFrameId === null) {
+      this.wasHidden = true;
+      this.animate();
+    }
+  }
+
   liveAlly(unit) {
-    return this.allies.includes(unit) && !unit?.defeated;
+    return !unit?.defeated;
   }
 
   liveEnemy(unit) {
@@ -4140,7 +4166,7 @@ export class BattleVisualizer {
     // ever rendered, unit positions never updated, and the object-feedback
     // layer's screenX/screenY (the boss/commander nameplates) never
     // refreshed past their first frame.
-    if (this.destroyed) return;
+    if (this.destroyed || this.externallyPaused) return;
     this.animationFrameId = requestAnimationFrame(() => this.animate());
     const now = performance.now();
 

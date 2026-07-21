@@ -577,6 +577,10 @@ button.primary:hover:not(:disabled), .relic-shop-btn-equip:hover:not(:disabled) 
   scrollbar-width: thin;
   scrollbar-color: var(--cinder) var(--raised);
 }
+.war-table-grid:focus-visible {
+  outline: 2px solid var(--ember, var(--cinder)) !important;
+  outline-offset: 3px !important;
+}
 
 .war-table-node {
   flex: 0 0 14rem !important;
@@ -3557,6 +3561,17 @@ textarea:focus-visible {
 @media (max-width: 899px) and (orientation: portrait) {
   body:has(#campaign-screen:not([hidden])) .rotate-device-prompt {
     display: grid;
+  }
+
+  /* Hide the gameplay HUD behind the prompt: harmless now that the prompt
+     itself renders correctly (see the DOM-placement note on
+     #rotate-device-prompt in react-game-ui.js -- moving it to be
+     #campaign-screen's own last child, sharing its position:fixed stacking
+     context, is what actually fixed the paint order here), but still
+     worthwhile so nothing behind an opaque full-screen message stays
+     interactive or keeps rendering. */
+  body:has(#campaign-screen:not([hidden])) .cockpit-main {
+    display: none !important;
   }
 }
 

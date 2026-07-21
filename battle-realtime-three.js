@@ -590,16 +590,37 @@ export class RealtimeBattle {
     this.destroyed = false;
     this.droppedTime = 0;
     this.running = false;
+    this.externallyPaused = false; // ponytail: external pause flag, matches visualizer
     this.lastTime = 0;
     this.raf = 0;
     this.hud = null;
     this.navigation = createStageNavigation(this.stageNumber);
+    this.gimmickGridMap = new Map(); // ponytail: O(1) grid Map lookup
+    if (this.navigation?.zones) {
+      for (const zone of this.navigation.zones) {
+        if (!zone.cells) continue;
+        const kind = TACTICAL_GIMMICKS[zone.kind] || null;
+        for (const cell of zone.cells) {
+          this.gimmickGridMap.set(`${cell.x},${cell.y}`, kind);
+        }
+      }
+    }
     this.staticBlockers = [];
     this.navigationBarricades = [];
     this.nodes = [];
     this.capturedCount = 0;
     this.accumulator = 0;
     this.commanderVelocity = new THREE.Vector2(0, 0);
+    // ponytail: pre-allocated scratch objects to avoid per-frame/per-tick allocations
+    this.commanderTargetVelScratch = new THREE.Vector2(0, 0);
+    this.commanderDiffScratch = new THREE.Vector2(0, 0);
+    this.navigationAtScratch = { x: 0, y: 0, elevation: 0, walkable: false };
+    this.moveStartScratch = { x: 0, z: 0 };
+    this.moveResolvedScratch = { x: 0, y: 0, z: 0, blocked: false };
+    this.traceBestScratch = { x: 0, z: 0, blocked: false };
+    this.traceAlongXScratch = { x: 0, z: 0, blocked: false };
+    this.traceAlongZScratch = { x: 0, z: 0, blocked: false };
+    this.tracePrevPosScratch = { x: 0, z: 0 };
     this.commanderPath = null;
     this.routeLines = [];
     const portalAnchor = this.navigation.anchors.portal;
@@ -1857,20 +1878,27 @@ export class RealtimeBattle {
   }
 
   navigationAt(x, z) {
-    const grid = this.worldToGrid(x, z);
-    const cellX = Math.floor(grid.x);
-    const cellZ = Math.floor(grid.y);
+    const cellX = Math.floor(x + 12);
+    const cellZ = Math.floor(z + 6);
     const height = this.navigation.heightAt(cellX, cellZ);
-    return {
-      x: grid.x,
-      y: grid.y,
-      elevation: Math.max(0, height),
-      walkable: height >= 0,
-    };
+    const scratch = this.navigationAtScratch;
+    scratch.x = x + 12;
+    scratch.y = z + 6;
+    scratch.elevation = Math.max(0, height);
+    scratch.walkable = height >= 0;
+    return scratch;
   }
 
   setNodeState(nodeMesh, status) {
     if (!nodeMesh) return;
+
+    nodeMesh.userData = nodeMesh.userData || {};
+    // Skip entirely if status is unchanged and it's not the pulsing "next" node
+    if (nodeMesh.userData.lastStatus === status && status !== "next") {
+      return;
+    }
+    nodeMesh.userData.lastStatus = status;
+
     let colorHex;
     let opacity;
     let emissiveIntensity;
@@ -1892,39 +1920,47 @@ export class RealtimeBattle {
       semantic = null;
     }
 
-    const color = new THREE.Color(colorHex);
-
     if (nodeMesh.material) {
-      if (nodeMesh.material.color && typeof nodeMesh.material.color.copy === "function") {
-        nodeMesh.material.color.copy(color);
+      if (nodeMesh.material.color && typeof nodeMesh.material.color.set === "function") {
+        nodeMesh.material.color.set(colorHex);
       } else {
-        nodeMesh.material.color = color;
+        nodeMesh.material.color = new THREE.Color(colorHex);
       }
-      if (nodeMesh.material.emissive && typeof nodeMesh.material.emissive.copy === "function") {
-        nodeMesh.material.emissive.copy(color);
+      if (nodeMesh.material.emissive && typeof nodeMesh.material.emissive.set === "function") {
+        nodeMesh.material.emissive.set(colorHex);
       } else {
-        nodeMesh.material.emissive = color;
+        nodeMesh.material.emissive = new THREE.Color(colorHex);
       }
       nodeMesh.material.emissiveIntensity = emissiveIntensity;
       nodeMesh.material.transparent = true;
       nodeMesh.material.opacity = opacity;
     }
 
-    nodeMesh.userData = nodeMesh.userData || {};
     nodeMesh.userData.semantic = semantic;
 
-    if (typeof nodeMesh.traverse === "function") {
-      nodeMesh.traverse((child) => {
-        if (child !== nodeMesh && child.isMesh && child.material) {
-          if (child.material.color && typeof child.material.color.copy === "function") {
-            child.material.color.copy(color);
-          } else {
-            child.material.color = color;
+    // Cache traversed materials list on the nodeMesh.userData
+    if (!nodeMesh.userData.nodeMaterials) {
+      const childMats = [];
+      if (typeof nodeMesh.traverse === "function") {
+        nodeMesh.traverse((child) => {
+          if (child !== nodeMesh && child.isMesh && child.material) {
+            childMats.push(child.material);
           }
-          child.material.transparent = true;
-          child.material.opacity = opacity * RING_OPACITY;
-        }
-      });
+        });
+      }
+      nodeMesh.userData.nodeMaterials = childMats;
+    }
+
+    const childMats = nodeMesh.userData.nodeMaterials;
+    for (let i = 0; i < childMats.length; i++) {
+      const mat = childMats[i];
+      if (mat.color && typeof mat.color.set === "function") {
+        mat.color.set(colorHex);
+      } else {
+        mat.color = new THREE.Color(colorHex);
+      }
+      mat.transparent = true;
+      mat.opacity = opacity * RING_OPACITY;
     }
   }
 
@@ -2231,6 +2267,7 @@ export class RealtimeBattle {
 
   play(instance, name, once = false) {
     if (!instance?.clips) return;
+    if (instance.activeClipName === name && instance.active?.isRunning()) return;
     const clip = clipFor(instance.clips, name);
     if (!clip) return;
     let action = instance.actions.get(clip.name);
@@ -2238,13 +2275,17 @@ export class RealtimeBattle {
       action = instance.mixer.clipAction(clip);
       instance.actions.set(clip.name, action);
     }
-    if (instance.active === action && action.isRunning()) return;
+    if (instance.active === action && action.isRunning()) {
+      instance.activeClipName = name;
+      return;
+    }
     if (instance.active && instance.active !== action) instance.active.fadeOut(0.1);
     action.reset();
     action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
     action.clampWhenFinished = once;
     action.fadeIn(0.1).play();
     instance.active = action;
+    instance.activeClipName = name;
   }
 
   frame(time) {
@@ -2744,55 +2785,65 @@ export class RealtimeBattle {
   // sub-position (terrain-clear and collision-free). Returns raw x/z only --
   // resolveMovement below attaches elevation once for whichever candidate it
   // ultimately picks.
-  traceStraightMove(unit, start, targetX, targetZ, radius) {
+  traceStraightMove(unit, start, targetX, targetZ, radius, outScratch) {
     const distance = Math.hypot(targetX - start.x, targetZ - start.z);
     const steps = Math.max(1, Math.ceil(distance / 0.12));
-    let resolved = start;
+    let resolvedX = start.x;
+    let resolvedZ = start.z;
     let blocked = false;
     for (let step = 1; step <= steps; step += 1) {
       const progress = step / steps;
       const x = start.x + (targetX - start.x) * progress;
       const z = start.z + (targetZ - start.z) * progress;
-      if (!this.terrainClear(x, z, radius, resolved) || this.collidesAt(unit, x, z, radius)) {
+      const prev = this.tracePrevPosScratch;
+      prev.x = resolvedX;
+      prev.z = resolvedZ;
+      if (!this.terrainClear(x, z, radius, prev) || this.collidesAt(unit, x, z, radius)) {
         blocked = true;
         break;
       }
-      resolved = { x, z };
+      resolvedX = x;
+      resolvedZ = z;
     }
-    return { x: resolved.x, z: resolved.z, blocked };
+    outScratch.x = resolvedX;
+    outScratch.z = resolvedZ;
+    outScratch.blocked = blocked;
+    return outScratch;
   }
 
   resolveMovement(unit, targetX, targetZ) {
     const root = unit?.root;
-    if (!root) return { x: targetX, y: 0, z: targetZ, blocked: true };
+    const resolved = this.moveResolvedScratch;
+    if (!root) {
+      resolved.x = targetX;
+      resolved.y = 0;
+      resolved.z = targetZ;
+      resolved.blocked = true;
+      return resolved;
+    }
     const radius = unit.radius ?? 0.42;
-    const start = { x: root.position.x, z: root.position.z };
-    let best = this.traceStraightMove(unit, start, targetX, targetZ, radius);
-    // A blocked diagonal move (e.g. squeezing past a neighboring ally, a
-    // static prop, or a lane edge) previously hard-stopped here every frame:
-    // since ally intercept/rally targets rarely change frame to frame, the
-    // identical blocked vector got retried forever, wedging Legion units
-    // against each other or a corner indefinitely (the "collision freezes
-    // movement" symptom). Sliding along whichever single axis is still clear
-    // lets a unit route around the obstacle instead of permanently stalling.
+    const start = this.moveStartScratch;
+    start.x = root.position.x;
+    start.z = root.position.z;
+
+    let best = this.traceStraightMove(unit, start, targetX, targetZ, radius, this.traceBestScratch);
     if (best.blocked) {
       const dx = targetX - start.x;
       const dz = targetZ - start.z;
       if (Math.abs(dx) > EPSILON && Math.abs(dz) > EPSILON) {
         const progress = (candidate) => Math.hypot(candidate.x - start.x, candidate.z - start.z);
-        const alongX = this.traceStraightMove(unit, start, targetX, start.z, radius);
-        const alongZ = this.traceStraightMove(unit, start, start.x, targetZ, radius);
+        const alongX = this.traceStraightMove(unit, start, targetX, start.z, radius, this.traceAlongXScratch);
+        const alongZ = this.traceStraightMove(unit, start, start.x, targetZ, radius, this.traceAlongZScratch);
         if (progress(alongX) > progress(best)) best = alongX;
         if (progress(alongZ) > progress(best)) best = alongZ;
       }
     }
     const navigation = this.navigationAt(best.x, best.z);
-    return {
-      x: best.x,
-      y: navigation.elevation * TERRAIN_ELEVATION_SCALE,
-      z: best.z,
-      blocked: best.blocked,
-    };
+    resolved.x = best.x;
+    resolved.y = navigation.elevation * TERRAIN_ELEVATION_SCALE;
+    resolved.z = best.z;
+    resolved.blocked = best.blocked;
+    return resolved;
   }
 
   applyResolvedMovement(unit, targetX, targetZ) {
@@ -2922,7 +2973,7 @@ export class RealtimeBattle {
       }
     }
     
-    const targetVel = new THREE.Vector2(0, 0);
+    const targetVel = this.commanderTargetVelScratch.set(0, 0);
     const length = Math.hypot(x, z);
     if (length > EPSILON) {
       const baseSpeed = this.hasSurge() ? 7.2 : 4.1;
@@ -2946,7 +2997,7 @@ export class RealtimeBattle {
       rate = 36;
     }
     
-    const diff = new THREE.Vector2().subVectors(targetVel, this.commanderVelocity);
+    const diff = this.commanderDiffScratch.subVectors(targetVel, this.commanderVelocity);
     const diffLen = diff.length();
     const step = rate * dt;
     
@@ -5550,6 +5601,28 @@ export class RealtimeBattle {
     this.hud = hud;
   }
 
+  // Explicit external pause/resume, independent of tab visibility (see
+  // onVisibility for that case): app.js calls this while the mobile
+  // "please rotate your device" prompt covers the canvas (portrait, narrow
+  // viewport) so the WebGL context stops rendering entirely instead of
+  // continuing to draw frames nobody can see behind an opaque overlay.
+  // Also sidesteps a live-observed issue where an actively-rendering WebGL
+  // canvas can end up compositing above same-stacking-context DOM siblings
+  // regardless of z-index in some environments -- stopping the render loop
+  // removes that contention outright rather than trying to out-stack it.
+  setRenderingPaused(paused) {
+    this.externallyPaused = paused;
+    if (paused) {
+      if (this.raf) cancelAnimationFrame(this.raf);
+      this.raf = 0;
+      return;
+    }
+    if (this.running && !this.raf) {
+      this.lastTime = performance.now();
+      this.raf = requestAnimationFrame(this.rafCallback);
+    }
+  }
+
   onVisibility() {
     if (document.hidden) {
       this.clearPressedInput();
@@ -5558,7 +5631,7 @@ export class RealtimeBattle {
       this.raf = 0;
       return;
     }
-    if (this.running && !this.raf) {
+    if (this.running && !this.raf && !this.externallyPaused) {
       this.lastTime = performance.now();
       this.raf = requestAnimationFrame(this.rafCallback);
     }
@@ -5896,14 +5969,7 @@ export class RealtimeBattle {
   }
 
   getGimmickAt(gridX, gridY) {
-    const x = Math.floor(gridX);
-    const y = Math.floor(gridY);
-    if (!this.navigation?.zones) return null;
-    const zone = this.navigation.zones.find((z) =>
-      z.cells.some((c) => c.x === x && c.y === y)
-    );
-    if (!zone) return null;
-    return TACTICAL_GIMMICKS[zone.kind] || null;
+    return this.gimmickGridMap.get(`${Math.floor(gridX)},${Math.floor(gridY)}`) || null;
   }
 
   updateCommanderPathPreview() {

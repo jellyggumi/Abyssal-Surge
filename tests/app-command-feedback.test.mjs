@@ -288,6 +288,7 @@ async function loadStartupStatus(locale, {
     updateResumeAffordance: () => {},
     window: { addEventListener: () => {} },
     wireControls: () => {},
+    wirePortraitPauseListener: () => {},
   });
   const definitions = [
     appFunction(appSource, "setSaveStatus", "translatedResumeText"),
@@ -778,15 +779,16 @@ async function loadTacticalHudProjection({
   };
 
   const reserveButtons = {};
+  let reserveContainer = null;
   if (reserveContract) {
-    const reserveContainer = instantiateReactElement(body, reserveContract.container);
+    reserveContainer = instantiateReactElement(body, reserveContract.container);
     for (const buttonContract of reserveContract.buttons) {
       const button = instantiateReactElement(reserveContainer, buttonContract);
       reserveButtons[button.dataset.reserveAction] = button;
     }
   }
   const campaignStatus = append(body, "p", { id: "campaign-status" });
-  append(body, "strong", { id: "tactical-marks-value" });
+  const marksEl = append(body, "strong", { id: "tactical-marks-value" });
   const queueContainer = append(body, "ol", { id: "command-reservation-queue" });
   const deploymentContainer = append(body, "div", { id: "tactical-deployment-controls" });
   const deploymentButtons = {};
@@ -837,7 +839,14 @@ async function loadTacticalHudProjection({
     entryGuidanceStageId,
     currentStage: () => campaignState ? STAGES[0] : { commands: { hunt: {}, extract: {} } },
     document,
-    elements: { status: campaignStatus },
+    elements: {
+      status: campaignStatus,
+      tacticalMarksValue: marksEl,
+      reserveCommand: reserveContainer,
+      commandReservationQueue: queueContainer,
+      tacticalDeploymentControls: deploymentContainer,
+      tacticalSkillControls: skillContainer,
+    },
     getTacticalProgression: (state) => state.progression,
     persistCampaign: async () => {},
     showTacticalFeedback: (message) => {
@@ -901,6 +910,7 @@ ${statusProjection[0]}
 }`
     : `function projectTacticalHud() {
   const lang = currentLang();
+  const progression = getTacticalProgression(campaign);
   ${tacticalProjection[0]}
 }`;
   vm.runInContext(
@@ -3327,6 +3337,7 @@ test("app passes session-scoped selection callbacks to both battle renderers", a
     currentStage: () => stage,
     elements: { battleCanvas3d: {}, battleFallbackCanvas: {} },
     getAvailableActions: () => [],
+    getCommanderReadiness: () => ({ energy: 1, maxEnergy: 1 }),
     getBattlePresentation: () => ({ stageNumber: 1 }),
     getInteractiveBattleActions: () => [],
     handleAction() {},
@@ -3337,6 +3348,7 @@ test("app passes session-scoped selection callbacks to both battle renderers", a
     handleTacticalRequest() {},
     lastScrolledStageId: "old-stage",
     pendingBattleRenderer: null,
+    portraitPauseQuery: null,
     projectActionFocus() {},
     projectBattleRuntime() {},
     render() {},
@@ -3424,6 +3436,7 @@ test("startBattle falls back to the Canvas2D renderer instead of leaving every c
     currentStage: () => stage,
     elements: { battleCanvas3d: {}, battleFallbackCanvas: {} },
     getAvailableActions: () => [],
+    getCommanderReadiness: () => ({ energy: 1, maxEnergy: 1 }),
     getBattlePresentation: () => ({ stageNumber: 1 }),
     getInteractiveBattleActions: () => [],
     handleAction() {},
@@ -3434,6 +3447,7 @@ test("startBattle falls back to the Canvas2D renderer instead of leaving every c
     handleTacticalRequest() {},
     lastScrolledStageId: "old-stage",
     pendingBattleRenderer: null,
+    portraitPauseQuery: null,
     projectActionFocus() {},
     projectBattleRuntime() {},
     render() {},

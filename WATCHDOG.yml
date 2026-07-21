@@ -1,3 +1,27 @@
 advisors: 
   - name: default
-    model: google-antigravity/gemini-3.5-flash:high
+    model: openai-codex/gpt-5.6-sol:high
+    tools: 
+      - read
+      - bash
+      - edit
+      - ast_grep
+      - ast_edit
+      - ask
+      - eval
+      - github
+      - glob
+      - grep
+      - lsp
+      - inspect_image
+      - vision_verify
+      - browser
+      - checkpoint
+      - rewind
+      - task
+      - job
+      - irc
+      - subagent
+      - todo
+      - web_search
+      - write

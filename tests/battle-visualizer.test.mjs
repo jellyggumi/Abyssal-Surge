@@ -2116,3 +2116,226 @@ test("BattleVisualizer emits exact chest events for mouse and touch and clears f
   assert.equal(visualizer.pendingChest, null);
   assert.deepEqual(visualizer.activeEffects, []);
 });
+
+test("BattleVisualizer setRenderingPaused(true) cancels the pending animation frame without needing document.hidden", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const visualizer = makeVisualizer(t, {});
+  visualizer.animationFrameId = 501; // simulates an already-scheduled frame from init()'s animate()
+
+  visualizer.setRenderingPaused(true);
+
+  assert.deepEqual(cancelled, [501], "pausing while the tab is still visible must cancel the exact pending animation frame handle");
+  assert.equal(visualizer.animationFrameId, null, "pausing must clear the stored animation frame handle to a falsy state");
+  assert.equal(visualizer.externallyPaused, true, "pausing must record the external pause flag");
+  assert.deepEqual(scheduled, [], "pausing must not schedule any new animation frame");
+});
+
+test("BattleVisualizer setRenderingPaused(false) after a prior pause restarts the animate loop while not destroyed", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const visualizer = makeVisualizer(t, {});
+  visualizer.animationFrameId = 501;
+
+  visualizer.setRenderingPaused(true);
+  assert.equal(visualizer.animationFrameId, null, "the loop must already be stopped before the restart is exercised");
+
+  visualizer.setRenderingPaused(false);
+
+  assert.deepEqual(scheduled, [901], "unpausing a non-destroyed instance must schedule exactly one successor frame via animate()");
+  assert.equal(visualizer.animationFrameId, 901, "unpausing must store the freshly scheduled animation frame handle");
+  assert.equal(visualizer.externallyPaused, false, "unpausing must clear the external pause flag");
+});
+
+test("BattleVisualizer stays paused through a hidden/visible visibility round-trip while externally paused", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  const documentListeners = new Map();
+  globalThis.document = {
+    hidden: false,
+    addEventListener(type, listener) {
+      documentListeners.set(type, listener);
+    },
+    removeEventListener(type, listener) {
+      if (documentListeners.get(type) === listener) documentListeners.delete(type);
+    },
+  };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const visualizer = makeVisualizer(t, {});
+  assert.equal(documentListeners.has("visibilitychange"), true, "constructing the visualizer must register its own visibility handler");
+  visualizer.animationFrameId = 501;
+
+  visualizer.setRenderingPaused(true);
+  assert.equal(visualizer.animationFrameId, null, "the mobile rotate-device overlay path must have stopped the loop before the tab visibility cycle begins");
+
+  // The overlay stays up (still externally paused) while the player switches
+  // tabs and comes back -- this is the exact regression the fix targets.
+  globalThis.document.hidden = true;
+  documentListeners.get("visibilitychange")();
+  assert.equal(visualizer.animationFrameId, null, "going hidden while externally paused must leave the already-stopped loop alone");
+
+  globalThis.document.hidden = false;
+  documentListeners.get("visibilitychange")();
+
+  assert.equal(visualizer.animationFrameId, null, "returning to a visible tab must NOT resume rendering while the external pause is still active");
+  assert.deepEqual(scheduled, [], "the external pause must survive the visibility round-trip without a new animation frame ever being scheduled");
+  assert.deepEqual(cancelled, [501], "no animation frame handle beyond the original pause-time cancellation should ever need cancelling");
+  assert.equal(visualizer.externallyPaused, true, "the external pause flag itself must remain set across the visibility cycle");
+});
+
+test("BattleVisualizer setRenderingPaused(false) with no prior pause is a safe no-op that does not double-schedule a running loop", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const visualizer = makeVisualizer(t, {});
+  visualizer.animationFrameId = 501; // already actively rendering, e.g. from init()'s animate()
+
+  visualizer.setRenderingPaused(false);
+
+  assert.equal(visualizer.animationFrameId, 501, "an already-running instance must keep its existing animation frame handle untouched");
+  assert.deepEqual(scheduled, [], "unpausing an instance that was never externally paused must not schedule a second, competing frame");
+  assert.deepEqual(cancelled, [], "unpausing an instance that was never paused must not cancel anything");
+  assert.equal(visualizer.externallyPaused, false, "the external pause flag must remain false");
+});
+
+test("BattleVisualizer setRenderingPaused(true) then setRenderingPaused(false) resets timing state so the next animate() tick does not compute a huge elapsed-time jump", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  const priorPerformance = globalThis.performance;
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  let nowValue = 1000;
+  globalThis.performance = { now: () => nowValue };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+    if (priorPerformance === undefined) delete globalThis.performance;
+    else globalThis.performance = priorPerformance;
+  });
+
+  const visualizer = makeVisualizer(t, {});
+  const updateUnitsCalls = [];
+  const updateParticlesCalls = [];
+  visualizer.updateUnits = (dt) => updateUnitsCalls.push(dt);
+  visualizer.updateParticles = (dt) => updateParticlesCalls.push(dt);
+  visualizer.animationFrameId = 501;
+  visualizer.lastTime = nowValue;
+  visualizer.timeAccumulator = 0.02; // a leftover fixed-step remainder from before the pause
+  visualizer.droppedTime = 0;
+
+  visualizer.setRenderingPaused(true);
+  assert.equal(visualizer.animationFrameId, null, "rendering must actually be paused (raf cancelled) before the resume gap is simulated");
+
+  // Simulate the portrait "rotate your device" overlay staying up for five
+  // real seconds while the render loop is fully stopped.
+  nowValue += 5000;
+
+  visualizer.setRenderingPaused(false);
+
+  assert.deepEqual(scheduled, [901], "resuming must schedule exactly one successor animate() frame");
+  assert.equal(visualizer.lastTime, nowValue, "the resumed tick must resync lastTime to the resume timestamp instead of the stale pre-pause value");
+  assert.equal(visualizer.timeAccumulator, 0, "the resumed tick must not carry the pre-pause fixed-step remainder into a post-pause elapsed-time computation");
+  assert.equal(visualizer.droppedTime, 0, "the five-second pause gap must not be counted as dropped simulation time");
+  assert.deepEqual(updateUnitsCalls, [], "the resumed tick must not run any catch-up unit simulation steps for time that only elapsed because rendering was paused");
+  assert.deepEqual(updateParticlesCalls, [], "the resumed tick must not run any catch-up particle steps for time that only elapsed because rendering was paused");
+});

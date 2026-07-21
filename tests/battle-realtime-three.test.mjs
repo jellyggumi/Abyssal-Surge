@@ -3758,6 +3758,107 @@ test("RealtimeBattle right-drag previews legal ally routes, commits on release, 
   assert.strictEqual(ally.customPath, priorPath, "an invalid route must not replace the last legal committed route");
   assert.strictEqual(ally.customOrder, priorOrder, "an invalid route must preserve the last legal destination");
 });
+test("RealtimeBattle touch-unit-drag moves a dragged ally, moves the dragged commander, still orbits the camera from open ground, and taps still select/focus", () => {
+  let groundPoint;
+  const canvas = {
+    style: {},
+    focus() {},
+    setPointerCapture() {},
+    hasPointerCapture: () => true,
+    releasePointerCapture() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  };
+  const battle = new RealtimeBattle(canvas, { stageNumber: 1 });
+  const startCell = {
+    x: Math.floor(battle.navigation.anchors.alliedSpawn.x),
+    y: Math.floor(battle.navigation.anchors.alliedSpawn.y),
+  };
+  const targetCell = { x: 12, y: 2 };
+  const start = battle.navigation.gridToWorld(startCell.x + 0.5, startCell.y + 0.5);
+  const target = battle.navigation.gridToWorld(targetCell.x + 0.5, targetCell.y + 0.5);
+  assert.ok(
+    battle.navigation.findPath(startCell, targetCell)?.length > 1,
+    "the deterministic Stage 1 fixture must expose a legal drag destination",
+  );
+
+  const ally = makeUnit({ x: start.x, z: start.z });
+  battle.commander = makeUnit({ x: start.x, z: start.z });
+  battle.allies = [ally];
+  battle.allyPickRoots = [];
+  battle.camera = {};
+  battle.ground = {};
+  battle.scene = { add() {}, remove() {} };
+  battle.resolvePointerAction = () => null;
+  battle.setPointerRay = () => true;
+  battle.raycaster = {
+    intersectObject: (object) => object === battle.ground ? [{ point: groundPoint }] : [],
+    intersectObjects: () => [],
+  };
+
+  const pointer = (pointerId, x, timeStamp = 10) => ({
+    button: 0,
+    clientX: x,
+    clientY: 50,
+    pointerId,
+    pointerType: "touch",
+    timeStamp,
+  });
+
+  // 1) Touch drag starting on a live ally: selects it and, once the drag
+  // exceeds the move threshold, previews then commits a rally route --
+  // exactly what a mouse right-drag does, but reachable with one finger.
+  battle.resolvePointerAlly = () => ally;
+  battle.resolvePointerCommander = () => battle.commander;
+  groundPoint = { x: target.x, y: 0, z: target.z };
+  battle.onPointerDown(pointer(1, 10, 10));
+  assert.equal(battle.pointer.mode, "touch-unit-drag", "pressing directly on a live ally must start a unit-drag, not camera orbit");
+  assert.equal(battle.pointer.dragUnit, ally, "the drag must remember which ally was pressed");
+  battle.onPointerMove(pointer(1, 30, 20));
+  assert.ok(battle.selection.has(ally), "dragging an unselected ally must select it so the route preview targets it");
+  assert.equal(battle.routePreviewActive, true, "a held touch-unit-drag over a legal tile must expose a live route preview");
+  battle.onPointerUp(pointer(1, 30, 30));
+  assert.ok(ally.customPath?.length > 0, "releasing a touch-unit-drag over a legal tile must commit the ally's route");
+  assert.equal(battle.routePreviewActive, false, "committing the drag must clear the transient preview");
+
+  // 2) Touch drag starting on the commander: moves the commander live,
+  // during the drag itself (not only on release) -- see
+  // updateCommanderRoutePreview's doc comment for why setting
+  // commanderPath/commanderOrder mid-drag is the intended "drag your piece"
+  // behavior rather than a preview-only state.
+  battle.resolvePointerAlly = () => null;
+  battle.commanderPath = null;
+  battle.commanderOrder = null;
+  battle.onPointerDown(pointer(2, 10, 40));
+  assert.equal(battle.pointer.mode, "touch-unit-drag", "pressing directly on the commander must start a unit-drag");
+  assert.equal(battle.pointer.dragUnit, "commander", "the drag must record the commander as the drag target, not an ally");
+  battle.onPointerMove(pointer(2, 30, 50));
+  assert.ok(battle.commanderPath?.length > 0, "dragging the commander must live-update its walk path toward the finger");
+  assert.ok(battle.commanderOrder, "dragging the commander must live-update its destination order");
+  battle.onPointerUp(pointer(2, 30, 60));
+  assert.ok(battle.commanderPath?.length > 0, "releasing a commander drag over a legal tile must keep the committed route");
+
+  // 3) Touch drag starting on open ground (nothing draggable under the
+  // finger) must still orbit the camera -- the existing "터치 드래그 회전"
+  // look-around control is unaffected by adding unit-drag.
+  battle.resolvePointerAlly = () => null;
+  battle.resolvePointerCommander = () => null;
+  const azimuthBefore = battle.orbitAzimuth;
+  battle.onPointerDown(pointer(3, 10, 70));
+  assert.equal(battle.pointer.mode, "orbit", "pressing open ground on touch must still orbit the camera");
+  battle.onPointerMove(pointer(3, 40, 70));
+  assert.notEqual(battle.orbitAzimuth, azimuthBefore, "an orbit-mode touch drag must still rotate the camera");
+  battle.onPointerUp(pointer(3, 40, 80));
+
+  // 4) A tap (no drag) on the commander is acknowledged via a focus
+  // highlight/camera-look cue instead of selection, since the commander is
+  // never added to `this.selection` (ally-only, by design).
+  battle.resolvePointerCommander = () => battle.commander;
+  let focusedCell = null;
+  battle.focusTacticalCell = (cell) => { focusedCell = cell; };
+  battle.onPointerDown(pointer(4, 10, 90));
+  battle.onPointerUp(pointer(4, 10, 95));
+  assert.ok(focusedCell, "a plain tap on the commander must trigger a focus highlight");
+});
 
 test("RealtimeBattle publishes stable selection summaries and removes a defeated selected ally", () => {
   const summaries = [];
@@ -6119,4 +6220,164 @@ test("RealtimeBattle reports bound material maps without mutating runtime materi
   assert.equal(mesh.material, material, "evidence collection must not replace runtime materials");
   assert.equal(material.map, map, "evidence collection must not rewrite bound albedo maps");
   assert.equal(material.normalMap, normalMap, "evidence collection must not rewrite bound normal maps");
+});
+
+test("RealtimeBattle setRenderingPaused(true) cancels the pending animation frame without needing document.hidden", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.running = true;
+  battle.raf = 501; // simulates an already-scheduled frame from a prior start()
+
+  battle.setRenderingPaused(true);
+
+  assert.deepEqual(cancelled, [501], "pausing while the tab is still visible must cancel the exact pending animation frame handle");
+  assert.equal(battle.raf, 0, "pausing must clear the stored animation frame handle to a falsy state");
+  assert.equal(battle.externallyPaused, true, "pausing must record the external pause flag");
+  assert.deepEqual(scheduled, [], "pausing must not schedule any new animation frame");
+});
+
+test("RealtimeBattle setRenderingPaused(false) after a prior pause restarts the animation loop while running", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.running = true;
+  battle.raf = 501;
+
+  battle.setRenderingPaused(true);
+  assert.equal(battle.raf, 0, "the loop must already be stopped before the restart is exercised");
+
+  battle.setRenderingPaused(false);
+
+  assert.deepEqual(scheduled, [901], "unpausing a running, non-destroyed instance must schedule exactly one successor frame");
+  assert.equal(battle.raf, 901, "unpausing must store the freshly scheduled animation frame handle");
+  assert.equal(battle.externallyPaused, false, "unpausing must clear the external pause flag");
+});
+
+test("RealtimeBattle stays paused through a hidden/visible visibility round-trip while externally paused", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.running = true;
+  battle.raf = 501;
+
+  battle.setRenderingPaused(true);
+  assert.equal(battle.raf, 0, "the mobile rotate-device overlay path must have stopped the loop before the tab visibility cycle begins");
+
+  // The overlay stays up (still externally paused) while the player switches
+  // tabs and comes back -- this is the exact regression the fix targets.
+  globalThis.document.hidden = true;
+  battle.onVisibility();
+  assert.equal(battle.raf, 0, "going hidden while externally paused must leave the already-stopped loop alone");
+
+  globalThis.document.hidden = false;
+  battle.onVisibility();
+
+  assert.equal(battle.raf, 0, "returning to a visible tab must NOT resume rendering while the external pause is still active");
+  assert.deepEqual(scheduled, [], "the external pause must survive the visibility round-trip without a new animation frame ever being scheduled");
+  assert.deepEqual(cancelled, [501], "no animation frame handle beyond the original pause-time cancellation should ever need cancelling");
+  assert.equal(battle.externallyPaused, true, "the external pause flag itself must remain set across the visibility cycle");
+});
+
+test("RealtimeBattle setRenderingPaused(false) with no prior pause is a safe no-op that does not double-schedule a running loop", (t) => {
+  const priorDocument = globalThis.document;
+  const priorRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const priorCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.document = { hidden: false };
+  let nextFrameId = 900;
+  const scheduled = [];
+  const cancelled = [];
+  globalThis.requestAnimationFrame = () => {
+    const id = ++nextFrameId;
+    scheduled.push(id);
+    return id;
+  };
+  globalThis.cancelAnimationFrame = (id) => {
+    cancelled.push(id);
+  };
+  t.after(() => {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+    if (priorRequestAnimationFrame === undefined) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = priorRequestAnimationFrame;
+    if (priorCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = priorCancelAnimationFrame;
+  });
+
+  const battle = new RealtimeBattle(null, { stageNumber: 1 });
+  battle.running = true;
+  battle.raf = 501; // already actively rendering, e.g. from start()
+
+  battle.setRenderingPaused(false);
+
+  assert.equal(battle.raf, 501, "an already-running instance must keep its existing animation frame handle untouched");
+  assert.deepEqual(scheduled, [], "unpausing an instance that was never externally paused must not schedule a second, competing frame");
+  assert.deepEqual(cancelled, [], "unpausing an instance that was never paused must not cancel anything");
+  assert.equal(battle.externallyPaused, false, "the external pause flag must remain false");
 });
