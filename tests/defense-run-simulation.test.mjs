@@ -9,7 +9,7 @@ import {
   isTerminalRun,
   queueInput,
 } from "../defense-run-simulation.js";
-import { CUTSCENES } from "../defense-catalog.js";
+import { CUTSCENES, XP_GROWTH } from "../defense-catalog.js";
 
 function advanceWithOffers(run, steps, onTick = () => {}) {
   let next = run;
@@ -105,6 +105,24 @@ test("boss waits for its stage gate and cleared authored waves; final completion
   const final = advanceWithOffers(createDefenseRun({ stageId: "gate-zenith", seed: 12, companionLoadout: ["ember-cohort", "rift-lens", "veil-vanguard"] }), 10000);
   assert.equal(getRunSnapshot(final).terminal, "FINAL_COMPLETION");
   assert.equal(isTerminalRun(final), true);
+});
+
+test("terminal victory suppresses a growth offer when boss XP crosses the next threshold", () => {
+  const { previous, snapshot } = advanceUntilWithPrevious(
+    createDefenseRun({
+      stageId: "cinder-span",
+      seed: 12,
+      companionLoadout: ["ember-cohort", "rift-lens", "veil-vanguard"],
+    }),
+    (candidate) => candidate.terminal === "VICTORY",
+  );
+  const nextGrowthThreshold = XP_GROWTH[previous.commander.level - 1];
+
+  assert.equal(snapshot.terminal, "VICTORY");
+  assert.equal(snapshot.commander.level, previous.commander.level);
+  assert.ok(previous.commander.xp < nextGrowthThreshold);
+  assert.ok(snapshot.commander.xp >= nextGrowthThreshold);
+  assert.equal(snapshot.growthOffer, null);
 });
 
 test("terminal victory accepts a queued reward selection and closes the offer", () => {

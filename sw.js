@@ -1,4 +1,4 @@
-const CACHE_NAME = "abyssal-command-defense-survivor-v1";
+const CACHE_NAME = "abyssal-command-defense-survivor-v2";
 const CORE_ASSETS = [
   "./",
   "./index.html",

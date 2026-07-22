@@ -281,7 +281,6 @@ function tick(run) {
   moveEnemies(run);
   resolveDeaths(run);
   collectPickups(run);
-  if (!run.growthOffer && run.commander.xp >= (XP_GROWTH[run.commander.level - 1] || XP_GROWTH.at(-1))) makeOffer(run);
   if (run.gate.integrity <= 0) {
     run.terminal = "DEFEAT";
     run.events.push({ tick: run.tick, type: "TERMINAL", outcome: "DEFEAT", cutscene: stageCutscene(run.stage).defeat, cue: eventCue("terminal") });
@@ -298,6 +297,7 @@ function tick(run) {
       cue: eventCue("terminal"),
     });
   }
+  if (!run.terminal && !run.growthOffer && run.commander.xp >= (XP_GROWTH[run.commander.level - 1] || XP_GROWTH.at(-1))) makeOffer(run);
 }
 /** Creates a new run. `seed` is coerced to an unsigned xorshift32 state (zero becomes one). */
 export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rewardIds = [] } = {}) {
