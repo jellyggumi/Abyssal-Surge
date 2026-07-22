@@ -89,3 +89,64 @@ test("invalid campaign and storage imports are rejected without replacing the ac
   assert.equal(await storage.importText("{not json"), false);
   assert.deepEqual(await storage.load(), campaign);
 });
+
+test("restores legacy campaign payloads and round-trips the expanded schema", () => {
+  let campaign = createCampaign({ campaignId: "migration", resetEpoch: 7 });
+  campaign = startRun(campaign, "cinder-span");
+  campaign = applyCampaignRunResult(campaign, { stageId: "cinder-span", outcome: "victory" });
+
+  const current = serializeCampaign(campaign);
+  const legacy = { ...current };
+  delete legacy.rewardIds;
+  delete legacy.achievementIds;
+
+  const migrated = restoreCampaign(legacy);
+  assert.deepEqual(migrated, {
+    ...legacy,
+    rewardIds: [],
+    achievementIds: [],
+  });
+  assert.deepEqual(restoreCampaign(JSON.stringify(legacy)), migrated);
+  assert.deepEqual(restoreCampaign(serializeCampaign(migrated)), migrated);
+});
+
+test("victory without a reward selects the first authored stage reward", () => {
+  let campaign = createCampaign({ campaignId: "default-reward" });
+  campaign = startRun(campaign, "cinder-span");
+  campaign = applyCampaignRunResult(campaign, { stageId: "cinder-span", outcome: "victory" });
+
+  assert.deepEqual(campaign.rewardIds, ["ember-cohort-legacy"]);
+  assert.deepEqual(campaign.achievementIds, ["stage-clear:cinder-span"]);
+});
+
+test("defeat never grants a supplied reward", () => {
+  let campaign = createCampaign({ campaignId: "no-defeat-reward" });
+  campaign = startRun(campaign, "cinder-span");
+  campaign = applyCampaignRunResult(campaign, {
+    stageId: "cinder-span",
+    outcome: "defeat",
+    rewardId: "ember-cohort-legacy",
+  });
+
+  assert.deepEqual(campaign.rewardIds, []);
+  assert.deepEqual(campaign.achievementIds, []);
+  assert.deepEqual(campaign.lastResolution, {
+    stageId: "cinder-span",
+    outcome: "defeat",
+    campaignComplete: false,
+  });
+});
+
+test("rejects a reward authored for another stage", () => {
+  let campaign = createCampaign({ campaignId: "stage-reward-boundary" });
+  campaign = startRun(campaign, "cinder-span");
+
+  assert.throws(
+    () => applyCampaignRunResult(campaign, {
+      stageId: "cinder-span",
+      outcome: "victory",
+      rewardId: "rift-lens-archive",
+    }),
+    TypeError,
+  );
+});

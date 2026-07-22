@@ -23,9 +23,13 @@ env:
   RULES_VERSION: defense-survivor-v1
   PAGES_ARTIFACT_DIR: .pages-artifact
   PAGES_RUNTIME_PATHS: >-
-    index.html app.js defense-viewport.js defense-catalog.js defense-run-simulation.js campaign-state.js defense-storage.js
+    index.html app.js defense-viewport.js defense-catalog.js defense-run-simulation.js campaign-state.js defense-storage.js defense-audio.js
     battle-realtime-three.js battle-visualizer.js styles.css react-game-ui.css sw.js manifest.json icon.svg privacy.html
     assets/icons/icon-192.png assets/icons/icon-512.png
+    assets/images/battle/dusk-warden-frame-00.png assets/images/battle/dusk-warden-frame-01.png
+    assets/images/battle/dusk-warden-frame-02.png assets/images/battle/dusk-warden-frame-03.png
+    assets/images/battle/echo-rusher-frame-00.png assets/images/battle/echo-rusher-frame-01.png
+    assets/images/battle/echo-rusher-frame-02.png assets/images/battle/echo-rusher-frame-03.png
 
 jobs:
   resolve_revision:

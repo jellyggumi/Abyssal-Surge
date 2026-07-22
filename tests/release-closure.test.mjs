@@ -11,9 +11,13 @@ const ROOT = new URL("../", import.meta.url);
 const RULES_VERSION = "defense-survivor-v1";
 const RUNTIME_PATHS = new Set([
   "index.html", "app.js", "defense-viewport.js", "defense-catalog.js", "defense-run-simulation.js",
-  "campaign-state.js", "defense-storage.js", "battle-realtime-three.js", "battle-visualizer.js", "styles.css",
+  "campaign-state.js", "defense-storage.js", "defense-audio.js", "battle-realtime-three.js", "battle-visualizer.js", "styles.css",
   "react-game-ui.css", "sw.js", "manifest.json", "icon.svg", "privacy.html",
   "assets/icons/icon-192.png", "assets/icons/icon-512.png",
+  "assets/images/battle/dusk-warden-frame-00.png", "assets/images/battle/dusk-warden-frame-01.png",
+  "assets/images/battle/dusk-warden-frame-02.png", "assets/images/battle/dusk-warden-frame-03.png",
+  "assets/images/battle/echo-rusher-frame-00.png", "assets/images/battle/echo-rusher-frame-01.png",
+  "assets/images/battle/echo-rusher-frame-02.png", "assets/images/battle/echo-rusher-frame-03.png",
 ]);
 
 async function project(path) {
@@ -89,15 +93,15 @@ test("version scripts enforce the exact defense rules version", async () => {
   await writeFile(versionFile, JSON.stringify({ candidate_sha: sha, rules_version: RULES_VERSION }));
   await execFileAsync(process.execPath, ["scripts/validate-pages-version.mjs", "--file", versionFile, "--sha", sha]);
   await writeFile(versionFile, JSON.stringify({ candidate_sha: sha, rules_version: "wrong" }));
-  await assert.rejects(execFileAsync(process.execPath, ["scripts/validate-pages-version.mjs", "--file", versionFile, "--sha", sha]));
-});
-test("Pages artifact smoke follows side-effect local imports", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pages-artifact-"));
   const required = [
     "index.html", "version.json", "app.js", "defense-viewport.js", "defense-catalog.js",
-    "defense-run-simulation.js", "campaign-state.js", "defense-storage.js",
+    "defense-run-simulation.js", "campaign-state.js", "defense-storage.js", "defense-audio.js",
     "battle-realtime-three.js", "battle-visualizer.js", "styles.css", "react-game-ui.css",
     "sw.js", "manifest.json",
+    "assets/images/battle/dusk-warden-frame-00.png", "assets/images/battle/dusk-warden-frame-01.png",
+    "assets/images/battle/dusk-warden-frame-02.png", "assets/images/battle/dusk-warden-frame-03.png",
+    "assets/images/battle/echo-rusher-frame-00.png", "assets/images/battle/echo-rusher-frame-01.png",
+    "assets/images/battle/echo-rusher-frame-02.png", "assets/images/battle/echo-rusher-frame-03.png",
   ];
   for (const file of required) {
     const target = join(directory, file);

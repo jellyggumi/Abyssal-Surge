@@ -1,4 +1,4 @@
-import { COMPANIONS } from "./defense-catalog.js";
+import { COMPANIONS, REWARDS, STAGE_REWARD_IDS } from "./defense-catalog.js";
 
 export const RULES_VERSION = "defense-survivor-v1";
 export const STAGES = Object.freeze([
@@ -28,17 +28,26 @@ function copyCampaign(campaign) {
     companionCollection: campaign.companionCollection.map((record) => ({ prototype: record.prototype, evolution: record.evolution, capturedEliteIds: [...record.capturedEliteIds] })),
     companionLoadout: { prototypeIds: [...campaign.companionLoadout.prototypeIds] },
     resolvedIds: [...campaign.resolvedIds], attemptsByStage: { ...campaign.attemptsByStage },
+    rewardIds: [...(campaign.rewardIds ?? [])], achievementIds: [...(campaign.achievementIds ?? [])],
     lastResolution: campaign.lastResolution ? { ...campaign.lastResolution } : null,
   };
 }
+const LEGACY_KEYS = ["campaignId", "resetEpoch", "unlockedStageIndex", "companionCollection", "companionLoadout", "resolvedIds", "attemptsByStage", "lastResolution"];
+const CURRENT_KEYS = [...LEGACY_KEYS, "rewardIds", "achievementIds"];
+function migrateCampaign(value) {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, LEGACY_KEYS)) return value;
+  return { ...value, rewardIds: [], achievementIds: [] };
+}
 function validCampaign(value) {
-  if (!isPlainObject(value) || !hasOnlyKeys(value, ["campaignId", "resetEpoch", "unlockedStageIndex", "companionCollection", "companionLoadout", "resolvedIds", "attemptsByStage", "lastResolution"])) return false;
-  if (!isNonEmptyString(value.campaignId) || !Number.isInteger(value.resetEpoch) || value.resetEpoch < 0 || !Number.isInteger(value.unlockedStageIndex) || value.unlockedStageIndex < 0 || value.unlockedStageIndex >= STAGES.length) return false;
-  if (!Array.isArray(value.companionCollection) || !value.companionCollection.every((record) => isPlainObject(record) && hasOnlyKeys(record, ["prototype", "evolution", "capturedEliteIds"]) && canonicalPrototype(record.prototype) && Number.isInteger(record.evolution) && record.evolution >= 1 && record.evolution <= 3 && validIds(record.capturedEliteIds))) return false;
-  const prototypes = value.companionCollection.map((record) => record.prototype);
-  if (new Set(prototypes).size !== prototypes.length || !isPlainObject(value.companionLoadout) || !hasOnlyKeys(value.companionLoadout, ["prototypeIds"]) || !validIds(value.companionLoadout.prototypeIds) || value.companionLoadout.prototypeIds.length > MAX_LOADOUT_SIZE || !value.companionLoadout.prototypeIds.every((prototype) => prototypes.includes(prototype))) return false;
-  if (!validIds(value.resolvedIds) || !value.resolvedIds.every((id) => STAGE_INDEX.has(id)) || !isPlainObject(value.attemptsByStage) || !Object.entries(value.attemptsByStage).every(([id, attempts]) => STAGE_INDEX.has(id) && Number.isInteger(attempts) && attempts >= 0)) return false;
-  return value.lastResolution === null || (isPlainObject(value.lastResolution) && hasOnlyKeys(value.lastResolution, ["stageId", "outcome", "campaignComplete"]) && STAGE_INDEX.has(value.lastResolution.stageId) && ["victory", "defeat", "FINAL_COMPLETION"].includes(value.lastResolution.outcome) && typeof value.lastResolution.campaignComplete === "boolean");
+  const candidate = migrateCampaign(value);
+  if (!isPlainObject(candidate) || !hasOnlyKeys(candidate, CURRENT_KEYS)) return false;
+  if (!isNonEmptyString(candidate.campaignId) || !Number.isInteger(candidate.resetEpoch) || candidate.resetEpoch < 0 || !Number.isInteger(candidate.unlockedStageIndex) || candidate.unlockedStageIndex < 0 || candidate.unlockedStageIndex >= STAGES.length) return false;
+  if (!Array.isArray(candidate.companionCollection) || !candidate.companionCollection.every((record) => isPlainObject(record) && hasOnlyKeys(record, ["prototype", "evolution", "capturedEliteIds"]) && canonicalPrototype(record.prototype) && Number.isInteger(record.evolution) && record.evolution >= 1 && record.evolution <= 3 && validIds(record.capturedEliteIds))) return false;
+  const prototypes = candidate.companionCollection.map((record) => record.prototype);
+  if (new Set(prototypes).size !== prototypes.length || !isPlainObject(candidate.companionLoadout) || !hasOnlyKeys(candidate.companionLoadout, ["prototypeIds"]) || !validIds(candidate.companionLoadout.prototypeIds) || candidate.companionLoadout.prototypeIds.length > MAX_LOADOUT_SIZE || !candidate.companionLoadout.prototypeIds.every((prototype) => prototypes.includes(prototype))) return false;
+  if (!validIds(candidate.resolvedIds) || !candidate.resolvedIds.every((id) => STAGE_INDEX.has(id)) || !isPlainObject(candidate.attemptsByStage) || !Object.entries(candidate.attemptsByStage).every(([id, attempts]) => STAGE_INDEX.has(id) && Number.isInteger(attempts) && attempts >= 0)) return false;
+  if (!validIds(candidate.rewardIds) || !candidate.rewardIds.every((id) => Object.hasOwn(REWARDS, id)) || !validIds(candidate.achievementIds)) return false;
+  return candidate.lastResolution === null || (isPlainObject(candidate.lastResolution) && hasOnlyKeys(candidate.lastResolution, ["stageId", "outcome", "campaignComplete"]) && STAGE_INDEX.has(candidate.lastResolution.stageId) && ["victory", "defeat", "FINAL_COMPLETION"].includes(candidate.lastResolution.outcome) && typeof candidate.lastResolution.campaignComplete === "boolean");
 }
 function requireCampaign(campaign) { if (!validCampaign(campaign)) fail("Invalid defense campaign."); }
 
@@ -46,7 +55,7 @@ export function createCampaign({ campaignId, resetEpoch = 0 } = {}) {
   if (!Number.isInteger(resetEpoch) || resetEpoch < 0) fail("resetEpoch must be a non-negative integer.");
   const id = campaignId ?? `defense-${resetEpoch}-${++campaignSequence}`;
   if (!isNonEmptyString(id)) fail("campaignId must be a non-empty string.");
-  return { campaignId: id, resetEpoch, unlockedStageIndex: 0, companionCollection: [], companionLoadout: { prototypeIds: [] }, resolvedIds: [], attemptsByStage: {}, lastResolution: null };
+  return { campaignId: id, resetEpoch, unlockedStageIndex: 0, companionCollection: [], companionLoadout: { prototypeIds: [] }, resolvedIds: [], attemptsByStage: {}, rewardIds: [], achievementIds: [], lastResolution: null };
 }
 export function startRun(campaign, stageId = STAGES[campaign?.unlockedStageIndex]?.id) {
   requireCampaign(campaign);
@@ -56,18 +65,25 @@ export function startRun(campaign, stageId = STAGES[campaign?.unlockedStageIndex
   next.attemptsByStage[stageId] = (next.attemptsByStage[stageId] ?? 0) + 1;
   return next;
 }
-export function applyCampaignRunResult(campaign, { stageId, outcome } = {}) {
+export function applyCampaignRunResult(campaign, { stageId, outcome, rewardId = null } = {}) {
   requireCampaign(campaign);
   const stageIndex = STAGE_INDEX.get(stageId);
   if (stageIndex === undefined || stageIndex > campaign.unlockedStageIndex) fail("Stage is not unlocked.");
   if (!["victory", "defeat", "FINAL_COMPLETION"].includes(outcome)) fail("Run outcome must be victory, defeat, or FINAL_COMPLETION.");
   const next = copyCampaign(campaign);
   const victory = outcome === "victory" || outcome === "FINAL_COMPLETION";
+  const authoredRewards = STAGE_REWARD_IDS[stageId] ?? [];
+  const effectiveRewardId = victory ? (rewardId ?? authoredRewards[0] ?? null) : null;
+  if (effectiveRewardId !== null && (!isNonEmptyString(effectiveRewardId) || !Object.hasOwn(REWARDS, effectiveRewardId) || !authoredRewards.includes(effectiveRewardId))) fail("Reward must be authored for this stage.");
   if (victory && !next.resolvedIds.includes(stageId)) {
     next.resolvedIds.push(stageId);
     next.resolvedIds.sort();
     next.unlockedStageIndex = Math.max(next.unlockedStageIndex, Math.min(stageIndex + 1, STAGES.length - 1));
   }
+  if (victory && !next.achievementIds.includes(`stage-clear:${stageId}`)) next.achievementIds.push(`stage-clear:${stageId}`);
+  if (effectiveRewardId !== null && !next.rewardIds.includes(effectiveRewardId)) next.rewardIds.push(effectiveRewardId);
+  next.achievementIds.sort();
+  next.rewardIds.sort();
   next.lastResolution = { stageId, outcome, campaignComplete: victory && stageIndex === STAGES.length - 1 && next.resolvedIds.includes(stageId) };
   return next;
 }

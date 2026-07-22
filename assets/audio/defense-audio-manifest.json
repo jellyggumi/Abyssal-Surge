@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "runtime": "defense-audio.js",
+  "mode": "offline-procedural",
+  "cues": [
+    { "id": "stage-start", "event": "STAGE_STARTED", "waveform": "sine", "frequency": 220, "duration": 0.18 },
+    { "id": "enemy-defeated", "event": "ENEMY_DEFEATED", "waveform": "triangle", "frequency": 160, "duration": 0.08 },
+    { "id": "elite-extracted", "event": "ELITE_EXTRACTED", "waveform": "sine", "frequency": 420, "duration": 0.32 },
+    { "id": "item-collected", "event": "ITEM_COLLECTED", "waveform": "sine", "frequency": 560, "duration": 0.2 },
+    { "id": "growth-offer", "event": "GROWTH_OFFER/SKILL_SELECTED", "waveform": "triangle", "frequency": 320, "duration": 0.24 },
+    { "id": "skill-cast", "event": "SKILL_CAST", "waveform": "sawtooth", "frequency": 260, "duration": 0.14 },
+    { "id": "boss-spawned", "event": "BOSS_SPAWNED", "waveform": "sawtooth", "frequency": 90, "duration": 0.5 },
+    { "id": "terminal", "event": "TERMINAL/REWARD_SELECTED", "waveform": "sine", "frequency": 120, "duration": 0.5 }
+  ],
+  "reducedMotion": "Text and status events remain; decorative oscillators may be skipped."
+}

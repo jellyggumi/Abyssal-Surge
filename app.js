@@ -16,7 +16,8 @@ import {
 } from "./defense-run-simulation.js";
 import { RealtimeBattle } from "./battle-realtime-three.js";
 import { BattleVisualizer } from "./battle-visualizer.js";
-import { ARENA, COMPANIONS, SKILLS, TICK_RATE } from "./defense-catalog.js";
+import { ARENA, COMPANIONS, REWARDS, SKILLS, TICK_RATE } from "./defense-catalog.js";
+import { DefenseAudio } from "./defense-audio.js";
 import { DefenseViewport } from "./defense-viewport.js";
 
 const root = document.querySelector("#defense-app");
@@ -37,6 +38,7 @@ const KEY_DIRECTIONS = Object.freeze({
 let campaign = null;
 let selectedStageId = STAGES[0].id;
 let statusText = "기록을 불러오는 중입니다.";
+let campaignWrite = Promise.resolve();
 let session = null;
 
 function escapeHtml(value) {
@@ -76,8 +78,10 @@ function stableRunSeed(stageId) {
 
 async function persistCampaign(message = "기록을 저장했습니다.") {
   statusText = message;
+  const write = campaignWrite.then(() => storage.save(campaign));
+  campaignWrite = write.catch(() => {});
   try {
-    await storage.save(campaign);
+    await write;
   } catch {
     statusText = "저장소에 기록하지 못했습니다. 현재 세션은 계속됩니다.";
   }
@@ -120,6 +124,13 @@ function renderLobby() {
             <span>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</span>
           </button>`).join("") : "<p>정예 후보를 처치하고 추출하면 동료가 이곳에 기록됩니다.</p>"}
       </div>
+    </section>
+    <section aria-labelledby="reward-title">
+      <h2 id="reward-title">영구 보상 · ${campaign.rewardIds?.length ?? 0}</h2>
+      <div class="defense-grid reward-grid">
+        ${(campaign.rewardIds?.length ?? 0) ? campaign.rewardIds.map((id) => `<article class="reward-card"><strong>${escapeHtml(REWARDS[id]?.name ?? id)}</strong><span>${escapeHtml(REWARDS[id]?.description ?? "기록된 보상")}</span></article>`).join("") : "<p>보스 승리 후 한 가지 보상을 기록합니다.</p>"}
+      </div>
+      <p class="section-copy">업적 ${campaign.achievementIds?.length ?? 0}개 · 추출 동료 ${collection.length}명 · 기록은 오프라인 저장됩니다.</p>
     </section>
     <section class="storage-row" aria-label="캠페인 제어">
       <button id="start-defense" class="primary-action">${escapeHtml(stageLabel(selected))} 출전</button>
@@ -227,8 +238,12 @@ export class BattleSession {
       stageId,
       seed: stableRunSeed(stageId),
       companionLoadout: selectedLoadout(),
+      rewardIds: campaign.rewardIds ?? [],
     });
     this.renderer = null;
+    this.audio = new DefenseAudio();
+    this.audioTick = null;
+    this.audioEventKeys = new Set();
     this.frame = 0;
     this.lastFrameAt = 0;
     this.accumulator = 0;
@@ -238,6 +253,8 @@ export class BattleSession {
     this.listenerCount = 0;
     this.recordedEliteIds = new Set();
     this.terminalHandled = false;
+    this.rewardPrompted = false;
+    this.selectedRewardId = null;
     this.userPaused = false;
     this.stopped = false;
     this.focusBeforeGrowth = null;
@@ -253,6 +270,7 @@ export class BattleSession {
 
   start() {
     viewport.start();
+    this.audio.start();
     this.resize();
     try {
       this.renderer = new RealtimeBattle().mount({ canvas: this.canvas, viewport: this.canvas });
@@ -370,13 +388,13 @@ export class BattleSession {
   }
 
   send(type, payload) {
-    if (this.stopped || isTerminalRun(this.run)) return;
+    if (this.stopped || (isTerminalRun(this.run) && type !== "REWARD_SELECTED")) return;
     this.run = queueInput(this.run, type, payload);
     const inputSeq = ++this.inputSeq;
     this.surface.dataset.defenseInputSeq = String(inputSeq);
     if (type === "MOVE") this.surface.dataset.defenseMove = payload;
-    if (type === "SKILL_CAST" || type === "SKILL_SELECTED") {
-      this.surface.dataset.defenseSkill = payload?.skillId ?? payload ?? "";
+    if (type === "SKILL_CAST" || type === "SKILL_SELECTED" || type === "REWARD_SELECTED") {
+      this.surface.dataset.defenseSkill = payload?.skillId ?? payload?.rewardId ?? payload ?? "";
     }
     const admittedAt = performance.now();
     window.dispatchEvent(new CustomEvent("abyssal:defense-input-feedback", {
@@ -445,6 +463,17 @@ export class BattleSession {
 
   render() {
     const snapshot = getRunSnapshot(this.run);
+    if (this.audioTick !== snapshot.tick) {
+      this.audioTick = snapshot.tick;
+      this.audioEventKeys.clear();
+    }
+    const newAudioEvents = snapshot.events.filter((event) => {
+      const key = `${event.type}:${event.enemyId ?? event.itemId ?? event.rewardId ?? ""}`;
+      if (this.audioEventKeys.has(key)) return false;
+      this.audioEventKeys.add(key);
+      return true;
+    });
+    this.audio.consume(newAudioEvents);
     this.recordExtraction(snapshot);
     const projection = this.projected(snapshot);
     try {
@@ -460,11 +489,13 @@ export class BattleSession {
       ? "사용자 일시 정지"
       : snapshot.growthOffer
         ? "성장 선택 중 · 전투 정지"
-        : snapshot.terminal
-          ? "전투 종료"
-          : `시간 ${Math.floor(snapshot.tick / TICK_RATE)}초 · Lv.${snapshot.commander.level}`;
+        : snapshot.rewardOffer
+          ? "보상 선택 중 · 기록 대기"
+          : snapshot.terminal
+            ? "전투 종료"
+            : `시간 ${Math.floor(snapshot.tick / TICK_RATE)}초 · Lv.${snapshot.commander.level}`;
     root.querySelector("#battle-integrity").textContent = `관문 내구 ${snapshot.gate.integrity}/${snapshot.gate.maxIntegrity}`;
-    root.querySelector("#battle-enemies").textContent = `적 ${snapshot.enemies.length} · 투사체 ${snapshot.projectiles.length}`;
+    root.querySelector("#battle-enemies").textContent = `적 ${snapshot.enemies.length} · 처치 ${snapshot.progress.defeated} · 아이템 ${snapshot.progress.itemsCollected}`;
     this.renderControls(snapshot);
     if (snapshot.terminal && !this.terminalHandled) void this.resolveTerminal(snapshot);
   }
@@ -510,31 +541,56 @@ export class BattleSession {
 
     const actions = root.querySelector("#battle-actions");
     const candidate = snapshot.eliteCandidate;
-    actions.innerHTML = `<button id="toggle-pause" aria-pressed="${this.userPaused}">${this.userPaused ? "전투 계속" : "일시 정지"}</button>${
+    const actionMarkup = `<button id="toggle-pause" aria-pressed="${this.userPaused}">${this.userPaused ? "전투 계속" : "일시 정지"}</button>${
       candidate && !snapshot.extracted
         ? `<button id="extract-elite" data-defense-extract="${candidate.enemyId}">정예 추출 · ${escapeHtml(companionLabel(candidate.prototype))}</button>`
         : ""
     }`;
-    actions.querySelector("#toggle-pause")?.addEventListener("click", () => {
-      this.userPaused = !this.userPaused;
-      this.surface.dataset.defenseState = this.userPaused ? "paused" : "active";
-      this.accumulator = 0;
-      this.render();
-    });
-    actions.querySelector("#extract-elite")?.addEventListener("click", () => {
-      this.send("EXTRACT_ELITE", { enemyId: candidate.enemyId });
-    });
+    if (actions.dataset.actions !== actionMarkup) {
+      actions.dataset.actions = actionMarkup;
+      actions.innerHTML = actionMarkup;
+      actions.querySelector("#toggle-pause")?.addEventListener("click", () => {
+        this.userPaused = !this.userPaused;
+        this.surface.dataset.defenseState = this.userPaused ? "paused" : "active";
+        this.accumulator = 0;
+        this.render();
+      });
+      actions.querySelector("#extract-elite")?.addEventListener("click", () => {
+        this.send("EXTRACT_ELITE", { enemyId: candidate.enemyId });
+      });
+    }
   }
 
   async resolveTerminal(snapshot) {
-    this.terminalHandled = true;
+    if (this.terminalHandled) return;
     this.surface.dataset.defenseState = snapshot.terminal.toLowerCase();
     const outcome = snapshot.terminal === "FINAL_COMPLETION"
       ? "FINAL_COMPLETION"
       : snapshot.terminal === "DEFEAT" ? "defeat" : "victory";
-    campaign = applyCampaignRunResult(campaign, { stageId: this.stageId, outcome });
-    await persistCampaign(outcome === "defeat" ? "패배 기록을 저장했습니다." : "방어 기록을 저장했습니다.");
+    const choices = snapshot.rewardOffer?.choices ?? [];
+    if (outcome !== "defeat" && choices.length && !this.selectedRewardId) {
+      if (this.rewardPrompted) return;
+      this.rewardPrompted = true;
+      const card = document.createElement("section");
+      card.className = "edge-card defense-result defense-reward";
+      card.innerHTML = `<h2>보상 선택 · 영구 기록</h2><p>이번 승리의 보상 하나를 다음 출전에 적용합니다.</p><div class="choices">${choices.map((id) => `<button data-reward="${id}"><strong>${escapeHtml(REWARDS[id]?.name ?? id)}</strong><span>${escapeHtml(REWARDS[id]?.description ?? "기록 보상")}</span></button>`).join("")}</div>`;
+      root.querySelector("#defense-edge-hud").append(card);
+      card.querySelectorAll("[data-reward]").forEach((button) => {
+        button.addEventListener("click", () => {
+          this.selectedRewardId = button.dataset.reward;
+          this.send("REWARD_SELECTED", { rewardId: this.selectedRewardId });
+          this.run = advanceDefenseRun(this.run, 0);
+          void this.resolveTerminal(getRunSnapshot(this.run));
+        });
+      });
+      card.querySelector("button")?.focus();
+      return;
+    }
+    this.terminalHandled = true;
+    campaign = applyCampaignRunResult(campaign, { stageId: this.stageId, outcome, rewardId: this.selectedRewardId });
+    await persistCampaign(outcome === "defeat" ? "패배 기록을 저장했습니다." : "방어 기록과 보상을 저장했습니다.");
     const complete = campaign.lastResolution.campaignComplete;
+    root.querySelector(".defense-reward")?.remove();
     const card = document.createElement("section");
     card.className = "edge-card defense-result";
     card.innerHTML = `<h2>${outcome === "defeat" ? "방어선이 무너졌습니다" : complete ? "심연 방어선 완수" : "관문 방어 성공"}</h2>
@@ -562,7 +618,7 @@ export class BattleSession {
       liveRafLoops: this.stopped || !this.frame ? 0 : 1,
       registeredListeners: this.listenerCount,
       timers: 0,
-      audioNodes: 0,
+      audioNodes: this.audio.debugMetrics().nodes,
       renderer: this.renderer?.debugMetrics?.() ?? { geometries: 0, textures: 0, programs: 0 },
       inputMarkerCount: this.inputSeq,
     };
@@ -584,6 +640,7 @@ export class BattleSession {
     this.unlisten(window, "resize", this.onResize);
     this.unlisten(window, "abyssal:defense-viewportchange", this.onResize);
     this.renderer?.dispose?.();
+    this.audio.stop();
     globalThis.screen?.orientation?.unlock?.();
     session = null;
     if (shouldRenderLobby) renderLobby();

@@ -47,6 +47,9 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .edge-card .choices { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; }
 .edge-card button { font-size: .78rem; }
 .defense-result { top: auto; bottom: max(.5rem, var(--defense-safe-bottom)); max-height: 12vh; border-color: #76c4ae; text-align: center; }
+.defense-reward { max-height: min(38vh, 360px); }
+.defense-reward .choices button { display: grid; gap: .2rem; min-width: 11rem; text-align: left; }
+.defense-reward .choices span { color: #b9c2d6; font-size: .72rem; }
 html[data-defense-portrait="true"] #defense-battle-surface {
   width: var(--defense-logical-width);
   height: var(--defense-logical-height);

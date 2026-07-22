@@ -12,6 +12,21 @@ const COLORS = Object.freeze({
   pickup: "#78e08f",
   companion: "#8fb7ff",
 });
+const TEXTURES = Object.freeze({
+  commander: [
+    "./assets/images/battle/dusk-warden-frame-00.png",
+    "./assets/images/battle/dusk-warden-frame-01.png",
+    "./assets/images/battle/dusk-warden-frame-02.png",
+    "./assets/images/battle/dusk-warden-frame-03.png",
+  ],
+  enemy: [
+    "./assets/images/battle/echo-rusher-frame-00.png",
+    "./assets/images/battle/echo-rusher-frame-01.png",
+    "./assets/images/battle/echo-rusher-frame-02.png",
+    "./assets/images/battle/echo-rusher-frame-03.png",
+  ],
+});
+const textureCache = new Map();
 
 function finite(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -54,6 +69,31 @@ function circle(context, entity, width, height, color, defaultRadius) {
   context.beginPath();
   context.arc(point.x, point.y, radius, 0, Math.PI * 2);
   context.fill();
+}
+function loadTexture(source) {
+  if (!source || !globalThis.Image) return null;
+  if (textureCache.has(source)) return textureCache.get(source);
+  const image = new globalThis.Image();
+  image.decoding = "async";
+  image.src = source;
+  textureCache.set(source, image);
+  return image;
+}
+
+function sprite(context, entity, width, height, color, defaultRadius, source, frame = 0) {
+  const point = screenPoint(entity, width, height);
+  const radius = Math.max(2, finite(entity?.radius, finite(entity?.size, defaultRadius)));
+  const image = loadTexture(source);
+  if (!image?.complete || !image.naturalWidth) {
+    circle(context, entity, width, height, color, defaultRadius);
+    return;
+  }
+  const size = radius * 3.6;
+  context.save();
+  context.globalAlpha = 0.96;
+  context.drawImage(image, point.x - size / 2, point.y - size * 0.82, size, size);
+  context.restore();
+  void frame;
 }
 
 /**
@@ -105,13 +145,14 @@ export class RealtimeBattle {
     context.arc(gatePoint.x, gatePoint.y, Math.max(18, finite(gate.radius, 28)), Math.PI, 0);
     context.stroke();
 
+    const frameIndex = Math.floor(finite(snapshot.tick, 0) / 8) % 4;
     for (const pickup of list(snapshot, "pickups", "drops")) circle(context, pickup, width, height, COLORS.pickup, 5);
     for (const projectile of list(snapshot, "projectiles", "shots")) circle(context, projectile, width, height, COLORS.projectile, 3);
     for (const companion of list(snapshot, "companions", "allies")) circle(context, companion, width, height, COLORS.companion, 8);
-    for (const enemy of list(snapshot, "enemies", "hostiles")) circle(context, enemy, width, height, COLORS.enemy, 9);
-    for (const boss of list(snapshot, "bosses")) circle(context, boss, width, height, COLORS.boss, 22);
-    if (snapshot.boss && !Array.isArray(snapshot.boss)) circle(context, snapshot.boss, width, height, COLORS.boss, 22);
-    if (snapshot.commander ?? snapshot.player) circle(context, snapshot.commander ?? snapshot.player, width, height, COLORS.commander, 11);
+    for (const enemy of list(snapshot, "enemies", "hostiles")) sprite(context, enemy, width, height, COLORS.enemy, enemy.elite ? 16 : 11, TEXTURES.enemy[frameIndex], frameIndex);
+    for (const boss of list(snapshot, "bosses")) sprite(context, boss, width, height, COLORS.boss, 26, TEXTURES.enemy[frameIndex], frameIndex);
+    if (snapshot.boss && !Array.isArray(snapshot.boss)) sprite(context, snapshot.boss, width, height, COLORS.boss, 26, TEXTURES.enemy[frameIndex], frameIndex);
+    if (snapshot.commander ?? snapshot.player) sprite(context, snapshot.commander ?? snapshot.player, width, height, COLORS.commander, 16, TEXTURES.commander[frameIndex], frameIndex);
   }
 
   onVisualFeedback(inputSeq) {

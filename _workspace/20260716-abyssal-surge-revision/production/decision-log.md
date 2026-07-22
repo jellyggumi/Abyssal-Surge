@@ -16,3 +16,9 @@
 ## 2026-07-17 — Pages release endpoint confirmed
 
 - **Confirmation:** The repository was renamed to `jellyggumi/Abyssal-Surge`; the release reflection records successful Pages deployment and public campaign content at the current Playwriter/release target, `https://jellyggumi.github.io/Abyssal-Surge/` (`qa/release-reflection-result.json:42-61`).
+
+## 2026-07-22 — Defense-survival reward adaptation
+
+- **Evidence:** The defense-survival runtime replaces the original RTS command reducer with continuous arena combat, skill growth, item pickups, elite extraction, and stage rewards. The original design ledger defines Abyssal Banner as an aegis/materialize modifier, but those commands are not present in this runtime.
+- **Decision:** For the defense-survival adaptation, Abyssal Banner grants +60 damage to the run's companion roster at entry and to companions extracted during that run. Repeated item pickups do not compound the bonus.
+- **Reason:** Preserve the banner's sustained-legion identity while mapping it to the implemented companion/extraction contract; keep the original RTS contract documented rather than silently pretending it is still executable.

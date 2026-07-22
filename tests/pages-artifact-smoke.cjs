@@ -12,12 +12,21 @@ const REQUIRED_FILES = [
   "defense-run-simulation.js",
   "campaign-state.js",
   "defense-storage.js",
+  "defense-audio.js",
   "battle-realtime-three.js",
   "battle-visualizer.js",
   "styles.css",
   "react-game-ui.css",
   "sw.js",
   "manifest.json",
+  "assets/images/battle/dusk-warden-frame-00.png",
+  "assets/images/battle/dusk-warden-frame-01.png",
+  "assets/images/battle/dusk-warden-frame-02.png",
+  "assets/images/battle/dusk-warden-frame-03.png",
+  "assets/images/battle/echo-rusher-frame-00.png",
+  "assets/images/battle/echo-rusher-frame-01.png",
+  "assets/images/battle/echo-rusher-frame-02.png",
+  "assets/images/battle/echo-rusher-frame-03.png",
 ];
 
 function argument(name) {

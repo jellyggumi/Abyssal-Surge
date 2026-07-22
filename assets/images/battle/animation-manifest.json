@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "style": "2.5d-isometric-dark-fantasy",
+  "source": "gti/private-codex",
+  "runtime": "battle-realtime-three.js",
+  "framesPerClip": 4,
+  "cell": { "width": 627, "height": 627, "format": "rgba-png" },
+  "actors": {
+    "dusk-warden": {
+      "category": "commander",
+      "clips": ["idle", "walk", "strike", "cast"],
+      "frames": [
+        "assets/images/battle/dusk-warden-frame-00.png",
+        "assets/images/battle/dusk-warden-frame-01.png",
+        "assets/images/battle/dusk-warden-frame-02.png",
+        "assets/images/battle/dusk-warden-frame-03.png"
+      ],
+      "sourceAtlas": "assets/images/battle/dusk-warden-atlas-white.png",
+      "alphaProcess": "white matte border-connected floodfill fuzz 3%"
+    },
+    "echo-rusher": {
+      "category": "enemy",
+      "clips": ["idle", "advance", "strike", "defeat"],
+      "frames": [
+        "assets/images/battle/echo-rusher-frame-00.png",
+        "assets/images/battle/echo-rusher-frame-01.png",
+        "assets/images/battle/echo-rusher-frame-02.png",
+        "assets/images/battle/echo-rusher-frame-03.png"
+      ],
+      "sourceAtlas": "assets/images/battle/echo-rusher-atlas-white.png",
+      "alphaProcess": "white matte border-connected floodfill fuzz 3%"
+    }
+  },
+  "fallback": "procedural circles when Image/drawImage is unavailable",
+  "validation": ["srgba channels", "non-opaque alpha", "exact 627x627 cells", "consistent identity contact sheet"]
+}
