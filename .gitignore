@@ -11,10 +11,11 @@
 
 # OS files
 .DS_Store
-# Node dependencies (promo-video render tool)
+# Node dependencies
 node_modules/
 
-# Scratch outputs
+# Local verification artifacts
+results/
 tmp/
 
 # Local generation diagnostics and Python bytecode

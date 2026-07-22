@@ -3,49 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="Abyssal Command, an original mobile-first offline RTS-RPG campaign." />
-    <meta name="theme-color" content="#0a0d18" />
-    <title>Abyssal Command — Original Offline Campaign</title>
+    <meta name="theme-color" content="#050812" />
+    <meta name="description" content="심연의 관문을 지키는 모바일 생존 방어 캠페인" />
+    <title>Abyssal Command — 심연 방어선</title>
     <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="battle-field-command-overlay.css" />
     <link rel="stylesheet" href="react-game-ui.css" />
     <link rel="manifest" href="manifest.json" />
-    <link rel="icon" href="icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="icon.svg" />
-    <script>
-      (function() {
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (isLocalhost) {
-          const im = document.createElement('script');
-          im.type = 'importmap';
-          im.textContent = JSON.stringify({
-            "imports": {
-              "react": "./react-esm.js",
-              "react-dom": "./react-dom-esm.js",
-              "react/jsx-runtime": "./react-jsx-runtime-esm.js",
-              "agentation": "./node_modules/agentation/dist/index.mjs"
-            }
-          });
-          document.head.appendChild(im);
-
-          const bs = document.createElement('script');
-          bs.type = 'module';
-          bs.src = './agentation-bootstrap.js';
-          document.head.appendChild(bs);
-        }
-      })();
-    </script>
   </head>
   <body>
-    <noscript><p class="noscript" data-i18n="noscript">Abyssal Command 캠페인을 지휘하려면 JavaScript가 필요합니다.</p></noscript>
-    <div id="react-game-root"></div>
-    <script src="vendor/react.production.min.js"></script>
-    <script src="vendor/react-dom.production.min.js"></script>
-    <script src="profile-store.js"></script>
-    <script src="react-game-ui.js"></script>
-    <script src="react-shop.js"></script>
-    <script type="module" src="i18n.js"></script>
+    <noscript><p class="noscript">심연 방어선을 지휘하려면 JavaScript가 필요합니다.</p></noscript>
+    <main id="defense-app" aria-live="polite"></main>
     <script type="module" src="app.js"></script>
-    <script type="module" src="battle-field-command-overlay.js"></script>
   </body>
 </html>

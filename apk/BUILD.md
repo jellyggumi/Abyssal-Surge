@@ -76,4 +76,4 @@ silently falls back to Custom Tabs and the browser URL bar stays visible.
 - [ ] `https://jellyggumi.github.io/.well-known/assetlinks.json` returns HTTP 200 valid JSON (host root, not /Abyssal-Command/)
 - [ ] Statement List Tester passes: https://developers.google.com/digital-asset-links/tools/generator (site + package + fingerprint)
 - [ ] On device: launch the app — no URL bar. For verbose logs, `chrome://flags` → "Enable TWA verification debugging"
-- [ ] App opens full-screen to the game; offline relaunch works (service worker cache abyssal-surge-static-v58)
+- [ ] 앱이 full-screen 전장에 진입하고, 오프라인 재실행에서 `abyssal-command-defense-survivor-v1` 서비스 워커 캐시가 동작한다.

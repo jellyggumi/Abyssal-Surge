@@ -1,13 +1,12 @@
-# Static GitHub Pages publication with a committed allowlist and recovery revision gate.
-name: Deploy static content to Pages
+name: Defense survivor Pages release
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   workflow_dispatch:
     inputs:
       rollback_revision:
-        description: "Full 40-character commit SHA to publish for an authorized recovery rehearsal"
+        description: Full lowercase 40-character rollback SHA
         required: true
         type: string
 
@@ -17,217 +16,332 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
+env:
+  RULES_VERSION: defense-survivor-v1
+  PAGES_ARTIFACT_DIR: .pages-artifact
+  PAGES_RUNTIME_PATHS: >-
+    index.html app.js defense-viewport.js defense-catalog.js defense-run-simulation.js campaign-state.js defense-storage.js
+    battle-realtime-three.js battle-visualizer.js styles.css react-game-ui.css sw.js manifest.json icon.svg privacy.html
+    assets/icons/icon-192.png assets/icons/icon-512.png
+
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  resolve_revision:
     runs-on: ubuntu-latest
-    env:
-      PAGES_ARTIFACT_DIR: .pages-artifact
-      PAGES_REVISION: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
-      PAGES_RUNTIME_PATHS: >-
-        index.html app.js battle-field-command-overlay.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js
-        campaign-state.js campaign-sync.js stage-navigation.js battle-stage-identity.js tactical-minimap.js i18n.js combat-systems.js liquid-ether.js object-feedback-layer.js
-        vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js
-        styles.css battle-field-command-overlay.css react-game-ui.css privacy.html sw.js manifest.json icon.svg favicon.ico
-        profile-store.js react-game-ui.js react-shop.js
-        vendor/react.production.min.js vendor/react-dom.production.min.js
-        assets/icons/icon-192.png assets/icons/icon-512.png
-        assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3
-        assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3
-        assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3
-        assets/audio/breach-alert.mp3 assets/audio/wave-spawn.mp3 assets/audio/battle-bgm.mp3
-        assets/audio/battle-bgm-band-ii.mp3 assets/audio/battle-bgm-band-iii.mp3 assets/audio/battle-bgm-band-iv.mp3 assets/audio/boss-phase-change.mp3
-        assets/audio/narr-stage3.mp3 assets/audio/narr-stage4.mp3 assets/audio/narr-stage5.mp3 assets/audio/narr-stage6.mp3
-        assets/audio/narr-stage7.mp3 assets/audio/narr-stage8.mp3 assets/audio/narr-stage9.mp3 assets/audio/narr-stage10.mp3
-        assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3
-        assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png
-        assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png
-        assets/images/starless-canal.png assets/images/shattered-causeway.png assets/images/abyss-chancel.png
-        assets/images/gate-zenith.png
-        assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg
-        assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg
-        assets/images/storyboard/scene_07_return_ui_v01.jpg
-        assets/images/ui/action-hunt.png assets/images/ui/action-extract.png assets/images/ui/action-materialize.png
-        assets/images/ui/action-capture.png assets/images/ui/action-possess.png assets/images/ui/action-domain.png
-        assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png
-        assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png
-        assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png
-        assets/images/ui/boss-tide-warden.png assets/images/ui/boss-pack-herald.png assets/images/ui/boss-requiem-choir.png
-        assets/images/ui/boss-lantern-tyrant.png assets/images/ui/boss-bridge-colossus.png
-        assets/images/ui/boss-veiled-concordat.png assets/images/ui/boss-abyss-regent.png
-        assets/images/ui/concept-tactical-surface.webp assets/images/ui/boss-veil-tactician.png
-        assets/images/ui/boss-gate-sovereign.png assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png
-        assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png
-        assets/images/ui/emblem-gate-sovereign.jpg assets/images/characters/dusk-legion-atlas.png
-        assets/images/battle/sovereign-atlas.png assets/images/battle/glb
-        assets/video/cinder-span.mp4 assets/video/veil-citadel.mp4
-        assets/video/echo-throne.mp4 assets/video/abyssal-surge-cinematic.mp4
-        assets/video/abyssal-surge-cinematic.ko.vtt
-        assets/models/abyssal-command/terrain/cinder-span.glb
-        assets/models/abyssal-command/terrain/veil-citadel.glb
-        assets/models/abyssal-command/terrain/echo-throne-steps.glb
-        assets/models/abyssal-command/units/shade.glb
-        assets/models/abyssal-command/units/scout.glb
-        assets/models/abyssal-command/units/guard.glb
-        assets/models/abyssal-command/units/reinforce.glb
-        assets/models/abyssal-command/units/possessed.glb
-        assets/models/abyssal-command/bosses/cinder-warden.glb
-        assets/models/abyssal-command/bosses/veil-tactician.glb
-        assets/models/abyssal-command/bosses/gate-sovereign.glb
-        assets/models/abyssal-command/props/soul-extractor.glb
-        assets/models/abyssal-command/props/rift-portal.glb
-        assets/models/abyssal-command/props/command-obelisk.glb
-        assets/models/abyssal-command/props/echo-throne.glb
-        assets/models/abyssal-command/textures/void-obsidian-albedo.png
-        assets/models/abyssal-command/textures/void-obsidian-normal.png
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
     steps:
-      - name: Checkout requested committed revision
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
           fetch-depth: 0
-      - name: Validate pinned recovery revision
+      - id: revision
         shell: bash
+        env:
+          CANDIDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback_revision || github.sha }}
         run: |
           set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && ! printf '%s' "$PAGES_REVISION" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "rollback_revision must be a full lowercase 40-character commit SHA" >&2
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && ! [[ "$CANDIDATE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "rollback_revision must be a full lowercase 40-character SHA" >&2
             exit 1
           fi
-          resolved="$(git rev-parse --verify "${PAGES_REVISION}^{commit}")"
-          test "$resolved" = "$PAGES_REVISION"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            git merge-base --is-ancestor "$PAGES_REVISION" origin/main
+          sha="$(git rev-parse --verify "${CANDIDATE}^{commit}")"
+          test "$sha" = "$CANDIDATE"
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            git merge-base --is-ancestor "$sha" origin/main
           fi
-      - name: Guard committed static import closure
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            index.html app.js battle-field-command-overlay.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js \
-            campaign-state.js campaign-sync.js stage-navigation.js battle-stage-identity.js tactical-minimap.js i18n.js combat-systems.js liquid-ether.js object-feedback-layer.js \
-            vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js \
-            styles.css battle-field-command-overlay.css react-game-ui.css privacy.html sw.js manifest.json icon.svg favicon.ico \
-            assets/audio/hunt.mp3 assets/audio/extract.mp3 assets/audio/materialize.mp3 assets/audio/capture.mp3 \
-            assets/audio/possess.mp3 assets/audio/domain.mp3 assets/audio/assault.mp3 assets/audio/reward.mp3 \
-            assets/audio/ambient.mp3 assets/audio/narr-intro.mp3 assets/audio/narr-stage1.mp3 assets/audio/narr-stage2.mp3 \
-            assets/audio/breach-alert.mp3 assets/audio/wave-spawn.mp3 assets/audio/battle-bgm.mp3 \
-            assets/audio/battle-bgm-band-ii.mp3 assets/audio/battle-bgm-band-iii.mp3 assets/audio/battle-bgm-band-iv.mp3 assets/audio/boss-phase-change.mp3 \
-            assets/audio/narr-stage3.mp3 assets/audio/narr-stage4.mp3 assets/audio/narr-stage5.mp3 assets/audio/narr-stage6.mp3 \
-            assets/audio/narr-stage7.mp3 assets/audio/narr-stage8.mp3 assets/audio/narr-stage9.mp3 assets/audio/narr-stage10.mp3 \
-            assets/audio/narr-victory.mp3 assets/audio/narr-defeat.mp3 assets/audio/bgm-theme.mp3 \
-            assets/images/cinder-span.png assets/images/veil-citadel.png assets/images/echo-throne.png \
-            assets/images/sunken-bastion.png assets/images/howling-sprawl.png assets/images/glass-necropolis.png \
-            assets/images/starless-canal.png assets/images/shattered-causeway.png assets/images/abyss-chancel.png \
-            assets/images/gate-zenith.png \
-            assets/images/storyboard/scene_00_opening_gate_v01.jpg assets/images/storyboard/scene_01_soul_pool_v01.jpg \
-            assets/images/storyboard/scene_03_possession_action_v01.jpg assets/images/storyboard/scene_04_domain_shift_v01.jpg \
-            assets/images/storyboard/scene_07_return_ui_v01.jpg \
-            assets/images/ui/action-hunt.png assets/images/ui/action-extract.png assets/images/ui/action-materialize.png \
-            assets/images/ui/action-capture.png assets/images/ui/action-possess.png assets/images/ui/action-domain.png \
-            assets/images/ui/action-assault.png assets/images/ui/reward-ember-cohort.png assets/images/ui/reward-rift-lens.png \
-            assets/images/ui/reward-veil-vanguard.png assets/images/ui/reward-anchor-shard.png assets/images/ui/reward-throne-echo.png \
-            assets/images/ui/reward-dawnless-crown.png assets/images/ui/boss-cinder-warden.png \
-            assets/images/ui/boss-tide-warden.png assets/images/ui/boss-pack-herald.png assets/images/ui/boss-requiem-choir.png \
-            assets/images/ui/boss-lantern-tyrant.png assets/images/ui/boss-bridge-colossus.png \
-            assets/images/ui/boss-veiled-concordat.png assets/images/ui/boss-abyss-regent.png \
-            assets/images/characters/dusk-legion-atlas.png assets/images/ui/concept-tactical-surface.webp \
-            assets/images/ui/boss-veil-tactician.png assets/images/ui/boss-gate-sovereign.png \
-            assets/images/ui/narration-atlases/boss-cinder-warden-atlas.png \
-            assets/images/ui/narration-atlases/boss-veil-tactician-atlas.png \
-            assets/images/ui/narration-atlases/boss-gate-sovereign-atlas.png assets/images/ui/emblem-gate-sovereign.jpg \
-            assets/images/battle/sovereign-atlas.png assets/images/battle/glb/manifest.json assets/images/battle/glb/*.png \
-            assets/video/cinder-span.mp4 assets/video/veil-citadel.mp4 assets/video/echo-throne.mp4 \
-            assets/video/abyssal-surge-cinematic.mp4 assets/video/abyssal-surge-cinematic.ko.vtt \
-            assets/models/abyssal-command/terrain/cinder-span.glb \
-            assets/models/abyssal-command/terrain/veil-citadel.glb \
-            assets/models/abyssal-command/terrain/echo-throne-steps.glb \
-            assets/models/abyssal-command/units/shade.glb assets/models/abyssal-command/units/scout.glb \
-            assets/models/abyssal-command/units/guard.glb assets/models/abyssal-command/units/reinforce.glb \
-            assets/models/abyssal-command/units/possessed.glb \
-            assets/models/abyssal-command/bosses/cinder-warden.glb \
-            assets/models/abyssal-command/bosses/veil-tactician.glb \
-            assets/models/abyssal-command/bosses/gate-sovereign.glb \
-            assets/models/abyssal-command/props/soul-extractor.glb \
-            assets/models/abyssal-command/props/rift-portal.glb \
-            assets/models/abyssal-command/props/command-obelisk.glb \
-            assets/models/abyssal-command/props/echo-throne.glb \
-            assets/models/abyssal-command/textures/void-obsidian-albedo.png \
-            assets/models/abyssal-command/textures/void-obsidian-normal.png; do
-            git cat-file -e "${PAGES_REVISION}:${file}"
-            test -f "$file"
-          done
-          node --check app.js
-          node --check battle-visualizer.js
-          node --check battle-realtime-three.js
-          node --check battle-presentation.js
-          node --check iso-math.js
-          node --check tilemap-renderer.js
-          node --check campaign-state.js
-          node --check campaign-sync.js
-          node --check battle-stage-identity.js
-          node --check tactical-minimap.js
-          node --check i18n.js
-          node --check combat-systems.js
-          node --check liquid-ether.js
-          node --check object-feedback-layer.js
-          node --check vendor/three.module.min.js
-          node --check sw.js
-          node --check vendor/loaders/GLTFLoader.js
-          node --check vendor/utils/BufferGeometryUtils.js
-          node --check profile-store.js
-          node --check react-game-ui.js
-          node --check react-shop.js
-          grep -Fq 'href="styles.css"' index.html
-          grep -Fq '<script type="module" src="app.js"></script>' index.html
-          grep -Fq '<script type="module" src="i18n.js"></script>' index.html
-          node -e '
-            const html = require("fs").readFileSync("index.html", "utf8");
-            const order = ["react.production", "react-dom", "profile-store", "react-game-ui", "react-shop", "app.js"];
-            const pattern = order.map(s => `<script[^>]+src="[^"]*${s}[^"]*"`).join(".*");
-            if (!new RegExp(pattern, "s").test(html)) {
-              console.error("Invalid script loading order in index.html");
-              process.exit(1);
-            }
-          '
-          grep -Fq 'from "./campaign-state.js";' app.js
-          grep -Fq 'from "./battle-visualizer.js";' app.js
-          grep -Fq 'from "./battle-presentation.js";' app.js
-          grep -Fq 'from "./battle-realtime-three.js";' app.js
-          grep -Fq 'from "./campaign-sync.js";' app.js
-          grep -Fq 'from "./battle-stage-identity.js";' battle-realtime-three.js
-          # liquid-ether may be statically or dynamically imported (lazy load)
-          grep -Eq 'from "\./liquid-ether\.js";|import\("\./liquid-ether\.js"\)' app.js
-
-          # reject literal edit-tool markers that previously shipped a broken bundle
-          if grep -n "≔" index.html app.js battle-visualizer.js battle-realtime-three.js battle-presentation.js iso-math.js tilemap-renderer.js campaign-state.js campaign-sync.js stage-navigation.js battle-stage-identity.js i18n.js liquid-ether.js object-feedback-layer.js vendor/three.module.min.js vendor/loaders/GLTFLoader.js vendor/utils/BufferGeometryUtils.js styles.css privacy.html sw.js manifest.json icon.svg favicon.ico; then
-            echo "stray edit markers found in shippable files" >&2
-            exit 1
-          fi
-      - name: Build allowlisted Pages artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf "$PAGES_ARTIFACT_DIR"
-          mkdir -p "$PAGES_ARTIFACT_DIR"
-          read -r -a pages_runtime_paths <<< "$PAGES_RUNTIME_PATHS"
-          git archive --format=tar "$PAGES_REVISION" -- "${pages_runtime_paths[@]}" | tar -x -C "$PAGES_ARTIFACT_DIR"
-          expected="$(git ls-tree -r --name-only "$PAGES_REVISION" -- "${pages_runtime_paths[@]}" | sort)"
-
-          actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^${PAGES_ARTIFACT_DIR}/##" | sort)"
-          test "$actual" = "$expected"
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      - name: Upload allowlisted artifact
-        uses: actions/upload-pages-artifact@v3
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          mkdir -p results
+          printf '{"gate":"resolve_revision","sha":"%s","status":"passed"}\n' "$sha" > results/resolve_revision.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          path: ${{ env.PAGES_ARTIFACT_DIR }}
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          name: resolve-revision-results
+          path: results
+          if-no-files-found: warn
+
+  engine_contract:
+    needs: resolve_revision
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          npm ci
+          node --test tests/defense-run-simulation.test.mjs tests/defense-campaign-adapter.test.mjs tests/defense-renderer-contract.test.mjs tests/defense-asset-manifest.test.mjs tests/no-rts-closure.test.mjs
+          mkdir -p results
+          node scripts/run-defense-balance-sim.mjs --strict --output "results/defense-balance-$RESOLVED_SHA.json"
+          printf '{"gate":"engine_contract","sha":"%s","status":"passed"}\n' "$RESOLVED_SHA" > results/engine_contract.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: engine-contract-results
+          path: results
+          if-no-files-found: warn
+
+  release_closure:
+    needs: resolve_revision
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          npm ci
+          node --test tests/release-closure.test.mjs
+          mkdir -p results
+          printf '{"gate":"release_closure","sha":"%s","status":"passed"}\n' "$RESOLVED_SHA" > results/release_closure.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: release-closure-results
+          path: results
+          if-no-files-found: warn
+
+  browser_contract:
+    needs: resolve_revision
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          mkdir -p results
+          npm ci
+          npx --no-install playwright install --with-deps chromium
+          node tests/defense-hud-responsive-browser.cjs > results/defense-hud-responsive-browser.json
+          node tests/defense-survivor-browser.cjs > results/defense-survivor-browser.json
+          node tests/defense-performance-browser.cjs > results/defense-performance-browser.json
+          printf '{"gate":"browser_contract","sha":"%s","status":"passed"}\n' "$RESOLVED_SHA" > results/browser_contract.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: browser-contract-results
+          path: results
+          if-no-files-found: warn
+
+  package_pages:
+    needs: [resolve_revision, engine_contract, release_closure, browser_contract]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          rm -rf "$PAGES_ARTIFACT_DIR"
+          mkdir -p "$PAGES_ARTIFACT_DIR" results
+          read -r -a paths <<< "$PAGES_RUNTIME_PATHS"
+          for path in "${paths[@]}"; do test -f "$path"; done
+          git archive --format=tar "$RESOLVED_SHA" -- "${paths[@]}" | tar -x -C "$PAGES_ARTIFACT_DIR"
+          actual="$(find "$PAGES_ARTIFACT_DIR" -type f -print | sed "s#^$PAGES_ARTIFACT_DIR/##" | sort)"
+          expected="$(printf '%s\n' "${paths[@]}" | sort)"
+          test "$actual" = "$expected"
+          version="$(node scripts/read-defense-rules-version.mjs)"
+          test "$version" = "$RULES_VERSION"
+          printf '{"candidate_sha":"%s","rules_version":"%s"}\n' "$RESOLVED_SHA" "$RULES_VERSION" > "$PAGES_ARTIFACT_DIR/version.json"
+          node scripts/validate-pages-version.mjs --file "$PAGES_ARTIFACT_DIR/version.json" --sha "$RESOLVED_SHA"
+          printf '{"gate":"package_pages","sha":"%s","status":"passed"}\n' "$RESOLVED_SHA" > results/package_pages.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: pages-bundle
+          path: .pages-artifact
+          if-no-files-found: warn
+      - if: always()
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: .pages-artifact
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: package-pages-results
+          path: results
+          if-no-files-found: warn
+
+  artifact_smoke:
+    needs: [resolve_revision, package_pages]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: pages-bundle
+          path: .pages-artifact
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          node -e 'const { createServer } = require("node:http"); const { readFile } = require("node:fs"); const { join, normalize } = require("node:path"); const root = process.argv[1]; createServer((request, response) => { const file = normalize(join(root, request.url === "/" ? "index.html" : request.url)); if (!file.startsWith(root)) return response.writeHead(403).end(); readFile(file, (error, body) => response.writeHead(error ? 404 : 200).end(error ? "not found" : body)); }).listen(4173);' "$PWD/.pages-artifact" &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          sleep 1
+          node -e 'require("node:http").get("http://127.0.0.1:4173/", (response) => { if (response.statusCode !== 200) process.exitCode = 1; response.resume(); });'
+          node tests/pages-artifact-smoke.cjs --dir .pages-artifact
+          node scripts/validate-pages-version.mjs --file .pages-artifact/version.json --sha "$RESOLVED_SHA"
+          mkdir -p results
+          printf '{"gate":"artifact_smoke","sha":"%s","status":"passed"}\n' "$RESOLVED_SHA" > results/artifact_smoke.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: artifact-smoke-results
+          path: results
+          if-no-files-found: warn
+
+  deploy_pages:
+    needs: [resolve_revision, artifact_smoke]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          mkdir -p results
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+      - if: always()
+        shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+          DEPLOYMENT_OUTCOME: ${{ steps.deployment.outcome }}
+        run: |
+          mkdir -p results
+          printf '{"gate":"deploy_pages","sha":"%s","status":"%s"}\n' "$RESOLVED_SHA" "$DEPLOYMENT_OUTCOME" > results/deploy_pages.json
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: deploy-pages-results
+          path: results
+          if-no-files-found: warn
+
+  deployed_smoke:
+    if: needs.deploy_pages.result == 'success'
+    needs: [resolve_revision, deploy_pages]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+          PAGE_URL: ${{ needs.deploy_pages.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          npm ci
+          npx --no-install playwright install --with-deps chromium
+          mkdir -p results
+          if [ -f tests/deployed-defense-smoke.cjs ]; then
+            node tests/deployed-defense-smoke.cjs --url "$PAGE_URL" --sha "$RESOLVED_SHA" --rules-version "$RULES_VERSION"
+            status=passed
+          else
+            status=unsupported-no-deployed-defense-smoke
+          fi
+          printf '{"gate":"deployed_smoke","sha":"%s","status":"%s"}\n' "$RESOLVED_SHA" "$status" > results/deployed_smoke.json
+          test "$status" = passed
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: deployed-smoke-results
+          path: results
+          if-no-files-found: warn
+
+  release_receipt:
+    if: always()
+    needs: [resolve_revision, engine_contract, release_closure, browser_contract, package_pages, artifact_smoke, deploy_pages, deployed_smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.resolve_revision.outputs.sha }}
+      - shell: bash
+        env:
+          RESOLVED_SHA: ${{ needs.resolve_revision.outputs.sha }}
+          ENGINE: ${{ needs.engine_contract.result }}
+          CLOSURE: ${{ needs.release_closure.result }}
+          BROWSER: ${{ needs.browser_contract.result }}
+          PACKAGE: ${{ needs.package_pages.result }}
+          ARTIFACT: ${{ needs.artifact_smoke.result }}
+          DEPLOY: ${{ needs.deploy_pages.result }}
+          DEPLOYED: ${{ needs.deployed_smoke.result }}
+          PAGE_URL: ${{ needs.deploy_pages.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          test -n "$RESOLVED_SHA"
+          test "$(git rev-parse HEAD)" = "$RESOLVED_SHA"
+          mkdir -p results
+          all_gate_pass=true
+          for result in "$ENGINE" "$CLOSURE" "$BROWSER" "$PACKAGE" "$ARTIFACT" "$DEPLOY" "$DEPLOYED"; do
+            if [ "$result" != success ]; then
+              all_gate_pass=false
+            fi
+          done
+          printf '{"gate":"release_receipt","sha":"%s","page_url":"%s","all_gate_pass":%s,"upstream":{"engine_contract":"%s","release_closure":"%s","browser_contract":"%s","package_pages":"%s","artifact_smoke":"%s","deploy_pages":"%s","deployed_smoke":"%s"}}\n' "$RESOLVED_SHA" "$PAGE_URL" "$all_gate_pass" "$ENGINE" "$CLOSURE" "$BROWSER" "$PACKAGE" "$ARTIFACT" "$DEPLOY" "$DEPLOYED" > results/release_receipt.json
+          test "$all_gate_pass" = true
+      - if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: release-receipt-results
+          path: results
+          if-no-files-found: warn

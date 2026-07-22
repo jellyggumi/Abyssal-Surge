@@ -1,11 +1,11 @@
 {
   "name": "Abyssal Command",
   "short_name": "AbyssalCommand",
-  "description": "A browser-local deterministic dark fantasy strategy game.",
+  "description": "A browser-local deterministic Abyssal defense-survivor campaign.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0b0d14",
-  "theme_color": "#0b0d14",
+  "background_color": "#050812",
+  "theme_color": "#050812",
   "orientation": "any",
   "icons": [
     {
