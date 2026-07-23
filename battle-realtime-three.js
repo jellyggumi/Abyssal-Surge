@@ -2,15 +2,15 @@
 // It deliberately owns neither time nor game input; the session supplies snapshots.
 
 const COLORS = Object.freeze({
-  backgroundTop: "#07131f",
-  backgroundBottom: "#02050c",
-  gate: "#4cc9d8",
-  commander: "#f6d365",
-  enemy: "#d96078",
-  boss: "#b56cff",
-  projectile: "#d9f6ff",
-  pickup: "#78e08f",
-  companion: "#8fb7ff",
+  backgroundTop: "#0a0f1d",
+  backgroundBottom: "#030712",
+  gate: "#00f0ff",
+  commander: "#ff5500",
+  enemy: "#a855f7",
+  boss: "#ff0055",
+  projectile: "#00f0ff",
+  pickup: "#ffaa00",
+  companion: "#38bdf8",
 });
 const TEXTURES = Object.freeze({
   commander: [
@@ -136,6 +136,21 @@ export class RealtimeBattle {
       context.fillStyle = COLORS.backgroundBottom;
     }
     context.fillRect(0, 0, width, height);
+
+    // Abyssal Pulse background VFX
+    if (context.save && context.restore) {
+      const pulseTick = finite(snapshot.tick, 0);
+      const pulseRadius = Math.max(2, (pulseTick * 2) % (Math.max(width, height) * 0.8));
+      const pulseAlpha = Math.max(0, 0.15 * (1 - pulseRadius / (Math.max(width, height) * 0.8)));
+      context.save();
+      context.strokeStyle = COLORS.gate;
+      context.globalAlpha = pulseAlpha;
+      context.lineWidth = 2;
+      context.beginPath();
+      context.arc(width / 2, height / 2, pulseRadius, 0, Math.PI * 2);
+      context.stroke();
+      context.restore();
+    }
 
     const gate = snapshot.gate ?? snapshot.base ?? { x: width / 2, y: height * 0.84 };
     const gatePoint = screenPoint(gate, width, height);
