@@ -1,5 +1,5 @@
 const FORMAT = "abyssal-defense-telemetry";
-export const TELEMETRY_SCHEMA_VERSION = 1;
+export const TELEMETRY_SCHEMA_VERSION = 2;
 const DEFAULT_MAX_RECORDS = 4096;
 const MAX_RECORDS_LIMIT = 16384;
 const DEFAULT_SNAPSHOT_INTERVAL_TICKS = 60;
@@ -13,6 +13,7 @@ const SIMULATION_FIELDS = Object.freeze([
   "baseDamage", "finalDamage", "critical", "chanceBp", "multiplierBp",
   "healthBefore", "healthAfter", "simTick", "baseCooldownTicks", "effectiveCooldownTicks",
   "setTick", "readyTick", "targetCount",
+  "bossId", "cooldownReductionBp", "owner", "shield",
 ]);
 
 function finiteNumber(value, fallback = 0) {

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-sung-hum-v03.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fde-cfd3-7143-8bdb-46bafeec5014"
+  },
+  "promptId": "aw-sjh-v03",
+  "archetype": "sung-hum",
+  "variant": "v03",
+  "prompt": "Human elite hunter with compact layered plate, blood-red undershirt, weathered gauntlets, one hand forming a short shadow knot, the other pointing forward, dramatic frontal three-quarter pivot, expressive cape geometry, cinematic 1024x576 manga-anime concept, high contrast highlights on armor seams, grounded boots and stable center of gravity. Negative constraints: no copied face design, no exact cape and sword ratio from source, no branded swords.",
+  "output": {
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "bytes": 2158645,
+    "sha256": "d91260f426027a761a854a925aa8cb8f2217a3b04263109eeaa514188aec18f6"
+  },
+  "motionAffinity": [
+    "hit",
+    "critical",
+    "defence",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

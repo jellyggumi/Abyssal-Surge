@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-sung-hum-v04.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe0-0490-7832-a3f3-244eda18f3ae"
+  },
+  "promptId": "aw-sjh-v04",
+  "archetype": "sung-hum",
+  "variant": "v04",
+  "prompt": "Battle veteran in torn ceremonial black-white vestments fused with scavenged tech bracers, eyes lit by low amber gauge-light, dual hooks clipped on waist, weight-shifted guard pose, painterly ink outlines, magenta matte isolation, cinematic hero card framing, 2.5D anime RPG asset style. Negative constraints: no source-accurate battle scars, no copied eye glow signature, no logo patches.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2600770,
+    "sha256": "b3427620441aa1df032ebb02e61b73c3ca103c2b5b9395d9928b1c109d11b8a5"
+  },
+  "motionAffinity": [
+    "move",
+    "run",
+    "bighit",
+    "critical"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

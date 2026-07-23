@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-sung-hum-v01.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fd9-7b7d-7a22-b6ae-5653ca51fc0f"
+  },
+  "promptId": "aw-sjh-v01",
+  "archetype": "sung-hum",
+  "variant": "v01",
+  "prompt": "Original dark-fantasy huntress/warrior in battle-ready human form, narrow-shouldered but strong, layered plate-and-cloth armor, matte iron bracers, narrow steel rapier in one hand and void-thread tether in other, scarred face under a split-bone hood, grounded 3/4 combat stance, isolated on uniform #FF00FF matte, warm-dusk particle sparks around weapon edges, cel-shaded 2.5D anime production art, full-body concept for boss character. No text or logos, no copyrighted character likeness, no exact replica of any known character face or pose.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 1958044,
+    "sha256": "2091b9223628223c95b67476ccc5894e9d5566f1c87f72ac679c609253767aa3"
+  },
+  "note": "The 'prompt' field above is the exact text sent to the generator via a manual first-test CLI call (hand-typed negative summary, not design/boss-concept-prompt-pack.json's aw-sjh-v01.negative array). This intentionally avoided that array's literal 'Jin-Woo' text (see decision-log.md D14 addendum) even though it was written before that leak was noticed and fixed.",
+  "motionAffinity": [
+    "idle",
+    "move",
+    "run",
+    "attack",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

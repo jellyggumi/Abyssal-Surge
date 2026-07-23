@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-broken-court-monarch-v04.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8ff2-9bc4-74f2-af37-d961b5c445ee"
+  },
+  "promptId": "aw-mo-v04",
+  "archetype": "broken-court-monarch",
+  "variant": "v04",
+  "prompt": "Broken-court monarch in ceremonial plate robes, long triangular pauldrons, split halo behind the head, fist-first impact pose with suspended impact dust, cinematic particle spikes and clean visual language for retargeting tests, isolated on pure #FF00FF. Negative constraints: no source monarch face reproduction, no copied halo geometry, no readable writing on garments.",
+  "output": {
+    "format": "png",
+    "width": 1086,
+    "height": 1448,
+    "bytes": 2353323,
+    "sha256": "96e7a2eab07db9dd9ba791425c420aa68c39ef21c1b43f920fd812d222fb3f9c"
+  },
+  "motionAffinity": [
+    "attack",
+    "critical",
+    "avoid",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

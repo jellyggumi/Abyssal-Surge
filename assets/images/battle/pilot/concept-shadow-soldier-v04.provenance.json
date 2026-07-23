@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-shadow-soldier-v04.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe6-a178-7ab0-a6c4-f900628b7b37"
+  },
+  "promptId": "aw-ss-v04",
+  "archetype": "shadow-soldier",
+  "variant": "v04",
+  "prompt": "Elite shadow infantry captain with bone-white shoulder mask, long hook-chain pike, heavy footfall, stern jawline, high-contrast armor planes, cinematic downward tilt, magenta isolation, painterly ink and particle impact strokes for 2.5D anime composition. Negative constraints: no source-copyright symbols, no duplicate mask motifs, no close-up face reference.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2528796,
+    "sha256": "c3f37a2fed04f7d3650ba8f01aa71333111cfc9e456bd8fcd5129dafc38bd678"
+  },
+  "motionAffinity": [
+    "defence",
+    "critical",
+    "hit",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

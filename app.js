@@ -163,6 +163,68 @@ async function persistCampaign(message = "기록을 저장했습니다.") {
   }
 }
 
+/** Warden growth panel (stats/skills/traits/equipment/formation/wardline) — minimal Stage1 UI, `.claude/skills` task-manifest scope. */
+function renderGrowthPanel() {
+  const wp = campaign.wardenProgress;
+  const echoEarned = echoCoreEarned(campaign);
+  const echoSpent = echoCoreSpent(campaign);
+  const fragEarned = boundFragmentEarned(campaign);
+  const fragSpent = boundFragmentSpent(campaign);
+  const level = wardLevel(campaign);
+  const loadout = selectedLoadout();
+
+  const statsHtml = Object.values(WARDEN_STATS).map((stat) => {
+    const points = wp.statPoints[stat.id] ?? 0;
+    const maxed = points >= stat.maxPoints;
+    const nextCost = maxed ? null : wardenStatPointCost(points + 1);
+    const affordable = nextCost !== null && echoSpent + nextCost <= echoEarned;
+    return `<div class="growth-stat-row"><div><strong>${escapeHtml(stat.name)}</strong><small>${escapeHtml(stat.description)} · ${points}/${stat.maxPoints}</small></div><button data-warden-stat="${stat.id}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "만렙" : `+1 (${nextCost} EC)`}</button></div>`;
+  }).join("");
+
+  const skillHtml = Object.values(WARDEN_SKILL_TREE).map((node) => {
+    const unlocked = wp.skillTreeIds.includes(node.id);
+    const prereqMet = node.prereq.every((id) => wp.skillTreeIds.includes(id));
+    const affordable = echoSpent + node.cost <= echoEarned;
+    const canUnlock = !unlocked && prereqMet && affordable;
+    return `<div class="growth-skill-node${unlocked ? " is-unlocked" : ""}"><div><strong>${escapeHtml(node.id)}</strong><small>${escapeHtml(node.description)} · 비용 ${node.cost} EC${node.prereq.length ? ` · 선행 ${node.prereq.join(", ")}` : ""}</small></div><button data-warden-skill="${node.id}" ${unlocked || !canUnlock ? "disabled" : ""}>${unlocked ? "해금됨" : "해금"}</button></div>`;
+  }).join("");
+
+  const nextTraitSlot = wp.traitIds.length;
+  const nextTraitSequence = WARDEN_TRAIT_UNLOCK_SEQUENCES[nextTraitSlot];
+  const traitOffers = nextTraitSequence !== undefined && campaign.resolvedIds.length >= nextTraitSequence
+    ? wardenTraitOffersForSequence(nextTraitSequence, wp.traitIds) : [];
+  const traitsHtml = `
+    <p class="section-copy">선택됨: ${wp.traitIds.length ? wp.traitIds.map((id) => escapeHtml(WARDEN_TRAITS[id]?.name ?? id)).join(", ") : "없음"} (${wp.traitIds.length}/${WARDEN_TRAIT_UNLOCK_SEQUENCES.length})</p>
+    ${traitOffers.length ? `<div class="growth-trait-offers">${traitOffers.map((id) => { const trait = WARDEN_TRAITS[id]; return `<button class="growth-trait-card" data-warden-trait="${id}"><strong>${escapeHtml(trait.name)}</strong><small>${escapeHtml(trait.description)}</small><em>${escapeHtml(trait.tradeoff)}</em></button>`; }).join("")}</div>`
+      : nextTraitSequence !== undefined ? `<p class="section-copy">다음 특성은 ${nextTraitSequence}전선 완료 시 선택 가능합니다 (현재 ${campaign.resolvedIds.length}).</p>` : `<p class="section-copy">모든 특성 슬롯을 사용했습니다.</p>`}`;
+
+  const equipOwners = [{ id: "warden", label: "Dusk Warden" }, ...loadout.map((id) => ({ id, label: companionLabel(id) }))];
+  const equipHtml = equipOwners.map((owner) => `
+    <div class="growth-equip-owner"><strong>${escapeHtml(owner.label)}</strong><div class="growth-equip-slots">${EQUIPMENT_SLOTS.map((slot) => {
+      const tierIndex = equipmentTierIndexFor(campaign, owner.id, slot);
+      const maxed = tierIndex >= EQUIPMENT_TIERS.length - 1;
+      const currentTier = EQUIPMENT_TIERS[tierIndex];
+      const cost = maxed ? null : equipmentTierUpgradeCost(tierIndex);
+      const affordable = cost !== null && fragSpent + cost <= fragEarned;
+      return `<div class="growth-equip-slot"><small>${slot}</small><span class="tier-icon" data-tier-vertices="${currentTier.vertexCount}" aria-hidden="true"></span><span>${escapeHtml(currentTier.name)} (${currentTier.id})</span><button data-warden-equip-owner="${owner.id}" data-warden-equip-slot="${slot}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "최대" : `강화 (${cost} BF)`}</button></div>`;
+    }).join("")}</div></div>`).join("");
+
+  const formationHtml = loadout.length ? `<div class="growth-formation-row">${loadout.map((id) => {
+    const slot = campaign.companionFormation[id] || "BACK";
+    return `<div class="growth-formation-slot"><strong>${escapeHtml(companionLabel(id))}</strong><span>${slot}</span><button data-warden-formation="${id}" data-warden-formation-target="${slot === "FRONT" ? "BACK" : "FRONT"}">${slot === "FRONT" ? "후열로" : "전열로"}</button></div>`;
+  }).join("")}</div>` : `<p class="section-copy">편성된 동료가 없습니다.</p>`;
+
+  return `
+    <section class="growth-panel" aria-labelledby="growth-title">
+      <div class="panel-heading"><div><p class="eyebrow">DUSK WARDEN · TRACK A/B</p><h2 id="growth-title">성장</h2></div><span class="panel-count">EC ${echoSpent}/${echoEarned} · BF ${fragSpent}/${fragEarned} · 저지 Lv${level}</span></div>
+      <details open><summary>스탯 (Echo Core)</summary><div class="growth-stat-grid">${statsHtml}</div></details>
+      <details><summary>스킬트리 (Echo Core, 스탯과 공용 예산)</summary><div class="growth-skill-grid">${skillHtml}</div></details>
+      <details><summary>특성 (전선 클리어 시 3택1)</summary>${traitsHtml}</details>
+      <details><summary>장비 (Bound Fragment)</summary><div class="growth-equip-grid">${equipHtml}</div></details>
+      <details><summary>편성 (전열/후열, 최대 ${MAX_FRONT_SLOTS}전열)</summary>${formationHtml}</details>
+    </section>`;
+}
+
 function renderLobby() {
   if (!campaign) return;
   const selected = stageFor(selectedStageId);
@@ -217,6 +279,7 @@ function renderLobby() {
         <div class="loadout-slots" aria-label="현재 동료 편성">${[0, 1, 2].map((index) => { const prototype = loadout[index]; return prototype ? `<div class="loadout-slot is-filled"><span class="companion-glyph">${companionGlyph(prototype)}</span><strong>${escapeHtml(companionLabel(prototype))}</strong><small>결속 ${index + 1}</small></div>` : `<div class="loadout-slot"><span class="slot-plus">+</span><small>빈 슬롯</small></div>`; }).join("")}</div>
         <div class="companion-grid">${collection.length ? collection.map((record) => `<button class="companion-card${loadout.includes(record.prototype) ? " is-selected" : ""}" data-companion="${record.prototype}" aria-pressed="${loadout.includes(record.prototype)}"><span class="companion-glyph">${companionGlyph(record.prototype)}</span><span><strong>${escapeHtml(companionLabel(record.prototype))}</strong><small>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</small></span><i>${loadout.includes(record.prototype) ? "편성됨" : "편성"}</i></button>`).join("") : `<div class="empty-companions"><span class="companion-glyph">?</span><div><strong>아직 결속한 동료가 없습니다.</strong><p>전투 중 빛나는 정예를 쓰러뜨린 뒤 <b>추출</b>하세요.</p></div></div>`}</div>
       </section>
+      ${renderGrowthPanel()}
       <section class="archive-panel" aria-labelledby="reward-title">
         <div class="panel-heading"><div><p class="eyebrow">ARCHIVE</p><h2 id="reward-title">기록실</h2></div><span class="panel-count">${campaign.rewardIds?.length ?? 0} RELICS</span></div>
         <div class="archive-summary"><span class="archive-ring"><b>${completed}</b><small>전선<br />완료</small></span><div><strong>영구 진행</strong><p>보스 보상과 동료 결속은 기록실에 남아 다음 런에도 이어집니다.</p></div></div>
@@ -240,6 +303,61 @@ function renderLobby() {
         : [...current, prototype].slice(0, 3);
       campaign = setCompanionLoadout(campaign, next);
       await persistCampaign("동료 편성을 저장했습니다.");
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-warden-stat]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        campaign = allocateWardenStatPoint(campaign, button.dataset.wardenStat);
+        await persistCampaign("스탯 포인트를 배분했습니다.");
+      } catch (error) {
+        statusText = error.message;
+      }
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-warden-skill]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        campaign = unlockWardenSkillNode(campaign, button.dataset.wardenSkill);
+        await persistCampaign("스킬 노드를 해금했습니다.");
+      } catch (error) {
+        statusText = error.message;
+      }
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-warden-trait]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        campaign = selectWardenTrait(campaign, button.dataset.wardenTrait);
+        await persistCampaign("특성을 선택했습니다.");
+      } catch (error) {
+        statusText = error.message;
+      }
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-warden-equip-owner]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        campaign = purchaseEquipmentTier(campaign, button.dataset.wardenEquipOwner, button.dataset.wardenEquipSlot);
+        await persistCampaign("장비를 강화했습니다.");
+      } catch (error) {
+        statusText = error.message;
+      }
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-warden-formation]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        campaign = setCompanionFormationSlot(campaign, button.dataset.wardenFormation, button.dataset.wardenFormationTarget);
+        await persistCampaign("편성을 변경했습니다.");
+      } catch (error) {
+        statusText = error.message;
+      }
       renderLobby();
     });
   });
@@ -338,11 +456,16 @@ export class BattleSession {
     this.canvas = root.querySelector("#defense-canvas");
     this.statusNode = root.querySelector("#battle-status");
     const seed = stableRunSeed(stageId);
+    const equipTiers = (ownerId) => Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, equipmentTierIndexFor(campaign, ownerId, slot)]));
     this.run = createDefenseRun({
       stageId,
       seed,
       companionLoadout: selectedLoadout(),
       rewardIds: campaign.rewardIds ?? [],
+      wardenProgress: campaign.wardenProgress,
+      wardenEquipment: equipTiers("warden"),
+      companionEquipment: Object.fromEntries(selectedLoadout().map((id) => [id, equipTiers(id)])),
+      formation: campaign.companionFormation,
     });
     this.motionQuery = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
     telemetry.startRun({ stageId, seed, rulesVersion: RULES_VERSION, reducedMotion: this.motionQuery?.matches ?? false });

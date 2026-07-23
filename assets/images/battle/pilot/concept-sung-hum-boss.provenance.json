@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-sung-hum-boss.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8f69-5cf2-7101-98fd-66bb13a3086d"
+  },
+  "prompt": "Original dark-fantasy hunter-commander boss concept (concept-sung-hum-boss), cinematic full-body concept art, three-quarter hero framing, #FF00FF matte, high readability, no text or logos, and no copyrighted character likeness.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2113882,
+    "sha256": "64c1fadab0ba0bffa24a9bb537a3afec1aa34e828dae5152b5f382a089847ffc"
+  },
+  "worldviewTrace": [
+    "W-01",
+    "W-02",
+    "W-03"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-broken-court-monarch-boss.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8f6a-bfab-79f0-a8a2-cbe78b811a56"
+  },
+  "prompt": "Original dark-fantasy hunter-commander boss concept (concept-broken-court-monarch-boss), cinematic full-body concept art, three-quarter hero framing, #FF00FF matte, high readability, no text or logos, and no copyrighted character likeness.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2548092,
+    "sha256": "fc22ab3bf1decad4f3c1d1f0b1469302a74c4ff3758b54758c2bd00d2f0f9c60"
+  },
+  "worldviewTrace": [
+    "W-01",
+    "W-02",
+    "W-03"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

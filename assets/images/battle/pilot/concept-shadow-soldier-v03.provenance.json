@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-shadow-soldier-v03.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe5-44be-72a2-aa4a-451a71a93f50"
+  },
+  "promptId": "aw-ss-v03",
+  "archetype": "shadow-soldier",
+  "variant": "v03",
+  "prompt": "Mass-produced shadow knight silhouette transformed into unique hero unit: black cloth wraps, segmented knee guards, blade-throne crest, shoulder-mounted rune fan, crouch-to-leap attack prelude, clean volumetric edges, dynamic particle smoke, anime style, no realism. Negative constraints: no faceless-source shadow soldier, no mirrored copy of prior variants, no clutter around hands.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1535,
+    "bytes": 2233295,
+    "sha256": "e04daa5756a3ecfb09247463344a14336ef1f41bbf27a749fd6ac83409894fb6"
+  },
+  "motionAffinity": [
+    "run",
+    "hit",
+    "avoid",
+    "bighit"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

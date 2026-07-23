@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-player-core-v01.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe7-ed65-7ec1-986f-7a7913010eee"
+  },
+  "promptId": "aw-pl-v01",
+  "archetype": "player-core",
+  "variant": "v01",
+  "prompt": "Player avatar as original 2.5D RPG lead, compact reinforced coat with utility harness, broad shoulder guards, short curved sword and compact shield, focused gaze and relaxed weight in attack-ready idle, readable front-to-rear silhouette, cinematic warm-cool particle mix, flat magenta background. Negative constraints: no direct likeness to any established game hero, no modern UI frames, no copied Dreadlord-type silhouette.",
+  "output": {
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "bytes": 2290263,
+    "sha256": "3b8a37d8e45eb1e864e166e50b39031e663becbd841845137186c7a0f3dab01f"
+  },
+  "motionAffinity": [
+    "idle",
+    "move",
+    "run",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

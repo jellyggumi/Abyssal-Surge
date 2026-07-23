@@ -50,14 +50,164 @@ button:disabled { opacity: .42; cursor: not-allowed; }
 .defense-reward { max-height: min(38vh, 360px); }
 .defense-reward .choices button { display: grid; gap: .2rem; min-width: 11rem; text-align: left; }
 .defense-reward .choices span { color: #b9c2d6; font-size: .72rem; }
-html[data-defense-portrait="true"] #defense-battle-surface {
+html[data-defense-portrait="true"] #defense-canvas {
   width: var(--defense-logical-width);
   height: var(--defense-logical-height);
   transform: rotate(90deg) translateY(-100%);
   transform-origin: top left;
-  --defense-safe-top: var(--defense-device-safe-right, env(safe-area-inset-right));
-  --defense-safe-right: var(--defense-device-safe-bottom, env(safe-area-inset-bottom));
-  --defense-safe-bottom: var(--defense-device-safe-left, env(safe-area-inset-left));
-  --defense-safe-left: var(--defense-device-safe-top, env(safe-area-inset-top));
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* Stage atlas: authored labels remain visible even when decorative terrain is unavailable. */
+.command-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.brand-lockup, .command-status, .hero-facts, .panel-heading { display: flex; align-items: center; gap: .75rem; }
+.brand-mark { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid #6aaee0; border-radius: 50%; color: #a6e2ff; font-weight: 800; }
+.eyebrow, .hud-eyebrow { margin: 0; color: #8ca9c8; font-size: .68rem; font-weight: 800; letter-spacing: .12em; }
+.command-status { font-size: .78rem; color: #b6c8df; }
+.signal-dot { width: .55rem; height: .55rem; border-radius: 50%; background: #6fe0b4; box-shadow: 0 0 0 .18rem rgb(111 224 180 / .12); }
+.command-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 1.25rem; align-items: stretch; padding: 1.3rem 0; }
+.hero-copy { display: grid; align-content: center; gap: .9rem; }
+.hero-copy h2 { max-width: 11ch; margin: 0; font-size: clamp(2rem, 6vw, 3.7rem); line-height: .94; letter-spacing: -.055em; }
+.hero-copy h2 em { color: #80d8ff; font-style: normal; }
+.hero-lede, .section-copy { margin: 0; line-height: 1.55; }
+.hero-facts { flex-wrap: wrap; }
+.hero-facts > span { display: grid; gap: .15rem; min-width: 6.5rem; padding-left: .6rem; border-left: 2px solid #36506e; }
+.hero-facts small { color: #91a9c0; font-size: .68rem; }
+.hero-facts b { font-size: .82rem; }
+.primary-action { display: flex; align-items: center; justify-content: space-between; gap: .8rem; width: 100%; border-color: #81d6ff; background: linear-gradient(110deg, #16466b, #183155); text-align: left; }
+.primary-action small { color: #c6dded; }
+.primary-action b { font-size: 1.25rem; }
+
+.tactical-map { position: relative; min-height: 21rem; overflow: hidden; isolation: isolate; border: 1px solid #3a5775; border-radius: 1rem; background: radial-gradient(circle at 72% 35%, rgb(73 145 174 / .21), transparent 31%), linear-gradient(145deg, #0c1b2c, #07111f); box-shadow: inset 0 0 0 1px rgb(180 225 255 / .04); }
+.tactical-map::before, .tactical-map::after { position: absolute; inset: 1rem; content: ""; pointer-events: none; }
+.tactical-map::before { border: 1px solid rgb(141 202 232 / .24); clip-path: polygon(3% 12%, 65% 4%, 97% 33%, 89% 88%, 28% 95%, 5% 71%); }
+.tactical-map::after { background: repeating-linear-gradient(145deg, transparent 0 11px, rgb(167 220 255 / .075) 12px 13px); mask-image: linear-gradient(90deg, transparent, #000 20% 85%, transparent); }
+.atlas-contours { position: absolute; inset: 2.5rem 1.75rem 4.5rem; background: repeating-radial-gradient(ellipse at 76% 50%, transparent 0 14px, rgb(160 217 244 / .18) 15px 16px, transparent 17px 27px); opacity: .8; }
+.map-route { position: absolute; z-index: 1; height: .35rem; border-radius: 999px; background: #79d6ff; box-shadow: 0 0 0 1px rgb(255 255 255 / .25); transform-origin: left; }
+.route-a { top: 61%; left: 11%; width: 64%; transform: rotate(-15deg); }
+.route-b { top: 36%; left: 45%; width: 42%; transform: rotate(39deg); background: #b992ff; }
+.map-node { position: absolute; z-index: 2; display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border: 1px solid #a8e5ff; border-radius: 50%; background: #0a1a29; box-shadow: 0 0 0 .4rem rgb(126 214 255 / .08); text-align: center; }
+.map-node span { color: #8fcbe8; font-size: .55rem; font-weight: 800; letter-spacing: .08em; }
+.map-node b { font-size: .72rem; }
+.node-gate { right: 12%; bottom: 20%; }
+.node-seal { left: 44%; top: 36%; border-color: #b992ff; }
+.node-threat { left: 9%; bottom: 16%; border-color: #f19a9a; }
+.map-readout { position: absolute; z-index: 3; inset: 1rem 1rem auto; display: grid; gap: .18rem; max-width: 72%; }
+.map-readout span { color: #91c5dc; font-size: .65rem; font-weight: 800; letter-spacing: .1em; }
+.map-readout strong { font-size: clamp(1.15rem, 3vw, 1.65rem); }
+.map-readout small { color: #b8cde0; line-height: 1.35; }
+.atlas-context { position: absolute; z-index: 3; right: 1rem; bottom: 1rem; left: 1rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem .7rem; margin: 0; padding: .65rem .75rem; border: 1px solid rgb(135 199 230 / .25); border-radius: .65rem; background: rgb(4 12 22 / .83); }
+.atlas-context div { display: grid; grid-template-columns: 4.25rem minmax(0, 1fr); gap: .35rem; min-width: 0; }
+.atlas-context dt { color: #8fd0ed; font-size: .68rem; font-weight: 800; }
+.atlas-context dd { min-width: 0; margin: 0; color: #d9e9f5; font-size: .68rem; line-height: 1.32; }
+[data-terrain-pattern="terrain.void.zenith"], [data-terrain-pattern="terrain.gate-zenith"] { background: radial-gradient(circle at 62% 35%, rgb(136 90 215 / .28), transparent 31%), linear-gradient(145deg, #130e28, #070914); }
+[data-terrain-pattern="terrain.cinder-span.ash-bands"] { background: radial-gradient(circle at 70% 30%, rgb(218 114 62 / .25), transparent 34%), linear-gradient(145deg, #25150e, #0e121b); }
+
+.ops-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(16rem, .85fr); gap: 1rem; }
+.mission-panel, .briefing-panel, .loadout-panel, .archive-panel { min-width: 0; padding: 1rem; border: 1px solid #293f5d; border-radius: .85rem; background: linear-gradient(145deg, rgb(16 30 48 / .95), rgb(8 17 31 / .95)); }
+.panel-heading { justify-content: space-between; margin-bottom: .85rem; }
+.panel-heading h2 { margin: .12rem 0 0; }
+.panel-count, .briefing-code { color: #9ecce4; font-size: .68rem; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
+.stage-rail { display: grid; gap: .45rem; max-height: 31rem; overflow: auto; padding-right: .15rem; }
+.stage-card { display: grid; grid-template-columns: 2.35rem minmax(0, 1fr) auto; gap: .6rem; align-items: center; width: 100%; min-height: 4.75rem; border-color: #2b4767; background: rgb(8 20 34 / .7); }
+.stage-card.is-selected, .stage-card[aria-pressed="true"] { border-color: #80d8ff; background: linear-gradient(90deg, #163b5d, #102940); }
+.stage-index { color: #8bd8ff; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stage-info { display: grid; min-width: 0; gap: .1rem; }
+.stage-info strong, .stage-info small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-info small, .stage-state { color: #a8bfd4; font-size: .7rem; }
+.stage-state { text-align: right; }
+.briefing-panel { display: grid; align-content: start; gap: .9rem; }
+.briefing-target { display: flex; gap: .7rem; align-items: flex-start; }
+.briefing-target > div { display: grid; gap: .22rem; }
+.briefing-target small { color: #a8c8d9; line-height: 1.35; }
+.target-sigil { display: grid; place-items: center; flex: 0 0 2.6rem; width: 2.6rem; height: 2.6rem; border: 1px solid #e79191; border-radius: 50%; color: #f2a4a4; }
+.briefing-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: 0; }
+.briefing-stats div { padding: .55rem; border-left: 2px solid #4b7396; background: rgb(255 255 255 / .025); }
+.briefing-stats dt { color: #8fb9d2; font-size: .67rem; font-weight: 800; }
+.briefing-stats dd { margin: .25rem 0 0; color: #e2edf6; font-size: .76rem; line-height: 1.35; }
+.briefing-tip { margin: 0; padding-top: .75rem; border-top: 1px solid #2b4665; font-size: .8rem; line-height: 1.5; }
+.loadout-panel, .archive-panel { grid-column: span 1; }
+.loadout-slots, .companion-grid, .reward-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; }
+.loadout-slot, .reward-card, .empty-companions { min-height: 4.5rem; padding: .65rem; border: 1px dashed #415b78; border-radius: .65rem; }
+.loadout-slot, .reward-card { display: grid; gap: .2rem; align-content: center; }
+.loadout-slot.is-filled { border-style: solid; border-color: #527fa4; background: rgb(95 174 215 / .08); }
+.companion-grid { margin-top: .7rem; }
+.companion-card { display: flex; align-items: center; gap: .5rem; min-height: 4.8rem; }
+.companion-card > span:not(.companion-glyph) { display: grid; min-width: 0; }
+.companion-card small, .companion-card i { color: #abc4d5; font-size: .68rem; font-style: normal; }
+.companion-card i { margin-left: auto; }
+.archive-panel { grid-column: 1 / -1; }
+.archive-summary { display: flex; gap: .75rem; align-items: center; }
+.archive-ring { display: grid; place-items: center; width: 4.5rem; height: 4.5rem; border: 2px solid #71cfb0; border-radius: 50%; text-align: center; }
+.archive-ring b { font-size: 1.2rem; line-height: 1; }
+.archive-ring small { font-size: .6rem; }
+.reward-grid { margin-top: .75rem; }
+
+.hud-mission { max-width: min(46vw, 380px); }
+.hud-mission #battle-domain { color: #a7d9ee; font-weight: 700; }
+.hud-mission #battle-terrain-context { color: #bed0de; font-size: .72rem; line-height: 1.32; }
+[data-stage-hud-context][data-terrain-pattern] { border-color: #5b85a5; }
+.top-right-hud { display: flex; gap: .45rem; align-items: flex-start; justify-content: flex-end; max-width: 53vw; pointer-events: auto; }
+.objective-chip { display: flex; align-items: center; gap: .4rem; max-width: 15rem; padding: .42rem .55rem; border: 1px solid #4a7a93; border-radius: .65rem; background: rgb(5 12 25 / .85); font-size: .76rem; }
+.objective-chip small { color: #9cb8ce; }
+.objective-chip strong { display: block; margin-top: .08rem; line-height: 1.28; }
+.objective-pulse { width: .6rem; height: .6rem; border: 2px solid #87d9bc; border-radius: 50%; }
+.one-thumb-controls { display: grid; grid-template-columns: repeat(5, minmax(44px, 1fr)); gap: .3rem; max-width: min(45vw, 320px); }
+.one-thumb-controls button { min-width: 44px; min-height: 44px; padding: .35rem; }
+.gate-panel { max-width: min(43vw, 360px); }
+.gate-panel-copy { display: grid; gap: .12rem; }
+.integrity-meter { height: .35rem; margin-top: .45rem; overflow: hidden; border-radius: 999px; background: #27384f; }
+.integrity-meter i { display: block; height: 100%; background: linear-gradient(90deg, #e26b72, #e9c46a, #70d3ae); transition: width 120ms linear; }
+
+/* Warden growth panel — UNIFIED-GDD.md §6.3: 3 new dense screens (inventory/skill-tree/formation)
+   get a 48dp touch-target floor (stricter than the base 44px) + minimum interactive-element gap. */
+.growth-panel { grid-column: 1 / -1; padding: 1rem; border: 1px solid #293f5d; border-radius: .85rem; background: linear-gradient(145deg, rgb(16 30 48 / .95), rgb(8 17 31 / .95)); }
+.growth-panel details { margin-top: .75rem; }
+.growth-panel summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; padding: .4rem 0; font-weight: 700; }
+.growth-stat-grid, .growth-skill-grid, .growth-equip-grid { display: grid; gap: .6rem; margin-top: .5rem; }
+.growth-stat-row, .growth-skill-node { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .5rem; border: 1px solid #2b4767; border-radius: .6rem; background: rgb(8 20 34 / .7); }
+.growth-skill-node.is-unlocked { border-color: #71cfb0; background: rgb(113 207 176 / .1); }
+.growth-stat-row button, .growth-skill-node button, .growth-equip-slot button { min-width: 48px; min-height: 48px; }
+.growth-trait-offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; margin-top: .5rem; }
+.growth-trait-card { min-height: 56px; padding: .65rem; text-align: left; display: grid; gap: .2rem; }
+.growth-trait-card em { color: #d9a05c; font-style: normal; font-size: .72rem; }
+.growth-equip-owner { margin-top: .6rem; }
+.growth-equip-slots { display: grid; gap: .5rem; margin-top: .4rem; }
+.growth-equip-slot { display: flex; align-items: center; gap: .5rem; padding: .5rem; border: 1px solid #2b4767; border-radius: .6rem; }
+.growth-equip-slot small { min-width: 3.5rem; text-transform: uppercase; color: #9ecce4; font-size: .68rem; }
+.growth-formation-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; margin-top: .5rem; }
+.growth-formation-slot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem; border: 1px solid #2b4767; border-radius: .6rem; min-height: 48px; }
+.growth-formation-slot button { min-width: 48px; min-height: 48px; }
+/* Tier icon channel (§6.3 color-independent encoding): vertex count is the 2nd channel alongside tier-name text. */
+.tier-icon { display: inline-block; width: 14px; height: 14px; flex-shrink: 0; background: #9ecce4; }
+.tier-icon[data-tier-vertices="0"] { border-radius: 50%; }
+.tier-icon[data-tier-vertices="3"] { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+.tier-icon[data-tier-vertices="4"] { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+.tier-icon[data-tier-vertices="5"] { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); }
+.tier-icon[data-tier-vertices="6"] { clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); }
+
+@media (max-width: 720px) {
+  .defense-lobby { padding-inline: .75rem; }
+  .command-header { align-items: flex-start; }
+  .command-status { display: none; }
+  .command-hero, .ops-grid { grid-template-columns: 1fr; }
+  .tactical-map { min-height: 19rem; }
+  .atlas-context { grid-template-columns: 1fr; }
+  .atlas-context div { grid-template-columns: 4rem minmax(0, 1fr); }
+  .stage-rail { max-height: none; }
+  .briefing-stats { grid-template-columns: 1fr; }
+  .loadout-panel { grid-column: 1; }
+  .defense-top { gap: .3rem; }
+  .hud-mission { max-width: 49vw; }
+  .top-right-hud { max-width: 49vw; }
+  .objective-chip { max-width: 11rem; }
+  .objective-chip strong { max-height: 2.6em; overflow: hidden; }
+  .gate-panel { max-width: 42vw; }
+  .one-thumb-controls { grid-template-columns: repeat(3, 44px); max-width: 8.8rem; }
+  .defense-bottom { gap: .3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tactical-map::after { opacity: .72; }
+  .integrity-meter i { transition: none; }
+}

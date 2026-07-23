@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-human-command-boss.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8f67-deb4-7e43-a9d8-ac8c997224c4"
+  },
+  "prompt": "Original dark-fantasy hunter-commander boss concept (concept-human-command-boss), cinematic full-body concept art, three-quarter hero framing, #FF00FF matte, high readability, no text or logos, and no copyrighted character likeness.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2166177,
+    "sha256": "5c4c186f1fc4d3be33270776cc339ccc061d03a11168aa26bfda07be2463f4c8"
+  },
+  "worldviewTrace": [
+    "W-01",
+    "W-02",
+    "W-03"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

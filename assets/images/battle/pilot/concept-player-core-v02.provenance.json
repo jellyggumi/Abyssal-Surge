@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-player-core-v02.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe9-3b3e-77b2-ad89-066fbe9e4486"
+  },
+  "promptId": "aw-pl-v02",
+  "archetype": "player-core",
+  "variant": "v02",
+  "prompt": "Player core form in ceremonial yet practical attire, layered scarf and shoulder plate set, medium halberd in hand, defensive posture with knee flexion and forward guard, bright particle sparks at blade tip, cel-shaded textures and 2.5D anime composition, zero text. Negative constraints: no IP title/marks, no exact player colorways from existing references, no overexposed face.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2443921,
+    "sha256": "cc894265ad1a7c6f50c9493fcd02a9a2b6ef5f92e18bd368ed6ece81b4784b39"
+  },
+  "motionAffinity": [
+    "attack",
+    "hit",
+    "defence",
+    "avoid"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-broken-court-monarch-v01.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fed-1ddb-70b2-8d74-eb7e3a854050"
+  },
+  "promptId": "aw-mo-v01",
+  "archetype": "broken-court-monarch",
+  "variant": "v01",
+  "prompt": "Regent-grade broken-court ruler archetype, tall armored figure with fractured crown array, heavy draped mantle in dark emerald and rust, one hand lifted in command with runic whip, the other holding void-flare glaive, grand but controlled scale, 1024x576 2.5D anime RPG concept with dramatic magenta cutoff background. Negative constraints: no direct visual of canonical Monarch, no source crown geometry, no copied robe seam pattern.",
+  "output": {
+    "format": "png",
+    "width": 1672,
+    "height": 941,
+    "bytes": 2092693,
+    "sha256": "e0e98b5ebacdc8c6f56e144e496c6834953b02b88ada89f39e521bd2a3ee9272"
+  },
+  "motionAffinity": [
+    "show",
+    "idle",
+    "defence",
+    "critical"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

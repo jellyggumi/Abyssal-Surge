@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-player-core-v03.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fea-b261-7f62-8f09-1a14818809ef"
+  },
+  "promptId": "aw-pl-v03",
+  "archetype": "player-core",
+  "variant": "v03",
+  "prompt": "Mobile brawler style player archetype with cross-body chain relic, compact gauntlet rifle integrated in right arm silhouette, broad chest strap, half-smirk expression, stepping diagonal into frame, 2.5D anime with painterly brush strokes and particle burst trails. Negative constraints: no exact match to known player icon, no duplicated weapon set from prior variant, no background UI.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2177021,
+    "sha256": "e1801eca9bde478dc8682163751cb08a9e01635c80715de80f9f2afd44678d54"
+  },
+  "motionAffinity": [
+    "run",
+    "move",
+    "attack",
+    "critical"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

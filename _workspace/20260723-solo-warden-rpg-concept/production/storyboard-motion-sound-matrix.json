@@ -1,0 +1,901 @@
+{
+  "schemaVersion": "na-honjam-storyboard-motion-sound-matrix-1.0",
+  "runId": "20260723-solo-warden-rpg-concept",
+  "artifactRoot": "_workspace/20260723-solo-warden-rpg-concept",
+  "source": {
+    "storyboard": "design/defense-rpg-cinematic-arc.md",
+    "soundPlan": "production/elevenlabs_sound_plan.json",
+    "motionPipeline": "production/boss-motion-previs-action-pipeline.json"
+  },
+  "narrativeTitle": "나 혼자만 레벨업 디펜스 RPG | 세계관 성장 아크 1~10",
+  "stageRange": [1, 10],
+  "totalCuts": 17,
+  "global": {
+    "frameRateSource": 60,
+    "frameRateRuntime": 30,
+    "audioPathTemplate": "assets/audio/elevenlabs/{category}/{id}.mp3",
+    "requiredCharacterIds": [
+      "sung-hum",
+      "human-command",
+      "shadow-commander",
+      "broken-court-monarch",
+      "npc"
+    ],
+    "requiredActions": [
+      "idle",
+      "move",
+      "run",
+      "hit",
+      "bighit",
+      "attack",
+      "critical",
+      "avoid",
+      "defence",
+      "die",
+      "show"
+    ]
+  },
+  "cuts": [
+    {
+      "cutId": "C01",
+      "stage": "intro",
+      "label": "프롤로그 - 재난의 전조",
+      "durationSec": 8,
+      "scenePrompt": "ember ruins, broken ether gate, lone dusk-warden silhouette, distant command lines collapsing, 1024x576",
+      "narrationTarget": "C01",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "show",
+          "previsTag": "player:show",
+          "durationFrames": 240,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 8
+        }
+      ],
+      "audio": {
+        "narration": ["narr_intro_01"],
+        "bgm": ["bgm_prologue_low"],
+        "sfx": ["sfx_gate_rip_01"]
+      },
+      "interactive": {
+        "type": "choice-latch",
+        "options": [
+          "호흡 모드",
+          "엄호 모드"
+        ],
+        "effect": "호흡/엄호 선택은 intro-only 텍스트 브랜치와 HUD 첫 안내색만 변경. 컷 전환은 동일"
+      }
+    },
+    {
+      "cutId": "C02",
+      "stage": "lobby",
+      "label": "로비 오프닝",
+      "durationSec": 10,
+      "scenePrompt": "war-hold command room, dusk light, strategic table with 10 red pins, calm but tense atmosphere, 1024x576",
+      "narrationTarget": "C02",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "idle",
+          "previsTag": "player:idle",
+          "durationFrames": 300,
+          "transitionInFrames": 8,
+          "transitionOutFrames": 6
+        }
+      ],
+      "audio": {
+        "narration": ["narr_lobby_intro"],
+        "bgm": ["bgm_lobby_day"],
+        "sfx": ["sfx_ambient_forge"],
+        "npcVoiceSamples": [
+          "npcHaram_lobby_opening",
+          "npcMeri_lobby_timing"
+        ]
+      },
+      "interactive": {
+        "type": "dialogue-branch",
+        "npc": "하람/메리",
+        "prompt": "브리핑 문구 변경 옵션 두 가지 열림",
+        "effect": "보스 출현 컷(C03/C04) 텍스트 레이어 언어톤을 전환"
+      }
+    },
+    {
+      "cutId": "C03",
+      "stage": 1,
+      "label": "스테이지1 진입",
+      "durationSec": 9,
+      "scenePrompt": "narrow canyon, ember ash bridge, red warning sigils, player enters through smoke, 1024x576",
+      "narrationTarget": "C03",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "move",
+          "previsTag": "player:move",
+          "durationFrames": 240,
+          "transitionInFrames": 6,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "player",
+          "action": "attack",
+          "previsTag": "player:attack",
+          "durationFrames": 144,
+          "offsetFrames": 120
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage01_entry"],
+        "bgm": ["bgm_stage01_entry"],
+        "sfx": ["sfx_ward_level_warning"],
+        "ambience": "bg_stage01_entry"
+      },
+      "interactive": {
+        "type": "branch-weight",
+        "choices": [
+          "안정 수색",
+          "선제 공격"
+        ],
+        "state": "runMode"
+      },
+      "triggers": {
+        "stateNarration": ["state.player.safe", "state.player.skill_cd"],
+        "skillNarration": ["skill.player.attack"]
+      }
+    },
+    {
+      "cutId": "C04",
+      "stage": 1,
+      "label": "스테이지1 보스 쇼케이스",
+      "durationSec": 12,
+      "scenePrompt": "human-commander, tactical mask, ember crown, cinematic pose, dramatic sidelight, 1024x576",
+      "narrationTarget": "C04",
+      "motion": [
+        {
+          "actor": "human-command",
+          "action": "show",
+          "previsTag": "boss:human-command:show",
+          "durationFrames": 270,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 6
+        },
+        {
+          "actor": "boss",
+          "action": "attack",
+          "previsTag": "boss:human-command:attack",
+          "durationFrames": 132,
+          "offsetFrames": 90
+        },
+        {
+          "actor": "player",
+          "action": "defence",
+          "previsTag": "player:defence",
+          "durationFrames": 84,
+          "offsetFrames": 150
+        }
+      ],
+      "audio": {
+        "narration": ["narr_boss01_show"],
+        "bgm": ["bgm_stage01_boss"],
+        "sfx": ["sfx_boss_enter_chime", "sfx_boss_human_attack", "sfx_player_block"],
+        "combatSfx": ["sfx_boss_generic_hit", "sfx_player_block"]
+      },
+      "interactive": {
+        "type": "combat-preference",
+        "options": [
+          "공격 우세",
+          "회피 우선"
+        ],
+        "state": "첫 보정 슬롯 토큰 갱신"
+      },
+      "triggers": {
+        "stateNarration": ["state.player.defence_ready"],
+        "skillNarration": ["skill.player.defence"]
+      }
+    },
+    {
+      "cutId": "C05",
+      "stage": 2,
+      "label": "스테이지2 전환",
+      "durationSec": 9,
+      "scenePrompt": "fortress bridge under storm, two-way shadow flares, fog + red signal rods, 1024x576",
+      "narrationTarget": "C05",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "run",
+          "previsTag": "player:run",
+          "durationFrames": 180,
+          "transitionInFrames": 8,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "human-command",
+          "action": "move",
+          "previsTag": "boss:human-command:move",
+          "durationFrames": 200,
+          "offsetFrames": 20
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage02_entry"],
+        "bgm": ["bgm_stage02_entry"],
+        "sfx": ["sfx_bridge_grind"],
+        "ambience": "bg_stage02_entry"
+      },
+      "interactive": {
+        "type": "branch",
+        "options": [
+          "정예 우선 정리",
+          "안전 경로 우선"
+        ],
+        "effect": "정예 우선 정리 실패 시 경고 텍스트 레이어가 1.6초 단축"
+      },
+      "triggers": {
+        "battleSfx": ["sfx_ward_rise"],
+        "stateNarration": ["state.player.move"]
+      }
+    },
+    {
+      "cutId": "C06",
+      "stage": 2,
+      "label": "스테이지2 보스 쇼케이스",
+      "durationSec": 11,
+      "scenePrompt": "veil tactician, dual-spear shadow soldier, cracked visor, layered armor, cinematic side reveal, 1024x576",
+      "narrationTarget": "C06",
+      "motion": [
+        {
+          "actor": "human-command",
+          "action": "show",
+          "previsTag": "boss:human-command:show",
+          "durationFrames": 240,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "human-command",
+          "action": "attack",
+          "previsTag": "boss:human-command:attack",
+          "durationFrames": 144,
+          "offsetFrames": 70
+        },
+        {
+          "actor": "player",
+          "action": "avoid",
+          "previsTag": "player:avoid",
+          "durationFrames": 60,
+          "offsetFrames": 120
+        }
+      ],
+      "audio": {
+        "narration": ["narr_boss02_show"],
+        "bgm": ["bgm_stage02_boss"],
+        "sfx": ["sfx_tactical_ping", "sfx_boss_human_attack", "sfx_player_avoid"],
+        "combatSfx": ["onWardLevelRise"]
+      },
+      "interactive": {
+        "type": "timing-pressure",
+        "effect": "보스 show 뒤 0.8초 안에 회피 입력 실패 시 상태 경고를 강화"
+      },
+      "triggers": {
+        "stateNarration": ["state.player.critical", "state.player.lowhp"],
+        "battleSfx": ["onDefenceBreak"]
+      }
+    },
+    {
+      "cutId": "C07",
+      "stage": 3,
+      "label": "스테이지3-4 연결",
+      "durationSec": 12,
+      "scenePrompt": "royal hall echo + drowned battlement, alternating palette shifts, low-angle cut, 1024x576",
+      "narrationTarget": "C07",
+      "motion": [
+        {
+          "actor": "shadow-commander",
+          "action": "show",
+          "previsTag": "boss:shadow-commander:show",
+          "durationFrames": 260,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "player",
+          "action": "show",
+          "previsTag": "player:show",
+          "durationFrames": 180,
+          "offsetFrames": 40
+        },
+        {
+          "actor": "player",
+          "action": "run",
+          "previsTag": "player:run",
+          "durationFrames": 180,
+          "offsetFrames": 60
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage03_04_bridge"],
+        "bgm": ["bgm_mid_gate_drive"],
+        "sfx": ["sfx_echo_drone"],
+        "ambience": "bg_stage03_entry"
+      },
+      "interactive": {
+        "type": "npc-line",
+        "npc": "하람",
+        "text": "저지선 임계값이 다음 두 스테이지에 걸쳐 유지된다.",
+        "effect": "판독형 분기 없이 다음 컷으로 고정"
+      }
+    },
+    {
+      "cutId": "C08",
+      "stage": 3,
+      "label": "스테이지3 보스 쇼케이스",
+      "durationSec": 10,
+      "scenePrompt": "void knight from abyssal gate, cloak-like shadow fragments, crimson-thorn staff, 1024x576",
+      "narrationTarget": "C08",
+      "motion": [
+        {
+          "actor": "shadow-commander",
+          "action": "show",
+          "previsTag": "boss:shadow-commander:show",
+          "durationFrames": 240,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "player",
+          "action": "attack",
+          "previsTag": "player:attack",
+          "durationFrames": 132,
+          "offsetFrames": 80
+        },
+        {
+          "actor": "shadow-commander",
+          "action": "critical",
+          "previsTag": "boss:shadow-commander:critical",
+          "durationFrames": 96,
+          "offsetFrames": 140
+        }
+      ],
+      "audio": {
+        "narration": ["narr_boss03_show"],
+        "bgm": ["bgm_stage03_boss"],
+        "sfx": ["sfx_staff_windup", "sfx_boss_shadow_critical", "sfx_player_attack"],
+        "combatSfx": ["onBossBighit"]
+      },
+      "interactive": {
+        "type": "defence-popup",
+        "effect": "boss critical 경보 즉시 defence 팝업 표시"
+      },
+      "triggers": {
+        "stateNarration": ["state.player.die"],
+        "battleSfx": ["sfx_player_hit", "sfx_boss_shadow_attack"]
+      }
+    },
+    {
+      "cutId": "C09",
+      "stage": 5,
+      "label": "스테이지5 압박 구간",
+      "durationSec": 10,
+      "scenePrompt": "howling pack herald, torn signal tower, wind circles around enemy line, 1024x576",
+      "narrationTarget": "C09",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "move",
+          "previsTag": "player:move",
+          "durationFrames": 240,
+          "transitionInFrames": 8,
+          "transitionOutFrames": 6
+        },
+        {
+          "actor": "human-command",
+          "action": "show",
+          "previsTag": "boss:human-command:show",
+          "durationFrames": 240,
+          "offsetFrames": 20
+        },
+        {
+          "actor": "human-command",
+          "action": "attack",
+          "previsTag": "boss:human-command:attack",
+          "durationFrames": 132,
+          "offsetFrames": 90
+        },
+        {
+          "actor": "human-command",
+          "action": "bighit",
+          "previsTag": "boss:human-command:bighit",
+          "durationFrames": 132,
+          "offsetFrames": 150
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage05"],
+        "bgm": ["bgm_stage05"],
+        "sfx": ["sfx_howl_loop", "sfx_boss_generic_hit"],
+        "ambience": "bg_stage05_entry"
+      },
+      "interactive": {
+        "type": "split-command",
+        "effect": "우측 경로 비우기 분산 모드로 이동"
+      }
+    },
+    {
+      "cutId": "C10",
+      "stage": 6,
+      "label": "스테이지6 문턱",
+      "durationSec": 11,
+      "scenePrompt": "glass cathedral ruins, ward sigils rising, emperor-like commander silhouette, 1024x576",
+      "narrationTarget": "C10",
+      "motion": [
+        {
+          "actor": "broken-court-monarch",
+          "action": "show",
+          "previsTag": "boss:broken-court-monarch:show",
+          "durationFrames": 300,
+          "transitionInFrames": 14,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "player",
+          "action": "defence",
+          "previsTag": "player:defence",
+          "durationFrames": 120,
+          "offsetFrames": 60
+        },
+        {
+          "actor": "broken-court-monarch",
+          "action": "attack",
+          "previsTag": "boss:broken-court-monarch:attack",
+          "durationFrames": 132,
+          "offsetFrames": 120
+        },
+        {
+          "actor": "broken-court-monarch",
+          "action": "bighit",
+          "previsTag": "boss:broken-court-monarch:bighit",
+          "durationFrames": 132,
+          "offsetFrames": 180
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage06"],
+        "bgm": ["bgm_stage06_peak"],
+        "sfx": ["sfx_ward_lock", "sfx_boss_broken_court_monarch_bighit", "sfx_player_block"],
+        "combatSfx": ["onWardLevelRise"]
+      },
+      "interactive": {
+        "type": "branch",
+        "options": [
+          "방어 강화",
+          "공격 템포 유지"
+        ]
+      }
+    },
+    {
+      "cutId": "C11",
+      "stage": 7,
+      "label": "스테이지7-8 전개",
+      "durationSec": 12,
+      "scenePrompt": "dark canal, broken bridge, mirrored shadows, two-lane pursuit, 1024x576",
+      "narrationTarget": "C11",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "move",
+          "previsTag": "player:move",
+          "durationFrames": 240,
+          "transitionInFrames": 8,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "shadow-commander",
+          "action": "move",
+          "previsTag": "boss:shadow-commander:move",
+          "durationFrames": 240,
+          "offsetFrames": 40
+        },
+        {
+          "actor": "player",
+          "action": "show",
+          "previsTag": "player:show",
+          "durationFrames": 120,
+          "offsetFrames": 140
+        },
+        {
+          "actor": "shadow-commander",
+          "action": "attack",
+          "previsTag": "boss:shadow-commander:attack",
+          "durationFrames": 132,
+          "offsetFrames": 160
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage07_08"],
+        "bgm": ["bgm_bridge_cascade"],
+        "sfx": ["sfx_bridge_break", "sfx_boss_shadow_attack"],
+        "ambience": "bg_stage07_entry"
+      },
+      "interactive": {
+        "type": "hud-visual",
+        "effect": "포메이션 변경 시 체력바 분할 애니메이션 형태 전환"
+      }
+    },
+    {
+      "cutId": "C12",
+      "stage": 8,
+      "label": "스테이지8 보스 쇼케이스",
+      "durationSec": 12,
+      "scenePrompt": "colossus frame from gate ruins, colossal shadow banners, metallic ash storms, 1024x576",
+      "narrationTarget": "C12",
+      "motion": [
+        {
+          "actor": "broken-court-monarch",
+          "action": "show",
+          "previsTag": "boss:broken-court-monarch:show",
+          "durationFrames": 300,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "broken-court-monarch",
+          "action": "critical",
+          "previsTag": "boss:broken-court-monarch:critical",
+          "durationFrames": 120,
+          "offsetFrames": 120
+        },
+        {
+          "actor": "player",
+          "action": "critical",
+          "previsTag": "player:critical",
+          "durationFrames": 90,
+          "offsetFrames": 130
+        }
+      ],
+      "audio": {
+        "narration": ["narr_boss08_show"],
+        "bgm": ["bgm_stage08_colossus"],
+        "sfx": ["sfx_colossus_step", "sfx_boss_broken_court_monarch_critical", "sfx_player_critical"],
+        "combatSfx": ["onDefenceBreak", "onBossBighit"]
+      },
+      "interactive": {
+        "type": "timing-window",
+        "options": ["Avoid성공시 3초 무피격 버프 적용"],
+        "effect": "성공 시 player:avoid 액션을 강제 전이 가능"
+      }
+    },
+    {
+      "cutId": "C13",
+      "stage": 9,
+      "label": "스테이지9 갈림입구",
+      "durationSec": 11,
+      "scenePrompt": "diplomatic courtroom in abyss, veiled pact, split-light duel, 1024x576",
+      "narrationTarget": "C13",
+      "motion": [
+        {
+          "actor": "human-command",
+          "action": "show",
+          "previsTag": "boss:human-command:show",
+          "durationFrames": 240,
+          "transitionInFrames": 10,
+          "transitionOutFrames": 10
+        },
+        {
+          "actor": "human-command",
+          "action": "hit",
+          "previsTag": "boss:human-command:hit",
+          "durationFrames": 84,
+          "offsetFrames": 90
+        },
+        {
+          "actor": "player",
+          "action": "defence",
+          "previsTag": "player:defence",
+          "durationFrames": 120,
+          "offsetFrames": 100
+        },
+        {
+          "actor": "human-command",
+          "action": "attack",
+          "previsTag": "boss:human-command:attack",
+          "durationFrames": 132,
+          "offsetFrames": 140
+        }
+      ],
+      "audio": {
+        "narration": ["narr_stage09"],
+        "bgm": ["bgm_stage09_dissonant"],
+        "sfx": ["sfx_vow_break", "sfx_player_block", "sfx_player_hit"],
+        "combatSfx": ["onHit", "onStageClear"],
+        "npcVoice": ["npcRael_stage9_choice"]
+      },
+      "interactive": {
+        "type": "branch",
+        "options": [
+          "추적을 멈춘다",
+          "계속 추적한다"
+        ],
+        "effect": "엔딩 분기 전투톤 토글"
+      },
+      "triggers": {
+        "stateNarration": ["state.player.safe", "state.player.critical"],
+        "skillNarration": ["skill.player.avoid", "skill.player.attack"]
+      }
+    },
+    {
+      "cutId": "C14",
+      "stage": 10,
+      "label": "스테이지10 최종 쇼케이스",
+      "durationSec": 13,
+      "scenePrompt": "abyss regent, crimson sigil throne, fractured moonless command, 1024x576",
+      "narrationTarget": "C14",
+      "motion": [
+        {
+          "actor": "broken-court-monarch",
+          "action": "show",
+          "previsTag": "boss:broken-court-monarch:show",
+          "durationFrames": 360,
+          "transitionInFrames": 16,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "broken-court-monarch",
+          "action": "attack",
+          "previsTag": "boss:broken-court-monarch:attack",
+          "durationFrames": 132,
+          "offsetFrames": 120
+        },
+        {
+          "actor": "broken-court-monarch",
+          "action": "critical",
+          "previsTag": "boss:broken-court-monarch:critical",
+          "durationFrames": 120,
+          "offsetFrames": 150
+        },
+        {
+          "actor": "player",
+          "action": "bighit",
+          "previsTag": "player:bighit",
+          "durationFrames": 120,
+          "offsetFrames": 200
+        }
+      ],
+      "audio": {
+        "narration": ["narr_boss10_show"],
+        "bgm": ["bgm_stage10_final"],
+        "sfx": ["sfx_final_gate_shatter", "sfx_boss_broken_court_monarch_critical", "sfx_player_bighit"],
+        "combatSfx": ["onEliteFail", "onBossBighit"]
+      },
+      "interactive": {
+        "type": "critical-branch",
+        "options": [
+          "공격형 연쇄",
+          "방어형 생존"
+        ],
+        "effect": "엔딩 A/B 진입 사전 상태 결정"
+      }
+    },
+    {
+      "cutId": "C15",
+      "stage": "ending-common",
+      "label": "엔딩 공통",
+      "durationSec": 9,
+      "scenePrompt": "dawn over abyssal wall, deepmark rune in chest glow, companions waiting, 1024x576",
+      "narrationTarget": "C15",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "show",
+          "previsTag": "player:show",
+          "durationFrames": 180,
+          "transitionInFrames": 10,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "player",
+          "action": "idle",
+          "previsTag": "player:idle",
+          "durationFrames": 120,
+          "offsetFrames": 60
+        }
+      ],
+      "audio": {
+        "narration": ["narr_ending_common"],
+        "bgm": ["bgm_ending_common"],
+        "sfx": ["sfx_resonance_bloom"],
+        "combatSfx": ["onStageClear"]
+      },
+      "interactive": {
+        "type": "chapter-close",
+        "effect": "다음 챕터 조건 텍스트(회복/재침투 티저)",
+        "nextChapterHint": {
+          "nextChapterUnlocked": true,
+          "branchHint": "ending-a 또는 ending_b"
+        }
+      },
+      "triggers": {
+        "stateNarration": ["state.player.safe", "state.player.defence_ready"]
+      }
+    },
+    {
+      "cutId": "C16",
+      "stage": "ending-a",
+      "label": "엔딩 브랜치 A: 재건 루트",
+      "durationSec": 10,
+      "scenePrompt": "peaceful hold with rebuilding crews, warm campfire, quiet banners, 1024x576",
+      "narrationTarget": "C16",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "move",
+          "previsTag": "player:move",
+          "durationFrames": 180,
+          "transitionInFrames": 10,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "player",
+          "action": "idle",
+          "previsTag": "player:idle",
+          "durationFrames": 120,
+          "offsetFrames": 120
+        }
+      ],
+      "audio": {
+        "narration": ["narr_ending_a"],
+        "bgm": ["bgm_ending_a"],
+        "sfx": ["sfx_forge_soft"],
+        "combatSfx": []
+      },
+      "interactive": {
+        "type": "teaser",
+        "effect": "회복 루트 안내 및 사이드퀘스트 티저 표시"
+      }
+    },
+    {
+      "cutId": "C17",
+      "stage": "ending-b",
+      "label": "엔딩 브랜치 B: 재침투 루트",
+      "durationSec": 11,
+      "scenePrompt": "storm-charged horizon, vow-marked map, pursuit silhouette, 1024x576",
+      "narrationTarget": "C17",
+      "motion": [
+        {
+          "actor": "player",
+          "action": "run",
+          "previsTag": "player:run",
+          "durationFrames": 220,
+          "transitionInFrames": 12,
+          "transitionOutFrames": 8
+        },
+        {
+          "actor": "player",
+          "action": "attack",
+          "previsTag": "player:attack",
+          "durationFrames": 132,
+          "offsetFrames": 100
+        }
+      ],
+      "audio": {
+        "narration": ["narr_ending_b"],
+        "bgm": ["bgm_ending_b"],
+        "sfx": ["sfx_pursuit_wind", "sfx_player_attack"],
+        "combatSfx": ["onEliteFail"]
+      },
+      "interactive": {
+        "type": "teaser",
+        "effect": "다음 시즌 재침투 루트(추적형 성장) 진입 안내"
+      }
+    }
+  ],
+  "stageToCuts": {
+    "1": ["C03", "C04"],
+    "2": ["C05", "C06"],
+    "3": ["C07", "C08"],
+    "4": ["C07", "C08"],
+    "5": ["C09"],
+    "6": ["C10"],
+    "7": ["C11"],
+    "8": ["C11", "C12"],
+    "9": ["C13"],
+    "10": ["C14"]
+  },
+  "actionLibrary": {
+    "player": [
+      "player:idle",
+      "player:move",
+      "player:run",
+      "player:hit",
+      "player:bighit",
+      "player:attack",
+      "player:critical",
+      "player:avoid",
+      "player:defence",
+      "player:die",
+      "player:show"
+    ],
+    "human-command": [
+      "boss:human-command:show",
+      "boss:human-command:attack",
+      "boss:human-command:critical",
+      "boss:human-command:hit",
+      "boss:human-command:bighit",
+      "boss:human-command:defence",
+      "boss:human-command:move",
+      "boss:human-command:die"
+    ],
+    "shadow-commander": [
+      "boss:shadow-commander:show",
+      "boss:shadow-commander:attack",
+      "boss:shadow-commander:critical",
+      "boss:shadow-commander:avoid",
+      "boss:shadow-commander:move",
+      "boss:shadow-commander:defence",
+      "boss:shadow-commander:die"
+    ],
+    "broken-court-monarch": [
+      "boss:broken-court-monarch:show",
+      "boss:broken-court-monarch:attack",
+      "boss:broken-court-monarch:critical",
+      "boss:broken-court-monarch:bighit",
+      "boss:broken-court-monarch:move",
+      "boss:broken-court-monarch:defence",
+      "boss:broken-court-monarch:die"
+    ]
+  },
+  "elevenlabsRuntime": {
+    "batchReference": "production/elevenlabs_sound_plan.json",
+    "generateAllNarrationAndStateFirst": true,
+    "fallbackNonSpeech": "externalSfxLibraryOrLocalRepo",
+    "narrationIdsUsed": [
+      "narr_intro_01",
+      "narr_lobby_intro",
+      "narr_stage01_entry",
+      "narr_boss01_show",
+      "narr_stage02_entry",
+      "narr_boss02_show",
+      "narr_stage03_04_bridge",
+      "narr_boss03_show",
+      "narr_stage05",
+      "narr_stage06",
+      "narr_stage07_08",
+      "narr_boss08_show",
+      "narr_stage09",
+      "narr_boss10_show",
+      "narr_ending_common",
+      "narr_ending_a",
+      "narr_ending_b"
+    ],
+    "stateNarrationIds": [
+      "state.player.safe",
+      "state.player.critical",
+      "state.player.lowhp",
+      "state.player.defence_ready",
+      "state.player.skill_cd",
+      "state.player.die"
+    ],
+    "skillNarrationIds": [
+      "skill.player.attack",
+      "skill.player.bighit",
+      "skill.player.critical",
+      "skill.player.avoid",
+      "skill.player.defence",
+      "skill.player.move",
+      "skill.player.run"
+    ],
+    "combatSfxIds": [
+      "onHit",
+      "onBossBighit",
+      "onDefenceBreak",
+      "onStageClear",
+      "onEliteFail",
+      "onWardLevelRise"
+    ]
+  },
+  "qualityNotes": {
+    "sceneLengthPolicy": "6~12초(보스 컷 10~16초)",
+    "audioPolicy": "컷당 최소 1 narration + 1 bgm + 1 sfx",
+    "interactivePolicy": "컷당 최소 1 분기/대사/분산 이벤트"
+  }
+}

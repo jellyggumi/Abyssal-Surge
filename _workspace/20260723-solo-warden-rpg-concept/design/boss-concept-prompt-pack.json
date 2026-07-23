@@ -1,0 +1,691 @@
+{
+  "schemaVersion": "concept-pack-v1.0",
+  "generatedAt": "2026-07-23",
+  "generator": "creative-thinking-for-research",
+  "assetNamingConvention": {
+    "rootFolder": "assets/images/battle/pilot",
+    "filenameTemplate": "concept-{archetype}-{variant}.png",
+    "provenanceTemplate": "concept-{archetype}-{variant}.provenance.json",
+    "archetypeCodes": {
+      "sung-hum": "nightward-human-vanguard",
+      "shadow-soldier": "shadow-commander",
+      "player-core": "player",
+      "broken-court-monarch": "broken-court-monarch"
+    },
+    "variantFormat": "vNN",
+    "resolution": "1024x576",
+    "background": {
+      "matte": "#FF00FF",
+      "edgeRule": "Character must remain fully on non-matte pixels with no spill into matte in core silhouette"
+    },
+    "promptIds": "aw-concept-{archetype}-{variant}-v1",
+    "provider": "god-tibo-imagen",
+    "tool": "gti"
+  },
+  "promptSchema": {
+    "requiredFields": [
+      "id",
+      "archetype",
+      "variant",
+      "promptEnglish",
+      "promptKorean",
+      "styleTags",
+      "lighting",
+      "composition",
+      "negative"
+    ],
+    "optionalFields": [
+      "seedHint",
+      "motionAffinity",
+      "notes"
+    ],
+    "fieldTypes": {
+      "id": "string",
+      "archetype": "enum[sung-hum, shadow-soldier, player-core, broken-court-monarch]",
+      "variant": "enum[v01,v02,v03,v04]",
+      "promptEnglish": "string",
+      "promptKorean": "string",
+      "styleTags": {
+        "ko": "string[]",
+        "en": "string[]"
+      },
+      "lighting": {
+        "key": "string",
+        "fill": "string",
+        "rim": "string",
+        "mood": "string"
+      },
+      "composition": {
+        "cameraAngle": "string",
+        "shotSize": "string",
+        "poseReadability": "string",
+        "environmentHint": "string"
+      },
+      "negative": {
+        "items": "string[]"
+      }
+    },
+    "generationContract": {
+      "resolution": "1024x576",
+      "format": "png",
+      "styleGuide": "cel-shaded anime/game illustration, painterly 2.5D, high readability",
+      "noText": true,
+      "noLogos": true,
+      "antiCopyright": true
+    }
+  },
+  "antiCopyrightConstraints": [
+    "No direct copying of named IP characters, emblems, signature hairstyles, or costume blueprints from any source material.",
+    "Do not use or imply proprietary names as output label text on image.",
+    "Avoid one-to-one silhouette reuse from known Solo Leveling frames (especially cape silhouette, facial hair pattern, exact sword geometry, or shadow spawn pattern). Avoid naming conventions directly tied to external IP; use original titles, e.g., 'Crimson Signal Warden' instead of source-character transliterations.",
+    "Keep pose language distinct per archetype and variant; no single template pose repeated across all prompts.",
+    "Do not include UI, interface chrome, watermark, or on-text credits.",
+    "Keep color blocking original: avoid default palette that replicates source-provided character art, while preserving warm-autumn/particle atmosphere cues.",
+    "If any output visually crosses similarity threshold against source reference, re-generate by changing three independent attributes (pose, silhouette, materials, and secondary palette accents)."
+  ],
+  "archetypes": [
+    {
+      "id": "sung-hum",
+      "category": "Human hunter-commander archetype (originalized)",
+      "displayName": "Nightward Human Vanguard",
+      "variants": [
+        {
+          "id": "aw-sjh-v01",
+          "archetype": "sung-hum",
+          "variant": "v01",
+          "promptEnglish": "Original dark-fantasy huntress/warrior in battle-ready human form, narrow-shouldered but strong, layered plate-and-cloth armor, matte iron bracers, narrow steel rapier in one hand and void-thread tether in other, scarred face under a split-bone hood, grounded 3/4 combat stance, isolated on uniform #FF00FF matte, warm-dusk particle sparks around weapon edges, cel-shaded 2.5D anime production art, full-body concept for boss character.",
+          "promptKorean": "오리지널 다크 판타지 인간 전사, 날렵하지만 단단한 체격의 상의·하의 분절형 갑주, 무광속성 철 제지, 오른손은 짧은 철퇴, 왼손은 그림자 실, 반가림 고깔모자 아래 상처 흔적, 3/4 전투 스탠스 풀바디, #FF00FF 단색 바탕, 늦은 석양의 입자 효과, 셀 셰이딩 2.5D 애니메이션 콘셉트 아트.",
+          "styleTags": {
+            "ko": ["오리지널화", "셀셰이딩", "2.5D", "어둠판타지", "솔로레벨링-영감"],
+            "en": ["originalized", "cel-shaded", "2.5D", "dark-fantasy", "anime-like"]
+          },
+          "lighting": {
+            "key": "warm 6200K top-left",
+            "fill": "soft amber bounce",
+            "rim": "deep violet edge",
+            "mood": "tense and controlled"
+          },
+          "composition": {
+            "cameraAngle": "high three-quarter hero, isometric-friendly",
+            "shotSize": "full body, knee-to-head centered",
+            "poseReadability": "clear weapon silhouette on torso and hands, no overlap",
+            "environmentHint": "sparse autumn foliage shapes and drifting leaves as depth cues only"
+          },
+          "negative": [
+            "no copyrighted character likeness",
+            "no Korean text/logo",
+            "no exact replica of source protagonist face/pose",
+            "no multiple faces of same model in one frame"
+          ],
+          "motionAffinity": ["idle", "move", "run", "attack", "show"]
+        },
+        {
+          "id": "aw-sjh-v02",
+          "archetype": "sung-hum",
+          "variant": "v02",
+          "promptEnglish": "Full-body concept of a scar-scarred hunter tactician in layered black-green battle robes and brass neck ring, asymmetrical shoulder guard, twin hooked blades folded across the back, restrained posture with one knee slightly bent as if about to lunge, cinematic particle haze, matte magenta isolation, stylized 2.5D anime with painterly textures and rigid shape blocks.",
+          "promptKorean": "강인한 흉터의 사냥꾼 전술가, 검은 녹색 제복과 황동 목가드, 비대칭 어깨 보호구, 등 위로 접혀 있는 이중 갈고리 칼, 즉시 돌진을 알리는 무릎 꺾임 포즈, 파티클 안개, 단색 #FF00FF 컷아웃, 셀셔이딩 2.5D 게임 콘셉트 아트.",
+          "styleTags": {
+            "ko": ["원형탈피", "하이턴션", "동적", "펜타곤 실루엣 분리"],
+            "en": ["original silhouette", "high tension", "dynamic", "action silhouette priority"]
+          },
+          "lighting": {
+            "key": "cool 5200K side key",
+            "fill": "deep teal ambient",
+            "rim": "silver edge on shoulder plates",
+            "mood": "watchful"
+          },
+          "composition": {
+            "cameraAngle": "slightly top-down hero frame",
+            "shotSize": "full body + blade sweep clear area",
+            "poseReadability": "contrasting edge around folded blade and left arm",
+            "environmentHint": "distant ring of ghost-vine motifs, no hard scenery objects"
+          },
+          "negative": [
+            "no exact costume from source",
+            "no webtoon-provided hairstyle",
+            "no duplicated character in mirror"
+          ],
+          "motionAffinity": ["run", "avoid", "attack", "defence"]
+        },
+        {
+          "id": "aw-sjh-v03",
+          "archetype": "sung-hum",
+          "variant": "v03",
+          "promptEnglish": "Human elite hunter with compact layered plate, blood-red undershirt, weathered gauntlets, one hand forming a short shadow knot, the other pointing forward, dramatic frontal three-quarter pivot, expressive cape geometry, cinematic 1024x576 manga-anime concept, high contrast highlights on armor seams, grounded boots and stable center of gravity.",
+          "promptKorean": "무거운 갑옷의 정예 사냥꾼, 붉은 내피와 풍화된 건틀렛, 한 손은 짧은 그림자 결속제스처, 다른 손은 전진 제스처, 극적인 3/4 회전, 케이프 형태를 과장, 카니발식 장면성, 1024x576 애니메이션 콘셉트, 갑주 이음매 강조.",
+          "styleTags": {
+            "ko": ["전략가", "전투준비", "애니 콘셉트", "픽셀리스"] ,
+            "en": ["combat-ready", "pivot", "character-sheet style", "non-pixellated"]
+          },
+          "lighting": {
+            "key": "split light, hard front",
+            "fill": "dark smoke ambient",
+            "rim": "red-gold edge",
+            "mood": "threat calm"
+          },
+          "composition": {
+            "cameraAngle": "oblique three-quarter",
+            "shotSize": "full body, slight upward tilt",
+            "poseReadability": "cape and forearm axis separate clearly",
+            "environmentHint": "floating ember particles around floor contact points"
+          },
+          "negative": [
+            "no copied face design",
+            "no exact cape and sword ratio from source",
+            "no branded swords"
+          ],
+          "motionAffinity": ["hit", "critical", "defence", "show"]
+        },
+        {
+          "id": "aw-sjh-v04",
+          "archetype": "sung-hum",
+          "variant": "v04",
+          "promptEnglish": "Battle veteran in torn ceremonial black-white vestments fused with scavenged tech bracers, eyes lit by low amber gauge-light, dual hooks clipped on waist, weight-shifted guard pose, painterly ink outlines, magenta matte isolation, cinematic hero card framing, 2.5D anime RPG asset style.",
+          "promptKorean": "전투 베테랑, 찢긴 제의복과 장비 부품이 결합된 흉갑, 허리의 이중 갈고리 장치, 하체 하중 이동 가드 포즈, 잉크 라인 계열의 부드러운 붓결, #FF00FF 분리 바탕, 2.5D RPG 히어로 카드 구도.",
+          "styleTags": {
+            "ko": ["고전-현대 혼합", "원본성 유지", "장비 고도화", "강한 실루엣"],
+            "en": ["hybrid-tech", "originalized", "upgraded kit", "strong silhouette"]
+          },
+          "lighting": {
+            "key": "low amber underlight",
+            "fill": "muted umber midtones",
+            "rim": "cobalt cool edge",
+            "mood": "vigilant"
+          },
+          "composition": {
+            "cameraAngle": "slight low-angle three-quarter",
+            "shotSize": "full body with room for shoulder extension",
+            "poseReadability": "hips and shoulders not masked by cloth",
+            "environmentHint": "minimal broken-tree bokeh"
+          },
+          "negative": [
+            "no source-accurate battle scars",
+            "no copied eye glow signature",
+            "no logo patches"
+          ],
+          "motionAffinity": ["move", "run", "bighit", "critical"]
+        }
+      ]
+    },
+    {
+      "id": "shadow-soldier",
+      "category": "Shadow Soldier archetype (originalized)",
+      "displayName": "Graveshadow Battalion Unit",
+      "variants": [
+        {
+          "id": "aw-ss-v01",
+          "archetype": "shadow-soldier",
+          "variant": "v01",
+          "promptEnglish": "Single shadow infantry archetype, hollowed armor plates fused from obsidian and bone fragments, elongated gloves with talon knuckles, shoulder lantern sigils glowing cyan, low crouch charge pose on one leg, controlled void fog emanating from feet, clean readable silhouette, anime-like 2.5D cel-shaded monster-hunter aesthetic, isolated magenta matte.",
+          "promptKorean": "하나의 그림자 보병형, 흑요석과 뼈 조각 혼합 갑주, 길어진 망치형 장갑, 어깨 신호등이 청색 발광, 발밑으로 그림자 안개가 번짐, 단일 실루엣이 분명한 전력 자세, 2.5D 셀셰이딩 미지근한 전투 아트, #FF00FF 바탕.",
+          "styleTags": {
+            "ko": ["그림자 병종", "기계-유기", "애니메이션형", "원본 파생"],
+            "en": ["shadow infantry", "biomechanical", "anime-style", "original derivative"]
+          },
+          "lighting": {
+            "key": "cold blue sidelight",
+            "fill": "violet floor glow",
+            "rim": "faint white edge",
+            "mood": "menacing"
+          },
+          "composition": {
+            "cameraAngle": "three-quarter isometric feel",
+            "shotSize": "full body, ground contacts visible",
+            "poseReadability": "clear leg and foot position",
+            "environmentHint": "one broken gate arch as abstract backdrop"
+          },
+          "negative": [
+            "no direct silhouette copy of any known shadow clone trope",
+            "no human-identical face and outfit from source",
+            "no extra duplicated clones in frame"
+          ],
+          "motionAffinity": ["idle", "move", "run", "show"]
+        },
+        {
+          "id": "aw-ss-v02",
+          "archetype": "shadow-soldier",
+          "variant": "v02",
+          "promptEnglish": "Dark unit commander form with segmented carapace and crescent blade, torso twisted, one hand drawing dark energy lines, another throwing up blocking ward, stylized hard shadow gradients, strict high readability, 1024x576 card concept, 2.5D painterly cel-shade with particle cracks.",
+          "promptKorean": "검은 갑주 지휘형, 가시형 흉갑과 초승달 검, 몸통이 비틀린 경직 포즈, 손에서 암영선이 발산, 반대손은 방어권 부여, 높은 가독성, 1024x576 카드형 콘셉트, 파티클 파열이 있는 셀셰이드.",
+          "styleTags": {
+            "ko": ["유닛-지휘", "강한 가시", "정지 포즈", "픽셀프리"],
+            "en": ["unit commander", "spike-carapace", "command pose", "pixel-free"]
+          },
+          "lighting": {
+            "key": "hard low key with cyan highlights",
+            "fill": "dim amber rim",
+            "rim": "white fracture lines",
+            "mood": "defensive aggression"
+          },
+          "composition": {
+            "cameraAngle": "slight overhead hero frame",
+            "shotSize": "full body, shoulders near edges",
+            "poseReadability": "arms fully visible in silhouette contrast",
+            "environmentHint": "abstract wall of floating obsidian shards"
+          },
+          "negative": [
+            "no cloned source character faces",
+            "no duplicated bone-white mask style",
+            "no legible text"
+          ],
+          "motionAffinity": ["attack", "hit", "defence", "avoid"]
+        },
+        {
+          "id": "aw-ss-v03",
+          "archetype": "shadow-soldier",
+          "variant": "v03",
+          "promptEnglish": "Mass-produced shadow knight silhouette transformed into unique hero unit: black cloth wraps, segmented knee guards, blade-throne crest, shoulder-mounted rune fan, crouch-to-leap attack prelude, clean volumetric edges, dynamic particle smoke, anime style, no realism.",
+          "promptKorean": "대량 복제 병종을 개인화한 독립 병사, 검은 천 조각과 무릎 가드, 검은 왕좌 문양 날개, 어깨 룬 부채를 펼친 예비 돌진 포즈, 깨끗한 입체 경계와 파티클 스모그, 애니 스타일.",
+          "styleTags": {
+            "ko": ["병사 개성화", "돌진 준비", "스모그", "2.5D"],
+            "en": ["unit personalization", "leap readied", "smoke", "2.5D"]
+          },
+          "lighting": {
+            "key": "single magenta-laced blue front",
+            "fill": "subtle gray wash",
+            "rim": "cyan fringe",
+            "mood": "savage momentum"
+          },
+          "composition": {
+            "cameraAngle": "low-profile side-three-quarter",
+            "shotSize": "full body + prep arc",
+            "poseReadability": "knee bend and spine curve visible",
+            "environmentHint": "broken platform geometry without text"
+          },
+          "negative": [
+            "no faceless-source shadow soldier",
+            "no mirrored copy of prior variants",
+            "no clutter around hands"
+          ],
+          "motionAffinity": ["run", "hit", "avoid", "bighit"]
+        },
+        {
+          "id": "aw-ss-v04",
+          "archetype": "shadow-soldier",
+          "variant": "v04",
+          "promptEnglish": "Elite shadow infantry captain with bone-white shoulder mask, long hook-chain pike, heavy footfall, stern jawline, high-contrast armor planes, cinematic downward tilt, magenta isolation, painterly ink and particle impact strokes for 2.5D anime composition.",
+          "promptKorean": "정예 그림자 보병 대장, 뼈빛 어깨 마스크와 긴 갈고리 창, 무거운 보행, 굵은 턱선, 고대비 장갑면, 하향 투시 구도, #FF00FF 격리, 잉크+파티클 타격 흔적.",
+          "styleTags": {
+            "ko": ["정예 병종", "후퇴 제어", "강한 경량", "액션 콘셉트"],
+            "en": ["elite captain", "controlled stride", "hard-shape", "action concept"]
+          },
+          "lighting": {
+            "key": "rim-heavy top light",
+            "fill": "deep purple ambient",
+            "rim": "cold teal",
+            "mood": "commanding"
+          },
+          "composition": {
+            "cameraAngle": "vertical slight high angle",
+            "shotSize": "full body with headroom",
+            "poseReadability": "mask and spear axis separated",
+            "environmentHint": "hollowed hall with geometric shadows"
+          },
+          "negative": [
+            "no source-copyright symbols",
+            "no duplicate mask motifs",
+            "no close-up face reference"
+          ],
+          "motionAffinity": ["defence", "critical", "hit", "show"]
+        }
+      ]
+    },
+    {
+      "id": "player-core",
+      "category": "Player archetype (originalized)",
+      "displayName": "Abyss Courier Player",
+      "variants": [
+        {
+          "id": "aw-pl-v01",
+          "archetype": "player-core",
+          "variant": "v01",
+          "promptEnglish": "Player avatar as original 2.5D RPG lead, compact reinforced coat with utility harness, broad shoulder guards, short curved sword and compact shield, focused gaze and relaxed weight in attack-ready idle, readable front-to-rear silhouette, cinematic warm-cool particle mix, flat magenta background.",
+          "promptKorean": "플레이어 아바타 형상, 전술 하네스가 결합된 단단한 코트, 넓은 어깨 보호대, 짧은 곡검과 소형 방패, 전투 준비 대기자세, 앞뒤 실루엣이 분명함, 따뜻함-차가움 입자 혼합, #FF00FF 배경.",
+          "styleTags": {
+            "ko": ["플레이어 자아", "유저 지향", "읽기 쉬운"],
+            "en": ["player avatar", "user-identifiable", "readable"]
+          },
+          "lighting": {
+            "key": "neutral noon key with amber cast",
+            "fill": "pale cyan side fill",
+            "rim": "thin white edge",
+            "mood": "confident"
+          },
+          "composition": {
+            "cameraAngle": "stable three-quarter portrait",
+            "shotSize": "full body",
+            "poseReadability": "weapon + shield contrast",
+            "environmentHint": "empty gate-mark arc"
+          },
+          "negative": [
+            "no direct likeness to any established game hero",
+            "no modern UI frames",
+            "no copied Dreadlord-type silhouette"
+          ],
+          "motionAffinity": ["idle", "move", "run", "show"]
+        },
+        {
+          "id": "aw-pl-v02",
+          "archetype": "player-core",
+          "variant": "v02",
+          "promptEnglish": "Player core form in ceremonial yet practical attire, layered scarf and shoulder plate set, medium halberd in hand, defensive posture with knee flexion and forward guard, bright particle sparks at blade tip, cel-shaded textures and 2.5D anime composition, zero text.",
+          "promptKorean": "의식 요소가 가벼운 실용형 전투복, 장식 망토와 어깨 판금, 중형 장창을 들고 무릎을 굽혀 방어, 검 끝 번개 입자, 셀셰이딩 질감 2.5D, 문구 없음.",
+          "styleTags": {
+            "ko": ["의식-실용", "균형 포즈", "방어성", "게임 콘셉트"],
+            "en": ["ceremonial utility", "balanced stance", "defensive", "game concept"]
+          },
+          "lighting": {
+            "key": "soft golden top",
+            "fill": "deep violet low", 
+            "rim": "electric cyan",
+            "mood": "resolute"
+          },
+          "composition": {
+            "cameraAngle": "isometric-friendly three-quarter",
+            "shotSize": "waist-to-crown centered",
+            "poseReadability": "scarf planes visible from multiple axes",
+            "environmentHint": "subtle broken gate particles around feet"
+          },
+          "negative": [
+            "no IP title/marks",
+            "no exact player colorways from existing references",
+            "no overexposed face"
+          ],
+          "motionAffinity": ["attack", "hit", "defence", "avoid"]
+        },
+        {
+          "id": "aw-pl-v03",
+          "archetype": "player-core",
+          "variant": "v03",
+          "promptEnglish": "Mobile brawler style player archetype with cross-body chain relic, compact gauntlet rifle integrated in right arm silhouette, broad chest strap, half-smirk expression, stepping diagonal into frame, 2.5D anime with painterly brush strokes and particle burst trails.",
+          "promptKorean": "기동형 플레이어 아바타, 대각선으로 들어가는 무빙 스텝, 크로스바디 사슬 유물, 우측 팔 건틀렛 라인, 도드라진 가슴 스트랩, 절반 미소, 셀셰이딩 브러시 드로잉과 파티클 궤적.",
+          "styleTags": {
+            "ko": ["기동형", "근거리", "입자궤적", "2.5D 애니"],
+            "en": ["mobile", "close-range", "particle trails", "2.5D anime"]
+          },
+          "lighting": {
+            "key": "warm right-side",
+            "fill": "cool green bounce",
+            "rim": "saturated cyan",
+            "mood": "active"
+          },
+          "composition": {
+            "cameraAngle": "dynamic three-quarter",
+            "shotSize": "full body in motion arc",
+            "poseReadability": "leg-step leads silhouette transition",
+            "environmentHint": "speed lines and small floating dust"
+          },
+          "negative": [
+            "no exact match to known player icon",
+            "no duplicated weapon set from prior variant",
+            "no background UI"
+          ],
+          "motionAffinity": ["run", "move", "attack", "critical"]
+        },
+        {
+          "id": "aw-pl-v04",
+          "archetype": "player-core",
+          "variant": "v04",
+          "promptEnglish": "Quietly powerful player figure, reinforced gauntlet gloves and matte bronze chest core, one hand extended with command sigil, other holding a rune axe at rest, calm ready stance, cel-shaded 2.5D with controlled dramatic composition, warm crimson highlights and clean matte magenta isolation.",
+          "promptKorean": "은은히 강한 플레이어형, 강화 건틀렛과 무광 청동 흉심, 한 손은 명령 인장, 한 손은 휴식 자세의 룬 도끼, 차분한 준비자세, 셀셰이딩 2.5D, 선명한 진홍 하이라이트와 #FF00FF 분리.",
+          "styleTags": {
+            "ko": ["차분한 강함", "지휘 제스처", "브라이트 콘트라스트", "원형 유연"],
+            "en": ["quiet power", "command gesture", "high contrast", "composite-ready"]
+          },
+          "lighting": {
+            "key": "warm backlight",
+            "fill": "muted umber",
+            "rim": "thin magenta",
+            "mood": "poised"
+          },
+          "composition": {
+            "cameraAngle": "static 3/4 centered",
+            "shotSize": "full body, no clutter",
+            "poseReadability": "gesture and weapon separated from torso",
+            "environmentHint": "minimal runic dust at heel point"
+          },
+          "negative": [
+            "no modern player mascot likeness",
+            "no duplicate emblem from any IP",
+            "no extra text"
+          ],
+          "motionAffinity": ["defence", "show", "hit", "avoid"]
+        }
+      ]
+    },
+    {
+      "id": "broken-court-monarch",
+      "category": "Monarch archetype (originalized)",
+      "displayName": "Crown of the Broken Court",
+      "variants": [
+        {
+          "id": "aw-mo-v01",
+          "archetype": "broken-court-monarch",
+          "variant": "v01",
+          "promptEnglish": "Regent-grade broken-court ruler archetype, tall armored figure with fractured crown array, heavy draped mantle in dark emerald and rust, one hand lifted in command with runic whip, the other holding void-flare glaive, grand but controlled scale, 1024x576 2.5D anime RPG concept with dramatic magenta cutoff background.",
+          "promptKorean": "붕괴된 통치자 형식의 군주형, 높고 각진 왕관 열결 구조, 다크 에메랄드와 녹슨 망토, 한손의 통치 지시 제스처와 한손의 공허 채찍 창, 장엄한 실루엣, 1024x576 2.5D 애니 콘셉트, #FF00FF 컷아웃.",
+          "styleTags": {
+            "ko": ["군주형", "권위", "파괴 미학", "셀콘셉트"],
+            "en": ["regent", "authority", "ruin aesthetic", "cel concept"]
+          },
+          "lighting": {
+            "key": "royal cyan under-glow",
+            "fill": "burnt gold side fill",
+            "rim": "lavender edge",
+            "mood": "inevitable"
+          },
+          "composition": {
+            "cameraAngle": "low three-quarter with slight top tilt",
+            "shotSize": "full body + dramatic headroom",
+            "poseReadability": "crown and gauntlet never merged",
+            "environmentHint": "abstract throne fragments behind"
+          },
+          "negative": [
+            "no direct visual of canonical Monarch",
+            "no source crown geometry",
+            "no copied robe seam pattern"
+          ],
+          "motionAffinity": ["show", "idle", "defence", "critical"]
+        },
+        {
+          "id": "aw-mo-v02",
+          "archetype": "broken-court-monarch",
+          "variant": "v02",
+          "promptEnglish": "Towering broken-court sentinel figure in obsidian ceremonial gauntlets, curved spine-plate ridge, long ceremonial gloves, two-sword silhouette crossing above shoulder, controlled breathing motion, particles forming broken mandala around feet, clean single-character full-body illustration, 2.5D anime cel-shaded style, no text, no captions, no labels, no typography, no infographic layout.",
+          "promptKorean": "고위 군주형 감시자, 흑요석 의식 장갑과 등뼈형 판지, 긴 장식 장갑, 어깨 위에서 교차하는 이중 검선, 안정 호흡의 정적 포즈, 발치 파편 문양 입자, 분명한 2.5D 가독성.",
+          "styleTags": {
+            "ko": ["의식 감시자", "교차 무기", "규율", "2.5D 카드"],
+            "en": ["ceremonial sentinel", "crossed blades", "disciplined", "2.5D card" ]
+          },
+          "lighting": {
+            "key": "cold white front",
+            "fill": "amber haze",
+            "rim": "royal purple",
+            "mood": "cold dignity"
+          },
+          "composition": {
+            "cameraAngle": "verticalized three-quarter",
+            "shotSize": "full body, symmetrical balance",
+            "poseReadability": "crossed blades clearly readable",
+            "environmentHint": "broken palace floor geometry"
+          },
+          "negative": [
+            "no recognizable crown silhouette from source monarch",
+            "no duplicated robe proportions",
+            "no face-identifying marks from external IP"
+          ],
+          "motionAffinity": ["move", "run", "attack", "show"]
+        },
+        {
+          "id": "aw-mo-v03",
+          "archetype": "broken-court-monarch",
+          "variant": "v03",
+          "promptEnglish": "Regal warlord in layered dark armor and fractured sigil cape, right hand casting void-thorn spike, left hand braced with hexed buckler, broad stance and head tilt, 2.5D anime style with painterly ink outlines and strong directional shadow.",
+          "promptKorean": "왕권형 전쟁 주재자, 다층 흑요석 갑주와 파편 문양 망토, 오른손에서 침투 가시 광선, 왼손에 방어석이 얇게 부딪히는 모양의 버클러, 넓은 자세와 고개 기울기, 잉크형 선명 외곽선의 2.5D 애니스타일.",
+          "styleTags": {
+            "ko": ["전쟁 군주", "방어-공격 혼합", "강한 그림자", "인디펜트"],
+            "en": ["warlord", "defence-offense blend", "strong shadow", "ink outline"]
+          },
+          "lighting": {
+            "key": "top-right amber",
+            "fill": "dark violet pool",
+            "rim": "icy white",
+            "mood": "threatening calm"
+          },
+          "composition": {
+            "cameraAngle": "three-quarter slightly from left",
+            "shotSize": "full body centered",
+            "poseReadability": "hands and buckler readable despite cape",
+            "environmentHint": "noisy particle spikes from ground edges"
+          },
+          "negative": [
+            "no exact iconic cape proportions",
+            "no copied throne-room motifs",
+            "no extra text or watermark"
+          ],
+          "motionAffinity": ["bighit", "critical", "hit", "defence"]
+        },
+        {
+          "id": "aw-mo-v04",
+          "archetype": "broken-court-monarch",
+          "variant": "v04",
+          "promptEnglish": "Broken-court monarch in ceremonial plate robes, long triangular pauldrons, split halo behind the head, fist-first impact pose with suspended impact dust, cinematic particle spikes and clean visual language for retargeting tests, isolated on pure #FF00FF.",
+          "promptKorean": "파괴된 왕궁군주 콘셉트, 의례갑주 로브와 삼각 견갑, 머리 뒤 분열된 헤일로, 주먹 선행 충돌 포즈와 충격 먼지, 프레임 리타깃 테스트용 깔끔한 시각 언어, #FF00FF 단색.",
+          "styleTags": {
+            "ko": ["왕좌 붕괴", "충격 포즈", "리타깃용", "고대 비늘"],
+            "en": ["throne broken", "impact pose", "retargeting ready", "ornamental armor"]
+          },
+          "lighting": {
+            "key": "hard cross key",
+            "fill": "soft shadow-green",
+            "rim": "crimson flare",
+            "mood": "ceremonial wrath"
+          },
+          "composition": {
+            "cameraAngle": "medium high three-quarter",
+            "shotSize": "full body with halo clearance",
+            "poseReadability": "shoulders and forearms kept separated",
+            "environmentHint": "abstract royal fracture motifs"
+          },
+          "negative": [
+            "no source monarch face reproduction",
+            "no copied halo geometry",
+            "no readable writing on garments"
+          ],
+          "motionAffinity": ["attack", "critical", "avoid", "show"]
+        }
+      ]
+    }
+  ],
+  "motionSet": {
+    "targetFps": 60,
+    "timelineFrames": 300,
+    "loopFrames": 300,
+    "retargeting": {
+      "rigConvention": "generic bipedal 2.5D proxy",
+      "requiredBones": ["root", "pelvis", "spine", "spine_02", "chest", "neck", "head", "shoulder_l", "shoulder_r", "upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r", "thigh_l", "thigh_r", "shin_l", "shin_r", "foot_l", "foot_r"],
+      "sourceActionAlignment": "pose-per-frame FK + additive FK overlays for cloth and particle attachments",
+      "retargetGuidelines": [
+        "Do not stretch root more than 12% per 10 frames while moving",
+        "Keep shoulder-height envelope stable between frames 100-170 for attack states",
+        "Avoid shoulder/hip crossing during frame reuse from different variants"
+      ]
+    },
+    "actions": [
+      {"name": "idle", "startFrame": 0, "endFrame": 24, "keyPoses": ["breath", "weight settle"]},
+      {"name": "move", "startFrame": 25, "endFrame": 56, "keyPoses": ["small step", "knee roll"]},
+      {"name": "run", "startFrame": 57, "endFrame": 90, "keyPoses": ["forward lean", "long stride"]},
+      {"name": "attack", "startFrame": 91, "endFrame": 132, "keyPoses": ["arm windup", "impact arc", "recovery"]},
+      {"name": "hit", "startFrame": 133, "endFrame": 154, "keyPoses": ["impact receive", "short recoil", "stabilize"]},
+      {"name": "avoid", "startFrame": 155, "endFrame": 177, "keyPoses": ["sidestep", "counterweight"]},
+      {"name": "bighit", "startFrame": 178, "endFrame": 214, "keyPoses": ["full commit", "power discharge"]},
+      {"name": "critical", "startFrame": 215, "endFrame": 247, "keyPoses": ["focus lock", "high-impact strike", "stagger back"]},
+      {"name": "defence", "startFrame": 248, "endFrame": 269, "keyPoses": ["guard stack", "brace", "guard hold"]},
+      {"name": "die", "startFrame": 270, "endFrame": 289, "keyPoses": ["collapse", "last breath"]},
+      {"name": "show", "startFrame": 290, "endFrame": 299, "keyPoses": ["pose lock", "camera reset cue"]}
+    ],
+    "frameValidation": {
+      "validators": [
+        "bboxAreaVarianceBetweenFrames <= 8% over rolling 6-frame window",
+        "silhouetteArea <= no major inversion at loop seam between frame 0 and frame 299",
+        "no limb disappears for >2 consecutive keyframes unless intended by action",
+        "rootDeltaMaxFrame: <= 22 units at fps=60",
+        "contactFrameDistance: avoid sudden >150 unit jump at phase boundaries"
+      ],
+      "gateChecks": {
+        "A": "Idle, move, run pose continuity with no clipping (CVSS1)",
+        "B": "Attack to bighit transition frame-energy monotonic increase",
+        "C": "Show pose returns to read-friendly facing angle, loop start<=300 compatibility",
+        "D": "Critical and defence states include full chest/shoulder read markers"
+      }
+    }
+  },
+  "implementationRoadmap": {
+    "sequence": [
+      {
+        "stage": 0,
+        "name": "Prompt Pack Gate",
+        "tasks": [
+          "Validate all 16 prompt fields are non-empty using schema",
+          "Run anti-copyright constraint checklist on prompt text"
+        ],
+        "acceptance": "No prompt contains prohibited IP names, duplicate style block, or out-of-resolution settings."
+      },
+      {
+        "stage": 1,
+        "name": "Concept Batch",
+        "tasks": [
+          "Generate 16 candidates using god-tibo-imagen with this pack",
+          "Run visual diff for silhouette uniqueness across 4 variants within an archetype"
+        ],
+        "acceptance": "At least 1 clear pass for each archetype-variant; no magenta spill onto character; magenta matte remains clean"
+      },
+      {
+        "stage": 2,
+        "name": "Motion Synthesis",
+        "tasks": [
+          "Map each accepted image concept to action timeline using action window schema above",
+          "Create preliminary `*.previs.json` markers for idle→show loop",
+          "Export check pass list with action timing"
+        ],
+        "acceptance": "All 11 actions covered within timeline; critical/bighit/die have dedicated impact markers"
+      },
+      {
+        "stage": 3,
+        "name": "Blender Ingest",
+        "tasks": [
+          "Import concept references into `boss_previs_workfile.blend`",
+          "Apply base rig proxy with matching bone mapping",
+          "Build baseline animation strips and pose-level constraints"
+        ],
+        "acceptance": "No armature mismatch errors; root starts at z=0, world scale preserved; frame drift < 1px over loop seam"
+      },
+      {
+        "stage": 4,
+        "name": "Motion-Previs QA",
+        "tasks": [
+          "Run 2x loop playback validation",
+          "Run validator checks in `motionSet.frameValidation`",
+          "Produce low-res playblast for team review"
+        ],
+        "acceptance": "No major jump at loop points; readability score >= 4/5 from game-qa; output files committed to production artifacts"
+      }
+    ]
+  },
+  "outputReference": {
+    "existingBossAssets": [
+      "assets/images/battle/pilot/concept-sung-hum-boss.png",
+      "assets/images/battle/pilot/concept-human-command-boss.png",
+      "assets/images/battle/pilot/concept-shadow-commander-boss.png",
+      "assets/images/battle/pilot/concept-broken-court-monarch-boss.png"
+    ],
+    "motionArtifacts": [
+      "_workspace/20260723-solo-warden-rpg-concept/production/sung-hum.previs.json",
+      "_workspace/20260723-solo-warden-rpg-concept/production/human-command.previs.json",
+      "_workspace/20260723-solo-warden-rpg-concept/production/shadow-commander.previs.json",
+      "_workspace/20260723-solo-warden-rpg-concept/production/broken-court-monarch.previs.json",
+      "_workspace/20260723-solo-warden-rpg-concept/production/boss_previs_timings.json"
+    ]
+  }
+}

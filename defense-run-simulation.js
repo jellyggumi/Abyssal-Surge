@@ -8,6 +8,10 @@ import {
   GATE, ITEMS, MEASUREMENT_PROFILES, OCTANT_VECTORS, REWARDS, SKILLS, STAGE_BY_ID, STAGE_ITEM_IDS,
   STAGE_REWARD_IDS, TARGET_PRIORITY, TICK_RATE, XP_GROWTH
 } from "./defense-catalog.js";
+import {
+  MAX_FRONT_SLOTS, BACK_ROW_SYNERGY_DAMAGE_BONUS, BOSS_RALLY_COOLDOWN_REDUCTION, COMPANION_ROLES,
+  deriveWardenRuntimeStats, deriveCompanionRuntimeStats, companionFormationIntegrity,
+} from "./rpg-catalog.js";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const freeze = (value) => {
@@ -30,10 +34,9 @@ const validLoadout = (loadout) => [...new Set((Array.isArray(loadout) ? loadout 
 const nextId = (run, prefix) => `${prefix}-${++run.nextId}`;
 const actor = (id, kind, x, y, hp, maxHp, extra = {}) => ({ id, kind, x, y, hp, maxHp, ...extra });
 const sortedActors = (entries) => [...entries].sort((left, right) => left.id.localeCompare(right.id));
-const LEGACY_CUTSCENE_STAGE_IDS = new Set(["cinder-span", "veil-citadel", "echo-throne"]);
-const stageCutscene = (stage) => LEGACY_CUTSCENE_STAGE_IDS.has(stage.id) ? (CUTSCENES[stage.id] || CUTSCENES.default) : CUTSCENES.default;
+const stageCutscene = (stage) => CUTSCENES[stage.id] || CUTSCENES.default;
 const eventCue = (name) => AUDIO_CUES[name]?.id || null;
-const SNAPSHOT_VERSION = 5;
+const SNAPSHOT_VERSION = 6;
 const EVENT_VERSION = 3;
 const emit = (run, type, payload = {}) => {
   const eventSequence = ++run.eventSequence;
@@ -168,12 +171,75 @@ function laneRoute(tactics, policyId, laneOffset) {
   return [];
 }
 
-function addCompanion(run, companionId) {
+/** Formation targeting (UNIFIED-GDD.md §4.2/§4.3): FRONT companions still ACTIVE (not DOWNED) with formationIntegrity remaining. */
+function livingFrontCompanions(run) {
+  return run.companions.filter((entry) => entry.slot === "FRONT" && entry.status === "ACTIVE" && entry.hp > 0);
+}
+function nearestActor(origin, candidates) {
+  return candidates.slice().sort((a, b) => {
+    const delta = distanceSquared(origin, a) - distanceSquared(origin, b);
+    return delta || a.id.localeCompare(b.id);
+  })[0];
+}
+/**
+ * Enemies that would otherwise pick the commander now pick from {commander, living FRONT companions}.
+ * Companions are position-pinned to the commander every tick (no distinct stance-offset positions
+ * this cycle — deferred, see task-manifest.md), so distance is always tied; ties resolve in favor
+ * of the nearest FRONT companion (vanguard-screen intent: front row is engaged before the commander)
+ * rather than `nearestActor`'s generic id-lexical tiebreak, which would otherwise always pick
+ * "commander" over "companion-N" and leave FRONT targeting permanently inert.
+ */
+function playerSideTarget(run, enemy) {
+  const fronts = livingFrontCompanions(run);
+  if (!fronts.length) return run.commander;
+  const nearestFront = nearestActor(enemy, fronts);
+  if (distanceSquared(enemy, nearestFront) <= distanceSquared(enemy, run.commander)) return nearestFront;
+  return run.commander;
+}
+/** Resolves loadout + optional formation map into a deterministic companionId -> "FRONT"|"BACK" Map. Legacy (no formation) = all BACK. */
+function resolveFormation(companionLoadout, formation) {
+  const result = new Map(validLoadout(companionLoadout).map((id) => [id, "BACK"]));
+  let frontCount = 0;
+  Object.entries(formation || {}).forEach(([id, slot]) => {
+    if (!result.has(id) || slot !== "FRONT" || frontCount >= MAX_FRONT_SLOTS) return;
+    result.set(id, "FRONT");
+    frontCount += 1;
+  });
+  return result;
+}
+
+/**
+ * `options.slot`: "FRONT" | "BACK" (default BACK). `options.equipment`: {weapon,ward,trinket}
+ * 0-based tier indices (default all T1/index 0). Role passives (damageBonus/eliteDamageBonus/
+ * selfIntegrityMultiplier) only apply when `run.rpgActive` is true — an untouched campaign
+ * (no Warden stat/skill/trait investment, no equipment purchased) produces byte-identical
+ * companion damage/range/targeting-inertness to the pre-RPG baseline; role identity is real
+ * but its numeric effect only activates once the player has entered the RPG layer at all
+ * (UNIFIED-GDD.md §3.3 frames role passive as fixed-per-companion, but shipping it unconditionally
+ * would silently rebalance every existing campaign with zero player action — see decision-log).
+ * Damage/range order of operations (balance-sheet.md enforcement_scope): catalog base + additive
+ * role/stat bonus, then x equipment tier (still derive-fn step_1), then x companions-wardpact
+ * trait multiplier (also step_1, Warden-sourced). Fire-time stance synergy (step_2) is applied
+ * per-tick in the fire loop, not baked in here.
+ */
+function addCompanion(run, companionId, { slot = "BACK", equipment = {} } = {}) {
   if (run.measurementProfile) return;
   const data = COMPANIONS[companionId];
   if (!data || run.companions.some((entry) => entry.companionId === companionId)) return;
-  run.companions.push(actor(nextId(run, "companion"), "companion", run.commander.x, run.commander.y, 1, 1, {
-    companionId, cooldown: 0, damage: data.damage + (run.rewardIds.includes("abyssal-banner") ? REWARDS["abyssal-banner"].damageBonus : 0), fireTicks: data.fireTicks, range: data.range,
+  const runtime = deriveCompanionRuntimeStats(companionId, { equipment });
+  const rpgActive = Boolean(run.rpgActive);
+  const wardenRuntime = run.wardenState?.runtime;
+  const wardpactDamageMultiplier = rpgActive ? (wardenRuntime?.companionDamageMultiplier ?? 1) : 1;
+  const wardpactRangeMultiplier = rpgActive ? (wardenRuntime?.companionRangeMultiplier ?? 1) : 1;
+  const roleDamageBonus = rpgActive ? runtime.damageBonus : 0;
+  const selfIntegrityMultiplier = rpgActive ? runtime.selfIntegrityMultiplier : 1;
+  const baseDamage = data.damage + (run.rewardIds.includes("abyssal-banner") ? REWARDS["abyssal-banner"].damageBonus : 0);
+  const damage = Math.round(baseDamage * (1 + roleDamageBonus) * runtime.weaponTierMultiplier * wardpactDamageMultiplier);
+  const range = Math.round(data.range * runtime.trinketTierMultiplier * wardpactRangeMultiplier);
+  const maxFormationIntegrity = Math.round(companionFormationIntegrity(data.damage, runtime.wardTierIndex) * selfIntegrityMultiplier);
+  run.companions.push(actor(nextId(run, "companion"), "companion", run.commander.x, run.commander.y, maxFormationIntegrity, maxFormationIntegrity, {
+    companionId, cooldown: 0, damage, fireTicks: data.fireTicks, range, radius: 300,
+    slot, status: "ACTIVE", role: runtime.role, eliteDamageBonus: rpgActive ? runtime.eliteDamageBonus : 0,
   }));
 }
 
@@ -275,6 +341,13 @@ function spawnBoss(run) {
   run.enemies.push(boss);
   run.bossSpawned = true;
   run.bossSpawnedAt = run.tick;
+  if (livingFrontCompanions(run).length) {
+    run.rallyTargetId = boss.id;
+    run.companions.forEach((companion) => {
+      if (companion.status === "ACTIVE") companion.cooldown = Math.trunc(companion.cooldown * (1 - BOSS_RALLY_COOLDOWN_REDUCTION));
+    });
+    emit(run, "BOSS_RALLY_WINDOW", { bossId: boss.id, entityId: boss.id, cooldownReductionBp: Math.round(BOSS_RALLY_COOLDOWN_REDUCTION * 10000) });
+  }
   const spawnEvent = emit(run, "BOSS_SPAWNED", {
     bossId: data.id,
     entityId: boss.id,
@@ -324,6 +397,83 @@ function getCommanderSpeed(run) {
     mult *= (tactics?.occupation?.effects?.moveMultiplier || 1.15);
   }
   return Math.trunc(COMMANDER.speed * mult);
+}
+
+/**
+ * Composes Warden trait/skill conditional damage multipliers for one hit against `target`
+ * (basic attack or skill cast). Static stat/equipment contributions are already baked into
+ * `run.commander.basicDamage` at run creation — this only layers the fire-time conditionals
+ * that need live run state (integrity ratio, target class, kill-stacks, first-attack flag).
+ */
+function commanderDamageMultiplier(run, target, { skill = false, firstStrikeFactor = null } = {}) {
+  const runtime = run.wardenState?.runtime;
+  if (!runtime) return 1;
+  let mult = runtime.damageMultiplier;
+  if (skill) mult *= runtime.skillDamageMultiplier;
+  if (runtime.desperateEcho && run.commander.integrity / run.commander.maxIntegrity <= runtime.desperateEcho.thresholdIntegrityFraction) {
+    mult *= runtime.desperateEcho.damageMultiplier;
+  }
+  if (runtime.eliteHunter && target) {
+    const isElite = target.elite || target.class === "boss";
+    mult *= isElite ? runtime.eliteHunter.eliteDamageMultiplier : runtime.eliteHunter.normalDamageMultiplier;
+  }
+  if (runtime.chainReaction && run.wardenState.chainReactionStacks > 0) {
+    mult *= 1 + runtime.chainReaction.perKillDamageBonus * run.wardenState.chainReactionStacks;
+  }
+  if (firstStrikeFactor !== null) mult *= firstStrikeFactor;
+  else if (runtime.firstStrikeMultiplier && !run.wardenState.firstStrikeConsumed) {
+    mult *= runtime.firstStrikeMultiplier;
+    run.wardenState.firstStrikeConsumed = true;
+  }
+  return mult;
+}
+/** Consumes the once-per-run first-strike flag exactly once per player action (not once per AoE target) and returns the multiplier factor (1 if unavailable/already consumed). */
+function consumeFirstStrikeFactor(run) {
+  const runtime = run.wardenState?.runtime;
+  if (!runtime?.firstStrikeMultiplier || run.wardenState.firstStrikeConsumed) return 1;
+  run.wardenState.firstStrikeConsumed = true;
+  return runtime.firstStrikeMultiplier;
+}
+/** echo-backlash/echo-cascade: chance-based extra hit off raw basicDamage (balance-sheet.md: "추가타 basicDamage*0.5"), independently crit-resolved. */
+function maybeFireExtraHit(run, target) {
+  const extraHit = run.wardenState?.runtime?.extraHit;
+  if (!extraHit) return;
+  run.combatRng = rngNext(run.combatRng);
+  if (run.combatRng % 10000 >= extraHit.extraHitChance * 10000) return;
+  const hit = resolveCritical(run, "basic", Math.round(run.commander.basicDamage * extraHit.extraHitDamageMultiplier));
+  fire(run, run.commander, target, hit.damage, "commander", 5, hit);
+}
+/** wardens-ward (once/run shield-as-heal at <=30% integrity) + echo-warden-awakening (once/run full cooldown reset at <=15% integrity). Called after any commander integrity loss. */
+function applyWardenDamageResponse(run) {
+  const runtime = run.wardenState?.runtime;
+  if (!runtime) return;
+  const ratio = run.commander.integrity / run.commander.maxIntegrity;
+  if (runtime.wardensWard && !run.wardenState.wardensWardConsumed && ratio <= runtime.wardensWard.thresholdIntegrityFraction) {
+    run.wardenState.wardensWardConsumed = true;
+    const shield = Math.round(run.commander.maxIntegrity * runtime.wardensWard.shieldFraction);
+    run.commander.integrity = clamp(run.commander.integrity + shield, 0, run.commander.maxIntegrity);
+    emit(run, "WARDENS_WARD_TRIGGERED", { entityId: run.commander.id, shield, hp: run.commander.integrity });
+  }
+  if (runtime.awakeningReset && !run.wardenState.awakeningResetConsumed && ratio <= runtime.awakeningReset.thresholdIntegrityFraction) {
+    run.wardenState.awakeningResetConsumed = true;
+    run.commander.basicCooldown = 0;
+    Object.keys(run.commander.cooldowns).forEach((id) => { run.commander.cooldowns[id] = 0; });
+    run.companions.forEach((companion) => { companion.cooldown = 0; });
+    emit(run, "ECHO_WARDEN_AWAKENING_TRIGGERED", { entityId: run.commander.id });
+  }
+}
+/** wardens-vigil: 0.5%-of-max-integrity/sec regen below 50% integrity. Milli-integrity accumulator (same fractional-carry pattern as `terrainRecovery`) avoids truncating to 0 every tick at 60Hz. */
+function applyWardenVigilRegen(run) {
+  const vigil = run.wardenState?.runtime?.wardensVigil;
+  if (!vigil) return;
+  if (run.commander.integrity / run.commander.maxIntegrity > vigil.thresholdIntegrityFraction) return;
+  if (run.commander.integrity <= 0) return;
+  run.wardenState.vigilRegenRemainderMilli += run.commander.maxIntegrity * vigil.regenPerSecondFraction * 1000 / TICK_RATE;
+  const wholeRegen = Math.trunc(run.wardenState.vigilRegenRemainderMilli / 1000);
+  if (wholeRegen > 0) {
+    run.wardenState.vigilRegenRemainderMilli -= wholeRegen * 1000;
+    run.commander.integrity = clamp(run.commander.integrity + wholeRegen, 0, run.commander.maxIntegrity);
+  }
 }
 
 function orderedTargets(run, origin, range) {
@@ -383,7 +533,11 @@ function fire(run, source, target, damage, owner, ttl = 5, combat = null) {
   projectile.causalRootId = firedEvent.eventId;
   if (hit.critical) emit(run, "CRITICAL_HIT", {
     entityId: source.id,
+    sourceSpawnEventId: source.spawnEventId || null,
     targetId: target.id,
+    targetSpawnEventId: target.spawnEventId || null,
+    projectileId: projectile.id,
+    causalRootId: projectile.causalRootId,
     source: hit.source,
     baseDamage: hit.baseDamage,
     damage: hit.damage,
@@ -489,9 +643,10 @@ function castSkill(run, skillId) {
   const causalRootId = `${run.planCommitment.identity}:causal:${castSequence}`;
   if (skill.integrity) run.commander.integrity = clamp(run.commander.integrity + skill.integrity, 0, run.commander.maxIntegrity);
   if (skill.radius) {
+    const firstStrikeFactor = targets.length ? consumeFirstStrikeFactor(run) : 1;
     targets.forEach((entry) => {
       const healthBefore = entry.hp;
-      const hit = resolveCritical(run, "skill", skill.damage);
+      const hit = resolveCritical(run, "skill", Math.round(skill.damage * commanderDamageMultiplier(run, entry, { skill: true, firstStrikeFactor })));
       entry.hp -= hit.damage;
       const healthAfter = entry.hp;
       entry.lastCastInstanceId = castInstanceId;
@@ -530,7 +685,7 @@ function castSkill(run, skillId) {
   } else if (targets[0]) {
     const entry = targets[0];
     const healthBefore = entry.hp;
-    const hit = resolveCritical(run, "skill", skill.damage);
+    const hit = resolveCritical(run, "skill", Math.round(skill.damage * commanderDamageMultiplier(run, entry, { skill: true })));
     entry.hp -= hit.damage;
     const healthAfter = entry.hp;
     entry.lastCastInstanceId = castInstanceId;
@@ -800,6 +955,9 @@ function resolveDeaths(run) {
       emit(run, "OBJECTIVE_COMPLETED", { objectiveId: "echo-recovery" });
     }
   });
+  if (run.wardenState?.runtime?.chainReaction) {
+    run.wardenState.chainReactionStacks = Math.min(run.wardenState.runtime.chainReaction.maxStacks, run.wardenState.chainReactionStacks + dead.length);
+  }
 }
 
 function getTargetPosition(run, enemy) {
@@ -809,7 +967,7 @@ function getTargetPosition(run, enemy) {
     enemy.waypointIndex += 1;
   }
 
-  if (enemy.policyId === "player-pursuit") return run.commander;
+  if (enemy.policyId === "player-pursuit") return playerSideTarget(run, enemy);
   if (enemy.policyId === "resource-denial") {
     const echoes = run.pickups.filter((pickup) => pickup.kind === "echo").sort((a, b) => {
       const delta = distanceSquared(enemy, a) - distanceSquared(enemy, b);
@@ -837,18 +995,18 @@ function getTargetPosition(run, enemy) {
   if (enemy.policyId === "low-hp-focus") {
     const gateRatio = run.gate.integrity / run.gate.maxIntegrity;
     const commanderRatio = run.commander.integrity / run.commander.maxIntegrity;
-    return commanderRatio < gateRatio ? run.commander : run.gate;
+    return commanderRatio < gateRatio ? playerSideTarget(run, enemy) : run.gate;
   }
   if (enemy.policyId === "flank") {
-    return distanceSquared(enemy, run.commander) < distanceSquared(enemy, run.gate) ? run.commander : run.gate;
+    return distanceSquared(enemy, run.commander) < distanceSquared(enemy, run.gate) ? playerSideTarget(run, enemy) : run.gate;
   }
   return run.gate;
 }
 
 function pressureTarget(run, enemy) {
-  if (enemy.policyId === "player-pursuit" || enemy.policyId === "resource-denial") return run.commander;
+  if (enemy.policyId === "player-pursuit" || enemy.policyId === "resource-denial") return playerSideTarget(run, enemy);
   if (enemy.policyId === "low-hp-focus" || enemy.policyId === "flank") {
-    return distanceSquared(enemy, run.commander) < distanceSquared(enemy, run.gate) ? run.commander : run.gate;
+    return distanceSquared(enemy, run.commander) < distanceSquared(enemy, run.gate) ? playerSideTarget(run, enemy) : run.gate;
   }
   return run.gate;
 }
@@ -938,7 +1096,7 @@ function moveEnemies(run) {
     }
     if (enemy.class === "boss" && run.tick < run.bossSpawnedAt + BOSS_PRESSURE_GRACE_TICKS) return;
     if (enemy.projectileRange > 0 && targetDistance <= enemy.projectileRange && enemy.rangedCooldown <= 0) {
-      const damage = target.id === "gate" ? Math.max(1, enemy.damage - Math.trunc(run.gateDamageReduction / 2)) : enemy.damage;
+      const damage = target.id === "gate" ? Math.max(1, enemy.damage - Math.trunc(run.gateDamageReduction / 2)) : (target.id === "commander" ? Math.round(enemy.damage * run.commander.incomingDamageMultiplier) : enemy.damage);
       fire(run, enemy, target, damage, enemy.id, Math.max(1, Math.trunc(enemy.projectileTicks / 12)));
       enemy.rangedCooldown = enemy.projectileTicks;
       return;
@@ -968,8 +1126,11 @@ function moveEnemies(run) {
     } else if (targetDistance > contactRange || enemy.attackCooldown > 0) return;
     let commanderDamage = 0;
     let gateDamage = 0;
+    let companionDamage = 0;
     if (target.id === "gate") {
       gateDamage = Math.max(0, enemy.damage - run.gateDamageReduction);
+    } else if (target.kind === "companion") {
+      companionDamage = enemy.damage;
     } else {
       commanderDamage = enemy.damage;
       const guardingGate = (run.objectives.phase === "gate-defense" || run.extracted)
@@ -983,7 +1144,7 @@ function moveEnemies(run) {
         }
       }
     }
-    const damage = target.id === "gate" ? gateDamage : commanderDamage;
+    const damage = target.id === "gate" ? gateDamage : (target.kind === "companion" ? companionDamage : Math.round(commanderDamage * run.commander.incomingDamageMultiplier));
     if (enemy.class === "boss") enemy.attackWindup = false;
     else enemy.attackCooldown = enemy.attackTicks;
     emit(run, "ENEMY_ATTACK", {
@@ -997,6 +1158,13 @@ function moveEnemies(run) {
       run.gate.integrity = clamp(run.gate.integrity - damage, 0, run.gate.maxIntegrity);
       emit(run, "GATE_BREACHED", { enemyId: enemy.id, damage, policyId: enemy.policyId });
       if (enemy.class !== "boss" && !enemy.elite) breachedIds.add(enemy.id);
+    } else if (target.kind === "companion") {
+      target.hp = clamp(target.hp - damage, 0, target.maxHp);
+      emit(run, "COMPANION_DAMAGED", { enemyId: enemy.id, entityId: target.id, companionId: target.companionId, damage, hp: target.hp, maxHp: target.maxHp, policyId: enemy.policyId });
+      if (target.hp <= 0 && target.status === "ACTIVE") {
+        target.status = "DOWNED";
+        emit(run, "COMPANION_DOWNED", { entityId: target.id, companionId: target.companionId, policyId: enemy.policyId });
+      }
     } else {
       run.commander.integrity = clamp(run.commander.integrity - damage, 0, run.commander.maxIntegrity);
       emit(run, "COMMANDER_DAMAGED", {
@@ -1006,6 +1174,7 @@ function moveEnemies(run) {
         maxHp: run.commander.maxIntegrity,
         policyId: enemy.policyId,
       });
+      applyWardenDamageResponse(run);
       if (gateDamage > 0) {
         run.gate.integrity = clamp(run.gate.integrity - gateDamage, 0, run.gate.maxIntegrity);
         emit(run, "GATE_BREACHED", {
@@ -1304,6 +1473,7 @@ function tick(run) {
       }
     }
   });
+  applyWardenVigilRegen(run);
 
 
   while (run.waveIndex < run.waveSchedule.length && run.waveSchedule[run.waveIndex].at <= run.tick) {
@@ -1354,6 +1524,15 @@ function tick(run) {
       run.gate.integrity = clamp(run.gate.integrity - damage, 0, run.gate.maxIntegrity);
     } else if (projectile.targetId === "commander") {
       run.commander.integrity = clamp(run.commander.integrity - damage, 0, run.commander.maxIntegrity);
+      applyWardenDamageResponse(run);
+    } else if (run.companions.some((entry) => entry.id === projectile.targetId)) {
+      const target = run.companions.find((entry) => entry.id === projectile.targetId);
+      target.hp = clamp(target.hp - damage, 0, target.maxHp);
+      emit(run, "COMPANION_DAMAGED", { entityId: target.id, companionId: target.companionId, damage, hp: target.hp, maxHp: target.maxHp, owner: projectile.owner });
+      if (target.hp <= 0 && target.status === "ACTIVE") {
+        target.status = "DOWNED";
+        emit(run, "COMPANION_DOWNED", { entityId: target.id, companionId: target.companionId, owner: projectile.owner });
+      }
     } else {
       const target = run.enemies.find((entry) => entry.id === projectile.targetId);
       if (!target) hit = false;
@@ -1389,8 +1568,10 @@ function tick(run) {
   if (run.commander.basicCooldown <= 0) {
     const target = orderedTargets(run, run.commander, COMMANDER.basicRange)[0];
     if (target) {
-      const hit = resolveCritical(run, "basic", run.commander.basicDamage);
+      const mult = commanderDamageMultiplier(run, target, { skill: false });
+      const hit = resolveCritical(run, "basic", Math.round(run.commander.basicDamage * mult));
       fire(run, run.commander, target, hit.damage, "commander", 5, hit);
+      maybeFireExtraHit(run, target);
     }
     run.commander.basicCooldown = run.commander.basicTicks || COMMANDER.basicCooldown;
   }
@@ -1398,10 +1579,21 @@ function tick(run) {
   run.companions.forEach((companion) => {
     companion.x = run.commander.x;
     companion.y = run.commander.y;
+    if (companion.status !== "ACTIVE") return;
     companion.cooldown -= 1;
     if (companion.cooldown <= 0) {
-      const target = orderedTargets(run, companion, companion.range)[0];
-      if (target) fire(run, companion, target, companion.damage, companion.companionId);
+      let target = null;
+      if (run.rallyTargetId) {
+        const boss = run.enemies.find((entry) => entry.id === run.rallyTargetId && entry.hp > 0);
+        if (boss && distanceSquared(companion, boss) <= getEffectiveRange(run, companion.range) ** 2) target = boss;
+      }
+      if (!target) target = orderedTargets(run, companion, companion.range)[0];
+      if (target) {
+        const isElite = target.elite || target.class === "boss";
+        const synergyActive = companion.slot === "BACK" && livingFrontCompanions(run).length > 0;
+        const mult = (isElite ? 1 + (companion.eliteDamageBonus || 0) : 1) * (synergyActive ? 1 + BACK_ROW_SYNERGY_DAMAGE_BONUS : 1);
+        fire(run, companion, target, Math.round(companion.damage * mult), companion.companionId);
+      }
       companion.cooldown = companion.fireTicks;
     }
   });
@@ -1461,7 +1653,7 @@ function tick(run) {
 }
 
 /** Creates a new run. `seed` is coerced to an unsigned xorshift32 state (zero becomes one). */
-export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rewardIds = [], measurementProfileId = null } = {}) {
+export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rewardIds = [], measurementProfileId = null, wardenProgress = null, wardenEquipment = {}, companionEquipment = {}, formation = {} } = {}) {
   const stage = stageFor(stageId);
   const stagePlan = stagePlanFor(stage);
   const unsignedSeed = (seed >>> 0) || 1;
@@ -1537,7 +1729,7 @@ export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rew
     itemIds: [],
     rewardIds: [],
     rewardOffer: null,
-    loreSurprise,
+    loreSurprise: null,
     m4: {
       planId: stagePlan.m4Plan.id,
       inventory: stagePlan.m4Plan.cards.map((card) => card.id),
@@ -1551,6 +1743,8 @@ export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rew
     progress: { defeated: 0, extracted: 0, echoDenied: 0, itemsCollected: 0, skillsLearned: 0, achievements: [] },
     gateDamageReduction: 0,
     terrainRecovery: { commander: 0, gate: 0, capRatio: 0.25 },
+    rallyTargetId: null,
+    wardenState: null,
     gate: { id: "gate", x: ARENA.gateX, y: ARENA.gateY, integrity: GATE.maxIntegrity, maxIntegrity: GATE.maxIntegrity, radius: GATE.radius },
     commander: {
       id: "commander",
@@ -1569,6 +1763,7 @@ export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rew
       objectiveRoute: false,
       engaged: false,
       pickupRange: 12000,
+      incomingDamageMultiplier: 1,
       cooldownScale: 1,
       critProfile,
       skills: initialSkills,
@@ -1619,8 +1814,39 @@ export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rew
     terminal: null,
   };
   if (!measurementProfile) {
-    validLoadout(companionLoadout).forEach((id) => addCompanion(state, id));
+    const hasWardenInvestment = wardenProgress && (Object.keys(wardenProgress.statPoints || {}).length || (wardenProgress.skillTreeIds || []).length || (wardenProgress.traitIds || []).length);
+    const hasEquipmentInvestment = Object.values(wardenEquipment).some((tier) => tier > 0) || Object.values(companionEquipment).some((eq) => Object.values(eq || {}).some((tier) => tier > 0));
+    const rpgActive = Boolean(hasWardenInvestment || hasEquipmentInvestment);
+    state.rpgActive = rpgActive;
+    if (wardenProgress) {
+      const runtime = deriveWardenRuntimeStats({ ...wardenProgress, equipment: wardenEquipment });
+      state.wardenState = {
+        runtime, firstStrikeConsumed: false, wardensWardConsumed: false, awakeningResetConsumed: false,
+        chainReactionStacks: 0, vigilRegenRemainderMilli: 0,
+      };
+      state.commander.basicDamage = Math.round((state.commander.basicDamage + runtime.basicDamageBonus) * runtime.weaponTierMultiplier);
+      state.commander.maxIntegrity = Math.round((state.commander.maxIntegrity + runtime.maxIntegrityBonus) * runtime.maxIntegrityMultiplier * runtime.wardTierMultiplier);
+      state.commander.integrity = state.commander.maxIntegrity;
+      state.commander.pickupRange = Math.round((state.commander.pickupRange + runtime.pickupRangeBonus) * runtime.pickupRangeMultiplier * runtime.trinketTierMultiplier);
+      state.commander.cooldownScale = clamp(state.commander.cooldownScale - runtime.cooldownReduction, 0.4, 1);
+      state.commander.critProfile.chanceBp = clamp(state.commander.critProfile.chanceBp + runtime.critChanceBonusBp, 0, 10000);
+    }
+    const formationMap = resolveFormation(companionLoadout, formation);
+    formationMap.forEach((slot, id) => addCompanion(state, id, { slot, equipment: companionEquipment[id] || {} }));
     applyOwnedRewards(state, rewardIds);
+    if (rpgActive) {
+      let incomingMultiplier = state.commander.incomingDamageMultiplier;
+      if (state.wardenState?.runtime?.incomingDamageMultiplier) incomingMultiplier *= state.wardenState.runtime.incomingDamageMultiplier;
+      state.companions.forEach((companion) => {
+        if (companion.status !== "ACTIVE") return;
+        if (companion.role === "vanguard") incomingMultiplier *= COMPANION_ROLES.vanguard.commanderIncomingDamageMultiplier;
+        if (companion.role === "support") {
+          state.commander.pickupRange = Math.round(state.commander.pickupRange * COMPANION_ROLES.support.commanderPickupRangeMultiplier);
+          state.commander.cooldownScale = clamp(state.commander.cooldownScale - COMPANION_ROLES.support.commanderCooldownReduction, 0.4, 1);
+        }
+      });
+      state.commander.incomingDamageMultiplier = incomingMultiplier;
+    }
   }
   emit(state, "STAGE_STARTED", {
     stageId,
@@ -1631,7 +1857,7 @@ export function createDefenseRun({ stageId, seed = 1, companionLoadout = [], rew
     cutscene: stageCutscene(stage).intro,
     cue: eventCue("stageStart"),
   });
-  if (loreSurprise) emit(state, "LORE_SURPRISE_RESOLVED", loreSurprise);
+  if (loreSurprise) state.loreSurprise = emit(state, "LORE_SURPRISE_RESOLVED", loreSurprise);
   emit(state, "M4_CARD_AVAILABLE", {
     cardId: state.m4.inventory[0],
     m4PlanId: stagePlan.m4Plan.id,
@@ -1709,6 +1935,8 @@ export function getRunSnapshot(run) {
     gateDamageReduction: run.gateDamageReduction,
     terrainRecovery: run.terrainRecovery,
     commander: run.commander,
+    rallyTargetId: run.rallyTargetId,
+    wardenState: run.wardenState ? { chainReactionStacks: run.wardenState.chainReactionStacks, firstStrikeConsumed: run.wardenState.firstStrikeConsumed, wardensWardConsumed: run.wardenState.wardensWardConsumed, awakeningResetConsumed: run.wardenState.awakeningResetConsumed } : null,
     growthOffer: run.growthOffer,
     rewardOffer: run.rewardOffer,
     itemIds: run.itemIds,

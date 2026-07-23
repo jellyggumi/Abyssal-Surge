@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-shadow-soldier-v01.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fe1-8d29-7b41-bf7f-a08a5d624795"
+  },
+  "promptId": "aw-ss-v01",
+  "archetype": "shadow-soldier",
+  "variant": "v01",
+  "prompt": "Single shadow infantry archetype, hollowed armor plates fused from obsidian and bone fragments, elongated gloves with talon knuckles, shoulder lantern sigils glowing cyan, low crouch charge pose on one leg, controlled void fog emanating from feet, clean readable silhouette, anime-like 2.5D cel-shaded monster-hunter aesthetic, isolated magenta matte. Negative constraints: no direct silhouette copy of any known shadow clone trope, no human-identical face and outfit from source, no extra duplicated clones in frame.",
+  "output": {
+    "format": "png",
+    "width": 1536,
+    "height": 1024,
+    "bytes": 1862501,
+    "sha256": "b245ad3cb4f141a6ff199149025248d07084a43cb12351179e511048fe37a652"
+  },
+  "motionAffinity": [
+    "idle",
+    "move",
+    "run",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-broken-court-monarch-v03.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8ff1-4f53-7830-ae9f-e39d5e989c3d"
+  },
+  "promptId": "aw-mo-v03",
+  "archetype": "broken-court-monarch",
+  "variant": "v03",
+  "prompt": "Regal warlord in layered dark armor and fractured sigil cape, right hand casting void-thorn spike, left hand braced with hexed buckler, broad stance and head tilt, 2.5D anime style with painterly ink outlines and strong directional shadow. Negative constraints: no exact iconic cape proportions, no copied throne-room motifs, no extra text or watermark.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2656820,
+    "sha256": "5a25589af858ec1e5e5ae3e63f787825cd6727df8e123f1074b95dcf2b9f2a18"
+  },
+  "motionAffinity": [
+    "bighit",
+    "critical",
+    "hit",
+    "defence"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

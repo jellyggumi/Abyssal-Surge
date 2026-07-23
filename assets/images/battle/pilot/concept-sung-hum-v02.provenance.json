@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-sung-hum-v02.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8fdc-c9b9-7783-ba4c-40a8e41fcf20"
+  },
+  "promptId": "aw-sjh-v02",
+  "archetype": "sung-hum",
+  "variant": "v02",
+  "prompt": "Full-body concept of a scar-scarred hunter tactician in layered black-green battle robes and brass neck ring, asymmetrical shoulder guard, twin hooked blades folded across the back, restrained posture with one knee slightly bent as if about to lunge, cinematic particle haze, matte magenta isolation, stylized 2.5D anime with painterly textures and rigid shape blocks. Negative constraints: no exact costume from source, no webtoon-provided hairstyle, no duplicated character in mirror.",
+  "output": {
+    "format": "png",
+    "width": 864,
+    "height": 1821,
+    "bytes": 1743865,
+    "sha256": "5103d5f0424f92ed2b5af509c5db5f2754d9ddf1f067fef59a23e9fbd0add44e"
+  },
+  "motionAffinity": [
+    "run",
+    "avoid",
+    "attack",
+    "defence"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

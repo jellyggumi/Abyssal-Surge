@@ -1,0 +1,2721 @@
+{
+  "bossId": "human-command",
+  "bossName": "Human Command Boss",
+  "source": "assets/images/battle/pilot/concept-human-command-boss.png",
+  "sourceImages": [
+    "assets/images/battle/pilot/concept-player-core-v01.png",
+    "assets/images/battle/pilot/concept-player-core-v02.png",
+    "assets/images/battle/pilot/concept-player-core-v03.png",
+    "assets/images/battle/pilot/concept-player-core-v04.png"
+  ],
+  "durationFrames": 210,
+  "fps": 60,
+  "schemaVersion": 2,
+  "pipeline": "motion-previs-v2",
+  "markers": [
+    {
+      "label": "breathing",
+      "startFrame": 1,
+      "endFrame": 28,
+      "keyPose": "slow torso coil + shoulder forward"
+    },
+    {
+      "label": "telegraph",
+      "startFrame": 29,
+      "endFrame": 70,
+      "keyPose": "left hand command sigil summon + mouth open command"
+    },
+    {
+      "label": "strike",
+      "startFrame": 71,
+      "endFrame": 132,
+      "keyPose": "sweep slash + torso arc + head snap"
+    },
+    {
+      "label": "settle",
+      "startFrame": 133,
+      "endFrame": 180,
+      "keyPose": "pose hold with exposed silhouette edges"
+    },
+    {
+      "label": "loopBlend",
+      "startFrame": 181,
+      "endFrame": 210,
+      "keyPose": "ease to breathing"
+    }
+  ],
+  "actions": [
+    {
+      "action": "idle",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 118,
+      "loop": true,
+      "durationFrames": 118,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "weight settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "micro-balance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "shoulder settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "pre-load gaze",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "weight settle",
+        "micro-balance",
+        "shoulder settle",
+        "pre-load gaze"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "idle",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 120,
+      "loop": true,
+      "durationFrames": 120,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "weight settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "micro-balance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "shoulder settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "pre-load gaze",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "weight settle",
+        "micro-balance",
+        "shoulder settle",
+        "pre-load gaze"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "idle",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 122,
+      "loop": true,
+      "durationFrames": 122,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "weight settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "micro-balance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "shoulder settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "pre-load gaze",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "weight settle",
+        "micro-balance",
+        "shoulder settle",
+        "pre-load gaze"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "idle",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 124,
+      "loop": true,
+      "durationFrames": 124,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "weight settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "micro-balance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "shoulder settle",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "pre-load gaze",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "weight settle",
+        "micro-balance",
+        "shoulder settle",
+        "pre-load gaze"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "move",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 70,
+      "loop": true,
+      "durationFrames": 70,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "torso lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "foot contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "weapon counterbalance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "weight reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "torso lean",
+        "foot contact",
+        "weapon counterbalance",
+        "weight reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "move",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 72,
+      "loop": true,
+      "durationFrames": 72,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "torso lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "foot contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "weapon counterbalance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "weight reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "torso lean",
+        "foot contact",
+        "weapon counterbalance",
+        "weight reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "move",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 74,
+      "loop": true,
+      "durationFrames": 74,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "torso lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "foot contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "weapon counterbalance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "weight reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "torso lean",
+        "foot contact",
+        "weapon counterbalance",
+        "weight reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "move",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 76,
+      "loop": true,
+      "durationFrames": 76,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "torso lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "foot contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "weapon counterbalance",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "weight reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "torso lean",
+        "foot contact",
+        "weapon counterbalance",
+        "weight reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "run",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 82,
+      "loop": true,
+      "durationFrames": 82,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stride phase A",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "stride phase B",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "torso drive",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "landing settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "stride phase A",
+        "stride phase B",
+        "torso drive",
+        "landing settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "run",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 84,
+      "loop": true,
+      "durationFrames": 84,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stride phase A",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "stride phase B",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "torso drive",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "landing settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "stride phase A",
+        "stride phase B",
+        "torso drive",
+        "landing settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "run",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 86,
+      "loop": true,
+      "durationFrames": 86,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stride phase A",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "stride phase B",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "torso drive",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "landing settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "stride phase A",
+        "stride phase B",
+        "torso drive",
+        "landing settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "run",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 88,
+      "loop": true,
+      "durationFrames": 88,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stride phase A",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "stride phase B",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "torso drive",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "landing settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "stride phase A",
+        "stride phase B",
+        "torso drive",
+        "landing settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 6,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "hit",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 52,
+      "loop": false,
+      "durationFrames": 52,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "anticipation",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "micro recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "arm reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "anticipation",
+        "contact",
+        "micro recoil",
+        "arm reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "hit",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 54,
+      "loop": false,
+      "durationFrames": 54,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "anticipation",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "micro recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "arm reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "anticipation",
+        "contact",
+        "micro recoil",
+        "arm reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "hit",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 56,
+      "loop": false,
+      "durationFrames": 56,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "anticipation",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "micro recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "arm reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "anticipation",
+        "contact",
+        "micro recoil",
+        "arm reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "hit",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 58,
+      "loop": false,
+      "durationFrames": 58,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "anticipation",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "contact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "micro recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "arm reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "anticipation",
+        "contact",
+        "micro recoil",
+        "arm reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "bighit",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 86,
+      "loop": false,
+      "durationFrames": 86,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "telegraph",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "gather force",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "displacement",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "telegraph",
+        "gather force",
+        "impact",
+        "displacement",
+        "settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 12,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "bighit",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 88,
+      "loop": false,
+      "durationFrames": 88,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "telegraph",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "gather force",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "displacement",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "telegraph",
+        "gather force",
+        "impact",
+        "displacement",
+        "settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 12,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "bighit",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 90,
+      "loop": false,
+      "durationFrames": 90,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "telegraph",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "gather force",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "displacement",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "telegraph",
+        "gather force",
+        "impact",
+        "displacement",
+        "settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 12,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "bighit",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 92,
+      "loop": false,
+      "durationFrames": 92,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "telegraph",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "gather force",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "displacement",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "settle",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "telegraph",
+        "gather force",
+        "impact",
+        "displacement",
+        "settle"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 12,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "attack",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 88,
+      "loop": false,
+      "durationFrames": 88,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "bait",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "swing",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "strike arc",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "recover",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "threat reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "bait",
+        "swing",
+        "strike arc",
+        "recover",
+        "threat reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "attack",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 90,
+      "loop": false,
+      "durationFrames": 90,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "bait",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "swing",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "strike arc",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "recover",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "threat reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "bait",
+        "swing",
+        "strike arc",
+        "recover",
+        "threat reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "attack",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 92,
+      "loop": false,
+      "durationFrames": 92,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "bait",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "swing",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "strike arc",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "recover",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "threat reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "bait",
+        "swing",
+        "strike arc",
+        "recover",
+        "threat reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "attack",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 94,
+      "loop": false,
+      "durationFrames": 94,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "bait",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "swing",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "strike arc",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "recover",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "threat reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "bait",
+        "swing",
+        "strike arc",
+        "recover",
+        "threat reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 8,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "critical",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 70,
+      "loop": false,
+      "durationFrames": 70,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "danger read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "wind-up",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "short hang",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "landing",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "danger read",
+        "wind-up",
+        "impact",
+        "short hang",
+        "landing"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 14,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "critical",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 72,
+      "loop": false,
+      "durationFrames": 72,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "danger read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "wind-up",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "short hang",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "landing",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "danger read",
+        "wind-up",
+        "impact",
+        "short hang",
+        "landing"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 14,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "critical",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 74,
+      "loop": false,
+      "durationFrames": 74,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "danger read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "wind-up",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "short hang",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "landing",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "danger read",
+        "wind-up",
+        "impact",
+        "short hang",
+        "landing"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 14,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "critical",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 76,
+      "loop": false,
+      "durationFrames": 76,
+      "keyPoses": [
+        {
+          "timePct": 16.67,
+          "poseLabel": "danger read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 33.33,
+          "poseLabel": "wind-up",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 50.0,
+          "poseLabel": "impact",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 66.67,
+          "poseLabel": "short hang",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 83.33,
+          "poseLabel": "landing",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "danger read",
+        "wind-up",
+        "impact",
+        "short hang",
+        "landing"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 14,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "avoid",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 40,
+      "loop": false,
+      "durationFrames": 40,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "sidestep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "counter lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "stabilize",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "read",
+        "sidestep",
+        "counter lean",
+        "stabilize"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "avoid",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 42,
+      "loop": false,
+      "durationFrames": 42,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "sidestep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "counter lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "stabilize",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "read",
+        "sidestep",
+        "counter lean",
+        "stabilize"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "avoid",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 44,
+      "loop": false,
+      "durationFrames": 44,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "sidestep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "counter lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "stabilize",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "read",
+        "sidestep",
+        "counter lean",
+        "stabilize"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "avoid",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 46,
+      "loop": false,
+      "durationFrames": 46,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "read",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "sidestep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "counter lean",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "stabilize",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "read",
+        "sidestep",
+        "counter lean",
+        "stabilize"
+      ],
+      "transition": {
+        "entryWindowFrames": 4,
+        "exitWindowFrames": 6,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "defence",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 76,
+      "loop": false,
+      "durationFrames": 76,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "guard lift",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "absorbed hit",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "ground push",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "guard reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "guard lift",
+        "absorbed hit",
+        "ground push",
+        "guard reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 9,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "defence",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 78,
+      "loop": false,
+      "durationFrames": 78,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "guard lift",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "absorbed hit",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "ground push",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "guard reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "guard lift",
+        "absorbed hit",
+        "ground push",
+        "guard reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 9,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "defence",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 80,
+      "loop": false,
+      "durationFrames": 80,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "guard lift",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "absorbed hit",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "ground push",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "guard reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "guard lift",
+        "absorbed hit",
+        "ground push",
+        "guard reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 9,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "defence",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 82,
+      "loop": false,
+      "durationFrames": 82,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "guard lift",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "absorbed hit",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "ground push",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "guard reset",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "guard lift",
+        "absorbed hit",
+        "ground push",
+        "guard reset"
+      ],
+      "transition": {
+        "entryWindowFrames": 5,
+        "exitWindowFrames": 9,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "die",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 94,
+      "loop": false,
+      "durationFrames": 94,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "collapse cue",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "impact sink",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "final pose",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "collapse cue",
+        "impact sink",
+        "recoil",
+        "final pose"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 0,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "die",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 96,
+      "loop": false,
+      "durationFrames": 96,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "collapse cue",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "impact sink",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "final pose",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "collapse cue",
+        "impact sink",
+        "recoil",
+        "final pose"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 0,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "die",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 96,
+      "loop": false,
+      "durationFrames": 96,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "collapse cue",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "impact sink",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "final pose",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "collapse cue",
+        "impact sink",
+        "recoil",
+        "final pose"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 0,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "die",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 96,
+      "loop": false,
+      "durationFrames": 96,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "collapse cue",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "impact sink",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "recoil",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "final pose",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "collapse cue",
+        "impact sink",
+        "recoil",
+        "final pose"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 0,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "show",
+      "variant": "v01",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "startFrame": 1,
+      "endFrame": 94,
+      "loop": false,
+      "durationFrames": 94,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stance prep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "symbolic emphasis",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "command beat",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "dominant hold",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 0,
+      "signaturePoses": [
+        "stance prep",
+        "symbolic emphasis",
+        "command beat",
+        "dominant hold"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "show",
+      "variant": "v02",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "startFrame": 1,
+      "endFrame": 96,
+      "loop": false,
+      "durationFrames": 96,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stance prep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "symbolic emphasis",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "command beat",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "dominant hold",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 1,
+      "signaturePoses": [
+        "stance prep",
+        "symbolic emphasis",
+        "command beat",
+        "dominant hold"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "show",
+      "variant": "v03",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "startFrame": 1,
+      "endFrame": 98,
+      "loop": false,
+      "durationFrames": 98,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stance prep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "symbolic emphasis",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "command beat",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "dominant hold",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 2,
+      "signaturePoses": [
+        "stance prep",
+        "symbolic emphasis",
+        "command beat",
+        "dominant hold"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    },
+    {
+      "action": "show",
+      "variant": "v04",
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "startFrame": 1,
+      "endFrame": 100,
+      "loop": false,
+      "durationFrames": 100,
+      "keyPoses": [
+        {
+          "timePct": 20.0,
+          "poseLabel": "stance prep",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 40.0,
+          "poseLabel": "symbolic emphasis",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 60.0,
+          "poseLabel": "command beat",
+          "speedHint": "linear"
+        },
+        {
+          "timePct": 80.0,
+          "poseLabel": "dominant hold",
+          "speedHint": "hold"
+        }
+      ],
+      "sourceImageIndex": 3,
+      "signaturePoses": [
+        "stance prep",
+        "symbolic emphasis",
+        "command beat",
+        "dominant hold"
+      ],
+      "transition": {
+        "entryWindowFrames": 8,
+        "exitWindowFrames": 10,
+        "defaultCrossFade": 2
+      },
+      "sourceFrameRate": 60,
+      "runtimeFps": 30
+    }
+  ],
+  "clipMarkers": [
+    {
+      "marker": "action::idle::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "idle",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::idle::v01::end",
+      "frame": 118,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "idle",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::idle::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "idle",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::idle::v02::end",
+      "frame": 120,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "idle",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::idle::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "idle",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::idle::v03::end",
+      "frame": 122,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "idle",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::idle::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "idle",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::idle::v04::end",
+      "frame": 124,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "idle",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::move::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "move",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::move::v01::end",
+      "frame": 70,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "move",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::move::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "move",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::move::v02::end",
+      "frame": 72,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "move",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::move::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "move",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::move::v03::end",
+      "frame": 74,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "move",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::move::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "move",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::move::v04::end",
+      "frame": 76,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "move",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::run::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "run",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::run::v01::end",
+      "frame": 82,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "run",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::run::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "run",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::run::v02::end",
+      "frame": 84,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "run",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::run::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "run",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::run::v03::end",
+      "frame": 86,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "run",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::run::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "run",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::run::v04::end",
+      "frame": 88,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "run",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::hit::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "hit",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::hit::v01::end",
+      "frame": 52,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "hit",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::hit::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "hit",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::hit::v02::end",
+      "frame": 54,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "hit",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::hit::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "hit",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::hit::v03::end",
+      "frame": 56,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "hit",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::hit::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "hit",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::hit::v04::end",
+      "frame": 58,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "hit",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::bighit::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "bighit",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::bighit::v01::end",
+      "frame": 86,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "bighit",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::bighit::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "bighit",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::bighit::v02::end",
+      "frame": 88,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "bighit",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::bighit::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "bighit",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::bighit::v03::end",
+      "frame": 90,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "bighit",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::bighit::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "bighit",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::bighit::v04::end",
+      "frame": 92,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "bighit",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::attack::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "attack",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::attack::v01::end",
+      "frame": 88,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "attack",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::attack::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "attack",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::attack::v02::end",
+      "frame": 90,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "attack",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::attack::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "attack",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::attack::v03::end",
+      "frame": 92,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "attack",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::attack::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "attack",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::attack::v04::end",
+      "frame": 94,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "attack",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::critical::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "critical",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::critical::v01::end",
+      "frame": 70,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "critical",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::critical::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "critical",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::critical::v02::end",
+      "frame": 72,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "critical",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::critical::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "critical",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::critical::v03::end",
+      "frame": 74,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "critical",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::critical::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "critical",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::critical::v04::end",
+      "frame": 76,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "critical",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::avoid::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "avoid",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::avoid::v01::end",
+      "frame": 40,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "avoid",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::avoid::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "avoid",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::avoid::v02::end",
+      "frame": 42,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "avoid",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::avoid::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "avoid",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::avoid::v03::end",
+      "frame": 44,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "avoid",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::avoid::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "avoid",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::avoid::v04::end",
+      "frame": 46,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "avoid",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::defence::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "defence",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::defence::v01::end",
+      "frame": 76,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "defence",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::defence::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "defence",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::defence::v02::end",
+      "frame": 78,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "defence",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::defence::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "defence",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::defence::v03::end",
+      "frame": 80,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "defence",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::defence::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "defence",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::defence::v04::end",
+      "frame": 82,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "defence",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::die::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "die",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::die::v01::end",
+      "frame": 94,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "die",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::die::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "die",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::die::v02::end",
+      "frame": 96,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "die",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::die::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "die",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::die::v03::end",
+      "frame": 96,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "die",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::die::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "die",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::die::v04::end",
+      "frame": 96,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "die",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::show::v01::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "show",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::show::v01::end",
+      "frame": 94,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "action": "show",
+      "variant": "v01"
+    },
+    {
+      "marker": "action::show::v02::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "show",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::show::v02::end",
+      "frame": 96,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "action": "show",
+      "variant": "v02"
+    },
+    {
+      "marker": "action::show::v03::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "show",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::show::v03::end",
+      "frame": 98,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "action": "show",
+      "variant": "v03"
+    },
+    {
+      "marker": "action::show::v04::start",
+      "frame": 1,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "show",
+      "variant": "v04"
+    },
+    {
+      "marker": "action::show::v04::end",
+      "frame": 100,
+      "sourceImage": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "action": "show",
+      "variant": "v04"
+    }
+  ],
+  "sourceTimeline": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260723-solo-warden-rpg-concept/production/boss-motion-previs-timing.json",
+  "proxyCreated": true
+}

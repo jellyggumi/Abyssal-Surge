@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-shadow-commander-boss.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8f66-1cda-7153-8ab0-73f1081813d1"
+  },
+  "prompt": "Original dark-fantasy hunter-commander boss concept (concept-shadow-commander-boss), cinematic full-body concept art, three-quarter hero framing, #FF00FF matte, high readability, no text or logos, and no copyrighted character likeness.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2093233,
+    "sha256": "841a4d20445346c37f4bb763af217b4b53cb90e1ba4e54e2bf02b3039fa8d795"
+  },
+  "worldviewTrace": [
+    "W-01",
+    "W-02",
+    "W-03"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

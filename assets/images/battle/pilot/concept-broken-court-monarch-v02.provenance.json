@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-broken-court-monarch-v02.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8ff5-69fa-7871-918b-5002d9dae939"
+  },
+  "promptId": "aw-mo-v02",
+  "archetype": "broken-court-monarch",
+  "variant": "v02",
+  "prompt": "High monarch sentinel with obsidian ceremonial gauntlets, curved spine-plate ridge, long ceremonial gloves, two-sword silhouette crossing above shoulder, controlled breathing motion, particles forming broken mandala around feet, clean single-character full-body illustration, 2.5D anime cel-shaded style. Negative constraints: no recognizable crown silhouette from source monarch, no duplicated robe proportions, no face-identifying marks from external IP, absolutely no text, no titles, no captions, no labels, no typography, no infographic layout, no character-sheet callout boxes, no watermark, single unified image only, isolated on flat magenta #FF00FF background.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 1856734,
+    "sha256": "b4a5faad15ee2c1f71be6ad5500ca966bdf6818d82f0f04fca6322e147b4657d"
+  },
+  "note": "The 'prompt' field above is the exact text sent to the generator (ad-hoc no-text negatives appended at generation time, per decision-log.md D14). design/boss-concept-prompt-pack.json's aw-mo-v02.promptEnglish was edited AFTER this generation to prevent regression on any future regen and no longer matches this field verbatim — that pack edit was not used for this specific image.",
+  "motionAffinity": [
+    "move",
+    "run",
+    "attack",
+    "show"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

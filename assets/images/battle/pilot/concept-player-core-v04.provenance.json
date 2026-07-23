@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "asset": "assets/images/battle/pilot/concept-player-core-v04.png",
+  "status": "concept-pilot-not-runtime",
+  "generatedAt": "2026-07-23",
+  "generator": {
+    "tool": "god-tibo-imagen",
+    "provider": "codex-cli",
+    "model": "gpt-5.4",
+    "sessionId": "019f8feb-e728-70e2-b24e-d5f5f8f3e30f"
+  },
+  "promptId": "aw-pl-v04",
+  "archetype": "player-core",
+  "variant": "v04",
+  "prompt": "Quietly powerful player figure, reinforced gauntlet gloves and matte bronze chest core, one hand extended with command sigil, other holding a rune axe at rest, calm ready stance, cel-shaded 2.5D with controlled dramatic composition, warm crimson highlights and clean matte magenta isolation. Negative constraints: no modern player mascot likeness, no duplicate emblem from any IP, no extra text.",
+  "output": {
+    "format": "png",
+    "width": 1024,
+    "height": 1536,
+    "bytes": 2151118,
+    "sha256": "b310c162a24c112f1182a42ae9b7585ff9897f6638fb4791b5b6a62ea2c90623"
+  },
+  "motionAffinity": [
+    "defence",
+    "show",
+    "hit",
+    "avoid"
+  ],
+  "license": "pending-runtime-rights-review",
+  "runtimeEligible": false,
+  "perfectPixelStatus": "blocked: provider path validated via gti fallback; required PerfectPixel flow cannot ingest codex-cli image outputs directly"
+}

@@ -1,0 +1,14 @@
+{
+  "status": "completed",
+  "blend_out": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260723-solo-warden-rpg-concept/production/boss_previs_workfile.blend",
+  "timing_out": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260723-solo-warden-rpg-concept/production/boss_previs_timings.json",
+  "timeline": "/Users/jangyoung/orca/Abyssal-Surge/_workspace/20260723-solo-warden-rpg-concept/production/boss-motion-previs-timing.json",
+  "fps": 60,
+  "bosses": [
+    "sung-hum",
+    "human-command",
+    "shadow-commander",
+    "broken-court-monarch"
+  ],
+  "bossCount": 4
+}
