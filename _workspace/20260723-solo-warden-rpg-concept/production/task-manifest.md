@@ -6,18 +6,18 @@ run-id: `20260723-solo-warden-rpg-concept` · scope: Stage 1 implementation (cod
 |---|---|---|---|---|---|---|
 | rpg-catalog.js 신규 작성 | director (impl) | Stage1.data | `rpg-catalog.js` | G7 draft input | done | 데이터 층 |
 | campaign-state.js RPG 확장 | director (impl) | Stage1.data | `campaign-state.js` | G7 draft input | done | 데이터 층 (migrateCampaign 데이터손실 버그 자체 발견/수정) |
-| defense-run-simulation.js 포메이션/랠리/DOWNED | director (impl) | Stage1.sim | `defense-run-simulation.js` | G1/G7 draft | in_progress | 시뮬레이션 층 |
-| SNAPSHOT_VERSION 6 | director (impl) | Stage1.sim | `defense-run-simulation.js` | G7 draft | pending | 결정론 계약 |
-| 최소 UI 패널 | director (impl) | Stage1.ui | `app.js`/`index.html`/`styles.css` | G6-ops draft | pending | 스탯/장비/저지선 조작 가능 |
-| 신규 로직 테스트 | Tester 위임 | Stage1.ui | `tests/*.test.mjs` | G1/G7 | pending | 회귀 안전망 |
-| 기존 스위트 회귀 | director (impl) | Stage1.ui | `node --test` 출력 | 전체 | pending | 회귀 없음 확인 |
-| Stage1 gate review | director | Stage1.ui | `production/gate-reviews/stage1-review.md` | G7/G1/G6-ops | pending | Stage1 종료 |
-| QA 아키타입 실측 | director (impl as QA) | Stage2 | `qa/gate-measurements.md` | G2/G3/G5 | pending | 밸런스 검증 |
-| R1/R3/R5 거버넌스 실측 | director (impl) | Stage2 | `qa/gate-measurements.md` | G2/G3/G5 | pending | 지배빌드 방지 검증 |
-| Stage2 gate review | director | Stage2 | `production/gate-reviews/stage2-review.md` | G2/G3/G5/G7final/G8 | pending | Stage2 종료 |
-| 성능/접근성 회귀 | director (impl) | Stage3 | soak/perf 로그 | G4/G6 | pending | 배포 준비 |
-| 커밋+푸시+Pages 확인 | director (impl) | Stage3 | git log, Pages 응답 | — | pending | 배포 |
-| Stage3 gate review + retrospective | director | Stage3 | `retrospectives/cycle-1-retrospective.md` | G4/G6/G1 final | pending | 사이클 종료 |
+| defense-run-simulation.js 포메이션/랠리/DOWNED | director (impl) | Stage1.sim | `defense-run-simulation.js` | G1/G7 draft | done | 시뮬레이션 층 — `resolveFormation`/`livingFrontCompanions`/BOSS_RALLY_WINDOW/COMPANION_DOWNED 전량 구현 확인(`defense-run-simulation.js:174-350,1160-1600`) |
+| SNAPSHOT_VERSION 6 | director (impl) | Stage1.sim | `defense-run-simulation.js` | G7 draft | done | 결정론 계약 — `SNAPSHOT_VERSION = 6`(line 39), 레거시 파라미터 생략 시 byte-identical 재현 테스트 통과 |
+| 최소 UI 패널 | director (impl) | Stage1.ui | `app.js`/`index.html`/`styles.css` | G6-ops draft | done | 스탯/장비/저지선 조작 가능 — `allocateWardenStatPoint`/`purchaseEquipmentTier`/`setCompanionFormationSlot` 전량 UI 핸들러 결선 확인(`app.js` growth-panel) |
+| 신규 로직 테스트 | Tester 위임 | Stage1.ui | `tests/*.test.mjs` | G1/G7 | done | 회귀 안전망 — `rpg-catalog.test.mjs`/`campaign-state-rpg.test.mjs`/`defense-run-simulation-rpg.test.mjs` 57/57, 전체 스위트 164/165(유일 실패는 20260722 워크스페이스의 미커밋 fixture ENOENT, 이번 사이클 범위 밖) |
+| 기존 스위트 회귀 | director (impl) | Stage1.ui | `node --test` 출력 | 전체 | done | 회귀 없음 확인 — `node --test 'tests/**/*.test.mjs'` 164 pass / 1 pre-existing fail(무관 fixture) |
+| Stage1 gate review | director | Stage1.ui | `production/gate-reviews/stage1-review.md` | G7/G1/G6-ops | done | Stage1 종료 |
+| QA 아키타입 실측 | director (impl as QA) | Stage2 | `qa/gate-measurements.md` | G2/G3/G5 | done | 밸런스 검증 — 7 archetype × 3 seed × 10 stage 실측 시뮬레이션 완료 |
+| R1/R3/R5 거버넌스 실측 | director (impl) | Stage2 | `qa/gate-measurements.md` | G2/G3/G5 | done | 지배빌드 방지 검증 |
+| Stage2 gate review | director | Stage2 | `production/gate-reviews/stage2-review.md` | G2/G3/G5/G7final/G8 | done | Stage2 종료 |
+| 성능/접근성 회귀 | director (impl) | Stage3 | soak/perf 로그 | G4/G6 | done-with-note | 배포 준비 — G4(터치타깃/그레이스케일/reduced-motion) MET, 몰입감·레이턴시 인간 플레이테스트 항목만 FIX(자동화 불가, 다음 사이클); G6(perf/텔레메트리) MET, ops-runbook 문서 부재만 FIX(스코프 결정 필요) — `production/gate-reviews/stage3-review.md` |
+| 커밋+푸시+Pages 확인 | director (impl) | Stage3 | git log, Pages 응답 | — | done | 배포 — `e7d5e8d`(stale-base allowlist 회귀 정정+world-art 기능 병합)+`b1be9d5`(정리) 푸시 완료, CI 전체 그린(`engine_contract`/`browser_contract`/`release_closure`/`package_pages`/`artifact_smoke`/`deploy_pages`/`deployed_smoke`/`release_receipt`), 라이브 사이트 200 확인(https://jellyggumi.github.io/Abyssal-Command/) |
+| Stage3 gate review + retrospective | director | Stage3 | `retrospectives/cycle-1-retrospective.md` | G4/G6/G1 final | done | 사이클 종료 — G1 final PASS, G4/G6 done-with-note(위 참조) |
 
 ## Note on scope reconciliation vs original Stage1 GDD document-only intent
 
