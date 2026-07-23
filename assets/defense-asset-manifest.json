@@ -6,6 +6,15 @@
   "rows": [
     {
       "disposition": "delete",
+      "currentPath": "assets/_archive/README.md",
+      "replacementPath": null,
+      "extension": ".md",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
       "currentPath": "assets/audio/defense-audio-manifest.json",
       "replacementPath": null,
       "extension": ".json",
@@ -228,6 +237,429 @@
       "generator": "scripts/build-defense-asset-manifest.mjs",
       "runtimeReference": true,
       "testDisposition": "retain"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/blocked-verification.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-boss.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-boss.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v01.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v01.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v02.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v02.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v03.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v03.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v04.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-broken-court-monarch-v04.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-human-command-boss.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-human-command-boss.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v01.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v01.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v02.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v02.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v03.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v03.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v04.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-player-core-v04.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-commander-boss.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-commander-boss.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v01.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v01.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v02.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v02.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v03.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v03.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v04.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-shadow-soldier-v04.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-boss.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-boss.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v01.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v01.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v02.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v02.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v03.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v03.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v04.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/concept-sung-hum-v04.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/dusk-warden-idle-gti.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/pilot/dusk-warden-idle-gti.provenance.json",
+      "replacementPath": null,
+      "extension": ".json",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "retain",
+      "currentPath": "assets/images/battle/world/cinder-span-tactical-paper-plate.webp",
+      "replacementPath": "assets/images/battle/world/cinder-span-tactical-paper-plate.webp",
+      "extension": ".webp",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": true,
+      "testDisposition": "retain"
+    },
+    {
+      "disposition": "retain",
+      "currentPath": "assets/images/battle/world/cinder-span-topdown-plate.webp",
+      "replacementPath": "assets/images/battle/world/cinder-span-topdown-plate.webp",
+      "extension": ".webp",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": true,
+      "testDisposition": "retain"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/models/abyssal-command/abyssal-command-resource-pack.blend",
+      "replacementPath": null,
+      "extension": ".blend",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/models/abyssal-command/abyssal-command-resource-pack.glb",
+      "replacementPath": null,
+      "extension": ".glb",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
     },
     {
       "disposition": "delete",
@@ -1358,6 +1790,24 @@
     },
     {
       "disposition": "delete",
+      "currentPath": "assets/images/battle/world/cinder-span-tactical-paper-plate.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
+      "currentPath": "assets/images/battle/world/cinder-span-topdown-plate.png",
+      "replacementPath": null,
+      "extension": ".png",
+      "generator": "scripts/build-defense-asset-manifest.mjs",
+      "runtimeReference": false,
+      "testDisposition": "delete"
+    },
+    {
+      "disposition": "delete",
       "currentPath": "assets/images/characters/dusk-legion-atlas.json",
       "replacementPath": null,
       "extension": ".json",
@@ -1847,15 +2297,6 @@
       "currentPath": "assets/media-manifest.json",
       "replacementPath": null,
       "extension": ".json",
-      "generator": "scripts/build-defense-asset-manifest.mjs",
-      "runtimeReference": false,
-      "testDisposition": "delete"
-    },
-    {
-      "disposition": "delete",
-      "currentPath": "assets/models/abyssal-command/abyssal-command-resource-pack.blend",
-      "replacementPath": null,
-      "extension": ".blend",
       "generator": "scripts/build-defense-asset-manifest.mjs",
       "runtimeReference": false,
       "testDisposition": "delete"
