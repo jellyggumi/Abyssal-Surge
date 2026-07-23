@@ -47,3 +47,22 @@ run-id: `20260723-solo-warden-rpg-concept` · scope: Stage 1 implementation (cod
 | 산출물 전수 육안 QA | 16종 이미지 | done | 15건 정상, 1건(`concept-broken-court-monarch-v02.png`) 타이틀/캡션 텍스트 번인 발견 → D14 참조, 재생성으로 해소 확인 |
 | provenance sidecar 16종 작성 | `assets/images/battle/pilot/concept-{sung-hum,shadow-soldier,player-core,broken-court-monarch}-v0{1-4}.provenance.json` | done | sha256/치수/promptId/archetype/motionAffinity 포함; 실제 발신 프롬프트와 사후 수정된 pack 텍스트가 다른 2건(`sung-hum-v01`, `broken-court-monarch-v02`)은 `note` 필드로 그 괴리를 명시 |
 | pack 내 잔존 캐릭터명 발견·제거 | `design/boss-concept-prompt-pack.json` (`aw-sjh-v01.negative`, `sung-hum.category`) | done | `negative` 배열 항목이 "Jin-Woo"를 문자 그대로 포함 — 향후 자동 재생성 시 API로 전송될 수 있는 잠재 유출로 판단해 "source protagonist"로 교체; `category` 라벨도 형제 archetype과 동일한 originalized 패턴으로 통일 |
+
+
+## Stage3 CI note: engine_contract gate blocked by pre-existing bug, not this cycle's scope
+
+After 3 fix-forward commits (c2dbb97 missing imports, 9a06fcf foreign-content
+removal from styles.css/defense-run-simulation.js, 687cf87 asset-manifest
+regeneration for the 40 D8/D13 pilot images), `engine_contract`'s remaining
+2 failures (`terminal victory accepts a queued reward selection...` /
+`selecting an already-owned reward closes an all-owned terminal offer`,
+both in `tests/defense-run-simulation.test.mjs`) are **pre-existing at
+b0a0c57** (verified via direct baseline repro before any RPG work) — the
+reward-selection flow appends `INPUT_ACCEPTED` after `REWARD_SELECTED`
+(processInput's terminal emit), so `events.at(-1).type` never equals
+`REWARD_SELECTED`. Not caused by, or fixable within, this cycle's RPG-layer
+scope. A fix is already in-progress in the shared working tree (uncommitted,
+another concurrent workstream — relaxes the assertion to
+`events.find(e => e.type === "REWARD_SELECTED")`). Deploy (`package_pages`
+onward) stays gated until that lands; `browser_contract` and
+`release_closure` are green as of 687cf87.
