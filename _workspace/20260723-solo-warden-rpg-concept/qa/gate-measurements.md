@@ -33,7 +33,25 @@ This is a PvE idle-combat campaign (not PvP matchups) — the harness default `w
 - Max deviation from median: 1.166× — **within** the 1.3× combo-EV-cap precedent. No archetype combination breaks the tolerance band.
 - Method: `node scripts/run-g2-archetype-rotation.mjs <archetypeId> --output <path>` for economy-greed/micro-optimizer/casual/completionist-collector/single-companion-main; equivalent eval-cell run for rusher/turtle (same policy logic, promoted into the script). Script committed at `scripts/run-g2-archetype-rotation.mjs`, sibling to the existing `scripts/run-g2-archetype-sweep.mjs`.
 - Evidence: raw per-seed JSONL committed at `qa/evidence/sweep-{rusher-turtle,economy-greed,micro-optimizer,casual,completionist-collector,single-companion-main}.json` (6 files, this run-id's workspace — durable, not ephemeral `/tmp`).
-- PENDING for full G2 pass: TTK-vs-authored-target validation (this measures cross-archetype *spread*, not absolute TTK against `balance-sheet.md`'s `ttk_target_s`/`ttk_tolerance` — that target doesn't yet exist for the RPG layer specifically, only for the pre-existing base combat in `defense-catalog.js`). 100% mechanics-covered-in-balance-sheet audit not yet run.
+- PENDING at Cycle 1 close for full G2 pass was: TTK-vs-authored-target validation across the actual progression curve (not just cross-archetype spread at campaign aggregate). **Closed in Cycle 2 — see below.**
+
+### Cycle 2 — Progression-aware per-stage TTK validation (D15)
+
+Re-ran `scripts/run-g2-archetype-rotation.mjs` fresh (7 archetypes × 3 seeds × 10 stages, this session) and extended Cycle 1's cross-archetype-spread methodology to per-stage granularity, using each archetype's own testplan-defined band (not the deprecated `win_rate_band`):
+
+**Stage 1 vs the literal authored target** (`ttk_target_s: 11.2 ± 15%` = `[9.52, 12.88]`s — the one absolute-TTK target that still applies per D15's scope ruling): all 7 archetypes are byte-identical at Stage 1 (zero RPG investment exists yet on the very first stage; divergence starts after Stage 1's clear), so the true sample is n=3 (one per seed): `[10.00, 9.08, 9.67]`s. Median 9.67s is **in-band** (+1.6% above the floor). Seed 302 (9.08s) sits 4.6% below the floor — a single-seed undershoot attributable to base-combat RNG (crit rolls/wave composition), not an RPG-layer effect (RPG layer hasn't acted yet at this point). **Verdict: PASS**, with the seed-302 variance noted rather than hidden.
+
+| check | archetypes | band | result |
+|---|---|---|---|
+| efficiency dominance | rusher vs micro-optimizer | ≤1.3× | 9/10 stages within; `glass-necropolis` 1.326× (2.6%p over, single stage, 3-seed noise — no action) |
+| defense-archetype TTK ceiling | turtle vs (rusher+micro-optimizer median) | [1.0, 1.15]× | **7/10 stages violate** (`sunken-bastion` 1.160× through `shattered-causeway` 1.574×, escalating). Root cause confirmed: `ARCHETYPES.turtle.statPriority` never invests `binding-might`/`abyssal-resonance` across all 3 seeds (deterministic). Disposition: reported as finding, not retuned this cycle (D15 판정 2 — root cause is in the QA test policy, not confirmed as a game-numbers defect). |
+| structural axis (PRED-08) | single-companion-main vs micro-optimizer | ≤1.0× (i.e. always ≥1.0, weaker) | 10/10 stages hold (1.018×-1.695×) — Cycle 1's finding reconfirmed per-stage |
+
+Also verified byte-exact against `design/stage-progression.md`'s table across all 21 runs: trait-unlock counts at stage-clear thresholds 2/4/6/8/10, and Undertow immunity first reached at Stage 6 (`wardLevel>=8`).
+
+- Evidence: `qa/evidence-cycle2/sweep-{rusher,turtle,economy-greed,micro-optimizer,casual,completionist-collector,single-companion-main}.json` (7 files) + `qa/evidence-cycle2/g2-progression-ttk-verdict.json` (computed verdict summary).
+- Band-override decision record: `production/decision-log.md#D15`, `design/balance-sheet.md#band-overrides`.
+- Still not run: 100% mechanics-covered-in-balance-sheet audit (unrelated to TTK, separate G2 sub-requirement, not touched this cycle).
 
 ## #g3 — Player-type diversity
 

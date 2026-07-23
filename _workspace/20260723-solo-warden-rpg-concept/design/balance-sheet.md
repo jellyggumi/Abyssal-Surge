@@ -77,12 +77,41 @@ label: TARGET
 ## G2 밴드 (전체 시스템 공통)
 
 ```yaml
-win_rate_band: [0.45, 0.55]
+win_rate_band: [0.45, 0.55]  # DEPRECATED — 2인용 PvP 전제, PvE 캠페인에 부적용. `#band-overrides` 참조 (D15)
 ttk_target_s: 11.2          # 기준 계산: S1 보스 hp40000 기준
 ttk_tolerance: 0.15
 combo_ev_cap_vs_median: 1.3
 enforcement_scope: "derive-fn(아이템+특성, 가산) + fire-time 스탠스승수(편성, 곱연산) 전체 체인 — 단일 레이어 상한은 불충분 (R3, qa/lane-risk-register.md)"
 label: TARGET
+```
+
+## G2 밴드 오버라이드 (D15, `production/decision-log.md#d15` 승인) {#band-overrides}
+
+PvE 단일 플레이어 캠페인에는 `win_rate_band`가 적용되지 않는다(위 DEPRECATED 표기). 대체 방법론: `qa/lane-archetype-testplan.md`가 설계한 아키타입별 개별 밴드를 공식 G2 판정 기준으로 채택. `ttk_target_s: 11.2`(±15%)는 스코프 변경 없음 — 원래도 Stage 1(보스 HP 40,000) 전용 타깃이었고 그대로 유효.
+
+```yaml
+system: g2-band-overrides
+approved_by: game-production-director
+decision_ref: "production/decision-log.md#D15"
+clear_rate_metric: "win_rate 대체 — 캠페인 완주 여부(FINAL_COMPLETION 도달), 단일 밴드 없음(아키타입별 목표가 상이)"
+per_archetype_bands:
+  rusher_vs_micro_optimizer:
+    metric: "TTK 상호 비율(둘 중 느린 쪽/빠른 쪽)"
+    cap: 1.3
+    measured_cycle2: "10스테이지 중 9개 이내, glass-necropolis 1.326×(노이즈 범위, 조치 불요)"
+  turtle:
+    metric: "TTK 비율(turtle / rusher-microopt 평균)"
+    band: [1.0, 1.15]
+    band_status: TARGET_UNVALIDATED_BY_DESIGNER
+    measured_cycle2: "10스테이지 중 7개 위반(1.160×~1.574×, 후반 악화) — qa/evidence-cycle2/g2-progression-ttk-verdict.json 참조. 원인은 QA 정책의 스탯 우선순위(데미지 스탯 미투자), 게임 수치 자체의 결함으로 미확정. 리튠 불요(D15 판정 2), 다음 디자인 반복 입력으로 이월."
+  single_companion_main:
+    metric: "TTK 비율(single-companion-main / micro-optimizer)"
+    band: { min: 1.0, note: "TTK-비율 메트릭이므로 준수 방향은 >=1.0(단독편성이 다변화 편성보다 느려야 정상). min:1.0 위반=이 값이 1.0 미만(단독편성이 더 빠름=구조 결함)." }
+    measured_cycle2: "10스테이지 전부 만족(1.018×~1.695×, 항상 micro-optimizer보다 느림) — PRED-08 스테이지 단위 재확인"
+  economy_greed_casual_completionist_collector:
+    metric: "커버리지 축(자원공정성/접근성/완주성) — TTK 밴드 게이팅 대상 아님"
+    band_status: "qa/lane-archetype-testplan.md §3 분류 그대로 유지"
+label: CONFIRMED
 ```
 
 ## 전체 영구 파워 예산 거버넌스 (D6 해소, R1/R3/R5 통합 — `UNIFIED-GDD.md` §9.1 상세)

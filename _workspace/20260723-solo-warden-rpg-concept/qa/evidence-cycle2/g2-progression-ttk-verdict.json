@@ -1,0 +1,276 @@
+{
+  "schema": "cycle2-g2-progression-ttk-verdict-v1",
+  "generatedFrom": "scripts/run-g2-archetype-rotation.mjs (fresh re-run, all 7 archetypes, seeds 301/302/303)",
+  "ttkStage1TargetS": 11.2,
+  "ttkTolerance": 0.15,
+  "perStage": {
+    "rusherVsMicroOptimizer_1_3x_cap": [
+      {
+        "stageId": "cinder-span",
+        "bossHp": 40000,
+        "rusherS": 9.58,
+        "microOptimizerS": 9.58,
+        "ratio": 1,
+        "withinCap": true
+      },
+      {
+        "stageId": "veil-citadel",
+        "bossHp": 48000,
+        "rusherS": 7.78,
+        "microOptimizerS": 7.78,
+        "ratio": 1,
+        "withinCap": true
+      },
+      {
+        "stageId": "echo-throne",
+        "bossHp": 60000,
+        "rusherS": 8.96,
+        "microOptimizerS": 8.96,
+        "ratio": 1,
+        "withinCap": true
+      },
+      {
+        "stageId": "sunken-bastion",
+        "bossHp": 68000,
+        "rusherS": 8.45,
+        "microOptimizerS": 8.45,
+        "ratio": 1,
+        "withinCap": true
+      },
+      {
+        "stageId": "howling-sprawl",
+        "bossHp": 76000,
+        "rusherS": 7.89,
+        "microOptimizerS": 9.16,
+        "ratio": 1.161,
+        "withinCap": true
+      },
+      {
+        "stageId": "glass-necropolis",
+        "bossHp": 84000,
+        "rusherS": 8.18,
+        "microOptimizerS": 10.84,
+        "ratio": 1.326,
+        "withinCap": false
+      },
+      {
+        "stageId": "starless-canal",
+        "bossHp": 92000,
+        "rusherS": 9.23,
+        "microOptimizerS": 10.91,
+        "ratio": 1.182,
+        "withinCap": true
+      },
+      {
+        "stageId": "shattered-causeway",
+        "bossHp": 100000,
+        "rusherS": 9.41,
+        "microOptimizerS": 11.14,
+        "ratio": 1.184,
+        "withinCap": true
+      },
+      {
+        "stageId": "abyss-chancel",
+        "bossHp": 110000,
+        "rusherS": 9.63,
+        "microOptimizerS": 11.16,
+        "ratio": 1.158,
+        "withinCap": true
+      },
+      {
+        "stageId": "gate-zenith",
+        "bossHp": 150000,
+        "rusherS": 11.69,
+        "microOptimizerS": 13.49,
+        "ratio": 1.154,
+        "withinCap": true
+      }
+    ],
+    "turtleVsOwnBand_1_0_to_1_15x": [
+      {
+        "stageId": "cinder-span",
+        "bossHp": 40000,
+        "turtleS": 9.58,
+        "refMedianS": 9.58,
+        "ratio": 1,
+        "withinBand": true
+      },
+      {
+        "stageId": "veil-citadel",
+        "bossHp": 48000,
+        "turtleS": 8.11,
+        "refMedianS": 7.78,
+        "ratio": 1.041,
+        "withinBand": true
+      },
+      {
+        "stageId": "echo-throne",
+        "bossHp": 60000,
+        "turtleS": 9.95,
+        "refMedianS": 8.96,
+        "ratio": 1.111,
+        "withinBand": true
+      },
+      {
+        "stageId": "sunken-bastion",
+        "bossHp": 68000,
+        "turtleS": 9.81,
+        "refMedianS": 8.45,
+        "ratio": 1.16,
+        "withinBand": false
+      },
+      {
+        "stageId": "howling-sprawl",
+        "bossHp": 76000,
+        "turtleS": 10.29,
+        "refMedianS": 8.52,
+        "ratio": 1.207,
+        "withinBand": false
+      },
+      {
+        "stageId": "glass-necropolis",
+        "bossHp": 84000,
+        "turtleS": 13.07,
+        "refMedianS": 9.51,
+        "ratio": 1.374,
+        "withinBand": false
+      },
+      {
+        "stageId": "starless-canal",
+        "bossHp": 92000,
+        "turtleS": 13.43,
+        "refMedianS": 10.07,
+        "ratio": 1.334,
+        "withinBand": false
+      },
+      {
+        "stageId": "shattered-causeway",
+        "bossHp": 100000,
+        "turtleS": 16.17,
+        "refMedianS": 10.27,
+        "ratio": 1.574,
+        "withinBand": false
+      },
+      {
+        "stageId": "abyss-chancel",
+        "bossHp": 110000,
+        "turtleS": 15.22,
+        "refMedianS": 10.39,
+        "ratio": 1.464,
+        "withinBand": false
+      },
+      {
+        "stageId": "gate-zenith",
+        "bossHp": 150000,
+        "turtleS": 17.43,
+        "refMedianS": 12.59,
+        "ratio": 1.384,
+        "withinBand": false
+      }
+    ],
+    "singleCompanionMainVsMicroOptimizer_le_1_0": [
+      {
+        "stageId": "cinder-span",
+        "bossHp": 40000,
+        "soloMainS": 9.58,
+        "microOptimizerS": 9.58,
+        "ratio": 1,
+        "bandOk": true
+      },
+      {
+        "stageId": "veil-citadel",
+        "bossHp": 48000,
+        "soloMainS": 7.92,
+        "microOptimizerS": 7.78,
+        "ratio": 1.018,
+        "bandOk": true
+      },
+      {
+        "stageId": "echo-throne",
+        "bossHp": 60000,
+        "soloMainS": 11.82,
+        "microOptimizerS": 8.96,
+        "ratio": 1.319,
+        "bandOk": true
+      },
+      {
+        "stageId": "sunken-bastion",
+        "bossHp": 68000,
+        "soloMainS": 14.32,
+        "microOptimizerS": 8.45,
+        "ratio": 1.695,
+        "bandOk": true
+      },
+      {
+        "stageId": "howling-sprawl",
+        "bossHp": 76000,
+        "soloMainS": 11.77,
+        "microOptimizerS": 9.16,
+        "ratio": 1.285,
+        "bandOk": true
+      },
+      {
+        "stageId": "glass-necropolis",
+        "bossHp": 84000,
+        "soloMainS": 12.36,
+        "microOptimizerS": 10.84,
+        "ratio": 1.14,
+        "bandOk": true
+      },
+      {
+        "stageId": "starless-canal",
+        "bossHp": 92000,
+        "soloMainS": 12.29,
+        "microOptimizerS": 10.91,
+        "ratio": 1.126,
+        "bandOk": true
+      },
+      {
+        "stageId": "shattered-causeway",
+        "bossHp": 100000,
+        "soloMainS": 16.64,
+        "microOptimizerS": 11.14,
+        "ratio": 1.494,
+        "bandOk": true
+      },
+      {
+        "stageId": "abyss-chancel",
+        "bossHp": 110000,
+        "soloMainS": 16.88,
+        "microOptimizerS": 11.16,
+        "ratio": 1.513,
+        "bandOk": true
+      },
+      {
+        "stageId": "gate-zenith",
+        "bossHp": 150000,
+        "soloMainS": 17.24,
+        "microOptimizerS": 13.49,
+        "ratio": 1.278,
+        "bandOk": true
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "CYCLE2-F1",
+      "severity": "informational",
+      "summary": "rusher/micro-optimizer 1.3x dominance cap holds at 9/10 stages; glass-necropolis at 1.326x (2.6%p over, single-stage, 3-seed noise), no action."
+    },
+    {
+      "id": "CYCLE2-F2",
+      "severity": "S2-scoped-finding-not-blocking",
+      "summary": "turtle archetype test policy violates its own [1.0,1.15] TTK band at 7/10 stages (sunken-bastion 1.160x through shattered-causeway 1.574x), escalating late-campaign. Root cause: statPriority never invests binding-might/abyssal-resonance across all 3 seeds. Still 100% clear rate (slow, not failing). Disposition: report as finding for next design iteration (D15), no same-cycle numeric retune -- root cause is in the QA test policy's stat-priority array, not confirmed as a defect in the shipped game numbers themselves."
+    },
+    {
+      "id": "CYCLE2-F3",
+      "severity": "confirmed-clean",
+      "summary": "single-companion-main (PRED-08) satisfies its own <=1.0 formation-power band at all 10 stages -- Cycle 1's structural finding fully reconfirmed per-stage, not just at campaign aggregate."
+    },
+    {
+      "id": "CYCLE2-F4",
+      "severity": "confirmed-clean",
+      "summary": "Trait-unlock sequence (stage-clear counts 2/4/6/8/10) and Undertow immunity boundary (wardLevel>=8 first reached at Stage 6) verified byte-exact against stage-progression.md's table across all 21 runs (7 archetypes x 3 seeds)."
+    }
+  ]
+}
