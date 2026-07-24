@@ -395,11 +395,10 @@ function renderInventoryTab() {
 /** 요새 tab: existing archive-panel (permanent rewards + idle-return summary) relabeled per the tab shell. */
 function renderStrongholdTab() {
   const completed = campaign.resolvedIds?.length ?? 0;
-  const idleSummary = idleReturnSummary();
   return `
     <section class="archive-panel command-screen" aria-labelledby="reward-title">
       <div class="panel-heading"><div><p class="eyebrow">ECHO DEEP</p><h2 id="reward-title">요새</h2></div></div>
-      <div class="archive-summary"><span class="archive-ring"><b>${completed}</b><small>전선<br />완료</small></span><div><strong>영구 진행</strong><p>보스 보상과 동료 결속은 기록실에 남아 다음 런에도 이어집니다.</p><p id="idle-return-summary" data-idle-return-outcome="${escapeHtml(idleSummary.outcome)}" data-idle-return-total="${idleSummary.total}" aria-live="polite">${escapeHtml(idleSummary.text)}</p></div></div>
+      <div class="archive-summary"><span class="archive-ring"><b>${completed}</b><small>전선<br />완료</small></span><div><strong>영구 진행</strong><p>보스 보상과 동료 결속은 기록실에 남아 다음 런에도 이어집니다. 최근 오프라인 진행은 페이지 상단에 표시됩니다.</p></div></div>
       <div class="reward-grid">${(campaign.rewardIds?.length ?? 0) ? campaign.rewardIds.map((id) => `<article class="reward-card"><span class="reward-mark">✦</span><strong>${escapeHtml(REWARDS[id]?.name ?? id)}</strong><span>${escapeHtml(REWARDS[id]?.description ?? "기록된 보상")}</span></article>`).join("") : `<p class="empty-archive">첫 보스를 봉쇄하면 영구 보상을 선택할 수 있습니다.</p>`}</div>
       <details class="archive-tools"><summary>기록 관리 <span>오프라인 저장 · ${escapeHtml(storage.backend ?? "확인 중")}</span></summary><div class="storage-row" aria-label="캠페인 제어"><button id="export-defense">기록 내보내기</button><label class="import-label">기록 가져오기<input id="import-defense" type="file" accept="application/json,text/plain" /></label><button id="export-telemetry">진단 내보내기</button><button id="reset-defense">새 기록</button><output aria-live="polite">${escapeHtml(statusText)}</output></div></details>
     </section>`;
@@ -415,6 +414,7 @@ function renderLobby() {
   const completed = campaign.resolvedIds?.length ?? 0;
   const unlocked = campaign.unlockedStageIndex + 1;
   const selectedObjective = stageObjective(selected.id);
+  const idleSummary = idleReturnSummary();
   document.body.classList.remove("defense-playing");
   document.body.style.overflow = "";
   root.className = "defense-lobby";
@@ -471,6 +471,7 @@ function renderLobby() {
       <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">AC</span><div><p class="eyebrow">ABYSSAL COMMAND · DEEP REFUGE</p><h1>그림자군단 방어선</h1></div></div>
       <div class="command-status"><span class="signal-dot" aria-hidden="true"></span><span>기록실 연결됨</span><strong>${completed}/10 봉쇄선</strong></div>
     </header>
+    <p id="idle-return-summary" class="idle-return-banner" data-idle-return-outcome="${escapeHtml(idleSummary.outcome)}" data-idle-return-total="${idleSummary.total}" aria-live="polite">${escapeHtml(idleSummary.text)}</p>
     <nav class="command-tab-bar" role="tablist" aria-label="커맨드 덱">${COMMAND_TABS.map((tab) => `<button class="command-tab${tab.id === activeCommandTab ? " is-active" : ""}" role="tab" aria-selected="${tab.id === activeCommandTab}" data-command-tab="${tab.id}">${tab.label}</button>`).join("")}</nav>
     <div class="command-tab-panel">${tabBodies[activeCommandTab]}</div>
     <details class="archive-tools"><summary>기록 관리 <span>오프라인 저장 · ${escapeHtml(storage.backend ?? "확인 중")}</span></summary><div class="storage-row" aria-label="캠페인 제어"><button id="export-defense">기록 내보내기</button><label class="import-label">기록 가져오기<input id="import-defense" type="file" accept="application/json,text/plain" /></label><button id="export-telemetry">진단 내보내기</button><button id="reset-defense">새 기록</button><output aria-live="polite">${escapeHtml(statusText)}</output></div></details>`;
@@ -632,7 +633,7 @@ function beginSession(stageId) {
         <output id="battle-event-feedback" class="battle-event-feedback" role="status" aria-live="polite" aria-atomic="true"></output>
         <div class="arena-callout" aria-hidden="true"><span>GATE CORE</span><i></i><span>전선을 유지하세요</span></div>
         <div class="defense-edge defense-bottom">
-          <div class="hud-panel gate-panel"><div class="gate-panel-copy"><span class="hud-eyebrow">COMMANDER / GATE INTEGRITY</span><strong id="battle-commander-integrity"></strong><strong id="battle-integrity"></strong><span id="battle-enemies"></span></div><div class="integrity-meter" aria-hidden="true"><i id="battle-integrity-fill"></i></div></div>
+          <div class="hud-panel gate-panel"><div class="gate-panel-copy"><span class="gate-panel-portrait" aria-hidden="true">DW</span><span class="hud-eyebrow">COMMANDER / GATE INTEGRITY</span><div class="gate-panel-bars" aria-hidden="true"><span class="gate-panel-bar-track commander"><i id="battle-commander-bar-fill"></i></span><span class="gate-panel-bar-track gate"><i id="battle-gate-bar-fill"></i></span></div><strong id="battle-commander-integrity"></strong><strong id="battle-integrity"></strong><span id="battle-enemies"></span></div><div class="integrity-meter" aria-hidden="true"><i id="battle-integrity-fill"></i></div></div>
           <div class="one-thumb-controls" id="movement-actions" role="group" aria-label="한 손 이동 조작">
             <button type="button" data-move="N" aria-label="위로 이동">↑</button>
             <button type="button" data-move="W" aria-label="왼쪽으로 이동">←</button>
@@ -733,6 +734,7 @@ export class BattleSession {
     } catch {
       this.renderer = new BattleVisualizer().mount({ canvas: this.canvas, viewport: this.canvas });
     }
+    this.updateRendererModeAttribute();
     this.listen(this.canvas, "pointerdown", this.onPointerDown);
     this.listen(this.canvas, "pointermove", this.onPointerMove);
     this.listen(this.canvas, "pointerup", this.onPointerEnd);
@@ -1119,6 +1121,7 @@ export class BattleSession {
       this.renderer?.dispose?.();
       this.renderer = new BattleVisualizer().mount({ canvas: this.canvas, viewport: this.canvas });
       this.renderer.renderSnapshot(projection, frame);
+      this.updateRendererModeAttribute();
     }
     const stage = stageFor(this.stageId);
     const gateIntegrity = integrityProjection(snapshot.gate);
@@ -1153,6 +1156,8 @@ export class BattleSession {
     this.surface.dataset.commanderIntegrity = commanderIntegrity.state;
     this.surface.dataset.gateIntegrity = gateIntegrity.state;
     root.querySelector("#battle-integrity-fill").style.width = `${gateIntegrity.ratio * 100}%`;
+    root.querySelector("#battle-commander-bar-fill").style.width = `${commanderIntegrity.ratio * 100}%`;
+    root.querySelector("#battle-gate-bar-fill").style.width = `${gateIntegrity.ratio * 100}%`;
     root.querySelector("#battle-enemies").textContent = `적 ${snapshot.enemies.length} · 처치 ${snapshot.progress.defeated} · 아이템 ${snapshot.progress.itemsCollected}`;
     this.renderControls(snapshot);
     this.renderPauseOverlay();
@@ -1215,16 +1220,94 @@ export class BattleSession {
     if (actions.dataset.actions !== actionMarkup) {
       actions.dataset.actions = actionMarkup;
       actions.innerHTML = actionMarkup;
-      actions.querySelector("#toggle-pause")?.addEventListener("click", () => {
-        this.userPaused = !this.userPaused;
-        this.surface.dataset.defenseState = this.userPaused ? "paused" : "active";
-        this.accumulator = 0;
-        this.render();
-      });
+      actions.querySelector("#toggle-pause")?.addEventListener("click", () => this.togglePause());
       actions.querySelector("#extract-elite")?.addEventListener("click", () => {
         this.send("EXTRACT_ELITE", { enemyId: candidate.enemyId });
       });
     }
+  }
+
+  togglePause() {
+    this.userPaused = !this.userPaused;
+    this.surface.dataset.defenseState = this.userPaused ? "paused" : "active";
+    this.accumulator = 0;
+    if (this.userPaused) this.focusBeforePause = document.activeElement;
+    this.render();
+    if (!this.userPaused) this.focusBeforePause?.focus?.();
+  }
+
+  /**
+   * Exposes which renderer is actually active as a DOM-observable fact —
+   * RealtimeBattle's mount()-time WebGL2 detection AND its render()-time
+   * webglcontextlost/exception-driven failover are both otherwise invisible
+   * to tests, since app.js's own try/catch silently swaps to BattleVisualizer
+   * on any renderSnapshot throw. Without this, a browser test staying green
+   * proves nothing about whether the real WebGL path rendered a single frame
+   * or crashed immediately and ran entirely on the Canvas2D fallback.
+   */
+  updateRendererModeAttribute() {
+    this.surface.dataset.defenseRenderer = this.renderer?.usingFallback === false ? "webgl" : "canvas2d";
+  }
+
+  /**
+   * Pause menu (D5, Option A — production/decision-log.md): a large read-only
+   * overlay over the frozen battle canvas, shown ONLY while userPaused===true.
+   * The "no central panel over the battlefield" rule's stated purpose is
+   * preserving real-time-threat visibility; with the sim paused there is no
+   * real-time threat, so this satisfies the rule's intent without violating
+   * its letter in spirit. Reuses wardenGrowthData()/*Markup(data, false) —
+   * interactive=false renders the identical growth-panel markup with inert
+   * controls, so this never becomes a second input surface (D5 rationale).
+   */
+  renderPauseOverlay() {
+    let overlay = this.surface.querySelector("#defense-pause-overlay");
+    if (!this.userPaused) {
+      overlay?.remove();
+      return;
+    }
+    const data = wardenGrowthData();
+    const segments = [
+      { id: "stats", label: "스탯", html: `<div class="growth-stat-grid">${wardenStatsMarkup(data, false)}</div>` },
+      { id: "inventory", label: "인벤토리", html: `<div class="growth-equip-grid">${equipmentOwnersMarkup(data, false)}</div>` },
+      { id: "companions", label: "동료", html: formationRowMarkup(data, false) },
+    ];
+    if (!segments.some((segment) => segment.id === this.pauseOverlaySegment)) this.pauseOverlaySegment = "stats";
+    const markup = `
+      <div class="pause-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="pause-overlay-title">
+        <div class="panel-heading"><h2 id="pause-overlay-title">일시 정지 · 빌드 확인</h2><button id="pause-overlay-resume" class="primary-action">전투 재개</button></div>
+        <div class="command-segment-bar" role="tablist" aria-label="일시정지 요약">${segments.map((segment) => `<button class="command-segment${segment.id === this.pauseOverlaySegment ? " is-active" : ""}" role="tab" aria-selected="${segment.id === this.pauseOverlaySegment}" data-pause-segment="${segment.id}">${segment.label}</button>`).join("")}</div>
+        <div class="command-segment-body pause-overlay-readonly">${segments.find((segment) => segment.id === this.pauseOverlaySegment).html}</div>
+      </div>`;
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "defense-pause-overlay";
+      this.surface.append(overlay);
+    }
+    if (overlay.dataset.segment !== this.pauseOverlaySegment) {
+      overlay.dataset.segment = this.pauseOverlaySegment;
+      overlay.innerHTML = markup;
+      overlay.querySelector("#pause-overlay-resume").addEventListener("click", () => this.togglePause());
+      overlay.querySelectorAll("[data-pause-segment]").forEach((button) => {
+        button.addEventListener("click", () => {
+          this.pauseOverlaySegment = button.dataset.pauseSegment;
+          overlay.dataset.segment = "";
+          this.renderPauseOverlay();
+        });
+      });
+    }
+  }
+
+  /** Non-blocking edge-card toast — level-up/reward-tier/rally notices. Single shared slot; auto-dismisses. */
+  showToast(innerHtml, { className = "", durationMs = 4000 } = {}) {
+    root.querySelector(".edge-card.defense-toast")?.remove();
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    const toast = document.createElement("section");
+    toast.className = `edge-card defense-toast ${className}`.trim();
+    toast.setAttribute("role", "status");
+    toast.innerHTML = innerHtml;
+    toast.addEventListener("click", () => toast.remove());
+    root.querySelector("#defense-edge-hud").append(toast);
+    this.toastTimer = setTimeout(() => { toast.remove(); this.toastTimer = null; }, durationMs);
   }
 
   async resolveTerminal(snapshot) {
@@ -1255,11 +1338,25 @@ export class BattleSession {
       return;
     }
     this.terminalHandled = true;
+    // Level-up toast (IA screen #9): Echo Core (permanent-stat currency) is
+    // only ever granted at campaign-resolution points (elite capture / boss
+    // kill, see campaign-state.js echoCoreEarned) — there is no mid-battle
+    // permanent-level event to hook, so this fires here at the honest actual
+    // moment the gain happens, keyed to a real before/after delta.
+    const echoBefore = echoCoreEarned(campaign);
     campaign = applyCampaignRunResult(campaign, { stageId: this.stageId, outcome, rewardId: this.selectedRewardId });
     const complete = campaign.lastResolution.campaignComplete;
+    const echoDelta = echoCoreEarned(campaign) - echoBefore;
     telemetry.recordRunResult({ outcome, rewardId: this.selectedRewardId, campaignComplete: complete, stageId: this.stageId, tick: snapshot.tick });
     await persistCampaign(outcome === "defeat" ? "패배 기록을 저장했습니다." : "방어 기록과 보상을 저장했습니다.");
     root.querySelector(".defense-reward")?.remove();
+    if (outcome !== "defeat" && echoDelta > 0) {
+      this.showToast(`<h2>LV UP · 진행 기록</h2><p>Echo Core +${echoDelta} (누적 ${echoCoreEarned(campaign)})</p>`, { className: "defense-toast-levelup" });
+    }
+    if (this.selectedRewardId && REWARDS[this.selectedRewardId]) {
+      const reward = REWARDS[this.selectedRewardId];
+      this.showToast(`<h2>기록 보상 획득</h2><p><strong>${escapeHtml(reward.name)}</strong> · ${escapeHtml(reward.description ?? "")}</p>`, { className: "defense-toast-reward" });
+    }
     const card = document.createElement("section");
     card.className = "edge-card defense-result";
     card.innerHTML = `<h2>${outcome === "defeat" ? "방어선이 무너졌습니다" : complete ? "심연 방어선 완수" : "관문 방어 성공"}</h2>
@@ -1296,6 +1393,7 @@ export class BattleSession {
   stop({ renderLobby: shouldRenderLobby } = { renderLobby: true }) {
     if (this.stopped) return;
     this.stopped = true;
+    if (this.toastTimer) { clearTimeout(this.toastTimer); this.toastTimer = null; }
     cancelAnimationFrame(this.frame);
     this.unlisten(this.canvas, "pointerdown", this.onPointerDown);
     this.unlisten(this.canvas, "pointermove", this.onPointerMove);

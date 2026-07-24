@@ -108,14 +108,20 @@ async function run() {
     await page.keyboard.press("ArrowRight");
     await page.waitForFunction((value) => document.querySelector("#defense-battle-surface")?.dataset.defenseInputSeq !== value, before);
     report.events.push("keyboard-movement-after-cutscene");
+    // Cycle 3 / D17: canvas touch/drag now orbits the free camera, never
+    // movement — a tap (zero-distance touchstart/touchend, no intermediate
+    // move) produces no orbit delta and must NOT queue any movement input or
+    // advance data-defense-input-seq. Movement stays exclusively D-pad/keyboard.
     const box = await page.locator("#defense-canvas").boundingBox();
     assert(box, "canvas must have bounds");
     const beforeTouch = Number(await surface.getAttribute("data-defense-input-seq"));
+    const moveBeforeTouch = await surface.getAttribute("data-defense-move");
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
     await page.touchscreen.tap(box.x + box.width * 0.7, box.y + box.height / 2);
-    await page.waitForFunction((value) => Number(document.querySelector("#defense-battle-surface")?.dataset.defenseInputSeq) > value, beforeTouch);
-    assert.equal(await surface.getAttribute("data-defense-move"), "IDLE", "completed touch input must settle the public movement state");
-    report.events.push("touch-movement");
+    await page.waitForTimeout(100);
+    assert.equal(Number(await surface.getAttribute("data-defense-input-seq")), beforeTouch, "canvas taps must not queue movement input (orbit/movement decoupled, D17)");
+    assert.equal(await surface.getAttribute("data-defense-move"), moveBeforeTouch, "canvas taps must leave the public movement state unaffected");
+    report.events.push("touch-canvas-no-movement");
     const growthOffer = page.locator("#defense-growth-offer");
     const selectedGrowthSkills = new Set();
     const maxImmediateGrowthSelections = 8;
@@ -156,6 +162,16 @@ async function run() {
       }
     }
     assert.equal(growthOfferClosed, true, "growth selections must settle without leaving an unresolved offer");
+    // This test (unlike the portrait/landscape .cjs tests, which deliberately
+    // force the Canvas2D fallback to test that path) does NOT stub WebGL2 —
+    // by this point in the playthrough many real frames have rendered.
+    // app.js's render() try/catch means a WebGL renderer that throws on ANY
+    // frame silently swaps to BattleVisualizer with no visible test failure;
+    // this is the one automated check that the real three.js WebGL path
+    // actually rendered a live playthrough without crashing, not just that
+    // getContext("webgl2") succeeded at mount time.
+    assert.equal(await surface.getAttribute("data-defense-renderer"), "webgl", "the real WebGL renderer must survive a full playthrough without silently failing over to the Canvas2D fallback");
+    report.events.push("webgl-renderer-confirmed-active");
     assert.deepEqual(report.errors, [], "visible journey emitted unexpected page or console errors");
     console.log(JSON.stringify({ pass: true, ...report }, null, 2));
     await context.close();

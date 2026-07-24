@@ -162,8 +162,8 @@ html[data-defense-portrait="true"] #defense-canvas {
 /* Warden growth panel — UNIFIED-GDD.md §6.3: 3 new dense screens (inventory/skill-tree/formation)
    get a 48dp touch-target floor (stricter than the base 44px) + minimum interactive-element gap. */
 .growth-panel { grid-column: 1 / -1; padding: 1rem; border: 1px solid #293f5d; border-radius: .85rem; background: linear-gradient(145deg, rgb(16 30 48 / .95), rgb(8 17 31 / .95)); }
-.growth-panel details { margin-top: .75rem; }
-.growth-panel summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; padding: .4rem 0; font-weight: 700; }
+.growth-panel details, .command-screen details { margin-top: .75rem; }
+.growth-panel summary, .command-screen summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; padding: .4rem 0; font-weight: 700; }
 .growth-stat-grid, .growth-skill-grid, .growth-equip-grid { display: grid; gap: .6rem; margin-top: .5rem; }
 .growth-stat-row, .growth-skill-node { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .5rem; border: 1px solid #2b4767; border-radius: .6rem; background: rgb(8 20 34 / .7); }
 .growth-skill-node.is-unlocked { border-color: #71cfb0; background: rgb(113 207 176 / .1); }
@@ -211,3 +211,58 @@ html[data-defense-portrait="true"] #defense-canvas {
   .tactical-map::after { opacity: .72; }
   .integrity-meter i { transition: none; }
 }
+
+/* Command deck tab shell (Cycle 3 UI overhaul, ui/lane-info-architecture.md
+   section 2.1): 출정/성장/동료/인벤토리/요새 — replaces the single stacked
+   ops-grid page. Segments (성장 tab: 스탯/스킬트리/특성; pause overlay:
+   스탯/인벤토리/동료) reuse the same command-segment-bar pattern nested one
+   level deeper. */
+.command-tab-bar { display: flex; gap: .4rem; overflow-x: auto; padding: .75rem 0 .5rem; border-bottom: 1px solid #243b5e; -webkit-overflow-scrolling: touch; }
+.command-tab { flex: 0 0 auto; min-height: 44px; padding: .5rem .9rem; border-radius: 999px; background: #0d1928; font-size: .82rem; white-space: nowrap; }
+.command-tab.is-active { border-color: #80d8ff; background: linear-gradient(90deg, #163b5d, #102940); color: #dff3ff; }
+.command-tab-panel { padding-top: 1rem; }
+.command-segment-bar { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
+.command-segment { min-height: 44px; padding: .4rem .75rem; font-size: .76rem; border-radius: 999px; background: #0d1928; }
+.command-segment.is-active { border-color: #71cfb0; background: rgb(113 207 176 / .12); color: #d6fff0; }
+.command-segment-body { display: grid; gap: .6rem; }
+.growth-readonly-value { padding: .3rem .6rem; color: #9ecce4; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.ops-grid-sortie { margin-top: 0; }
+
+/* Pause menu (D5, Option A — production/decision-log.md): a large read-only
+   overlay over the frozen battle canvas, shown ONLY while userPaused===true.
+   Reuses the growth-panel readonly markup (interactive=false) — never a
+   second input surface, just a glance. */
+#defense-pause-overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 1rem; background: rgb(3 7 17 / .82); backdrop-filter: blur(2px); pointer-events: auto; }
+.pause-overlay-panel { display: grid; gap: .5rem; width: min(92vw, 640px); max-height: 86vh; overflow: auto; padding: 1rem; border: 1px solid #8d6cd6; border-radius: .85rem; background: linear-gradient(145deg, rgb(16 30 48 / .98), rgb(8 17 31 / .98)); }
+.pause-overlay-panel .panel-heading { justify-content: space-between; }
+.pause-overlay-readonly button:disabled { display: none; }
+
+/* Non-blocking edge-card toasts (level-up on victory, reward-tier gain,
+   boss-rally-window notice) — reuse the existing .edge-card pattern, single
+   shared slot, auto-dismiss, never pause the sim themselves. */
+.defense-toast { top: max(3.4rem, calc(var(--defense-safe-top) + 3rem)); max-height: 20vh; text-align: center; cursor: pointer; }
+.defense-toast p { margin: 0; color: #d9e9f5; font-size: .82rem; }
+.defense-toast-levelup { border-color: #e9c46a; }
+.defense-toast-reward { border-color: #b992ff; }
+.defense-toast-rally { border-color: #f2a4a4; }
+
+/* Commander/gate HUD cluster — portrait + stacked resource bars composition
+   (user-referenced layout). Reuses the existing gate-panel container and
+   #battle-commander-integrity/#battle-integrity text nodes; adds a portrait
+   glyph and re-renders their text content as compact fill bars alongside the
+   existing full-sentence status text (kept for aria-live/screen-reader
+   truthfulness — the bars are a supplementary visual channel, not a
+   color-only replacement, consistent with the project's no-color-only rule). */
+.gate-panel-copy { display: grid; grid-template-columns: auto 1fr; gap: .3rem .55rem; align-items: center; }
+.gate-panel-portrait { grid-row: 1 / 3; display: grid; place-items: center; width: 2.6rem; height: 2.6rem; border: 2px solid #81d6ff; border-radius: 50%; background: #0a1a29; font-weight: 800; color: #a6e2ff; }
+.gate-panel-bars { display: grid; gap: .18rem; }
+.gate-panel-bar-track { height: .3rem; overflow: hidden; border-radius: 999px; background: #27384f; }
+.gate-panel-bar-track i { display: block; height: 100%; transition: width 120ms linear; }
+.gate-panel-bar-track.commander i { background: linear-gradient(90deg, #e26b72, #e9c46a, #70d3ae); }
+.gate-panel-bar-track.gate i { background: linear-gradient(90deg, #5c8ecf, #79d6ff); }
+
+@media (max-width: 720px) {
+  .command-tab { padding: .45rem .7rem; font-size: .76rem; }
+  .pause-overlay-panel { width: 96vw; padding: .75rem; }
+}
+.idle-return-banner { margin: .75rem 0 0; padding: .55rem .8rem; border: 1px solid #2b4767; border-radius: .6rem; background: rgb(8 20 34 / .6); color: #b6c8df; font-size: .78rem; }

@@ -176,13 +176,29 @@ async function verifyPortraitViewportContract(browser, hosting) {
     assert.equal(shifted.canvasWidth, Math.round(800 * shifted.ratio), "visual viewport resize must update logical canvas width");
     assert.equal(shifted.canvasHeight, Math.round(360 * shifted.ratio), "visual viewport resize must update logical canvas height");
 
-    const before = await page.locator("#defense-battle-surface").getAttribute("data-defense-input-seq");
+    // Cycle 3 / D17: canvas drag now orbits the free camera, never movement
+    // (movement is exclusively #movement-actions/keyboard, independent of the
+    // canvas) — so a canvas drag must NOT change data-defense-move, proving
+    // the decoupling holds under the portrait inverse-viewport mapping too.
+    const moveBefore = await page.locator("#defense-battle-surface").getAttribute("data-defense-move");
     await page.mouse.move(193, 417);
     await page.mouse.down();
     await page.mouse.move(193, 587);
-    await page.waitForFunction((value) => document.querySelector("#defense-battle-surface")?.dataset.defenseInputSeq !== value, before);
-    assert.equal(await page.locator("#defense-battle-surface").getAttribute("data-defense-move"), "E", "portrait pointer input must use the shifted visual viewport inverse map");
+    await page.waitForTimeout(50);
+    assert.equal(await page.locator("#defense-battle-surface").getAttribute("data-defense-move"), moveBefore, "portrait canvas drag must not drive movement (orbit/movement are decoupled, D17)");
     await page.mouse.up();
+    // The coordinate transform the old movement assertion actually exercised
+    // (physical-viewport-offset + portrait-rotation inverse mapping) is a
+    // pure function independent of what the drag now drives — test it
+    // directly against DefenseViewport.mapPhysicalToLogical rather than
+    // through a movement side-channel that no longer exists.
+    const transform = await page.evaluate(async () => {
+      const { DefenseViewport } = await import("/defense-viewport.js");
+      const viewport = new DefenseViewport();
+      // window.__defenseFakeViewport was set to offsetLeft=13/offsetTop=17/width=360/height=800 above.
+      return viewport.mapPhysicalToLogical({ clientX: 193, clientY: 587 });
+    });
+    assert.deepEqual(transform, { x: 570, y: 180 }, "portrait inverse map: physical (193,587) with offset(13,17) -> logical (py=570, width-px=180)");
     assert.deepEqual(errors, [], "portrait viewport contract emitted browser errors");
     return { safeInsets, shifted };
   } finally {
