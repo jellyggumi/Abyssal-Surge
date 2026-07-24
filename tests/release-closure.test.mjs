@@ -20,6 +20,8 @@ const RUNTIME_PATHS = new Set([
   "campaign-state.js", "defense-storage.js", "defense-cutscene.js", "defense-telemetry.js", "defense-audio.js",
   "battle-canvas-text.js", "battle-realtime-three.js", "battle-visualizer.js", "styles.css", "react-game-ui.css", "sw.js", "manifest.json", "icon.svg", "privacy.html",
   "assets/icons/icon-192.png", "assets/icons/icon-512.png",
+  "vendor/three.module.min.js", "vendor/three.core.min.js", "vendor/loaders/GLTFLoader.js", "vendor/utils/SkeletonUtils.js", "vendor/utils/BufferGeometryUtils.js",
+  "assets/models/abyssal-command/abyssal-command-resource-pack.glb",
   GAMEPLAY_VIDEO,
   "assets/images/battle/dusk-warden-frame-00.png", "assets/images/battle/dusk-warden-frame-01.png",
   "assets/images/battle/dusk-warden-frame-02.png", "assets/images/battle/dusk-warden-frame-03.png",
@@ -86,7 +88,7 @@ test("Pages workflow preserves the defense-survivor release DAG and closure", as
   assert.match(job(workflow, "package_pages"), /name: pages-bundle[\s\S]*?if-no-files-found: error/);
   assert.match(job(workflow, "release_receipt"), /"all_gate_pass":%s/);
   assert.match(job(workflow, "release_receipt"), /test "\$all_gate_pass" = true/);
-  assert.doesNotMatch(workflow.match(/PAGES_RUNTIME_PATHS: >-[\s\S]*?\n\n/)?.[0] ?? "", /react-game-ui\.js|react-shop|vendor\/react|minimap|battle-field|campaign-sync|assets\/models/i);
+  assert.doesNotMatch(workflow.match(/PAGES_RUNTIME_PATHS: >-[\s\S]*?\n\n/)?.[0] ?? "", /react-game-ui\.js|react-shop|vendor\/react|minimap|battle-field|campaign-sync|\.blend/i);
 
   for (const use of workflow.matchAll(/^\s+uses: [^\n]+$/gm)) {
     assert.match(use[0], /@[0-9a-f]{40}$/, `action must be SHA-pinned: ${use[0]}`);
