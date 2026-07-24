@@ -23,7 +23,8 @@ const WORLD_TEXTURES = Object.freeze({
   cinderSpanBackground: "./assets/images/battle/world/cinder-span-topdown-plate.webp",
   cinderSpanMap: "./assets/images/battle/world/cinder-span-tactical-paper-plate.webp",
 });
-const textureCache = new Map();
+let textureCache = new Map();
+let textureCacheOwner = null;
 const CATALOG_EFFECTS = new Set([...ANIMATION_CLIPS.commander, ...ANIMATION_CLIPS.effects]);
 const FEEDBACK_CUES = Object.freeze({
   CRITICAL_HIT: AUDIO_CUES.criticalHit,
@@ -190,6 +191,16 @@ function drawChevron(context, from, to, color) {
 
 function loadTexture(source) {
   if (!source || typeof globalThis.Image !== "function") return null;
+  // A test harness (or any caller) can swap globalThis.Image between mock
+  // classes at runtime; cached instances from a prior Image constructor are
+  // not valid results for the current one, so the cache is scoped to
+  // "images created by the currently-installed Image class" rather than
+  // living forever at module scope. Production never swaps globalThis.Image,
+  // so this is a no-op invalidation there.
+  if (textureCacheOwner !== globalThis.Image) {
+    textureCache = new Map();
+    textureCacheOwner = globalThis.Image;
+  }
   if (textureCache.has(source)) return textureCache.get(source);
   try {
     const image = new globalThis.Image();

@@ -8,6 +8,7 @@
   "packageManager": "npm@10.9.2",
   "devDependencies": {
     "agentation": "1.1.0",
-    "playwright": "1.52.0"
+    "playwright": "1.52.0",
+    "three": "0.185.1"
   }
 }
