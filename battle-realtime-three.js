@@ -57,10 +57,36 @@ const CAMERA_ZOOM_MIN_FACTOR = 1.4;
 const CAMERA_ZOOM_MAX_FACTOR = 5;
 const CAMERA_ZOOM_DEFAULT_FACTOR = 2.4;
 const MAX_FRAME_DELTA_SECONDS = 0.1;
+// On a software rasterizer (no GPU — e.g. SwiftShader/llvmpipe on headless CI or a
+// low-end device) per-pixel fragment cost dominates the frame. Cap the absolute drawn
+// backbuffer to this many pixels so frame time stays bounded regardless of the CSS
+// canvas size; the smaller buffer is stretched to fill the rect. No-op on real GPUs.
+// ~0.18 MP keeps the software path well under a 100 ms rAF-mean budget.
+const SOFTWARE_MAX_BACKBUFFER_PX = 180000;
 
-function hasRealWebGL2(canvas) {
+// Detect a software WebGL2 rasterizer via the debug-renderer extension, probed on a
+// throwaway canvas: the real session context is created only once, and a second
+// getContext on the same canvas ignores new attributes, so the antialias decision must
+// be made BEFORE the real context exists. GPU/software status is process-wide, so the
+// probe reliably predicts the real context. Defaults to false (full quality) when the
+// extension is unavailable — real GPUs never need the downgrade.
+function detectSoftwareWebGL() {
   try {
-    const gl = canvas?.getContext?.("webgl2", { failIfMajorPerformanceCaveat: false });
+    const probe = typeof document !== "undefined" ? document.createElement("canvas") : null;
+    const gl = probe?.getContext?.("webgl2", { failIfMajorPerformanceCaveat: false });
+    if (!gl) return false;
+    const ext = gl.getExtension("WEBGL_debug_renderer_info");
+    const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || "") : "";
+    gl.getExtension("WEBGL_lose_context")?.loseContext?.();
+    return /swiftshader|llvmpipe|software|basic render|microsoft basic/i.test(name);
+  } catch {
+    return false;
+  }
+}
+
+function hasRealWebGL2(canvas, softwareRenderer = false) {
+  try {
+    const gl = canvas?.getContext?.("webgl2", { antialias: !softwareRenderer, failIfMajorPerformanceCaveat: false });
     return typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? gl : null;
   } catch {
     return null;
@@ -142,6 +168,7 @@ export class RealtimeBattle {
     this.renderer = null;
     this.scene = null;
     this.perspectiveCamera = null;
+    this.softwareRenderer = false;
   }
 
   mount({ canvas, handoff, viewport } = {}) {
@@ -150,13 +177,15 @@ export class RealtimeBattle {
     this.canvas = canvas ?? null;
     this.viewport = viewport ?? null;
     this.disposed = false;
-    const gl = this.canvas ? hasRealWebGL2(this.canvas) : null;
+    const software = this.canvas ? detectSoftwareWebGL() : false;
+    const gl = this.canvas ? hasRealWebGL2(this.canvas, software) : null;
     if (!gl) {
       this.usingFallback = true;
       this.fallback = new BattleVisualizer(this.options).mount({ canvas, handoff, viewport });
       return this;
     }
     this.usingFallback = false;
+    this.softwareRenderer = software;
     this.initScene(gl);
     this.loadModel();
     return this;
@@ -546,9 +575,31 @@ export class RealtimeBattle {
     if (gl.isContextLost()) throw new Error("WebGL context lost");
     const width = Math.max(1, number(this.viewport?.width, number(this.canvas.width, 1)));
     const height = Math.max(1, number(this.viewport?.height, number(this.canvas.height, 1)));
+    // Software path: bound the drawn pixel count (see SOFTWARE_MAX_BACKBUFFER_PX). The
+    // scale preserves aspect ratio, so camera aspect stays width/height (undistorted)
+    // and setSize(...,false) leaves the CSS rect untouched — the smaller buffer is just
+    // stretched to fill it. No-op on GPUs (bufferScale === 1).
+    const bufferScale = this.softwareRenderer
+      ? Math.min(1, Math.sqrt(SOFTWARE_MAX_BACKBUFFER_PX / (width * height)))
+      : 1;
+    const bufferWidth = Math.max(1, Math.round(width * bufferScale));
+    const bufferHeight = Math.max(1, Math.round(height * bufferScale));
+    // Guard on the raw canvas backing-store size too, not only three's cached
+    // getSize(): app.js's resize() writes this.canvas.width/height directly to full
+    // resolution on every resize/orientation change (viewport === the canvas). On the
+    // software-clamp path a same-aspect resize leaves the recomputed target equal to
+    // three's cached size, so setSize would be skipped while the backing store is now
+    // full-res and the GL viewport stays clamped — GL would draw into a clamped
+    // sub-rect (rest black). Comparing the canvas attrs re-clamps in one frame. No-op
+    // on the GPU path, where bufferWidth === canvas.width by construction.
     const currentSize = this.renderer.getSize(new THREE.Vector2());
-    if (currentSize.x !== width || currentSize.y !== height) {
-      this.renderer.setSize(width, height, false);
+    if (
+      currentSize.x !== bufferWidth ||
+      currentSize.y !== bufferHeight ||
+      this.canvas.width !== bufferWidth ||
+      this.canvas.height !== bufferHeight
+    ) {
+      this.renderer.setSize(bufferWidth, bufferHeight, false);
       this.perspectiveCamera.aspect = width / height;
       this.perspectiveCamera.updateProjectionMatrix();
     }
