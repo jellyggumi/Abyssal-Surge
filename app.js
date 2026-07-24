@@ -986,16 +986,34 @@ export class BattleSession {
     const frameDuration = Math.max(0, frameNow - this.lastFrameAt);
     const elapsed = Math.min(100, frameDuration);
     this.lastFrameAt = frameNow;
+    // BUGFIX (found investigating a CI-only flaky floating-damage-number test):
+    // tick() (defense-run-simulation.js) does `run.events = []` at its very
+    // first line -- a full reset, not an append. On a slow device/CI runner
+    // where a single requestAnimationFrame interval exceeds several STEP_MS
+    // budgets, this catch-up loop calls advanceDefenseRun(this.run, 1)
+    // (i.e. exactly one real 60Hz tick) multiple times per rendered frame,
+    // and each call's tick() clobbers .events from the PREVIOUS call in this
+    // same burst -- only the LAST real tick's events ever reached render().
+    // Harmless for state-derived UI (nameplates, health bars) but silently
+    // dropped every event-derived consumer's events from all-but-the-last
+    // tick whenever frames run behind: audio cues, event-feedback text,
+    // cutscene triggers, and world-HUD floating damage numbers. Each real
+    // tick runs exactly once per advanceDefenseRun(this.run, 1) call (steps=1
+    // guarantees at most one tick() invocation), so this.run.events
+    // immediately after each call is exactly that one tick's events --
+    // collecting them here recovers every tick's events for this frame.
+    const frameEvents = [];
     if (!document.hidden && !this.userPaused && !isTerminalRun(this.run)) {
       this.accumulator += elapsed;
       while (this.accumulator >= STEP_MS) {
         this.run = advanceDefenseRun(this.run, 1);
+        frameEvents.push(...this.run.events);
         this.accumulator -= STEP_MS;
       }
     } else {
       this.accumulator = 0;
     }
-    this.render();
+    this.render(frameEvents);
     telemetry.recordFrameProbe({
       frameDurationMs: frameDuration,
       heapUsedBytes: globalThis.performance?.memory?.usedJSHeapSize,
@@ -1119,8 +1137,17 @@ export class BattleSession {
       : event.text ?? event.message ?? event.summary ?? event.lore ?? "심연의 비밀이 해소되었습니다.").join(" · ");
     this.surface.dataset.defenseFeedback = feedback.dataset.feedback;
   }
-  render() {
-    const snapshot = getRunSnapshot(this.run);
+  render(frameEvents = null) {
+    const rawSnapshot = getRunSnapshot(this.run);
+    // frameEvents (see loop()'s doc comment) carries every tick's events from
+    // this render's catch-up burst, when more than one real tick ran since
+    // the last frame; rawSnapshot.events alone would only ever contain the
+    // LAST such tick's events. Falls back to rawSnapshot.events (a no-op
+    // override, same array) when frameEvents is empty/absent -- e.g. this
+    // frame ran zero ticks (paused/hidden/terminal) and every consumer should
+    // keep seeing whatever the unchanged this.run.events already holds, same
+    // as before this fix.
+    const snapshot = frameEvents && frameEvents.length ? { ...rawSnapshot, events: frameEvents } : rawSnapshot;
     telemetry.recordSnapshot(snapshot);
     telemetry.recordSimulationEvents(snapshot.events);
     if (this.audioTick !== snapshot.tick) {
@@ -1366,7 +1393,13 @@ export class BattleSession {
         continue;
       }
       if (targetId === null || !damage) continue;
-      const key = event.type + ":" + targetId + ":" + snapshot.tick;
+      // Keyed by the EVENT's own tick (always present, see emit() in
+      // defense-run-simulation.js), not the outer snapshot.tick -- snapshot
+      // now carries a whole frame's worth of events across a slow-frame
+      // catch-up burst (see loop()'s frameEvents), so two genuinely distinct
+      // hits on the same target in different real ticks must not collide on
+      // the same key.
+      const key = event.type + ":" + targetId + ":" + event.tick;
       if (this.worldHudDamageEventKeys.has(key)) continue;
       this.worldHudDamageEventKeys.add(key);
       const ndc = this.renderer?.projectEntityToScreen?.(targetId);
