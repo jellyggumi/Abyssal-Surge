@@ -76,6 +76,7 @@ const COMMAND_TABS = Object.freeze([
 ]);
 let activeCommandTab = COMMAND_TABS[0].id;
 let activeGrowthSegment = "stats"; // stats | skills | traits (성장 tab sub-nav)
+let activeCompanionSegment = "list"; // list | formation (동료 tab sub-nav)
 let statusText = "기록을 불러오는 중입니다.";
 let campaignWrite = Promise.resolve();
 let session = null;
@@ -368,17 +369,32 @@ function renderGrowthTab() {
     </section>`;
 }
 
-/** 동료 tab: collection grid (already existed in the 출정-era loadout-panel) + formation row. */
+/**
+ * 동료 tab: list/detail (IA screen #5) + 편성 (IA screen #6) as sub-nav
+ * segments — mirrors 성장 tab's segment-bar pattern for the same reason
+ * (ui/lane-info-architecture.md section 2.1 lists these as two distinct
+ * numbered screens under one tab, not one flat scroll).
+ */
+function renderCompanionsListSegment(data) {
+  const collection = campaign.companionCollection;
+  return `
+    <p class="section-copy">정예를 추출하면 영구 동료가 됩니다. 편성한 동료는 다음 출전부터 자동으로 함께합니다.</p>
+    <div class="loadout-slots" aria-label="현재 동료 편성">${[0, 1, 2].map((index) => { const prototype = data.loadout[index]; return prototype ? `<div class="loadout-slot is-filled"><span class="companion-glyph">${companionGlyph(prototype)}</span><strong>${escapeHtml(companionLabel(prototype))}</strong><small>결속 ${index + 1}</small></div>` : `<div class="loadout-slot"><span class="slot-plus">+</span><small>빈 슬롯</small></div>`; }).join("")}</div>
+    <div class="companion-grid">${collection.length ? collection.map((record) => `<button class="companion-card${data.loadout.includes(record.prototype) ? " is-selected" : ""}" data-companion="${record.prototype}" aria-pressed="${data.loadout.includes(record.prototype)}"><span class="companion-glyph">${companionGlyph(record.prototype)}</span><span><strong>${escapeHtml(companionLabel(record.prototype))}</strong><small>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</small></span><i>${data.loadout.includes(record.prototype) ? "편성됨" : "편성"}</i></button>`).join("") : `<div class="empty-companions"><span class="companion-glyph">?</span><div><strong>아직 결속한 동료가 없습니다.</strong><p>전투 중 빛나는 정예를 쓰러뜨린 뒤 <b>추출</b>하세요.</p></div></div>`}</div>`;
+}
+
 function renderCompanionsTab() {
   const data = wardenGrowthData();
-  const collection = campaign.companionCollection;
+  const segments = [
+    { id: "list", label: "목록", html: renderCompanionsListSegment(data) },
+    { id: "formation", label: `편성 (전열/후열, 최대 ${MAX_FRONT_SLOTS}전열)`, html: formationRowMarkup(data) },
+  ];
+  if (!segments.some((segment) => segment.id === activeCompanionSegment)) activeCompanionSegment = "list";
   return `
     <section class="loadout-panel command-screen" aria-labelledby="companion-title">
       <div class="panel-heading"><div><p class="eyebrow">COMMAND BOND</p><h2 id="companion-title">동료</h2></div><span class="panel-count">${data.loadout.length}/3 ACTIVE</span></div>
-      <p class="section-copy">정예를 추출하면 영구 동료가 됩니다. 편성한 동료는 다음 출전부터 자동으로 함께합니다.</p>
-      <div class="loadout-slots" aria-label="현재 동료 편성">${[0, 1, 2].map((index) => { const prototype = data.loadout[index]; return prototype ? `<div class="loadout-slot is-filled"><span class="companion-glyph">${companionGlyph(prototype)}</span><strong>${escapeHtml(companionLabel(prototype))}</strong><small>결속 ${index + 1}</small></div>` : `<div class="loadout-slot"><span class="slot-plus">+</span><small>빈 슬롯</small></div>`; }).join("")}</div>
-      <div class="companion-grid">${collection.length ? collection.map((record) => `<button class="companion-card${data.loadout.includes(record.prototype) ? " is-selected" : ""}" data-companion="${record.prototype}" aria-pressed="${data.loadout.includes(record.prototype)}"><span class="companion-glyph">${companionGlyph(record.prototype)}</span><span><strong>${escapeHtml(companionLabel(record.prototype))}</strong><small>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</small></span><i>${data.loadout.includes(record.prototype) ? "편성됨" : "편성"}</i></button>`).join("") : `<div class="empty-companions"><span class="companion-glyph">?</span><div><strong>아직 결속한 동료가 없습니다.</strong><p>전투 중 빛나는 정예를 쓰러뜨린 뒤 <b>추출</b>하세요.</p></div></div>`}</div>
-      <details open><summary>편성 (전열/후열, 최대 ${MAX_FRONT_SLOTS}전열)</summary>${formationRowMarkup(data)}</details>
+      <div class="command-segment-bar" role="tablist" aria-label="동료 항목">${segments.map((segment) => `<button class="command-segment${segment.id === activeCompanionSegment ? " is-active" : ""}" role="tab" aria-selected="${segment.id === activeCompanionSegment}" data-companion-segment="${segment.id}">${segment.label}</button>`).join("")}</div>
+      <div class="command-segment-body">${segments.find((segment) => segment.id === activeCompanionSegment).html}</div>
     </section>`;
 }
 
@@ -485,6 +501,12 @@ function renderLobby() {
   root.querySelectorAll("[data-growth-segment]").forEach((button) => {
     button.addEventListener("click", () => {
       activeGrowthSegment = button.dataset.growthSegment;
+      renderLobby();
+    });
+  });
+  root.querySelectorAll("[data-companion-segment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeCompanionSegment = button.dataset.companionSegment;
       renderLobby();
     });
   });
