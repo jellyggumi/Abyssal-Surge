@@ -25,6 +25,8 @@ env:
   PAGES_RUNTIME_PATHS: >-
     index.html app.js rpg-catalog.js defense-viewport.js defense-catalog.js defense-run-simulation.js campaign-state.js defense-storage.js defense-audio.js
     defense-cutscene.js defense-telemetry.js battle-canvas-text.js battle-realtime-three.js battle-visualizer.js styles.css react-game-ui.css sw.js manifest.json icon.svg privacy.html
+    vendor/three.module.min.js vendor/three.core.min.js vendor/loaders/GLTFLoader.js vendor/utils/SkeletonUtils.js vendor/utils/BufferGeometryUtils.js
+    assets/models/abyssal-command/abyssal-command-resource-pack.glb
     assets/icons/icon-192.png assets/icons/icon-512.png
     assets/images/battle/dusk-warden-frame-00.png assets/images/battle/dusk-warden-frame-01.png
     assets/images/battle/dusk-warden-frame-02.png assets/images/battle/dusk-warden-frame-03.png
