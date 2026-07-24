@@ -11,16 +11,30 @@
 
 **마이그레이션 경계**: 기존 사실적 아틀라스는 즉시 폐기하지 않는다 — 신규 레이어 전용 신규 베이크, 병존 가능(자산 경로 스왑만으로 상호 롤백). 완전 통일은 Stage 2 이후 아트 리뷰 결정.
 
-## 카메라 (화풍과 독립된 축)
+## 카메라 (화풍과 독립된 축) — **Cycle 3에서 Option B로 재채택 (D17 참조)**
 
-레퍼런스 이미지는 사이드뷰지만 사용자 명시 지시는 **버즈아이(탑다운) 2.5D, 플레이어 팔로우**. 화풍(셀셰이딩·팔레트·파티클)과 카메라 각도(버즈아이·팔로우)를 독립 축으로 취급 — 하나의 근거로 다른 하나를 추론하지 않는다.
+레퍼런스 이미지는 사이드뷰지만 사용자 명시 지시는 최초 **버즈아이(탑다운) 2.5D, 플레이어 팔로우**(Option A, 아래 "Superseded" 참조)였다. Cycle 3에서 사용자가 명시적으로 자유 회전 카메라를 요구 — `UNIFIED-GDD.md:219`가 정의한 재검토 조건("자유 회전 카메라나 동적 조명이 명시적으로 요구되면 재검토")이 실제로 트리거됨. 화풍(셀셰이딩·팔레트·파티클)과 카메라 모델은 여전히 독립 축 — 화풍 축은 변경 없음.
 
 ```yaml
 camera:
+  angle: free orbit — yaw unrestricted, pitch clamped [30°, 85°] from ground plane (default 65°)
+  follow: world-space 3D target tracking (commander position), lag easing 0.18 (기존 CAMERA_FOLLOW_EASING 재사용), reduced-motion hard-cut on auto-follow only — user-driven drag/pinch input always responsive regardless of reduced-motion
+  zoom: distance clamped to [near, far] scaled from arena/model bounding box (exact values TBD at implementation, measured against GLB content)
+  control: one-finger drag = orbit (yaw/pitch), two-finger pinch = zoom, movement input unaffected (separate control surface)
+  authoring: "real-time WebGL via three.js — Blender GLB assets (assets/models/abyssal-command/abyssal-command-resource-pack.glb) rendered live, NOT baked to sprite atlas"
+label: TARGET (Cycle 3)
+```
+
+### Superseded — Option A (Cycle 1/2 결정, 재검토됨)
+
+아래는 Cycle 1에서 채택되고 Cycle 2까지 유효했던 원래 결정이다. 삭제하지 않고 보존 — 아티팩트 계약(`artifact-contract.md`) 원칙 및 향후 자유 카메라 요구가 철회될 경우의 롤백 경로.
+
+```yaml
+camera_superseded:
   angle: bird's-eye fixed elevation, north-up (no free rotation)
   follow: world-space window panning, deadzone 12%x/10%y, lag easing 0.18, reduced-motion hard-cut
   authoring: "3D-authored in Blender, baked to cel-shaded PNG atlas at fixed elevation — NOT real-time WebGL"
-label: TARGET
+label: SUPERSEDED (see D17)
 ```
 
 ## 씬/이펙트별 몰입 의도 (G4 입력)
