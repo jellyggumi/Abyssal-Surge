@@ -30,7 +30,7 @@ import {
   isTerminalRun,
   queueInput,
 } from "./defense-run-simulation.js";
-import { RealtimeBattle } from "./battle-realtime-three.js";
+import { RealtimeBattle, MeshThumbnailService, meshRootForCompanion, meshRootForStageBoss, COMMANDER_MESH_ROOT } from "./battle-realtime-three.js";
 import { BattleVisualizer } from "./battle-visualizer.js";
 import { ARENA, COMPANIONS, CUTSCENES, REWARDS, RULES_VERSION, SKILLS, STAGE_PRESENTATION_BY_ID, STAGE_REWARD_IDS, STAGE_TACTICS, TICK_RATE } from "./defense-catalog.js";
 import { cutsceneEventKey, cutsceneFromEvent } from "./defense-cutscene.js";
@@ -42,6 +42,9 @@ const root = document.querySelector("#defense-app");
 const storage = new DefenseStorage();
 const viewport = new DefenseViewport();
 const telemetry = new DefenseTelemetry();
+// Shared across the whole lobby/HUD lifecycle (independent of any battle session) -- see
+// MeshThumbnailService's own doc comment for why it owns a separate renderer from RealtimeBattle.
+const thumbnailService = new MeshThumbnailService();
 const STEP_MS = 1000 / TICK_RATE;
 // Canvas drag now orbits the free camera (Cycle 3 / D17) instead of driving
 // movement — movement is exclusively the D-pad (#movement-actions) and
@@ -161,6 +164,40 @@ function stageTerrainProjection(stageId) {
     }),
     spawnDirections: tactics.spawnDirections,
   });
+}
+
+/**
+ * Renders a GLB-mesh portrait span with an immediate text-glyph fallback (never a blank/
+ * broken-image state while the async thumbnail loads, or permanently when meshRoot is
+ * null -- e.g. stages 4-10 have no boss GLB root yet, see meshRootForStageBoss()). Caller
+ * supplies the FULL class string so this can decorate either the general .rc-portrait
+ * utility (companion cards) or an existing shaped container (.gate-panel-portrait,
+ * .target-sigil circles) by combining both class names.
+ */
+function portraitMarkup(meshRoot, fallbackGlyph, className) {
+  const attrs = meshRoot ? ` data-portrait-mesh="${meshRoot}" data-portrait-hydrated="0"` : "";
+  return `<span class="${className}" aria-hidden="true"${attrs}><span class="rc-portrait-fallback">${escapeHtml(fallbackGlyph)}</span></span>`;
+}
+
+/** Finds every not-yet-hydrated portrait span under scope and asynchronously swaps its
+ * fallback glyph for the real GLB-rendered thumbnail once available. Marks nodes hydrated
+ * SYNCHRONOUSLY (before the async render even starts) so a rapid re-render or a second
+ * call for the same scope never double-fires a render for the same node. Safe to call
+ * unconditionally after every innerHTML assignment that might contain portrait spans --
+ * thumbnailService caches by mesh root, so repeat calls across re-renders cost nothing
+ * once a given mesh has rendered once. */
+function hydratePortraits(scope) {
+  for (const node of scope.querySelectorAll('[data-portrait-mesh]:not([data-portrait-hydrated="1"])')) {
+    node.dataset.portraitHydrated = "1";
+    const meshRoot = node.dataset.portraitMesh;
+    thumbnailService.render(meshRoot).then((dataUrl) => {
+      if (!dataUrl || !node.isConnected) return; // keep fallback glyph on failure or if this node was replaced by a newer render
+      const img = document.createElement("img");
+      img.alt = "";
+      img.src = dataUrl;
+      node.replaceChildren(img);
+    }).catch(() => {});
+  }
 }
 
 function companionGlyph(prototype) {
@@ -310,7 +347,7 @@ function wardenStatsMarkup(data, interactive = true) {
     const maxed = points >= stat.maxPoints;
     const nextCost = maxed ? null : wardenStatPointCost(points + 1);
     const affordable = nextCost !== null && echoSpent + nextCost <= echoEarned;
-    return `<div class="growth-stat-row"><div><strong>${escapeHtml(stat.name)}</strong><small>${escapeHtml(stat.description)} · ${points}/${stat.maxPoints}</small></div>${interactive ? `<button data-warden-stat="${stat.id}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "만렙" : `+1 (${nextCost} EC)`}</button>` : `<span class="growth-readonly-value">${maxed ? "만렙" : `${points}/${stat.maxPoints}`}</span>`}</div>`;
+    return `<div class="growth-stat-row rc-lift"><div><strong>${escapeHtml(stat.name)}</strong><small>${escapeHtml(stat.description)} · ${points}/${stat.maxPoints}</small></div>${interactive ? `<button data-warden-stat="${stat.id}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "만렙" : `+1 (${nextCost} EC)`}</button>` : `<span class="growth-readonly-value">${maxed ? "만렙" : `${points}/${stat.maxPoints}`}</span>`}</div>`;
   }).join("");
 }
 
@@ -321,7 +358,7 @@ function wardenSkillsMarkup(data, interactive = true) {
     const prereqMet = node.prereq.every((id) => wp.skillTreeIds.includes(id));
     const affordable = echoSpent + node.cost <= echoEarned;
     const canUnlock = !unlocked && prereqMet && affordable;
-    return `<div class="growth-skill-node${unlocked ? " is-unlocked" : ""}"><div><strong>${escapeHtml(node.id)}</strong><small>${escapeHtml(node.description)} · 비용 ${node.cost} EC${node.prereq.length ? ` · 선행 ${node.prereq.join(", ")}` : ""}</small></div>${interactive ? `<button data-warden-skill="${node.id}" ${unlocked || !canUnlock ? "disabled" : ""}>${unlocked ? "해금됨" : "해금"}</button>` : `<span class="growth-readonly-value">${unlocked ? "해금됨" : "미해금"}</span>`}</div>`;
+    return `<div class="growth-skill-node rc-lift${unlocked ? " is-unlocked" : ""}"><div><strong>${escapeHtml(node.id)}</strong><small>${escapeHtml(node.description)} · 비용 ${node.cost} EC${node.prereq.length ? ` · 선행 ${node.prereq.join(", ")}` : ""}</small></div>${interactive ? `<button data-warden-skill="${node.id}" ${unlocked || !canUnlock ? "disabled" : ""}>${unlocked ? "해금됨" : "해금"}</button>` : `<span class="growth-readonly-value">${unlocked ? "해금됨" : "미해금"}</span>`}</div>`;
   }).join("");
 }
 
@@ -333,7 +370,7 @@ function wardenTraitsMarkup(data, interactive = true) {
     ? wardenTraitOffersForSequence(nextTraitSequence, wp.traitIds) : [];
   return `
     <p class="section-copy">선택됨: ${wp.traitIds.length ? wp.traitIds.map((id) => escapeHtml(WARDEN_TRAITS[id]?.name ?? id)).join(", ") : "없음"} (${wp.traitIds.length}/${WARDEN_TRAIT_UNLOCK_SEQUENCES.length})</p>
-    ${traitOffers.length ? `<div class="growth-trait-offers">${traitOffers.map((id) => { const trait = WARDEN_TRAITS[id]; return `<button class="growth-trait-card" data-warden-trait="${id}"><strong>${escapeHtml(trait.name)}</strong><small>${escapeHtml(trait.description)}</small><em>${escapeHtml(trait.tradeoff)}</em></button>`; }).join("")}</div>`
+    ${traitOffers.length ? `<div class="growth-trait-offers">${traitOffers.map((id) => { const trait = WARDEN_TRAITS[id]; return `<button class="growth-trait-card rc-lift" data-warden-trait="${id}"><strong>${escapeHtml(trait.name)}</strong><small>${escapeHtml(trait.description)}</small><em>${escapeHtml(trait.tradeoff)}</em></button>`; }).join("")}</div>`
       : !interactive ? "" : nextTraitSequence !== undefined ? `<p class="section-copy">다음 특성은 ${nextTraitSequence}전선 완료 시 선택 가능합니다 (현재 ${campaign.resolvedIds.length}).</p>` : `<p class="section-copy">모든 특성 슬롯을 사용했습니다.</p>`}`;
 }
 
@@ -347,7 +384,7 @@ function equipmentOwnersMarkup(data, interactive = true) {
       const currentTier = EQUIPMENT_TIERS[tierIndex];
       const cost = maxed ? null : equipmentTierUpgradeCost(tierIndex);
       const affordable = cost !== null && fragSpent + cost <= fragEarned;
-      return `<div class="growth-equip-slot"><small>${slot}</small><span class="tier-icon" data-tier-vertices="${currentTier.vertexCount}" aria-hidden="true"></span><span>${escapeHtml(currentTier.name)} (${currentTier.id})</span>${interactive ? `<button data-warden-equip-owner="${owner.id}" data-warden-equip-slot="${slot}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "최대" : `강화 (${cost} BF)`}</button>` : ""}</div>`;
+      return `<div class="growth-equip-slot rc-lift"><small>${slot}</small><span class="tier-icon" data-tier-vertices="${currentTier.vertexCount}" aria-hidden="true"></span><span>${escapeHtml(currentTier.name)} (${currentTier.id})</span>${interactive ? `<button data-warden-equip-owner="${owner.id}" data-warden-equip-slot="${slot}" ${maxed || !affordable ? "disabled" : ""}>${maxed ? "최대" : `강화 (${cost} BF)`}</button>` : ""}</div>`;
     }).join("")}</div></div>`).join("");
 }
 
@@ -355,7 +392,7 @@ function formationRowMarkup(data, interactive = true) {
   const { loadout } = data;
   return loadout.length ? `<div class="growth-formation-row">${loadout.map((id) => {
     const slot = campaign.companionFormation[id] || "BACK";
-    return `<div class="growth-formation-slot"><strong>${escapeHtml(companionLabel(id))}</strong><span>${slot}</span>${interactive ? `<button data-warden-formation="${id}" data-warden-formation-target="${slot === "FRONT" ? "BACK" : "FRONT"}">${slot === "FRONT" ? "후열로" : "전열로"}</button>` : ""}</div>`;
+    return `<div class="growth-formation-slot rc-lift"><strong>${escapeHtml(companionLabel(id))}</strong><span>${slot}</span>${interactive ? `<button data-warden-formation="${id}" data-warden-formation-target="${slot === "FRONT" ? "BACK" : "FRONT"}">${slot === "FRONT" ? "후열로" : "전열로"}</button>` : ""}</div>`;
   }).join("")}</div>` : `<p class="section-copy">편성된 동료가 없습니다.</p>`;
 }
 
@@ -386,8 +423,8 @@ function renderCompanionsListSegment(data) {
   const collection = campaign.companionCollection;
   return `
     <p class="section-copy">정예를 추출하면 영구 동료가 됩니다. 편성한 동료는 다음 출전부터 자동으로 함께합니다.</p>
-    <div class="loadout-slots" aria-label="현재 동료 편성">${[0, 1, 2].map((index) => { const prototype = data.loadout[index]; return prototype ? `<div class="loadout-slot is-filled"><span class="companion-glyph">${companionGlyph(prototype)}</span><strong>${escapeHtml(companionLabel(prototype))}</strong><small>결속 ${index + 1}</small></div>` : `<div class="loadout-slot"><span class="slot-plus">+</span><small>빈 슬롯</small></div>`; }).join("")}</div>
-    <div class="companion-grid">${collection.length ? collection.map((record) => `<button class="companion-card${data.loadout.includes(record.prototype) ? " is-selected" : ""}" data-companion="${record.prototype}" aria-pressed="${data.loadout.includes(record.prototype)}"><span class="companion-glyph">${companionGlyph(record.prototype)}</span><span><strong>${escapeHtml(companionLabel(record.prototype))}</strong><small>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</small></span><i>${data.loadout.includes(record.prototype) ? "편성됨" : "편성"}</i></button>`).join("") : `<div class="empty-companions"><span class="companion-glyph">?</span><div><strong>아직 결속한 동료가 없습니다.</strong><p>전투 중 빛나는 정예를 쓰러뜨린 뒤 <b>추출</b>하세요.</p></div></div>`}</div>`;
+    <div class="loadout-slots" aria-label="현재 동료 편성">${[0, 1, 2].map((index) => { const prototype = data.loadout[index]; return prototype ? `<div class="loadout-slot is-filled">${portraitMarkup(meshRootForCompanion(prototype), companionGlyph(prototype), "rc-portrait rc-portrait-sm")}<strong>${escapeHtml(companionLabel(prototype))}</strong><small>결속 ${index + 1}</small></div>` : `<div class="loadout-slot"><span class="slot-plus">+</span><small>빈 슬롯</small></div>`; }).join("")}</div>
+    <div class="companion-grid">${collection.length ? collection.map((record) => `<button class="companion-card rc-lift${data.loadout.includes(record.prototype) ? " is-selected rc-glow-ring" : ""}" data-companion="${record.prototype}" aria-pressed="${data.loadout.includes(record.prototype)}">${portraitMarkup(meshRootForCompanion(record.prototype), companionGlyph(record.prototype), "rc-portrait rc-portrait-md")}<span><strong>${escapeHtml(companionLabel(record.prototype))}</strong><small>진화 ${record.evolution} · 추출 ${record.capturedEliteIds.length}</small></span><i>${data.loadout.includes(record.prototype) ? "편성됨" : "편성"}</i></button>`).join("") : `<div class="empty-companions"><span class="companion-glyph">?</span><div><strong>아직 결속한 동료가 없습니다.</strong><p>전투 중 빛나는 정예를 쓰러뜨린 뒤 <b>추출</b>하세요.</p></div></div>`}</div>`;
 }
 
 function renderCompanionsTab() {
@@ -422,7 +459,7 @@ function renderStrongholdTab() {
     <section class="archive-panel command-screen" aria-labelledby="reward-title">
       <div class="panel-heading"><div><p class="eyebrow">ECHO DEEP</p><h2 id="reward-title">요새</h2></div></div>
       <div class="archive-summary"><span class="archive-ring"><b>${completed}</b><small>전선<br />완료</small></span><div><strong>영구 진행</strong><p>보스 보상과 동료 결속은 기록실에 남아 다음 런에도 이어집니다. 최근 오프라인 진행은 페이지 상단에 표시됩니다.</p></div></div>
-      <div class="reward-grid">${(campaign.rewardIds?.length ?? 0) ? campaign.rewardIds.map((id) => `<article class="reward-card"><span class="reward-mark">✦</span><strong>${escapeHtml(REWARDS[id]?.name ?? id)}</strong><span>${escapeHtml(REWARDS[id]?.description ?? "기록된 보상")}</span></article>`).join("") : `<p class="empty-archive">첫 보스를 봉쇄하면 영구 보상을 선택할 수 있습니다.</p>`}</div>
+      <div class="reward-grid">${(campaign.rewardIds?.length ?? 0) ? campaign.rewardIds.map((id) => `<article class="reward-card rc-lift rc-glass"><span class="reward-mark">✦</span><strong>${escapeHtml(REWARDS[id]?.name ?? id)}</strong><span>${escapeHtml(REWARDS[id]?.description ?? "기록된 보상")}</span></article>`).join("") : `<p class="empty-archive">첫 보스를 봉쇄하면 영구 보상을 선택할 수 있습니다.</p>`}</div>
       <details class="archive-tools"><summary>기록 관리 <span>오프라인 저장 · ${escapeHtml(storage.backend ?? "확인 중")}</span></summary><div class="storage-row" aria-label="캠페인 제어"><button id="export-defense">기록 내보내기</button><label class="import-label">기록 가져오기<input id="import-defense" type="file" accept="application/json,text/plain" /></label><button id="export-telemetry">진단 내보내기</button><button id="reset-defense">새 기록</button><output aria-live="polite">${escapeHtml(statusText)}</output></div></details>
     </section>`;
 }
@@ -471,13 +508,13 @@ function renderLobby() {
           ${STAGES.map((stage, index) => {
             const locked = index > campaign.unlockedStageIndex;
             const cleared = campaign.resolvedIds?.includes(stage.id);
-            return `<button class="stage-card${stage.id === selected.id ? " is-selected" : ""}" data-stage="${stage.id}" aria-pressed="${stage.id === selected.id}" ${locked ? "disabled" : ""}><span class="stage-index">${String(stage.sequence).padStart(2, "0")}</span><span class="stage-info"><strong>${escapeHtml(stage.name)}</strong><small>${escapeHtml(stage.bossName)}</small></span><span class="stage-state">${locked ? "잠김" : cleared ? "CLEAR" : stage.id === selected.id ? "선택됨" : "출전 가능"}</span></button>`;
+            return `<button class="stage-card rc-lift${stage.id === selected.id ? " is-selected rc-glow-ring" : ""}" data-stage="${stage.id}" aria-pressed="${stage.id === selected.id}" ${locked ? "disabled" : ""}><span class="stage-index">${String(stage.sequence).padStart(2, "0")}</span><span class="stage-info"><strong>${escapeHtml(stage.name)}</strong><small>${escapeHtml(stage.bossName)}</small></span><span class="stage-state">${locked ? "잠김" : cleared ? "CLEAR" : stage.id === selected.id ? "선택됨" : "출전 가능"}</span></button>`;
           }).join("")}
         </div>
       </section>
       <aside class="briefing-panel command-screen" aria-labelledby="briefing-title">
         <div class="panel-heading"><div><p class="eyebrow">TACTICAL BRIEFING · ${escapeHtml(selectedPresentation.mapLabels.domain)}</p><h2 id="briefing-title">작전 브리핑</h2></div><span class="briefing-code">AC-${String(selected.sequence).padStart(2, "0")}</span></div>
-        <div class="briefing-target" data-stage-briefing="selected" data-stage-id="${escapeHtml(selected.id)}"><span class="target-sigil" aria-hidden="true">◉</span><div><small>${escapeHtml(selectedPresentation.mapLabels.title)} · ${escapeHtml(selectedPresentation.atmosphere.descriptor)}</small><strong>${escapeHtml(selected.bossName)}</strong><span id="briefing-stage-narrative" data-stage-id="${escapeHtml(selected.id)}">${escapeHtml(selectedObjective)}</span></div></div>
+        <div class="briefing-target" data-stage-briefing="selected" data-stage-id="${escapeHtml(selected.id)}">${portraitMarkup(meshRootForStageBoss(selected.id), "◉", "target-sigil rc-portrait")}<div><small>${escapeHtml(selectedPresentation.mapLabels.title)} · ${escapeHtml(selectedPresentation.atmosphere.descriptor)}</small><strong>${escapeHtml(selected.bossName)}</strong><span id="briefing-stage-narrative" data-stage-id="${escapeHtml(selected.id)}">${escapeHtml(selectedObjective)}</span></div></div>
         <dl class="briefing-stats"><div><dt>지형 / 고지</dt><dd>${escapeHtml(selectedPresentation.mapLabels.chokepath)} · ${escapeHtml(selectedPresentation.mapLabels.elevation)}</dd></div><div><dt>위협 / 측면</dt><dd>${escapeHtml(selectedPresentation.mapLabels.hazard)} · ${escapeHtml(selectedPresentation.mapLabels.flank)}</dd></div><div><dt>점유 → 추출</dt><dd>${escapeHtml(selectedPresentation.mapLabels.occupation)} → ${escapeHtml(selectedPresentation.mapLabels.extraction)}</dd></div><div><dt>다음 보상</dt><dd>${escapeHtml(nextRewardName(selected.id))}</dd></div></dl>
         <p class="briefing-tip"><strong>${escapeHtml(selectedPresentation.mapLabels.objective)}</strong> 중앙 전장에서 손가락을 끌어 이동하세요. 적을 처치하고 <b>추출(Extract)</b>하여 그림자 군단으로 복속시킬 수 있습니다.</p>
       </aside>
@@ -498,6 +535,7 @@ function renderLobby() {
     <nav class="command-tab-bar" role="tablist" aria-label="커맨드 덱">${COMMAND_TABS.map((tab) => `<button class="command-tab${tab.id === activeCommandTab ? " is-active" : ""}" role="tab" aria-selected="${tab.id === activeCommandTab}" data-command-tab="${tab.id}">${tab.label}</button>`).join("")}</nav>
     <div class="command-tab-panel">${tabBodies[activeCommandTab]}</div>
     <details class="archive-tools"><summary>기록 관리 <span>오프라인 저장 · ${escapeHtml(storage.backend ?? "확인 중")}</span></summary><div class="storage-row" aria-label="캠페인 제어"><button id="export-defense">기록 내보내기</button><label class="import-label">기록 가져오기<input id="import-defense" type="file" accept="application/json,text/plain" /></label><button id="export-telemetry">진단 내보내기</button><button id="reset-defense">새 기록</button><output aria-live="polite">${escapeHtml(statusText)}</output></div></details>`;
+  hydratePortraits(root);
 
   root.querySelectorAll("[data-command-tab]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -663,7 +701,7 @@ function beginSession(stageId) {
         <output id="battle-event-feedback" class="battle-event-feedback" role="status" aria-live="polite" aria-atomic="true"></output>
         <div class="arena-callout" aria-hidden="true"><span>GATE CORE</span><i></i><span>전선을 유지하세요</span></div>
         <div class="defense-edge defense-bottom">
-          <div class="hud-panel gate-panel"><div class="gate-panel-copy"><span class="gate-panel-portrait" aria-hidden="true">DW</span><span class="hud-eyebrow">COMMANDER / GATE INTEGRITY</span><div class="gate-panel-bars" aria-hidden="true"><span class="gate-panel-bar-track commander"><i id="battle-commander-bar-fill"></i></span><span class="gate-panel-bar-track gate"><i id="battle-gate-bar-fill"></i></span></div><strong id="battle-commander-integrity"></strong><strong id="battle-integrity"></strong><span id="battle-enemies"></span></div><div class="integrity-meter" aria-hidden="true"><i id="battle-integrity-fill"></i></div></div>
+          <div class="hud-panel gate-panel"><div class="gate-panel-copy">${portraitMarkup(COMMANDER_MESH_ROOT, "DW", "gate-panel-portrait rc-portrait")}<span class="hud-eyebrow">COMMANDER / GATE INTEGRITY</span><div class="gate-panel-bars" aria-hidden="true"><span class="gate-panel-bar-track commander"><i id="battle-commander-bar-fill"></i></span><span class="gate-panel-bar-track gate"><i id="battle-gate-bar-fill"></i></span></div><strong id="battle-commander-integrity"></strong><strong id="battle-integrity"></strong><span id="battle-enemies"></span></div><div class="integrity-meter" aria-hidden="true"><i id="battle-integrity-fill"></i></div></div>
           <div class="one-thumb-controls" id="movement-actions" role="group" aria-label="한 손 이동 조작">
             <button type="button" data-move="N" aria-label="위로 이동">↑</button>
             <button type="button" data-move="W" aria-label="왼쪽으로 이동">←</button>
@@ -675,6 +713,7 @@ function beginSession(stageId) {
         </div>
       </div>
     </section>`;
+  hydratePortraits(root);
   session = new BattleSession(stageId);
   session.start();
 }

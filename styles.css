@@ -300,3 +300,94 @@ html[data-defense-portrait="true"] #defense-canvas, html[data-defense-portrait="
   .pause-overlay-panel { width: 96vw; padding: .75rem; }
 }
 .idle-return-banner { margin: .75rem 0 0; padding: .55rem .8rem; border: 1px solid #2b4767; border-radius: .6rem; background: rgb(8 20 34 / .6); color: #b6c8df; font-size: .78rem; }
+
+/* ================================================================
+ * Visual redesign pass (screen-view/composition/UI overhaul) — design
+ * tokens + reusable utilities, patterns adapted from react-bits (Aurora
+ * background, BorderGlow, animated cards) to plain CSS since this project
+ * intentionally ships no React runtime (react-game-ui.css). Existing
+ * per-component colors above are UNCHANGED; these are additive utility
+ * classes layered onto existing markup, not a rewrite. Everything here
+ * respects prefers-reduced-motion (see the block at the end).
+ * ================================================================ */
+:root {
+  --rc-cyan: #80d8ff;
+  --rc-cyan-soft: rgb(128 216 255 / .16);
+  --rc-purple: #b992ff;
+  --rc-purple-soft: rgb(185 146 255 / .16);
+  --rc-amber: #e9c46a;
+  --rc-amber-soft: rgb(233 196 106 / .16);
+  --rc-green: #70d3ae;
+  --rc-green-soft: rgb(112 211 174 / .16);
+  --rc-panel-glass: linear-gradient(155deg, rgb(20 36 58 / .82), rgb(9 18 32 / .88));
+  --rc-panel-border: rgb(140 200 240 / .16);
+  /* Companion role accents (rpg-catalog.js COMPANION_ROLES: vanguard/striker/support) — mirrors
+     the existing .tier-icon shape+color-independent pattern so role is never color-only. */
+  --rc-role-vanguard: #6fa8dc;
+  --rc-role-striker: #e08a4a;
+  --rc-role-support: #6fd3c7;
+}
+
+/* Glass panel: layered depth via blur + soft border, replaces flat opaque panel fills on
+   opt-in surfaces (companion/reward cards, portrait frames) without touching the base
+   .mission-panel/.briefing-panel/etc. gradients used everywhere else. */
+.rc-glass { background: var(--rc-panel-glass); border: 1px solid var(--rc-panel-border); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+
+/* Interactive lift: press/hover feedback for card-like buttons (companion/stage/reward cards). */
+.rc-lift { transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease; }
+.rc-lift:hover, .rc-lift:focus-visible { transform: translateY(-2px); box-shadow: 0 10px 24px -12px rgb(0 0 0 / .55); }
+.rc-lift:active { transform: translateY(0); }
+
+/* Rotating conic-gradient border glow (react-bits BorderGlow pattern, ported to plain CSS
+   custom-property animation) for the currently-selected/active card — a stronger, animated
+   alternative to the existing static border-color highlight used on .is-selected states. */
+@property --rc-glow-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.rc-glow-ring { position: relative; }
+.rc-glow-ring::before {
+  content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 1px;
+  background: conic-gradient(from var(--rc-glow-angle), var(--rc-cyan), var(--rc-purple), var(--rc-cyan));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: rc-glow-spin 3.5s linear infinite;
+  opacity: .85;
+}
+@keyframes rc-glow-spin { to { --rc-glow-angle: 360deg; } }
+
+/* Ambient aurora drift (react-bits Aurora pattern) for the lobby hero backdrop — large,
+   slow-moving soft gradients, purely decorative (aria-hidden), never blocks pointer events. */
+.rc-aurora { position: absolute; inset: -20%; z-index: 0; pointer-events: none; opacity: .55; filter: blur(40px); overflow: hidden; }
+.rc-aurora::before, .rc-aurora::after {
+  content: ""; position: absolute; width: 60%; height: 60%; border-radius: 50%;
+  animation: rc-aurora-drift 18s ease-in-out infinite alternate;
+}
+.rc-aurora::before { top: -10%; left: -5%; background: radial-gradient(circle, var(--rc-cyan-soft), transparent 70%); animation-delay: 0s; }
+.rc-aurora::after { bottom: -15%; right: -10%; background: radial-gradient(circle, var(--rc-purple-soft), transparent 70%); animation-delay: -9s; }
+@keyframes rc-aurora-drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(6%, 4%) scale(1.08); } }
+
+/* Portrait frame: square GLB-rendered character thumbnail (MeshThumbnailService), with a
+   deterministic glyph/gradient fallback for the loading window or WebGL-unavailable case —
+   the fallback is never a blank/broken-image state. */
+.rc-portrait { position: relative; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border-radius: .6rem; border: 1px solid var(--rc-panel-border); background: radial-gradient(circle at 30% 20%, rgb(255 255 255 / .06), transparent 60%), linear-gradient(160deg, #16283f, #0a1626); }
+.rc-portrait img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.rc-portrait-fallback { font-weight: 800; color: #a6e2ff; }
+.rc-portrait-sm { width: 3.2rem; height: 3.2rem; }
+.rc-portrait-md { width: 4.6rem; height: 4.6rem; }
+.rc-portrait-lg { width: 6.5rem; height: 6.5rem; }
+
+/* Role badge: small pill carrying BOTH the role color AND its name text (never color-only),
+   consistent with the project's existing accessibility rule (see .tier-icon comment above). */
+.rc-role-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .1rem .5rem; border-radius: 999px; font-size: .62rem; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+.rc-role-badge::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; }
+.rc-role-badge[data-role="vanguard"] { color: var(--rc-role-vanguard); background: rgb(111 168 220 / .14); }
+.rc-role-badge[data-role="vanguard"]::before { background: var(--rc-role-vanguard); }
+.rc-role-badge[data-role="striker"] { color: var(--rc-role-striker); background: rgb(224 138 74 / .14); }
+.rc-role-badge[data-role="striker"]::before { background: var(--rc-role-striker); }
+.rc-role-badge[data-role="support"] { color: var(--rc-role-support); background: rgb(111 211 199 / .14); }
+.rc-role-badge[data-role="support"]::before { background: var(--rc-role-support); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-glow-ring::before { animation: none; }
+  .rc-aurora::before, .rc-aurora::after { animation: none; }
+  .rc-lift { transition: none; }
+  .rc-lift:hover, .rc-lift:focus-visible { transform: none; }
+}

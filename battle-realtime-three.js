@@ -31,11 +31,22 @@ const ENEMY_MESH = Object.freeze({
 const DEFAULT_ENEMY_MESH = "possessed-root";
 // Companions are captured elites; each stage's eliteKind fixes which enemy
 // mesh they carry over as an ally (ember-cohort/rift-lens/throne-echo are the
-// three currently reachable stages' elite companions).
+// all 6 currently-reachable stages' elite companions (STAGES in
+// defense-catalog.js). Distinct meshes per companion, not per eliteKind (a
+// companionId can be captured from multiple stages' different eliteKinds --
+// e.g. throne-echo from both "ranged" and "s6-choir-adept"'s "ranged" --
+// while veil-vanguard/anchor-shard/dawnless-crown had NO entry here before
+// this fix and all silently fell back to DEFAULT_ENEMY_MESH, rendering
+// visually identical to each other and to un-mapped enemies. guard-root was
+// loaded (it's a live enemy archetype mesh, ENEMY_MESH.guardian) but never
+// used as a companion, so this adds zero new GLB weight.
 const COMPANION_MESH = Object.freeze({
   "ember-cohort": ENEMY_MESH.rusher,
   "rift-lens": ENEMY_MESH.flanker,
   "throne-echo": ENEMY_MESH.ranged,
+  "veil-vanguard": ENEMY_MESH.guardian,
+  "anchor-shard": ENEMY_MESH.flanker,
+  "dawnless-crown": ENEMY_MESH.ranged,
 });
 
 // One-shot combat clips, triggered when this tick's snapshot carries an event
@@ -116,6 +127,27 @@ function healthColor(ratio) {
   color.setHSL((6 + ratio * 138) / 360, 0.82, 0.64);
   return color;
 }
+
+/**
+ * Public companion/boss/commander mesh-root lookups, for UI code (app.js
+ * portrait cards) that has a prototype/stage id but no live simulation
+ * "entity" object (meshNameFor() above requires class/kind/companionId
+ * fields it doesn't have). Reuses the SAME private maps meshNameFor() uses,
+ * so results are always consistent with what the battle renderer itself
+ * would draw for that id.
+ */
+export function meshRootForCompanion(prototypeId) {
+  return COMPANION_MESH[prototypeId] ?? DEFAULT_ENEMY_MESH;
+}
+
+/** Only cinder-span/veil-citadel/echo-throne (Stage 1-3) have a named boss GLB
+ * root in STAGE_WORLD; stages 4-10 return null on purpose -- no boss GLB
+ * exists for those bosses, callers must fall back to a glyph/text portrait. */
+export function meshRootForStageBoss(stageId) {
+  return STAGE_WORLD[stageId]?.boss ?? null;
+}
+
+export const COMMANDER_MESH_ROOT = COMMANDER_MESH;
 
 function meshNameFor(entity) {
   if (entity?.id === "commander") return COMMANDER_MESH;
@@ -765,5 +797,134 @@ export class RealtimeBattle {
       textures: info.memory.textures,
       programs: info.programs?.length ?? 0,
     };
+  }
+}
+
+/**
+ * Standalone offscreen WebGL renderer that turns a shared GLB mesh root into a
+ * cached 2D portrait (PNG data URL) for UI cards (companion roster, stage boss
+ * preview, future equipment icons) -- reuses the SAME model/animation data
+ * RealtimeBattle already fetches (one glTF parse, shared MODEL_URL) but owns
+ * its own renderer/scene/camera, independent of any battle session's
+ * lifecycle: lobby screens need portraits before any RealtimeBattle instance
+ * exists, and portraits must survive battle start/stop/dispose. Degrades to
+ * null (caller falls back to text/glyph, same posture as the rest of this
+ * adapter's "never throw mid-render" contract) on WebGL2 unavailability or a
+ * model-load failure.
+ */
+export class MeshThumbnailService {
+  constructor() {
+    this.cache = new Map(); // meshRootName -> data URL, or null if permanently unavailable
+    this.pending = new Map(); // meshRootName -> in-flight render Promise (de-dupes concurrent card renders)
+    this.modelPromise = null;
+    this.renderer = null;
+    this.scene = null;
+    this.camera = null;
+    this.templates = null; // meshRootName -> Object3D (read-only source; always cloned before use)
+    this.clipsByRoot = null;
+    this.unavailable = false;
+  }
+
+  async ensureReady() {
+    if (this.unavailable) return false;
+    if (this.renderer) return true;
+    const canvas = typeof OffscreenCanvas === "function" ? new OffscreenCanvas(1, 1) : (typeof document !== "undefined" ? document.createElement("canvas") : null);
+    const gl = canvas?.getContext?.("webgl2", { alpha: true, antialias: true, failIfMajorPerformanceCaveat: false });
+    if (!(typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext)) {
+      this.unavailable = true;
+      return false;
+    }
+    this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, alpha: true });
+    this.renderer.setClearColor(0x000000, 0);
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(35, 1, 0.05, 50);
+    this.scene.add(new THREE.HemisphereLight(0xfff2d6, 0x140a06, 1.1));
+    const sun = new THREE.DirectionalLight(0xffd9a8, 1.6);
+    sun.position.set(2, 4, 3);
+    this.scene.add(sun);
+    if (!this.modelPromise) {
+      const loader = new GLTFLoader();
+      this.modelPromise = new Promise((resolve, reject) => loader.load(MODEL_URL, resolve, undefined, reject))
+        .then((gltf) => {
+          this.templates = new Map(gltf.scene.children.map((node) => [node.name, node]));
+          const byRoot = new Map();
+          for (const clip of gltf.animations) {
+            const [root, suffix] = clip.name.split("__");
+            if (!byRoot.has(root)) byRoot.set(root, new Map());
+            byRoot.get(root).set(suffix, clip);
+          }
+          this.clipsByRoot = byRoot;
+        })
+        .catch(() => { this.unavailable = true; });
+    }
+    await this.modelPromise;
+    return !this.unavailable;
+  }
+
+  /** Render meshRootName to a cached square PNG data URL, or null if unavailable/unknown. Concurrent calls for the same root share one render. */
+  async render(meshRootName, size = 256) {
+    if (this.cache.has(meshRootName)) return this.cache.get(meshRootName);
+    if (this.pending.has(meshRootName)) return this.pending.get(meshRootName);
+    const job = this.renderNow(meshRootName, size).finally(() => this.pending.delete(meshRootName));
+    this.pending.set(meshRootName, job);
+    return job;
+  }
+
+  async renderNow(meshRootName, size) {
+    const ready = await this.ensureReady();
+    if (!ready || !this.templates?.has(meshRootName)) {
+      this.cache.set(meshRootName, null);
+      return null;
+    }
+    const source = this.templates.get(meshRootName);
+    const object = cloneSkeleton(source);
+    // Pose at a natural mid-idle frame instead of the raw bind/T-pose, when this root has an Idle clip.
+    const idleClip = this.clipsByRoot.get(meshRootName)?.get("Idle");
+    if (idleClip) {
+      const mixer = new THREE.AnimationMixer(object);
+      mixer.clipAction(idleClip).play();
+      mixer.update(0.35);
+      mixer.stopAllAction();
+    }
+    this.scene.add(object);
+    const box = new THREE.Box3().setFromObject(object);
+    const center = box.getCenter(new THREE.Vector3());
+    const dims = box.getSize(new THREE.Vector3());
+    const radius = Math.max(dims.x, dims.y, dims.z) / 2 || 1;
+    // 3/4 portrait angle (not top-down): distance derived from the camera's own
+    // FOV so the full bounding sphere fits with a small margin, at ANY GLB scale.
+    const distance = (radius / Math.sin((this.camera.fov / 2) * (Math.PI / 180))) * 1.35;
+    this.camera.position.set(center.x + distance * 0.55, center.y + dims.y * 0.12, center.z + distance * 0.83);
+    this.camera.lookAt(center.x, center.y + dims.y * 0.05, center.z);
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(size, size, false);
+    this.renderer.clear();
+    this.renderer.render(this.scene, this.camera);
+    let dataUrl = null;
+    try {
+      const canvasEl = this.renderer.domElement;
+      dataUrl = canvasEl.convertToBlob
+        ? await canvasEl.convertToBlob({ type: "image/png" }).then((blob) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          }))
+        : canvasEl.toDataURL("image/png");
+    } catch {
+      dataUrl = null;
+    }
+    this.scene.remove(object);
+    object.traverse((node) => node.geometry?.dispose?.());
+    this.cache.set(meshRootName, dataUrl);
+    return dataUrl;
+  }
+
+  dispose() {
+    this.cache.clear();
+    this.pending.clear();
+    if (this.scene) this.scene.clear();
+    this.renderer?.dispose();
+    this.renderer = null;
   }
 }
